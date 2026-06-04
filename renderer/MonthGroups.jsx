@@ -15,29 +15,39 @@ function EntriesDrawer({ item, group, currency, dispatch, month }) {
   };
   const amtPreview = isExpr(amt) ? evalMoney(amt) : null;
   return (
-    <div className="fade-in" style={{ padding: "4px 18px 14px 46px", background: "var(--surface-2)", borderTop: "1px solid var(--hairline)" }}>
+    <div className="fade-in" style={{ padding: "16px", background: "var(--surface-2)", borderTop: "1px solid var(--hairline)" }}>
       {item.actuals.length > 0 && (
-        <div style={{ marginBottom: 10 }}>
+        <div style={{ marginBottom: 16 }}>
           {item.actuals.map(a => (
-            <div key={a.id} style={{ display: "grid", gridTemplateColumns: "54px 1fr 110px 30px", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: "1px solid var(--hairline)" }}>
-              <span className="mono" style={{ fontSize: 12, color: "var(--faint)" }}>{a.date}</span>
-              <TextInline value={a.note} placeholder="Note" onCommit={(v) => dispatch({ type: "updateActual", month, groupId: group.id, itemId: item.id, id: a.id, patch: { note: v } })} style={{ fontSize: 13, color: "var(--ink-2)" }} />
+            <div key={a.id} style={{ display: "grid", gridTemplateColumns: "1fr 150px 158px 150px 78px", alignItems: "center", gap: 10, padding: "5px 0", borderBottom: "1px solid var(--hairline)" }}>
+              <div style={{ gridColumn: "span 2", display: "flex", alignItems: "center", gap: 10, paddingLeft: 30, minWidth: 0 }}>
+                <span className="mono" style={{ fontSize: 12, color: "var(--faint)", flex: "none" }}>{a.date}</span>
+                <TextInline value={a.note} placeholder="Note" onCommit={(v) => dispatch({ type: "updateActual", month, groupId: group.id, itemId: item.id, id: a.id, patch: { note: v } })} style={{ fontSize: 13, color: "var(--ink-2)" }} />
+              </div>
               <MoneyInput value={a.amount} currency={currency} onCommit={(v) => dispatch({ type: "updateActual", month, groupId: group.id, itemId: item.id, id: a.id, patch: { amount: v } })} />
-              <button className="icon-btn subtle" title="Remove entry" onClick={() => dispatch({ type: "removeActual", month, groupId: group.id, itemId: item.id, id: a.id })}><Icons.x size={14} /></button>
+              <div />
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button className="icon-btn subtle" title="Remove entry" onClick={() => dispatch({ type: "removeActual", month, groupId: group.id, itemId: item.id, id: a.id })}><Icons.x size={14} /></button>
+              </div>
             </div>
           ))}
         </div>
       )}
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 500, marginRight: 2 }}>Add spend</span>
-        <input ref={addRef} className="tinput" value={note} onChange={(e) => setNote(e.target.value)} placeholder="What was it?" style={{ maxWidth: 200, fontSize: 13 }} onKeyDown={(e) => e.key === "Enter" && add()} />
-        <div style={{ width: 130, position: "relative" }}>
-          <input className="minput" style={{ paddingLeft: 8 }} inputMode="text" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder={`${currency}0.00`} onKeyDown={(e) => e.key === "Enter" && add()} />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 150px 158px 150px 78px", alignItems: "center", gap: 10, height: 32 }}>
+        <div style={{ gridColumn: "span 2", display: "flex", alignItems: "center", gap: 10, paddingLeft: 30 }}>
+          <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 500, marginRight: 2, whiteSpace: "nowrap" }}>Add spend</span>
+          <input ref={addRef} className="tinput" value={note} onChange={(e) => setNote(e.target.value)} placeholder="What was it?" style={{ fontSize: 13, height: 32 }} onKeyDown={(e) => e.key === "Enter" && add()} />
+        </div>
+        <div style={{ position: "relative", height: 32 }}>
+          <input className="minput" style={{ paddingLeft: 8, height: 32, fontSize: 13 }} inputMode="text" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder={`${currency}0.00`} onKeyDown={(e) => e.key === "Enter" && add()} />
           {amtPreview !== null && (
             <span className="mono" style={{ position: "absolute", right: 4, bottom: "100%", marginBottom: 3, background: "var(--ink)", color: "var(--surface)", fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 6, whiteSpace: "nowrap", zIndex: 4 }}>= {fmt(currency, amtPreview)}</span>
           )}
         </div>
-        <button className="btn btn-sm btn-primary" onClick={add}><Icons.plus size={14} /> Add</button>
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <button className="btn btn-sm btn-primary" style={{ height: 32 }} onClick={add}><Icons.plus size={14} /> Add</button>
+        </div>
+        <div />
       </div>
     </div>
   );
@@ -49,7 +59,7 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, isFirst, is
   const diff = round2(item.allocated - actual);
   const over = diff < -0.005;
   return (
-    <div style={{ borderTop: "1px solid var(--hairline)" }}>
+    <div style={{ borderTop: "2px solid var(--border)" }}>
       <div className="budget-row" style={{ display: "grid", gridTemplateColumns: "1fr 150px 158px 150px 78px", alignItems: "center", gap: 10, padding: "7px 16px", minHeight: "var(--row-h)" }}>
         <div style={{ minWidth: 0, paddingRight: 6, display: "flex", flexDirection: "column", gap: 4 }}>
           <TextInline value={item.name} onCommit={(v) => dispatch({ type: "renameItem", month, groupId: group.id, itemId: item.id, name: v })} />
@@ -111,13 +121,15 @@ function GroupCard({ group, currency, dispatch, month, accounts, isFirst, isLast
             <ItemRow key={it.id} item={it} group={group} currency={currency} dispatch={dispatch} month={month} accounts={accounts} isFirst={i === 0} isLast={i === group.items.length - 1} />
           ))}
           {addingItem ? (
-            <div style={{ display: "flex", gap: 8, padding: "10px 16px", borderTop: "1px solid var(--hairline)" }}>
+            <div style={{ display: "flex", gap: 8, padding: "10px 16px", borderTop: "1px solid var(--hairline)", background: "var(--surface-2)" }}>
               <input autoFocus className="tinput" value={newItem} onChange={(e) => setNewItem(e.target.value)} placeholder="Item name…" style={{ maxWidth: 280 }}
                 onKeyDown={(e) => { if (e.key === "Enter") commitItem(); if (e.key === "Escape") { setAddingItem(false); setNewItem(""); } }} onBlur={commitItem} />
               <button className="btn btn-sm btn-primary" onMouseDown={(e) => e.preventDefault()} onClick={commitItem}>Add item</button>
             </div>
           ) : (
-            <button className="btn btn-ghost btn-sm" style={{ margin: "8px 10px", color: "var(--muted)" }} onClick={() => setAddingItem(true)}><Icons.plus size={14} /> Add item</button>
+            <div style={{ background: "var(--surface-2)", borderTop: "1px solid var(--hairline)", padding: "4px 0" }}>
+              <button className="btn btn-ghost btn-sm" style={{ margin: "8px 10px", color: "var(--muted)" }} onClick={() => setAddingItem(true)}><Icons.plus size={14} /> Add item</button>
+            </div>
           )}
         </div>
       )}
