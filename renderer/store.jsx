@@ -179,6 +179,47 @@ function accountTotals(mo, accounts) {
   return list;
 }
 
+function normalizeItemName(name) {
+  return String(name || "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function reusableItemCandidates(state, monthId, query = "") {
+  const current = state.months[monthId];
+  if (!current) return [];
+
+  const currentNames = new Set();
+  current.groups.forEach(g => g.items.forEach(it => currentNames.add(normalizeItemName(it.name))));
+
+  const terms = normalizeItemName(query).split(" ").filter(Boolean);
+  const seen = new Set();
+  const out = [];
+  const monthIds = [...state.order].filter(id => id !== monthId && state.months[id]).sort().reverse();
+
+  monthIds.forEach(mid => {
+    const mo = state.months[mid];
+    mo.groups.forEach(g => g.items.forEach(it => {
+      const key = normalizeItemName(it.name);
+      if (!key || currentNames.has(key) || seen.has(key)) return;
+
+      const haystack = normalizeItemName(`${it.name} ${g.name}`);
+      if (terms.length && !terms.every(t => haystack.includes(t))) return;
+
+      seen.add(key);
+      out.push({
+        name: it.name,
+        allocated: it.allocated || 0,
+        account: it.account || null,
+        groupName: g.name,
+        isSavings: !!g.isSavings,
+        month: mid,
+        monthLabel: monthLabel(mid).short,
+      });
+    }));
+  });
+
+  return out.slice(0, 30);
+}
+
 /* ---- reducer ------------------------------------------------------------ */
 function reducer(state, action) {
   const s = structuredClone(state);
@@ -270,5 +311,5 @@ Object.assign(window, {
   uid, MONTH_NAMES, monthLabel, prevMonthId, nextMonthId, fmt, buildSeed, buildEmpty, reducer,
   BUDGET_THEMES, THEME_IDS,
   itemActual, monthIncome, monthAllocated, monthActual, monthSavings, monthUnallocated,
-  groupAllocated, groupActual, overBudgetItems, accountTotals, round2,
+  groupAllocated, groupActual, overBudgetItems, accountTotals, reusableItemCandidates, normalizeItemName, round2,
 });

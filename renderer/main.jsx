@@ -50,7 +50,7 @@ function MonthBudgetScreen({ state, dispatch, currency }) {
       </div>
 
       {mo.groups.map((g, i) => (
-        <GroupCard key={g.id} group={g} currency={currency} dispatch={dispatch} month={mid} accounts={state.settings.accounts} isFirst={i === 0} isLast={i === mo.groups.length - 1} />
+        <GroupCard key={g.id} group={g} currency={currency} dispatch={dispatch} month={mid} accounts={state.settings.accounts} state={state} isFirst={i === 0} isLast={i === mo.groups.length - 1} />
       ))}
 
       {mo.groups.length === 0 && (

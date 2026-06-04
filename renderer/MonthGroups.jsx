@@ -88,12 +88,70 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, isFirst, is
   );
 }
 
-function GroupCard({ group, currency, dispatch, month, accounts, isFirst, isLast }) {
+function AddItemSearch({ state, month, groupId, currency, dispatch, onClose }) {
+  const [query, setQuery] = useState("");
+  const rootRef = useRef(null);
+  const candidates = useMemo(() => reusableItemCandidates(state, month, query), [state, month, query]);
+  const exact = candidates.find(c => normalizeItemName(c.name) === normalizeItemName(query));
+  const trimmed = query.trim();
+  useEffect(() => {
+    const handlePointerDown = (event) => {
+      if (rootRef.current && !rootRef.current.contains(event.target)) onClose();
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [onClose]);
+  const selectCandidate = (candidate) => {
+    dispatch({ type: "addItem", month, groupId, name: candidate.name, allocated: candidate.allocated, account: candidate.account });
+    setQuery("");
+    onClose();
+  };
+  const createItem = () => {
+    if (!trimmed) { onClose(); return; }
+    if (exact) { selectCandidate(exact); return; }
+    dispatch({ type: "addItem", month, groupId, name: trimmed });
+    setQuery("");
+    onClose();
+  };
+  const shown = candidates.slice(0, 7);
+  return (
+    <div ref={rootRef} style={{ padding: "10px 16px", borderTop: "1px solid var(--hairline)", background: "var(--surface-2)" }}>
+      <div style={{ display: "flex", gap: 8 }}>
+        <input autoFocus className="tinput" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search previous items or type new..." style={{ maxWidth: 340 }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") createItem();
+            if (e.key === "Escape") { setQuery(""); onClose(); }
+          }} />
+        <button className="btn btn-sm btn-primary" onMouseDown={(e) => e.preventDefault()} onClick={createItem}>
+          {exact ? "Add existing" : "Create item"}
+        </button>
+      </div>
+      <div style={{ marginTop: 8, border: "1px solid var(--hairline)", borderRadius: 8, overflow: "hidden", background: "var(--surface)" }}>
+        {shown.length > 0 ? shown.map((candidate, idx) => (
+          <button key={`${candidate.month}:${candidate.name}`} type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => selectCandidate(candidate)}
+            style={{ width: "100%", minHeight: 40, display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "center", textAlign: "left", padding: "7px 10px", border: 0, borderTop: idx ? "1px solid var(--hairline)" : "none", background: "transparent", color: "var(--ink)", cursor: "pointer", font: "inherit" }}>
+            <span style={{ minWidth: 0 }}>
+              <span style={{ display: "block", fontSize: 13.5, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{candidate.name}</span>
+              <span style={{ display: "block", fontSize: 11.5, color: "var(--muted)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{candidate.groupName} - {candidate.monthLabel}</span>
+            </span>
+            <span className="mono" style={{ fontSize: 12.5, color: "var(--ink-2)", whiteSpace: "nowrap" }}>{fmt(currency, candidate.allocated, { cents: false })}</span>
+          </button>
+        )) : (
+          <div style={{ padding: "9px 10px", color: "var(--muted)", fontSize: 12.5 }}>
+            {trimmed ? "No previous item matches this search." : "Search items from previous months that are not in this month."}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function GroupCard({ group, currency, dispatch, month, accounts, state, isFirst, isLast }) {
   const alloc = groupAllocated(group), actual = groupActual(group);
   const diff = round2(alloc - actual);
   const [addingItem, setAddingItem] = useState(false);
-  const [newItem, setNewItem] = useState("");
-  const commitItem = () => { if (newItem.trim()) { dispatch({ type: "addItem", month, groupId: group.id, name: newItem.trim() }); setNewItem(""); } setAddingItem(false); };
   return (
     <div className="card fade-in" style={{ marginBottom: 14, overflow: "hidden" }}>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 150px 158px 150px 78px", alignItems: "center", gap: 10, padding: "12px 16px", background: "var(--surface-2)" }} className="budget-row">
@@ -121,11 +179,7 @@ function GroupCard({ group, currency, dispatch, month, accounts, isFirst, isLast
             <ItemRow key={it.id} item={it} group={group} currency={currency} dispatch={dispatch} month={month} accounts={accounts} isFirst={i === 0} isLast={i === group.items.length - 1} />
           ))}
           {addingItem ? (
-            <div style={{ display: "flex", gap: 8, padding: "10px 16px", borderTop: "1px solid var(--hairline)", background: "var(--surface-2)" }}>
-              <input autoFocus className="tinput" value={newItem} onChange={(e) => setNewItem(e.target.value)} placeholder="Item name…" style={{ maxWidth: 280 }}
-                onKeyDown={(e) => { if (e.key === "Enter") commitItem(); if (e.key === "Escape") { setAddingItem(false); setNewItem(""); } }} onBlur={commitItem} />
-              <button className="btn btn-sm btn-primary" onMouseDown={(e) => e.preventDefault()} onClick={commitItem}>Add item</button>
-            </div>
+            <AddItemSearch state={state} month={month} groupId={group.id} currency={currency} dispatch={dispatch} onClose={() => setAddingItem(false)} />
           ) : (
             <div style={{ background: "var(--surface-2)", borderTop: "1px solid var(--hairline)", padding: "4px 0" }}>
               <button className="btn btn-ghost btn-sm" style={{ margin: "8px 10px", color: "var(--muted)" }} onClick={() => setAddingItem(true)}><Icons.plus size={14} /> Add item</button>
