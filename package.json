@@ -1,0 +1,26 @@
+{
+  "name": "house-budget",
+  "version": "1.0.0",
+  "description": "House Budget — local-first zero-based budgeting (Electron + SQLite).",
+  "main": "build/main/index.js",
+  "author": "",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "rebuild": "node scripts/fix-node-gyp.mjs && electron-rebuild -f -w better-sqlite3",
+    "prestart": "npm run build",
+    "start": "electron .",
+    "dev": "npm run build && electron .",
+    "verify:db": "node --experimental-sqlite scripts/verify-db.mjs"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.10.0"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.0.4",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.10.5",
+    "electron": "^41.7.1",
+    "typescript": "^5.7.3"
+  }
+}

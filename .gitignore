@@ -1,0 +1,9 @@
+node_modules/
+build/
+*.log
+.DS_Store
+
+# local SQLite artefacts if a DB is ever created in-tree during testing
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
