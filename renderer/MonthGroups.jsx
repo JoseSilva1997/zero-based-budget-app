@@ -3,14 +3,38 @@
    reorder, delete-this-month-only, and the New Month flow.
    ============================================================ */
 
+/* Small day-of-month editor (1..last day of the month). */
+function DayField({ day, monthId, onCommit, title = "Day of month" }) {
+  const [txt, setTxt] = useState(String(day));
+  useEffect(() => { setTxt(String(day)); }, [day]);
+  const commit = () => {
+    const last = daysInMonth(monthId);
+    let n = parseInt(txt, 10);
+    if (!Number.isInteger(n)) n = day;
+    n = Math.max(1, Math.min(last, n));
+    setTxt(String(n));
+    onCommit(n);
+  };
+  return (
+    <input className="minput mono" value={txt} inputMode="numeric" title={title} aria-label={title}
+      onChange={(e) => setTxt(e.target.value.replace(/[^0-9]/g, "").slice(0, 2))}
+      onFocus={(e) => e.target.select()}
+      onBlur={commit}
+      onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); if (e.key === "Escape") { setTxt(String(day)); e.target.blur(); } }}
+      style={{ width: 44, height: 26, textAlign: "center", fontSize: 12, padding: "0 4px", flex: "none", color: "var(--ink-2)" }} />
+  );
+}
+
 function EntriesDrawer({ item, group, currency, dispatch, month }) {
   const [amt, setAmt] = useState("");
   const [note, setNote] = useState("");
+  const [day, setDay] = useState(() => daysInMonth(month));
   const addRef = useRef(null);
+  useEffect(() => { setDay(daysInMonth(month)); }, [month]);
   const add = () => {
     const n = evalMoney(amt);
     if (n === null || n <= 0) { addRef.current && addRef.current.focus(); return; }
-    dispatch({ type: "addActual", month, groupId: group.id, itemId: item.id, amount: n, note: note.trim() });
+    dispatch({ type: "addActual", month, groupId: group.id, itemId: item.id, amount: n, note: note.trim(), day });
     setAmt(""); setNote(""); requestAnimationFrame(() => addRef.current && addRef.current.focus());
   };
   const amtPreview = isExpr(amt) ? evalMoney(amt) : null;
@@ -21,7 +45,8 @@ function EntriesDrawer({ item, group, currency, dispatch, month }) {
           {item.actuals.map(a => (
             <div key={a.id} style={{ display: "grid", gridTemplateColumns: "1fr 150px 158px 150px 78px", alignItems: "center", gap: 10, padding: "5px 0", borderBottom: "1px solid var(--hairline)" }}>
               <div style={{ gridColumn: "span 2", display: "flex", alignItems: "center", gap: 10, paddingLeft: 30, minWidth: 0 }}>
-                <span className="mono" style={{ fontSize: 12, color: "var(--faint)", flex: "none" }}>{a.date}</span>
+                <DayField day={actualDay(a, month)} monthId={month} title="Day of month (when it was spent)"
+                  onCommit={(d) => dispatch({ type: "updateActual", month, groupId: group.id, itemId: item.id, id: a.id, patch: { date: makeActualDate(month, d) } })} />
                 <TextInline value={a.note} placeholder="Note" onCommit={(v) => dispatch({ type: "updateActual", month, groupId: group.id, itemId: item.id, id: a.id, patch: { note: v } })} style={{ fontSize: 13, color: "var(--ink-2)" }} />
               </div>
               <MoneyInput value={a.amount} currency={currency} onCommit={(v) => dispatch({ type: "updateActual", month, groupId: group.id, itemId: item.id, id: a.id, patch: { amount: v } })} />
@@ -36,6 +61,7 @@ function EntriesDrawer({ item, group, currency, dispatch, month }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 150px 158px 150px 78px", alignItems: "center", gap: 10, height: 32 }}>
         <div style={{ gridColumn: "span 2", display: "flex", alignItems: "center", gap: 10, paddingLeft: 30 }}>
           <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 500, marginRight: 2, whiteSpace: "nowrap" }}>Add spend</span>
+          <DayField day={day} monthId={month} title="Day of month for this entry" onCommit={setDay} />
           <input ref={addRef} className="tinput" value={note} onChange={(e) => setNote(e.target.value)} placeholder="What was it?" style={{ fontSize: 13, height: 32 }} onKeyDown={(e) => e.key === "Enter" && add()} />
         </div>
         <div style={{ position: "relative", height: 32 }}>

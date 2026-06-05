@@ -241,7 +241,7 @@ function reducer(state, action) {
     case "toggleCollapse": { const g = findGroup(A.groupId); if (g) g.collapsed = !g.collapsed; break; }
     case "setSavings": { const g = findGroup(A.groupId); if (g) g.isSavings = A.value; break; }
 
-    case "addActual": { const it = findItem(A.groupId, A.itemId); if (it) it.actuals.push({ id: uid("a"), amount: Math.max(0, round2(A.amount)), note: A.note || "", date: A.date || todayMD() }); break; }
+    case "addActual": { const it = findItem(A.groupId, A.itemId); if (it) it.actuals.push({ id: uid("a"), amount: Math.max(0, round2(A.amount)), note: A.note || "", date: A.date || makeActualDate(A.month, A.day) }); break; }
     case "updateActual": { const it = findItem(A.groupId, A.itemId); if (it) { const a = it.actuals.find(x => x.id === A.id); if (a) Object.assign(a, A.patch); } break; }
     case "removeActual": { const it = findItem(A.groupId, A.itemId); if (it) it.actuals = it.actuals.filter(x => x.id !== A.id); break; }
 
@@ -290,6 +290,33 @@ function reducer(state, action) {
 }
 function todayMD() { const d = new Date(); return `${d.getMonth()+1}/${String(d.getDate()).padStart(2,"0")}`; }
 
+/* ---- entry dates -------------------------------------------------------- */
+/* Number of days in a "YYYY-MM" month (day 0 of the next month). */
+function daysInMonth(monthId) {
+  const [y, m] = String(monthId).split("-").map(Number);
+  if (!Number.isFinite(y) || !Number.isFinite(m)) return 28;
+  return new Date(y, m, 0).getDate();
+}
+/* Day-of-month for an actual entry. Empty or invalid dates fall back to the
+   last day of the month, so legacy entries read as month-end. */
+function actualDay(entry, monthId) {
+  const last = daysInMonth(monthId);
+  const parts = String((entry && entry.date) || "").split("/");
+  const d = Number(parts[parts.length - 1]);
+  if (Number.isInteger(d) && d >= 1 && d <= last) return d;
+  return last;
+}
+/* Build a stored "M/DD" date from a month id and a chosen day, clamped to a
+   valid day for that month (blank/invalid -> last day of the month). */
+function makeActualDate(monthId, day) {
+  const last = daysInMonth(monthId);
+  const m = Number(String(monthId).split("-")[1]);
+  let d = Math.round(Number(day));
+  if (!Number.isInteger(d) || d < 1) d = last;
+  if (d > last) d = last;
+  return `${m}/${String(d).padStart(2, "0")}`;
+}
+
 /* ---- theme registry (shared by Tweaks panel + Settings) ----------------- */
 const BUDGET_THEMES = [
   { id: "indigo",  label: "Indigo",  bg: "#0d1016", accent: "#6d6ef6" },
@@ -312,4 +339,5 @@ Object.assign(window, {
   BUDGET_THEMES, THEME_IDS,
   itemActual, monthIncome, monthAllocated, monthActual, monthSavings, monthUnallocated,
   groupAllocated, groupActual, overBudgetItems, accountTotals, reusableItemCandidates, normalizeItemName, round2,
+  daysInMonth, actualDay, makeActualDate,
 });
