@@ -40,6 +40,23 @@ function AccountPanel({ mo, accounts, members, currency, dispatch, month }) {
   const shared = assigned.filter(t => !t.account.owner);
   const sharedAmt = round2(shared.reduce((a, t) => a + t.allocated, 0));
 
+  // savings wallets — each item in the savings group is a "wallet" of the (single) savings account
+  const savingsAccount = accounts.find(a => a.type === "savings");
+  const savingsItems = [];
+  mo.groups.filter(g => g.isSavings).forEach(g => g.items.forEach(it => {
+    if (it.allocated > 0 || itemActual(it) > 0) savingsItems.push({ id: it.id, name: it.name, allocated: it.allocated, actual: itemActual(it) });
+  }));
+  const savingsTotal = round2(savingsItems.reduce((a, it) => a + it.allocated, 0));
+
+  // "By account" order: group by owner (in member order), joint/shared accounts last.
+  // Savings accounts are excluded — they get their own per-wallet breakdown below.
+  const ownerRank = owner => { const i = members.findIndex(m => m.id === owner); return i < 0 ? members.length : i; };
+  const byAccount = assigned.filter(t => t.account.type !== "savings").sort((a, b) => {
+    const ao = a.account.owner, bo = b.account.owner;
+    if (!ao !== !bo) return ao ? -1 : 1;
+    return ownerRank(ao) - ownerRank(bo);
+  });
+
   return (
     <div className="fade-in">
       {/* per-person "who moves what" */}
@@ -49,17 +66,17 @@ function AccountPanel({ mo, accounts, members, currency, dispatch, month }) {
           <div key={p.member.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 13px", borderRadius: 11, background: "var(--surface-2)", border: "1px solid var(--border)" }}>
             <Avatar member={p.member} size={30} />
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 600 }}>{p.member.name} moves</div>
-              <div style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>into {p.accts.map(t => t.account.name.replace(p.member.name + " ", "")).join(" · ")}</div>
+              <div style={{ fontSize: 13.5, fontWeight: 600 }}>{p.member.name}</div>
+              <div style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>into {p.accts.map(t => t.account.name).join(" · ")}</div>
             </div>
-            <div className="mono" style={{ fontSize: 17, fontWeight: 600, flex: "none" }}>{fmt(currency, p.amount, { cents: false })}</div>
+            <div className="mono" style={{ fontSize: 17, fontWeight: 600, flex: "none" }}>{fmt(currency, p.amount)}</div>
           </div>
         ))}
         {shared.length > 0 && (
           <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 13px", borderRadius: 11, background: "var(--info-soft)", border: "1px solid var(--border)" }}>
             <span style={{ width: 30, height: 30, borderRadius: 8, background: "var(--surface)", color: "var(--info)", display: "grid", placeItems: "center", flex: "none" }}><Icons.user size={16} /></span>
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 600 }}>Shared / from Joint</div>
+              <div style={{ fontSize: 13.5, fontWeight: 600 }}>Shared</div>
               <div style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>into {shared.map(t => t.account.name).join(" · ")}</div>
             </div>
             <div className="mono" style={{ fontSize: 17, fontWeight: 600, flex: "none" }}>{fmt(currency, sharedAmt, { cents: false })}</div>
@@ -70,7 +87,7 @@ function AccountPanel({ mo, accounts, members, currency, dispatch, month }) {
       {/* per-account breakdown */}
       <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 10 }}>By account</div>
       <div className="card" style={{ overflow: "hidden" }}>
-        {assigned.map((t, i) => {
+        {byAccount.map((t, i) => {
           const owner = members.find(m => m.id === t.account.owner);
           const pct = totalToFund > 0 ? t.allocated / totalToFund : 0;
           const Icon = Icons[ACCT_ICON[t.account.type] || "coins"];
@@ -95,6 +112,34 @@ function AccountPanel({ mo, accounts, members, currency, dispatch, month }) {
           );
         })}
       </div>
+
+      {/* savings wallets — breakdown of the savings group into the savings account's wallets */}
+      {savingsItems.length > 0 && (
+        <>
+          <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 10, marginTop: 22, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span>{savingsAccount ? savingsAccount.name : "Savings"} wallets</span>
+            <span className="mono" style={{ color: "var(--faint)", letterSpacing: 0 }}>{fmt(currency, savingsTotal)}</span>
+          </div>
+          <div className="card" style={{ overflow: "hidden" }}>
+            {savingsItems.map((it, i) => {
+              const color = savingsAccount ? savingsAccount.color : "var(--accent)";
+              return (
+                <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 15px", borderTop: i ? "1px solid var(--hairline)" : "none" }}>
+                  <span style={{ width: 34, height: 34, borderRadius: 9, flex: "none", background: hexToSoft(savingsAccount ? savingsAccount.color : "#2dd4a8"), color, display: "grid", placeItems: "center" }}><Icons.plant size={17} /></span>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13.5 }}>{it.name}</div>
+                    <div style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ flex: 1, maxWidth: 90 }}><MiniBar actual={it.actual} allocated={it.allocated} /></span>
+                      <span className="mono" style={{ flex: "none" }}>{fmt(currency, it.actual, { cents: false })} moved</span>
+                    </div>
+                  </div>
+                  <div className="mono" style={{ textAlign: "right", flex: "none", fontSize: 15.5, fontWeight: 600 }}>{fmt(currency, it.allocated)}</div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       {unassigned && (
         <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "12px 15px", borderRadius: 11, marginTop: 14, background: "var(--neg-soft)", color: "var(--neg-ink)" }}>
@@ -133,13 +178,13 @@ function WalletDrawer({ mo, accounts, members, currency, dispatch, month, onClos
             <span style={{ width: 36, height: 36, borderRadius: 10, background: "var(--accent-soft)", color: "var(--accent-ink)", display: "grid", placeItems: "center" }}><Icons.wallet size={19} /></span>
             <div>
               <div style={{ fontWeight: 600, fontSize: 16 }}>Wallet</div>
-              <div style={{ fontSize: 12, color: "var(--muted)" }}>What to move where for {monthLabel(month).mo}</div>
+              <div style={{ fontSize: 12, color: "var(--muted)" }}> Movements for {monthLabel(month).mo}</div>
             </div>
           </div>
           <button className="icon-btn" onClick={onClose} title="Close"><Icons.x size={18} /></button>
         </div>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", padding: "14px 22px", borderBottom: "1px solid var(--hairline)", background: "var(--surface-2)" }}>
-          <span style={{ fontSize: 12.5, color: "var(--muted)" }}>Total to fund this month</span>
+          <span style={{ fontSize: 12.5, color: "var(--muted)" }}>Total this month</span>
           <span className="mono" style={{ fontSize: 22, fontWeight: 600 }}>{fmt(currency, toFund)}</span>
         </div>
         <div className="drawer-body">
