@@ -53,8 +53,7 @@ function EntriesDrawer({ item, group, currency, dispatch, month }) {
   );
 }
 
-function ItemRow({ item, group, currency, dispatch, month, accounts, onDragStart, onDragOverItem, onDrop, onDragEnd, isDragging, isDropTarget }) {
-  const [open, setOpen] = useState(false);
+function ItemRow({ item, group, currency, dispatch, month, accounts, open, onToggle, onDragStart, onDragOverItem, onDrop, onDragEnd, isDragging, isDropTarget }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [grabbed, setGrabbed] = useState(false);
   const actual = itemActual(item);
@@ -80,7 +79,7 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, onDragStart
           </div>
         </div>
         <MoneyInput value={item.allocated} currency={currency} onCommit={(v) => dispatch({ type: "updateAllocated", month, groupId: group.id, itemId: item.id, value: v })} />
-        <button onClick={() => setOpen(o => !o)} title="View / add spending entries"
+        <button onClick={onToggle} title="View / add spending entries"
           style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 7, background: open ? "var(--surface-sunken)" : "transparent", border: "1px solid transparent", borderRadius: 7, padding: "5px 9px", color: "var(--ink)", transition: ".12s" }}>
           <span className="mono" style={{ fontSize: 14 }}>{fmt(currency, actual)}</span>
           <span style={{ fontSize: 10.5, color: "var(--faint)", background: "var(--surface-sunken)", borderRadius: 5, padding: "1px 5px", minWidth: 16, textAlign: "center" }}>{item.actuals.length}</span>
@@ -176,13 +175,28 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, onDragSt
   const [grabbed, setGrabbed] = useState(false);
   const [dragId, setDragId] = useState(null);
   const [overId, setOverId] = useState(null);
+  const [openItems, setOpenItems] = useState(() => new Set());
+  const cardRef = useRef(null);
+  const toggleItem = (itemId) => setOpenItems(prev => {
+    const next = new Set(prev);
+    next.has(itemId) ? next.delete(itemId) : next.add(itemId);
+    return next;
+  });
+  useEffect(() => {
+    if (openItems.size === 0) return;
+    const handlePointerDown = (event) => {
+      if (cardRef.current && !cardRef.current.contains(event.target)) setOpenItems(new Set());
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [openItems]);
   const endDrag = () => { setDragId(null); setOverId(null); };
   const dropItem = (targetId) => {
     if (dragId && targetId && dragId !== targetId) dispatch({ type: "reorderItem", month, groupId: group.id, itemId: dragId, targetId });
     endDrag();
   };
   return (
-    <div className="card fade-in" draggable={grabbed}
+    <div ref={cardRef} className="card fade-in" draggable={grabbed}
       onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; onDragStart(); }}
       onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; const r = e.currentTarget.getBoundingClientRect(); onDragOverGroup(e.clientY > r.top + r.height / 2); }}
       onDrop={(e) => { e.preventDefault(); onDrop(); }}
@@ -213,6 +227,8 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, onDragSt
           )}
           {group.items.map((it) => (
             <ItemRow key={it.id} item={it} group={group} currency={currency} dispatch={dispatch} month={month} accounts={accounts}
+              open={openItems.has(it.id)}
+              onToggle={() => toggleItem(it.id)}
               isDragging={dragId === it.id}
               isDropTarget={overId === it.id && dragId !== it.id}
               onDragStart={() => setDragId(it.id)}
