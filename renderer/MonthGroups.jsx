@@ -53,15 +53,26 @@ function EntriesDrawer({ item, group, currency, dispatch, month }) {
   );
 }
 
-function ItemRow({ item, group, currency, dispatch, month, accounts, isFirst, isLast }) {
+function ItemRow({ item, group, currency, dispatch, month, accounts, onDragStart, onDragOverItem, onDrop, onDragEnd, isDragging, isDropTarget }) {
   const [open, setOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [grabbed, setGrabbed] = useState(false);
   const actual = itemActual(item);
   const diff = round2(item.allocated - actual);
   const over = diff < -0.005;
   return (
-    <div style={{ borderTop: "1px solid var(--border)" }}>
-      <div className="budget-row" style={{ display: "grid", gridTemplateColumns: "1fr 150px 158px 150px 78px", alignItems: "center", gap: 10, padding: "7px 16px", minHeight: "var(--row-h)" }}>
+    <div
+      draggable={grabbed}
+      onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; onDragStart(); }}
+      onDragEnter={(e) => { e.preventDefault(); onDragOverItem(); }}
+      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
+      onDrop={(e) => { e.preventDefault(); onDrop(); }}
+      onDragEnd={() => { setGrabbed(false); onDragEnd(); }}
+      style={{ borderTop: isDropTarget ? "2px solid var(--accent)" : "1px solid var(--border)", opacity: isDragging ? .4 : 1, background: isDropTarget ? "var(--accent-soft)" : undefined, transition: "background .12s" }}>
+      <div style={{ display: "flex", alignItems: "stretch", minHeight: "var(--row-h)" }}>
+      <div className="drag-handle" title="Drag to reorder" onMouseDown={() => setGrabbed(true)} onMouseUp={() => setGrabbed(false)}
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, flex: "none", cursor: "grab", color: "var(--faint)"}}><Icons.drag size={25} /></div>
+      <div className="budget-row" style={{ flex: 1, minWidth: 0, display: "grid", gridTemplateColumns: "1fr 150px 158px 150px 78px", alignItems: "center", gap: 10, padding: "7px 8px", minHeight: "var(--row-h)" }}>
         <div style={{ minWidth: 0, paddingRight: 6, display: "flex", flexDirection: "column", gap: 4 }}>
           <TextInline value={item.name} onCommit={(v) => dispatch({ type: "renameItem", month, groupId: group.id, itemId: item.id, name: v })} />
           <div style={{ paddingLeft: 8 }}>
@@ -79,10 +90,9 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, isFirst, is
           <MiniBar actual={actual} allocated={item.allocated} />
         </div>
         <div className="row-actions" style={{ justifyContent: "flex-end" }}>
-          <button className="icon-btn" title="Move up" disabled={isFirst} style={{ opacity: isFirst ? .25 : 1 }} onClick={() => dispatch({ type: "moveItem", month, groupId: group.id, itemId: item.id, dir: -1 })}><Icons.up size={15} /></button>
-          <button className="icon-btn" title="Move down" disabled={isLast} style={{ opacity: isLast ? .25 : 1 }} onClick={() => dispatch({ type: "moveItem", month, groupId: group.id, itemId: item.id, dir: 1 })}><Icons.down size={15} /></button>
           <button className="icon-btn" title="Delete item (this month only)" onClick={() => setConfirmDelete(true)}><Icons.trash size={15} /></button>
         </div>
+      </div>
       </div>
       {open && <EntriesDrawer item={item} group={group} currency={currency} dispatch={dispatch} month={month} />}
       {confirmDelete && (
@@ -163,9 +173,16 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, isFirst,
   const alloc = groupAllocated(group), actual = groupActual(group);
   const diff = round2(alloc - actual);
   const [addingItem, setAddingItem] = useState(false);
+  const [dragId, setDragId] = useState(null);
+  const [overId, setOverId] = useState(null);
+  const endDrag = () => { setDragId(null); setOverId(null); };
+  const dropItem = (targetId) => {
+    if (dragId && targetId && dragId !== targetId) dispatch({ type: "reorderItem", month, groupId: group.id, itemId: dragId, targetId });
+    endDrag();
+  };
   return (
     <div className="card fade-in" style={{ marginBottom: 14, overflow: "hidden" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 150px 158px 150px 78px", alignItems: "center", gap: 10, padding: "12px 16px", background: "var(--surface-2)", borderBottom: group.collapsed ? "none" : "1px solid var(--border-strong)" }} className="budget-row">
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 150px 158px 150px 78px", alignItems: "center", gap: 10, padding: "12px 8px", background: "var(--surface-2)", borderBottom: group.collapsed ? "none" : "1px solid var(--border-strong)" }} className="budget-row">
         <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
           <button className="icon-btn" onClick={() => dispatch({ type: "toggleCollapse", month, groupId: group.id })} style={{ transform: group.collapsed ? "rotate(-90deg)" : "none", transition: "transform .18s" }}><Icons.down size={16} /></button>
           <TextInline value={group.name} onCommit={(v) => dispatch({ type: "renameGroup", month, groupId: group.id, name: v })} style={{ fontWeight: 600, fontSize: 15 }} />
@@ -186,8 +203,14 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, isFirst,
           {group.items.length === 0 && !addingItem && (
             <div style={{ padding: "16px", textAlign: "center", color: "var(--faint)", fontSize: 13, borderTop: "1px solid var(--hairline)" }}>No items yet.</div>
           )}
-          {group.items.map((it, i) => (
-            <ItemRow key={it.id} item={it} group={group} currency={currency} dispatch={dispatch} month={month} accounts={accounts} isFirst={i === 0} isLast={i === group.items.length - 1} />
+          {group.items.map((it) => (
+            <ItemRow key={it.id} item={it} group={group} currency={currency} dispatch={dispatch} month={month} accounts={accounts}
+              isDragging={dragId === it.id}
+              isDropTarget={overId === it.id && dragId !== it.id}
+              onDragStart={() => setDragId(it.id)}
+              onDragOverItem={() => setOverId(it.id)}
+              onDrop={() => dropItem(it.id)}
+              onDragEnd={endDrag} />
           ))}
           {addingItem ? (
             <AddItemSearch state={state} month={month} groupId={group.id} currency={currency} dispatch={dispatch} onClose={() => setAddingItem(false)} />
