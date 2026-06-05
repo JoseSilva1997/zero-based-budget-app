@@ -13,7 +13,7 @@ function SummaryHero({ mo, currency }) {
     <div className="card fade-in" style={{ padding: 0, overflow: "hidden" }}>
       <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 1fr) 1.25fr" }}>
         {/* hero unallocated */}
-        <div style={{ padding: "26px 28px", borderRight: "1px solid var(--hairline)", display: "flex", flexDirection: "column", justifyContent: "space-between", background: state === "zero" ? "linear-gradient(160deg, var(--pos-soft), transparent)" : state === "over" ? "linear-gradient(160deg, var(--neg-soft), transparent)" : "transparent" }}>
+        <div style={{ padding: "26px 28px", borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column", justifyContent: "space-between", background: state === "zero" ? "linear-gradient(160deg, var(--pos-soft), transparent)" : state === "over" ? "linear-gradient(160deg, var(--neg-soft), transparent)" : "transparent" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", fontWeight: 600 }}>
             {state === "zero" ? <Icons.check size={15} style={{ color: "var(--accent)" }} /> : <Icons.coins size={15} />}
             {state === "over" ? "Over-allocated" : "Left to allocate"}
@@ -47,7 +47,7 @@ function SummaryHero({ mo, currency }) {
         </div>
       </div>
       {over.length > 0 && (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 22px", borderTop: "1px solid var(--hairline)", background: "var(--neg-soft)", color: "var(--neg-ink)", fontSize: 13 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 22px", borderTop: "1px solid var(--border)", background: "var(--neg-soft)", color: "var(--neg-ink)", fontSize: 13 }}>
           <Icons.alert size={16} />
           <strong style={{ fontWeight: 600 }}>{over.length} item{over.length > 1 ? "s" : ""} over budget</strong>
           <span style={{ opacity: 0.8 }}>· {over.slice(0, 3).map(o => o.item).join(", ")}{over.length > 3 ? "…" : ""}</span>
@@ -61,7 +61,7 @@ function sumOver(over) { return round2(over.reduce((a, o) => a + o.over, 0)); }
 
 function Stat({ label, value, sub, tone, icon, border, top }) {
   return (
-    <div style={{ padding: "18px 22px", borderLeft: border ? "1px solid var(--hairline)" : "none", borderTop: top ? "1px solid var(--hairline)" : "none", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+    <div style={{ padding: "18px 22px", borderLeft: border ? "1px solid var(--border)" : "none", borderTop: top ? "1px solid var(--border)" : "none", display: "flex", flexDirection: "column", justifyContent: "center" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--muted)", fontWeight: 500, marginBottom: 8 }}>{icon}{label}</div>
       <div className="mono" style={{ fontSize: 23, fontWeight: 500, letterSpacing: "-0.01em", color: tone === "accent" ? "var(--accent-ink)" : "var(--ink)" }}>{value}</div>
       {sub && <div style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 4 }}>{sub}</div>}
@@ -107,7 +107,7 @@ function IncomeSection({ mo, currency, members, dispatch, month }) {
             </div>
           );
         })}
-        <div style={{ display: "flex", gap: 6, padding: "10px 16px", borderTop: "1px solid var(--hairline)", background: "var(--surface-2)" }}>
+        <div style={{ display: "flex", gap: 6, padding: "10px 16px", borderTop: "1px solid var(--border-strong)", background: "var(--surface-2)" }}>
           {members.map(m => (
             <button key={m.id} className="btn btn-sm btn-ghost" onClick={() => dispatch({ type: "addIncome", month, memberId: m.id })}>
               <Icons.plus size={14} /> Income for {m.name}

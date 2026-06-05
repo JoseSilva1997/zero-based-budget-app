@@ -59,7 +59,7 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, isFirst, is
   const diff = round2(item.allocated - actual);
   const over = diff < -0.005;
   return (
-    <div style={{ borderTop: "2px solid var(--border)" }}>
+    <div style={{ borderTop: "1px solid var(--border)" }}>
       <div className="budget-row" style={{ display: "grid", gridTemplateColumns: "1fr 150px 158px 150px 78px", alignItems: "center", gap: 10, padding: "7px 16px", minHeight: "var(--row-h)" }}>
         <div style={{ minWidth: 0, paddingRight: 6, display: "flex", flexDirection: "column", gap: 4 }}>
           <TextInline value={item.name} onCommit={(v) => dispatch({ type: "renameItem", month, groupId: group.id, itemId: item.id, name: v })} />
@@ -154,7 +154,7 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, isFirst,
   const [addingItem, setAddingItem] = useState(false);
   return (
     <div className="card fade-in" style={{ marginBottom: 14, overflow: "hidden" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 150px 158px 150px 78px", alignItems: "center", gap: 10, padding: "12px 16px", background: "var(--surface-2)" }} className="budget-row">
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 150px 158px 150px 78px", alignItems: "center", gap: 10, padding: "12px 16px", background: "var(--surface-2)", borderBottom: group.collapsed ? "none" : "1px solid var(--border-strong)" }} className="budget-row">
         <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
           <button className="icon-btn" onClick={() => dispatch({ type: "toggleCollapse", month, groupId: group.id })} style={{ transform: group.collapsed ? "rotate(-90deg)" : "none", transition: "transform .18s" }}><Icons.down size={16} /></button>
           <TextInline value={group.name} onCommit={(v) => dispatch({ type: "renameGroup", month, groupId: group.id, name: v })} style={{ fontWeight: 600, fontSize: 15 }} />

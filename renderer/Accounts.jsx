@@ -60,23 +60,23 @@ function AccountPanel({ mo, accounts, members, currency, dispatch, month }) {
   return (
     <div className="fade-in">
       {/* per-person "who moves what" */}
-      <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 10 }}>Who moves what</div>
+      <div style={{ fontSize: 11, color: "var(--ink-2)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 10 }}>Who moves what</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 22 }}>
         {perPerson.map(p => (
-          <div key={p.member.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 13px", borderRadius: 11, background: "var(--surface-2)", border: "1px solid var(--border)" }}>
+          <div key={p.member.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 16px", borderRadius: 11, background: "var(--surface-sunken)", border: "1px solid var(--border-strong)", boxShadow: `inset 4px 0 0 0 ${p.member.color || "var(--accent)"}` }}>
             <Avatar member={p.member} size={30} />
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 600 }}>{p.member.name}</div>
+              <div style={{ fontSize: 13.5, fontWeight: 600 }}>{p.member.name} total</div>
               <div style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>into {p.accts.map(t => t.account.name).join(" · ")}</div>
             </div>
             <div className="mono" style={{ fontSize: 17, fontWeight: 600, flex: "none" }}>{fmt(currency, p.amount)}</div>
           </div>
         ))}
         {shared.length > 0 && (
-          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 13px", borderRadius: 11, background: "var(--info-soft)", border: "1px solid var(--border)" }}>
-            <span style={{ width: 30, height: 30, borderRadius: 8, background: "var(--surface)", color: "var(--info)", display: "grid", placeItems: "center", flex: "none" }}><Icons.user size={16} /></span>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 16px", borderRadius: 11, background: "var(--surface-sunken)", border: "1px solid var(--border-strong)", boxShadow: "inset 4px 0 0 0 var(--info)" }}>
+            <span style={{ width: 30, height: 30, borderRadius: 8, background: "var(--info-soft)", color: "var(--info)", display: "grid", placeItems: "center", flex: "none" }}><Icons.user size={16} /></span>
             <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 600 }}>Shared</div>
+              <div style={{ fontSize: 13.5, fontWeight: 600 }}>Shared total</div>
               <div style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>into {shared.map(t => t.account.name).join(" · ")}</div>
             </div>
             <div className="mono" style={{ fontSize: 17, fontWeight: 600, flex: "none" }}>{fmt(currency, sharedAmt, { cents: false })}</div>
@@ -85,14 +85,14 @@ function AccountPanel({ mo, accounts, members, currency, dispatch, month }) {
       </div>
 
       {/* per-account breakdown */}
-      <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 10 }}>By account</div>
-      <div className="card" style={{ overflow: "hidden" }}>
+      <div style={{ fontSize: 11, color: "var(--ink-2)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 10 }}>By account</div>
+      <div className="card" style={{ overflow: "hidden", background: "var(--surface-2)" }}>
         {byAccount.map((t, i) => {
           const owner = members.find(m => m.id === t.account.owner);
           const pct = totalToFund > 0 ? t.allocated / totalToFund : 0;
           const Icon = Icons[ACCT_ICON[t.account.type] || "coins"];
           return (
-            <div key={t.account.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 15px", borderTop: i ? "1px solid var(--hairline)" : "none" }}>
+            <div key={t.account.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 15px", borderTop: i ? "1px solid var(--border)" : "none", background: owner ? `color-mix(in srgb, ${owner.color} 3%, var(--surface-2))` : `color-mix(in srgb, var(--info) 3%, var(--surface-2))` }}>
               <span style={{ width: 34, height: 34, borderRadius: 9, flex: "none", background: hexToSoft(t.account.color), color: t.account.color, display: "grid", placeItems: "center" }}><Icon size={17} /></span>
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ fontWeight: 600, fontSize: 13.5, display: "flex", alignItems: "center", gap: 7 }}>{t.account.name}
@@ -116,7 +116,7 @@ function AccountPanel({ mo, accounts, members, currency, dispatch, month }) {
       {/* savings wallets — breakdown of the savings group into the savings account's wallets */}
       {savingsItems.length > 0 && (
         <>
-          <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 10, marginTop: 22, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ fontSize: 11, color: "var(--ink-2)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 10, marginTop: 22, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <span>{savingsAccount ? savingsAccount.name : "Savings"} wallets</span>
             <span className="mono" style={{ color: "var(--faint)", letterSpacing: 0 }}>{fmt(currency, savingsTotal)}</span>
           </div>
@@ -124,7 +124,7 @@ function AccountPanel({ mo, accounts, members, currency, dispatch, month }) {
             {savingsItems.map((it, i) => {
               const color = savingsAccount ? savingsAccount.color : "var(--accent)";
               return (
-                <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 15px", borderTop: i ? "1px solid var(--hairline)" : "none" }}>
+                <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 15px", borderTop: i ? "1px solid var(--border)" : "none" }}>
                   <span style={{ width: 34, height: 34, borderRadius: 9, flex: "none", background: hexToSoft(savingsAccount ? savingsAccount.color : "#2dd4a8"), color, display: "grid", placeItems: "center" }}><Icons.plant size={17} /></span>
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontWeight: 600, fontSize: 13.5 }}>{it.name}</div>
@@ -162,7 +162,7 @@ function walletSummary(mo, accounts) {
 function hexToSoft(hex) {
   const h = hex.replace("#", "");
   const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, 0.13)`;
+  return `rgba(${r}, ${g}, ${b}, 0.20)`;
 }
 
 /* the Wallet drawer — slide-over holding the panel */
@@ -175,7 +175,7 @@ function WalletDrawer({ mo, accounts, members, currency, dispatch, month, onClos
       <aside className="drawer" role="dialog" aria-label="Wallet">
         <div className="drawer-head">
           <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
-            <span style={{ width: 36, height: 36, borderRadius: 10, background: "var(--accent-soft)", color: "var(--accent-ink)", display: "grid", placeItems: "center" }}><Icons.wallet size={19} /></span>
+            <span style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(150deg, var(--accent), var(--accent-strong))", color: "var(--on-accent)", display: "grid", placeItems: "center", boxShadow: "var(--glow-sm), inset 0 1px 0 color-mix(in srgb, #fff 22%, transparent)", flex: "none" }}><Icons.wallet size={19} /></span>
             <div>
               <div style={{ fontWeight: 600, fontSize: 16 }}>Wallet</div>
               <div style={{ fontSize: 12, color: "var(--muted)" }}> Movements for {monthLabel(month).mo}</div>
@@ -183,9 +183,9 @@ function WalletDrawer({ mo, accounts, members, currency, dispatch, month, onClos
           </div>
           <button className="icon-btn" onClick={onClose} title="Close"><Icons.x size={18} /></button>
         </div>
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", padding: "14px 22px", borderBottom: "1px solid var(--hairline)", background: "var(--surface-2)" }}>
-          <span style={{ fontSize: 12.5, color: "var(--muted)" }}>Total this month</span>
-          <span className="mono" style={{ fontSize: 22, fontWeight: 600 }}>{fmt(currency, toFund)}</span>
+        <div style={{ padding: "16px 22px 18px", borderBottom: "1px solid var(--border)", background: "color-mix(in srgb, var(--accent) 8%, var(--surface-2))" }}>
+          <div style={{ fontSize: 11.5, color: "var(--muted)", fontWeight: 500, marginBottom: 6 }}>Total to move this month</div>
+          <span className="mono" style={{ fontSize: 30, fontWeight: 600, letterSpacing: "-0.025em", color: "var(--ink)" }}>{fmt(currency, toFund)}</span>
         </div>
         <div className="drawer-body">
           <AccountPanel mo={mo} accounts={accounts} members={members} currency={currency} dispatch={dispatch} month={month} />
