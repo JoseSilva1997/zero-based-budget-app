@@ -23,7 +23,7 @@ function SummaryHero({ mo, currency }) {
               {fmt(currency, Math.abs(unalloc))}
             </div>
             <div style={{ fontSize: 13.5, color: "var(--ink-2)", lineHeight: 1.4 }}>
-              {state === "zero" && <span style={{ color: "var(--accent-ink)", fontWeight: 500 }}>Every dollar has a job — this month is fully allocated.</span>}
+              {state === "zero" && <span style={{ color: "var(--accent-ink)", fontWeight: 500 }}>Every {currency} has a job, this month is fully allocated.</span>}
               {state === "left" && <>Assign this to a group or to savings to reach zero.</>}
               {state === "over" && <span style={{ color: "var(--neg-ink)", fontWeight: 500 }}>You've allocated more than you earn. Trim {fmt(currency, Math.abs(unalloc), { cents: false })}.</span>}
             </div>

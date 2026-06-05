@@ -135,4 +135,17 @@ function Modal({ children, onClose, width }) {
   );
 }
 
-Object.assign(window, { Icons, MoneyInput, TextInline, Avatar, DiffPill, MiniBar, Modal, evalMoney, isExpr });
+/* ---- chart card wrapper (shared by History + Dashboard) ----------------- */
+function ChartCard({ title, sub, children, wide }) {
+  return (
+    <div className="card fade-in" style={{ padding: "18px 20px 16px", gridColumn: wide ? "span 2" : "auto" }}>
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontWeight: 600, fontSize: 15 }}>{title}</div>
+        {sub && <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 2 }}>{sub}</div>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+Object.assign(window, { Icons, MoneyInput, TextInline, Avatar, DiffPill, MiniBar, Modal, ChartCard, evalMoney, isExpr });

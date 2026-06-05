@@ -121,7 +121,7 @@ function App() {
     } catch {}
     return buildEmpty();
   });
-  const [tab, setTab] = useState("budget");
+  const [tab, setTab] = useState("dashboard");
   const [newMonth, setNewMonth] = useState(false);
   const [toastMsg, setToastMsg] = useState(null);
   const toastTimer = useRef(null);
@@ -145,7 +145,7 @@ function App() {
   }, [themePref]);
 
   const currency = state.settings.currency;
-  const NAV = [["budget", "Month Budget", Icons.budget], ["history", "History", Icons.history], ["settings", "Settings", Icons.settings]];
+  const NAV = [["dashboard", "Dashboard", Icons.monitor], ["budget", "Month Budget", Icons.budget], ["history", "History", Icons.history], ["settings", "Settings", Icons.settings]];
 
   return (
     <div className="app">
@@ -168,6 +168,7 @@ function App() {
 
       <main className="main">
         <div className="main-inner">
+          {tab === "dashboard" && <DashboardScreen state={state} dispatch={dispatch} currency={currency} onOpenMonth={(id) => { dispatch({ type: "setActive", id }); setTab("budget"); }} />}
           {tab === "budget" && <MonthBudgetScreen state={state} dispatch={dispatch} currency={currency} />}
           {tab === "history" && <HistoryScreen state={state} dispatch={dispatch} currency={currency} onOpenMonth={(id) => { dispatch({ type: "setActive", id }); setTab("budget"); }} />}
           {tab === "settings" && <SettingsScreen state={state} dispatch={dispatch} currency={currency} toast={toast} />}

@@ -218,9 +218,38 @@ const BUDGET_THEMES = [
 ];
 const THEME_IDS = BUDGET_THEMES.map(t => t.id);
 
+/* ---- chart palette (shared by History + Dashboard charts) --------------- */
+const GROUP_PALETTE = [
+  "oklch(0.72 0.14 158)", "oklch(0.75 0.15 45)", "oklch(0.70 0.14 245)",
+  "oklch(0.72 0.15 300)", "oklch(0.80 0.14 75)", "oklch(0.70 0.16 20)",
+  "oklch(0.76 0.12 195)", "oklch(0.74 0.15 120)",
+];
+
+/* ---- per-month time series (shared by History + Dashboard) -------------- */
+// One element per month in state.order. Categories are keyed by name (ids are
+// regenerated when a month is copied), matching the rest of the trend code.
+function buildSeries(state) {
+  return state.order.map(id => {
+    const mo = state.months[id];
+    const byGroup = {};
+    mo.groups.forEach(g => { byGroup[g.name] = round2((byGroup[g.name] || 0) + groupActual(g)); });
+    // savings allocated per category (item name) for this month
+    const savingsByCat = {};
+    mo.groups.filter(g => g.isSavings).forEach(g => g.items.forEach(it => {
+      savingsByCat[it.name] = round2((savingsByCat[it.name] || 0) + it.allocated);
+    }));
+    const over = overBudgetItems(mo);
+    return {
+      id, label: monthLabel(id).short, mo,
+      income: monthIncome(mo), alloc: monthAllocated(mo), actual: monthActual(mo),
+      savings: monthSavings(mo), byGroup, savingsByCat, overCount: over.length, over,
+    };
+  });
+}
+
 Object.assign(window, {
   uid, MONTH_NAMES, monthLabel, prevMonthId, nextMonthId, fmt, buildEmpty, reducer,
-  BUDGET_THEMES, THEME_IDS,
+  BUDGET_THEMES, THEME_IDS, GROUP_PALETTE, buildSeries,
   itemActual, monthIncome, monthAllocated, monthActual, monthSavings, monthUnallocated,
   groupAllocated, groupActual, overBudgetItems, accountTotals, reusableItemCandidates, normalizeItemName, round2,
   daysInMonth, actualDay, makeActualDate,

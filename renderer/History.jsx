@@ -1,45 +1,13 @@
 /* ============================================================
    History screen — month list, comparison, trends (charts)
+   buildSeries + ChartCard now live in store.jsx / components.jsx.
    ============================================================ */
-
-function buildSeries(state) {
-  return state.order.map(id => {
-    const mo = state.months[id];
-    const byGroup = {};
-    mo.groups.forEach(g => { byGroup[g.name] = round2((byGroup[g.name] || 0) + groupActual(g)); });
-    // savings allocated per category (item name) for this month
-    const savingsByCat = {};
-    mo.groups.filter(g => g.isSavings).forEach(g => g.items.forEach(it => {
-      savingsByCat[it.name] = round2((savingsByCat[it.name] || 0) + it.allocated);
-    }));
-    const over = overBudgetItems(mo);
-    return {
-      id, label: monthLabel(id).short, mo,
-      income: monthIncome(mo), alloc: monthAllocated(mo), actual: monthActual(mo),
-      savings: monthSavings(mo), byGroup, savingsByCat, overCount: over.length, over,
-    };
-  });
-}
 
 function HistoryScreen({ state, dispatch, currency, onOpenMonth }) {
   const series = useMemo(() => buildSeries(state), [state]);
-  const enough = series.length >= 2;
   const groupNames = useMemo(() => {
     const set = []; series.forEach(s => Object.keys(s.byGroup).forEach(n => { if (!set.includes(n)) set.push(n); })); return set;
   }, [series]);
-  // cumulative savings (total + per category, for stacked area)
-  const savingsCats = useMemo(() => {
-    const set = []; series.forEach(s => Object.keys(s.savingsByCat).forEach(n => { if (!set.includes(n)) set.push(n); })); return set;
-  }, [series]);
-  const cum = useMemo(() => {
-    const running = {}; let runTotal = 0;
-    return series.map(s => {
-      const cumByCat = {};
-      savingsCats.forEach(c => { running[c] = round2((running[c] || 0) + (s.savingsByCat[c] || 0)); cumByCat[c] = running[c]; });
-      runTotal = round2(runTotal + s.savings);
-      return { ...s, cumSavings: runTotal, cumByCat };
-    });
-  }, [series, savingsCats]);
   const [detail, setDetail] = useState(null);
   const [cmpA, setCmpA] = useState(series[Math.max(0, series.length - 2)]?.id);
   const [cmpB, setCmpB] = useState(series[series.length - 1]?.id);
@@ -48,7 +16,7 @@ function HistoryScreen({ state, dispatch, currency, onOpenMonth }) {
     <div className="fade-in">
       <div className="topbar">
         <div>
-          <div className="page-title">History &amp; trends</div>
+          <div className="page-title">History</div>
           <div className="page-sub">{series.length} month{series.length !== 1 ? "s" : ""} tracked · {fmt(currency, series.reduce((a, s) => a + s.savings, 0), { cents: false })} saved in total</div>
         </div>
       </div>
@@ -81,74 +49,7 @@ function HistoryScreen({ state, dispatch, currency, onOpenMonth }) {
       <div className="section-head"><h2>Compare months</h2></div>
       <Comparison series={series} cmpA={cmpA} cmpB={cmpB} setCmpA={setCmpA} setCmpB={setCmpB} currency={currency} groupNames={groupNames} />
 
-      {/* trends */}
-      <div className="section-head" style={{ marginTop: 36 }}><h2>Trends</h2></div>
-      {!enough ? (
-        <div className="card empty">
-          <div className="empty-icon"><Icons.history size={22} /></div>
-          <div style={{ fontWeight: 600, color: "var(--ink-2)" }}>Charts unlock with two months</div>
-          <div style={{ fontSize: 13, maxWidth: 320 }}>Once you've completed a second month, trends for income, spending, and savings will appear here and grow over time.</div>
-        </div>
-      ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-          <ChartCard title="Spending by group" sub="Where the money actually goes, month over month." wide>
-            <StackedBars months={series} groupNames={groupNames} currency={currency} />
-          </ChartCard>
-          <ChartCard title="Savings allocated per month" sub="How much you set aside each month.">
-            <LineChart months={series} accessor={(m) => m.savings} label="Saved" color="var(--accent)" currency={currency} />
-          </ChartCard>
-          <ChartCard title="Cumulative savings by goal" sub="Your nest egg growing over time, split by what you're saving toward." wide>
-            <StackedArea months={cum} cats={savingsCats} accessor={(m) => m.cumByCat} currency={currency} />
-          </ChartCard>
-          <ChartCard title="Over-budget items per month" sub="How often spending broke through the allocation." wide>
-            <OverBudgetChart series={series} currency={currency} />
-          </ChartCard>
-        </div>
-      )}
-
       {detail && <MonthDetail series={series.find(s => s.id === detail)} currency={currency} onClose={() => setDetail(null)} onOpen={() => { onOpenMonth(detail); setDetail(null); }} isCurrent={detail === state.activeMonth} />}
-    </div>
-  );
-}
-
-function ChartCard({ title, sub, children, wide }) {
-  return (
-    <div className="card fade-in" style={{ padding: "18px 20px 16px", gridColumn: wide ? "span 2" : "auto" }}>
-      <div style={{ marginBottom: 14 }}>
-        <div style={{ fontWeight: 600, fontSize: 15 }}>{title}</div>
-        {sub && <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 2 }}>{sub}</div>}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-/* over-budget frequency: bars of count + offender list */
-function OverBudgetChart({ series, currency }) {
-  const freq = {};
-  series.forEach(s => s.over.forEach(o => { const k = `${o.group} · ${o.item}`; freq[k] = (freq[k] || 0) + 1; }));
-  const offenders = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 6);
-  const maxCount = Math.max(...series.map(s => s.overCount), 1);
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 24, alignItems: "center" }}>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 10, height: 150, paddingTop: 10 }}>
-        {series.map(s => (
-          <div key={s.id} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, height: "100%", justifyContent: "flex-end" }}>
-            <span className="mono" style={{ fontSize: 12, color: s.overCount ? "var(--neg-ink)" : "var(--faint)", fontWeight: 600 }}>{s.overCount || "0"}</span>
-            <div title={`${s.overCount} over budget`} style={{ width: "100%", maxWidth: 38, height: `${(s.overCount / maxCount) * 100}%`, minHeight: s.overCount ? 6 : 2, borderRadius: 5, background: s.overCount ? "var(--neg)" : "var(--surface-sunken)", transition: "height .3s" }} />
-            <span style={{ fontSize: 11, color: "var(--muted)" }}>{s.label.split(" ")[0]}</span>
-          </div>
-        ))}
-      </div>
-      <div>
-        <div style={{ fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--faint)", fontWeight: 600, marginBottom: 8 }}>Most frequent offenders</div>
-        {offenders.length === 0 ? <div style={{ fontSize: 13, color: "var(--muted)" }}>No items have gone over budget. 🎉</div> : offenders.map(([k, n]) => (
-          <div key={k} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "5px 0", borderBottom: "1px solid var(--hairline)" }}>
-            <span style={{ fontSize: 12.5, color: "var(--ink-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{k}</span>
-            <span className="pill pill-neg" style={{ flex: "none" }}>{n}×</span>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
