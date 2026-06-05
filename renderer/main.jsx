@@ -103,37 +103,7 @@ function Toast({ msg }) {
   return <div style={{ position: "fixed", bottom: 26, left: "50%", transform: "translateX(-50%)", background: "var(--ink)", color: "var(--surface)", padding: "11px 18px", borderRadius: 10, fontSize: 13.5, fontWeight: 500, boxShadow: "var(--shadow-lg)", zIndex: 80, display: "flex", alignItems: "center", gap: 9, animation: "pop .2s ease" }}><Icons.check size={16} style={{ color: "var(--accent)" }} /> {msg}</div>;
 }
 
-/* ---- theme picker (12 dark themes) -------------------------------------- */
-function ThemePicker({ value, onChange }) {
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
-      {BUDGET_THEMES.map((th) => {
-        const on = th.id === value;
-        return (
-          <button key={th.id} type="button" title={th.label} onClick={() => onChange(th.id)}
-            style={{
-              position: "relative", display: "flex", alignItems: "center", gap: 6,
-              padding: "7px 8px", borderRadius: 9, cursor: "pointer", overflow: "hidden",
-              background: th.bg,
-              border: on ? `1px solid ${th.accent}` : "1px solid rgba(255,255,255,0.12)",
-              boxShadow: on ? `0 0 0 2px ${th.accent}66, 0 5px 14px -4px ${th.accent}88` : "none",
-              transition: "box-shadow .15s, border-color .15s",
-            }}>
-            <span style={{ width: 12, height: 12, borderRadius: 4, flex: "none", background: th.accent, boxShadow: `0 0 8px ${th.accent}aa` }} />
-            <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: "0.01em", color: "rgba(255,255,255,0.85)" }}>{th.label}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 /* ---- app ---------------------------------------------------------------- */
-const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
-  "theme": "indigo",
-  "density": "comfortable"
-}/*EDITMODE-END*/;
-
 function App() {
   const [state, dispatch] = React.useReducer(reducer, null, () => {
     // channel: "budget:load" — input {}, returns AppState | null (null ⇒ seed).
@@ -154,7 +124,6 @@ function App() {
   const [tab, setTab] = useState("budget");
   const [newMonth, setNewMonth] = useState(false);
   const [toastMsg, setToastMsg] = useState(null);
-  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const toastTimer = useRef(null);
   const toast = useCallback((m) => { setToastMsg(m); clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => setToastMsg(null), 2600); }, []);
 
@@ -169,17 +138,11 @@ function App() {
     try { localStorage.setItem("housebudget_v3", JSON.stringify(state)); } catch {}
   }, [state]);
 
-  // resolve theme (settings + tweak) — dark-only, 12 named palettes
-  const themePref = THEME_IDS.includes(t.theme) ? t.theme : "indigo";
+  // resolve theme from settings — dark-only, 12 named palettes
+  const themePref = THEME_IDS.includes(state.settings.theme) ? state.settings.theme : "indigo";
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", themePref);
   }, [themePref]);
-
-  // density from tweak
-  useEffect(() => { document.documentElement.setAttribute("data-density", t.density === "compact" ? "compact" : "comfortable"); }, [t.density]);
-
-  // keep settings theme in sync when changed in Settings screen
-  useEffect(() => { if (state.settings.theme !== t.theme && THEME_IDS.includes(state.settings.theme)) setTweak("theme", state.settings.theme); }, [state.settings.theme]);
 
   const currency = state.settings.currency;
   const NAV = [["budget", "Month Budget", Icons.budget], ["history", "History", Icons.history], ["settings", "Settings", Icons.settings]];
@@ -213,13 +176,6 @@ function App() {
 
       {newMonth && <NewMonthModal state={state} dispatch={dispatch} onClose={() => setNewMonth(false)} />}
       <Toast msg={toastMsg} />
-
-      <TweaksPanel>
-        <TweakSection label="Theme" />
-        <ThemePicker value={themePref} onChange={(v) => { setTweak("theme", v); dispatch({ type: "updateSettings", patch: { theme: v } }); }} />
-        <TweakSection label="Layout" />
-        <TweakRadio label="Density" value={t.density} options={["comfortable", "compact"]} onChange={(v) => setTweak("density", v)} />
-      </TweaksPanel>
     </div>
   );
 }

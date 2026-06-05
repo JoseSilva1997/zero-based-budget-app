@@ -16,98 +16,6 @@ function fmt(currency, n, opts = {}) {
   return `${neg ? "−" : opts.sign ? "+" : ""}${currency}${s}`;
 }
 
-/* ---- mock data ---------------------------------------------------------- */
-function buildSeed() {
-  const members = [
-    { id: "m_alex", name: "Alex", color: "#2fbf87" },
-    { id: "m_sam", name: "Sam", color: "#f0894e" },
-  ];
-  const accounts = [
-    { id: "acc_joint", name: "Joint", color: "#5b8def", owner: null, type: "joint" },
-    { id: "acc_a_main", name: "Alex Main", color: "#2fbf87", owner: "m_alex", type: "main" },
-    { id: "acc_s_main", name: "Sam Main", color: "#f0894e", owner: "m_sam", type: "main" },
-    { id: "acc_a_rev", name: "Alex Revolut", color: "#a87bf0", owner: "m_alex", type: "wallet" },
-    { id: "acc_s_rev", name: "Sam Revolut", color: "#e0b84a", owner: "m_sam", type: "wallet" },
-    { id: "acc_sav", name: "Savings", color: "#2dd4a8", owner: null, type: "savings" },
-  ];
-  // template of groups/items with base allocations + funding account
-  const template = [
-    { name: "House", items: [
-      { name: "Rent / Mortgage", alloc: 2150, acct: "acc_joint" },
-      { name: "Utilities", alloc: 240, acct: "acc_joint" },
-      { name: "Internet & Phone", alloc: 130, acct: "acc_joint" },
-      { name: "Home supplies", alloc: 90, acct: "acc_joint" },
-    ]},
-    { name: "Food", items: [
-      { name: "Groceries", alloc: 720, acct: "acc_joint" },
-      { name: "Dining out", alloc: 260, acct: "acc_joint" },
-      { name: "Coffee", alloc: 70, acct: "acc_a_rev" },
-    ]},
-    { name: "Transport", items: [
-      { name: "Fuel", alloc: 180, acct: "acc_joint" },
-      { name: "Car insurance", alloc: 145, acct: "acc_joint" },
-      { name: "Transit & parking", alloc: 60, acct: "acc_s_main" },
-    ]},
-    { name: "Lifestyle", items: [
-      { name: "Subscriptions", alloc: 75, acct: "acc_joint" },
-      { name: "Fitness", alloc: 90, acct: "acc_s_main" },
-      { name: "Shopping", alloc: 220, acct: "acc_a_rev" },
-      { name: "Gifts & fun", alloc: 150, acct: "acc_s_rev" },
-    ]},
-    { name: "Savings", isSavings: true, items: [
-      { name: "Emergency fund", alloc: 500, acct: "acc_sav" },
-      { name: "Vacation fund", alloc: 300, acct: "acc_sav" },
-      { name: "Retirement (extra)", alloc: 400, acct: "acc_sav" },
-    ]},
-  ];
-
-  const incomeByMonth = {
-    "2026-01": [["m_alex", 3850, "Salary"], ["m_sam", 3100, "Salary"]],
-    "2026-02": [["m_alex", 3850, "Salary"], ["m_sam", 3100, "Salary"]],
-    "2026-03": [["m_alex", 3850, "Salary"], ["m_sam", 3300, "Salary"], ["m_sam", 450, "Freelance"]],
-    "2026-04": [["m_alex", 3850, "Salary"], ["m_sam", 3300, "Salary"]],
-    "2026-05": [["m_alex", 4020, "Salary"], ["m_sam", 3300, "Salary"], ["m_alex", 600, "Bonus"]],
-  };
-
-  // per-month multipliers to vary actuals so charts look alive (kept under 1.0)
-  const spendProfile = {
-    "2026-01": 0.90, "2026-02": 0.95, "2026-03": 0.88, "2026-04": 0.96, "2026-05": 0.55,
-  };
-  // intentional over-budgets: month -> "Group/Item"
-  const overspends = {
-    "2026-02": { "Food/Dining out": 1.7, "Lifestyle/Shopping": 1.35 },
-    "2026-04": { "Food/Groceries": 1.18, "Transport/Fuel": 1.4, "Lifestyle/Gifts & fun": 1.6 },
-    "2026-05": { "Food/Coffee": 1.3 },
-  };
-
-  const order = ["2026-01","2026-02","2026-03","2026-04","2026-05"];
-  const months = {};
-  for (const mid of order) {
-    const profile = spendProfile[mid];
-    const groups = template.map((g) => ({
-      id: uid("g"), name: g.name, isSavings: !!g.isSavings, collapsed: false,
-      items: g.items.map((it) => {
-        const key = `${g.name}/${it.name}`;
-        let ratio = profile, intentionalOver = false;
-        if (overspends[mid] && overspends[mid][key]) { ratio = overspends[mid][key]; intentionalOver = true; }
-        let spent;
-        if (g.isSavings) {
-          spent = it.alloc; // savings transfers fully; never "over"
-        } else {
-          spent = it.alloc * ratio + (Math.random() - 0.5) * it.alloc * 0.06;
-          if (!intentionalOver) spent = Math.min(spent, it.alloc * 0.99);
-        }
-        if (spent < 0) spent = 0;
-        spent = round2(spent);
-        const actuals = splitIntoEntries(spent, it.name, mid, g.isSavings);
-        return { id: uid("it"), name: it.name, allocated: it.alloc, account: it.acct || null, actuals };
-      }),
-    }));
-    months[mid] = { id: mid, incomes: (incomeByMonth[mid] || []).map(([mem, amt, label]) => ({ id: uid("inc"), memberId: mem, amount: amt, label })), groups };
-  }
-  return { settings: { currency: "$", theme: "indigo", members, accounts, autoBackup: "onclose", lastBackup: "2026-05-28 9:14 PM" }, months, order, activeMonth: "2026-05" };
-}
-
 /* ---- empty state (fresh / cleared database) ----------------------------- */
 // A valid minimal AppState: the current month with nothing in it, no sample
 // members or accounts. Used when the database is empty so a deleted data file
@@ -123,30 +31,6 @@ function buildEmpty() {
   };
 }
 
-function splitIntoEntries(total, name, mid, isSavings) {
-  if (total <= 0) return [];
-  const [y, m] = mid.split("-");
-  if (isSavings) return [{ id: uid("a"), amount: round2(total), note: "Auto transfer", date: `${m}/01` }];
-  const notes = {
-    "Groceries": ["Market Hall","Whole Foods","Corner store","Costco run"],
-    "Dining out": ["Thai night","Brunch","Pizza Fri","Date dinner"],
-    "Coffee": ["Blue Bottle","Café Luna","Beans (bag)"],
-    "Fuel": ["Shell","Chevron","BP"],
-    "Shopping": ["Uniqlo","Amazon","Hardware","Bookshop"],
-    "Subscriptions": ["Netflix","Spotify","iCloud"],
-    "Gifts & fun": ["Birthday gift","Concert","Mini-golf"],
-  };
-  const pool = notes[name] || [name];
-  const count = Math.min(pool.length, total > 400 ? 3 : total > 120 ? 2 : 1);
-  const parts = []; let remaining = total;
-  for (let i = 0; i < count; i++) {
-    const isLast = i === count - 1;
-    const amt = isLast ? remaining : round2(total / count * (0.7 + Math.random() * 0.6));
-    remaining = round2(remaining - amt);
-    parts.push({ id: uid("a"), amount: Math.max(0, amt), note: pool[i % pool.length], date: `${m}/${String(3 + i * 7).padStart(2,"0")}` });
-  }
-  return parts.filter(p => p.amount > 0);
-}
 function round2(n) { return Math.round(n * 100) / 100; }
 
 /* ---- selectors ---------------------------------------------------------- */
@@ -335,7 +219,7 @@ const BUDGET_THEMES = [
 const THEME_IDS = BUDGET_THEMES.map(t => t.id);
 
 Object.assign(window, {
-  uid, MONTH_NAMES, monthLabel, prevMonthId, nextMonthId, fmt, buildSeed, buildEmpty, reducer,
+  uid, MONTH_NAMES, monthLabel, prevMonthId, nextMonthId, fmt, buildEmpty, reducer,
   BUDGET_THEMES, THEME_IDS,
   itemActual, monthIncome, monthAllocated, monthActual, monthSavings, monthUnallocated,
   groupAllocated, groupActual, overBudgetItems, accountTotals, reusableItemCandidates, normalizeItemName, round2,

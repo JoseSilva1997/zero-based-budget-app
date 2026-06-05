@@ -140,11 +140,6 @@
   --accent-soft: oklch(0.32 0.09 38); --accent-ink: oklch(0.84 0.14 38);
 }
 
-[data-density="compact"] {
-  --row-h: 40px;
-  --gap: 14px;
-}
-
 * { box-sizing: border-box; }
 html, body { height: 100%; }
 body {
