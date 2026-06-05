@@ -63,7 +63,7 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, onDragStart
   return (
     <div
       draggable={grabbed}
-      onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; onDragStart(); }}
+      onDragStart={(e) => { e.stopPropagation(); e.dataTransfer.effectAllowed = "move"; onDragStart(); }}
       onDragEnter={(e) => { e.preventDefault(); onDragOverItem(); }}
       onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
       onDrop={(e) => { e.preventDefault(); onDrop(); }}
@@ -169,10 +169,11 @@ function AddItemSearch({ state, month, groupId, currency, dispatch, onClose }) {
   );
 }
 
-function GroupCard({ group, currency, dispatch, month, accounts, state, isFirst, isLast }) {
+function GroupCard({ group, currency, dispatch, month, accounts, state, onDragStart, onDragOverGroup, onDrop, onDragEnd, isDragging }) {
   const alloc = groupAllocated(group), actual = groupActual(group);
   const diff = round2(alloc - actual);
   const [addingItem, setAddingItem] = useState(false);
+  const [grabbed, setGrabbed] = useState(false);
   const [dragId, setDragId] = useState(null);
   const [overId, setOverId] = useState(null);
   const endDrag = () => { setDragId(null); setOverId(null); };
@@ -181,8 +182,16 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, isFirst,
     endDrag();
   };
   return (
-    <div className="card fade-in" style={{ marginBottom: 14, overflow: "hidden" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 150px 158px 150px 78px", alignItems: "center", gap: 10, padding: "12px 8px", background: "var(--surface-2)", borderBottom: group.collapsed ? "none" : "1px solid var(--border-strong)" }} className="budget-row">
+    <div className="card fade-in" draggable={grabbed}
+      onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; onDragStart(); }}
+      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; const r = e.currentTarget.getBoundingClientRect(); onDragOverGroup(e.clientY > r.top + r.height / 2); }}
+      onDrop={(e) => { e.preventDefault(); onDrop(); }}
+      onDragEnd={() => { setGrabbed(false); onDragEnd(); }}
+      style={{ marginBottom: 14, overflow: "hidden", opacity: isDragging ? .4 : 1, transition: "opacity .12s" }}>
+      <div style={{ display: "flex", alignItems: "stretch" }}>
+      <div className="drag-handle" title="Drag to reorder group" onMouseDown={() => setGrabbed(true)} onMouseUp={() => setGrabbed(false)}
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, flex: "none", cursor: "grab", color: "var(--faint)", background: "var(--surface-2)", borderBottom: group.collapsed ? "none" : "1px solid var(--border-strong)" }}><Icons.drag size={25} /></div>
+      <div style={{ flex: 1, minWidth: 0, display: "grid", gridTemplateColumns: "1fr 150px 158px 150px 78px", alignItems: "center", gap: 10, padding: "16px 8px", background: "var(--surface-2)", borderBottom: group.collapsed ? "none" : "1px solid var(--border-strong)" }} className="budget-row">
         <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
           <button className="icon-btn" onClick={() => dispatch({ type: "toggleCollapse", month, groupId: group.id })} style={{ transform: group.collapsed ? "rotate(-90deg)" : "none", transition: "transform .18s" }}><Icons.down size={16} /></button>
           <TextInline value={group.name} onCommit={(v) => dispatch({ type: "renameGroup", month, groupId: group.id, name: v })} style={{ fontWeight: 600, fontSize: 15 }} />
@@ -192,11 +201,10 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, isFirst,
         <div className="mono" style={{ textAlign: "right", fontSize: 13.5, color: "var(--ink-2)", paddingRight: 9 }}>{fmt(currency, actual, { cents: false })}</div>
         <div style={{ textAlign: "right" }}><DiffPill diff={diff} currency={currency} /></div>
         <div className="row-actions" style={{ justifyContent: "flex-end" }}>
-          <button className="icon-btn" title="Move group up" disabled={isFirst} style={{ opacity: isFirst ? .25 : 1 }} onClick={() => dispatch({ type: "moveGroup", month, groupId: group.id, dir: -1 })}><Icons.up size={15} /></button>
-          <button className="icon-btn" title="Move group down" disabled={isLast} style={{ opacity: isLast ? .25 : 1 }} onClick={() => dispatch({ type: "moveGroup", month, groupId: group.id, dir: 1 })}><Icons.down size={15} /></button>
           <button className="icon-btn" title={group.isSavings ? "Unmark as savings" : "Mark as savings group"} onClick={() => dispatch({ type: "setSavings", month, groupId: group.id, value: !group.isSavings })} style={{ color: group.isSavings ? "var(--accent)" : undefined }}><Icons.plant size={15} /></button>
           <button className="icon-btn" title="Delete group (this month only)" onClick={() => dispatch({ type: "deleteGroup", month, groupId: group.id })}><Icons.trash size={15} /></button>
         </div>
+      </div>
       </div>
       {!group.collapsed && (
         <div>
@@ -208,7 +216,7 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, isFirst,
               isDragging={dragId === it.id}
               isDropTarget={overId === it.id && dragId !== it.id}
               onDragStart={() => setDragId(it.id)}
-              onDragOverItem={() => setOverId(it.id)}
+              onDragOverItem={() => { if (dragId) setOverId(it.id); }}
               onDrop={() => dropItem(it.id)}
               onDragEnd={endDrag} />
           ))}

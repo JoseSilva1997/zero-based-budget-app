@@ -250,7 +250,7 @@ function reducer(state, action) {
     case "addItem": { const g = findGroup(A.groupId); if (g) g.items.push({ id: uid("it"), name: A.name || "New item", allocated: A.allocated || 0, account: A.account || null, actuals: [] }); break; }
     case "deleteItem": { const g = findGroup(A.groupId); if (g) g.items = g.items.filter(i => i.id !== A.itemId); break; }
 
-    case "moveGroup": { const i = mo.groups.findIndex(g => g.id === A.groupId); const j = i + A.dir; if (j >= 0 && j < mo.groups.length) { const [g] = mo.groups.splice(i, 1); mo.groups.splice(j, 0, g); } break; }
+    case "reorderGroup": { const from = mo.groups.findIndex(g => g.id === A.groupId); const to = mo.groups.findIndex(g => g.id === A.targetId); if (from !== -1 && to !== -1 && from !== to) { const [g] = mo.groups.splice(from, 1); const dest = mo.groups.findIndex(x => x.id === A.targetId); mo.groups.splice(dest + (A.after ? 1 : 0), 0, g); } break; }
     case "reorderItem": { const g = findGroup(A.groupId); if (g) { const from = g.items.findIndex(x => x.id === A.itemId); const to = g.items.findIndex(x => x.id === A.targetId); if (from !== -1 && to !== -1 && from !== to) { const [it] = g.items.splice(from, 1); const dest = g.items.findIndex(x => x.id === A.targetId); g.items.splice(dest + (from < to ? 1 : 0), 0, it); } } break; }
 
     case "createMonth": {

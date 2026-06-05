@@ -12,6 +12,15 @@ function MonthBudgetScreen({ state, dispatch, currency }) {
   const [walletOpen, setWalletOpen] = useState(false);
   const commitGroup = () => { if (newGroup.trim()) dispatch({ type: "addGroup", month: mid, name: newGroup.trim() }); setNewGroup(""); setAddingGroup(false); };
   const wallet = walletSummary(mo, state.settings.accounts);
+  const [dragGroupId, setDragGroupId] = useState(null);
+  const [overGroupId, setOverGroupId] = useState(null);
+  const [overGroupAfter, setOverGroupAfter] = useState(false);
+  const endGroupDrag = () => { setDragGroupId(null); setOverGroupId(null); };
+  const dropGroup = (targetId) => {
+    if (dragGroupId && targetId && dragGroupId !== targetId) dispatch({ type: "reorderGroup", month: mid, groupId: dragGroupId, targetId, after: overGroupAfter });
+    endGroupDrag();
+  };
+  const GroupDropLine = () => <div style={{ height: 3, borderRadius: 999, background: "var(--accent)", margin: "-9px 2px 8px" }} />;
 
   return (
     <div className="fade-in">
@@ -49,9 +58,21 @@ function MonthBudgetScreen({ state, dispatch, currency }) {
         </div>
       </div>
 
-      {mo.groups.map((g, i) => (
-        <GroupCard key={g.id} group={g} currency={currency} dispatch={dispatch} month={mid} accounts={state.settings.accounts} state={state} isFirst={i === 0} isLast={i === mo.groups.length - 1} />
-      ))}
+      {mo.groups.map((g) => {
+        const showLine = dragGroupId && dragGroupId !== g.id && overGroupId === g.id;
+        return (
+          <React.Fragment key={g.id}>
+            {showLine && !overGroupAfter && <GroupDropLine />}
+            <GroupCard group={g} currency={currency} dispatch={dispatch} month={mid} accounts={state.settings.accounts} state={state}
+              isDragging={dragGroupId === g.id}
+              onDragStart={() => setDragGroupId(g.id)}
+              onDragOverGroup={(after) => { if (dragGroupId) { setOverGroupId(g.id); setOverGroupAfter(after); } }}
+              onDrop={() => dropGroup(g.id)}
+              onDragEnd={endGroupDrag} />
+            {showLine && overGroupAfter && <GroupDropLine />}
+          </React.Fragment>
+        );
+      })}
 
       {mo.groups.length === 0 && (
         <div className="card empty" style={{ marginBottom: 14 }}>
