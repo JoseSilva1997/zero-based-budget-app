@@ -55,6 +55,7 @@ function EntriesDrawer({ item, group, currency, dispatch, month }) {
 
 function ItemRow({ item, group, currency, dispatch, month, accounts, isFirst, isLast }) {
   const [open, setOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const actual = itemActual(item);
   const diff = round2(item.allocated - actual);
   const over = diff < -0.005;
@@ -80,10 +81,20 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, isFirst, is
         <div className="row-actions" style={{ justifyContent: "flex-end" }}>
           <button className="icon-btn" title="Move up" disabled={isFirst} style={{ opacity: isFirst ? .25 : 1 }} onClick={() => dispatch({ type: "moveItem", month, groupId: group.id, itemId: item.id, dir: -1 })}><Icons.up size={15} /></button>
           <button className="icon-btn" title="Move down" disabled={isLast} style={{ opacity: isLast ? .25 : 1 }} onClick={() => dispatch({ type: "moveItem", month, groupId: group.id, itemId: item.id, dir: 1 })}><Icons.down size={15} /></button>
-          <button className="icon-btn" title="Delete item (this month only)" onClick={() => dispatch({ type: "deleteItem", month, groupId: group.id, itemId: item.id })}><Icons.trash size={15} /></button>
+          <button className="icon-btn" title="Delete item (this month only)" onClick={() => setConfirmDelete(true)}><Icons.trash size={15} /></button>
         </div>
       </div>
       {open && <EntriesDrawer item={item} group={group} currency={currency} dispatch={dispatch} month={month} />}
+      {confirmDelete && (
+        <Modal onClose={() => setConfirmDelete(false)} width={440}>
+          <h3>Delete "{item.name}"?</h3>
+          <p>This removes the item from this month only. {item.actuals.length > 0 ? `Its ${item.actuals.length} spending ${item.actuals.length === 1 ? "entry" : "entries"} will be deleted too.` : ""} Past months are not affected.</p>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 18 }}>
+            <button className="btn btn-ghost" onClick={() => setConfirmDelete(false)}>Cancel</button>
+            <button className="btn btn-danger" onClick={() => { dispatch({ type: "deleteItem", month, groupId: group.id, itemId: item.id }); setConfirmDelete(false); }}><Icons.trash size={15} /> Delete item</button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
