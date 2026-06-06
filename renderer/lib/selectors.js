@@ -3,7 +3,6 @@
    no mutation. These are the read model that the UI renders from.
    ============================================================ */
 import { round2 } from "./format.js";
-import { monthLabel } from "./dates.js";
 
 const sum = (arr, f) => arr.reduce((a, x) => a + f(x), 0);
 
@@ -50,65 +49,4 @@ export function walletSummary(mo, accounts) {
 
 export function normalizeItemName(name) {
   return String(name || "").trim().toLowerCase().replace(/\s+/g, " ");
-}
-
-/** Items from earlier months not already present in the target month, ranked
- *  most-recent-first and filtered by an optional fuzzy query. */
-export function reusableItemCandidates(state, monthId, query = "") {
-  const current = state.months[monthId];
-  if (!current) return [];
-
-  const currentNames = new Set();
-  current.groups.forEach((g) => g.items.forEach((it) => currentNames.add(normalizeItemName(it.name))));
-
-  const terms = normalizeItemName(query).split(" ").filter(Boolean);
-  const seen = new Set();
-  const out = [];
-  const monthIds = [...state.order].filter((id) => id !== monthId && state.months[id]).sort().reverse();
-
-  monthIds.forEach((mid) => {
-    const mo = state.months[mid];
-    mo.groups.forEach((g) => g.items.forEach((it) => {
-      const key = normalizeItemName(it.name);
-      if (!key || currentNames.has(key) || seen.has(key)) return;
-
-      const haystack = normalizeItemName(`${it.name} ${g.name}`);
-      if (terms.length && !terms.every((t) => haystack.includes(t))) return;
-
-      seen.add(key);
-      out.push({
-        name: it.name,
-        allocated: it.allocated || 0,
-        account: it.account || null,
-        groupName: g.name,
-        isSavings: !!g.isSavings,
-        month: mid,
-        monthLabel: monthLabel(mid).short,
-      });
-    }));
-  });
-
-  return out.slice(0, 30);
-}
-
-/* Per-month time series, one element per month in state.order. Categories are
-   keyed by name (ids are regenerated when a month is copied), matching the rest
-   of the trend code. Shared by History + Dashboard. */
-export function buildSeries(state) {
-  return state.order.map((id) => {
-    const mo = state.months[id];
-    const byGroup = {};
-    mo.groups.forEach((g) => { byGroup[g.name] = round2((byGroup[g.name] || 0) + groupActual(g)); });
-    // savings allocated per category (item name) for this month
-    const savingsByCat = {};
-    mo.groups.filter((g) => g.isSavings).forEach((g) => g.items.forEach((it) => {
-      savingsByCat[it.name] = round2((savingsByCat[it.name] || 0) + it.allocated);
-    }));
-    const over = overBudgetItems(mo);
-    return {
-      id, label: monthLabel(id).short, mo,
-      income: monthIncome(mo), alloc: monthAllocated(mo), actual: monthActual(mo),
-      savings: monthSavings(mo), byGroup, savingsByCat, overCount: over.length, over,
-    };
-  });
 }

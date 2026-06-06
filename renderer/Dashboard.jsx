@@ -1,14 +1,17 @@
 /* ============================================================
-   Dashboard screen — at-a-glance overview of spending & saving
+   Dashboard screen - at-a-glance overview of spending & saving
    Trailing 12-month window; degrades gracefully with less data.
    ============================================================ */
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ChartCard, Icons } from './components.jsx';
-import { buildSeries } from './lib/index.js';
+import { useStore } from './store.jsx';
 import { BudgetAccuracyChart, CategoryTrends, CumulativeSavingsChart, HeadlineStats, SavingsChart, SpendingTiming } from './DashboardCharts.jsx';
 
-function DashboardScreen({ state, dispatch, currency, onOpenMonth }) {
-  const allSeries = useMemo(() => buildSeries(state), [state]);
+function DashboardScreen({ currency, onOpenMonth }) {
+  const { trends } = useStore();
+  const [allSeries, setAllSeries] = useState([]);
+  // SQL-computed per-month series; refetched whenever this screen mounts.
+  useEffect(() => { let live = true; trends().then((s) => { if (live) setAllSeries(s); }); return () => { live = false; }; }, [trends]);
   const series = useMemo(() => allSeries.slice(-12), [allSeries]);
   const hasAnyData = allSeries.some(s => s.actual > 0 || s.savings > 0);
   const windowLabel = series.length >= 2
@@ -58,7 +61,7 @@ function DashboardScreen({ state, dispatch, currency, onOpenMonth }) {
           </ChartCard>
 
           {/* 7. spending timing (de-emphasised) */}
-          <ChartCard title="Spending timing" sub="Average spend by day of the month — does money tend to go out early or late?" wide>
+          <ChartCard title="Spending timing" sub="Average spend by day of the month - does money tend to go out early or late?" wide>
             <SpendingTiming series={series} currency={currency} />
           </ChartCard>
         </div>

@@ -79,7 +79,7 @@ export function closeDb(): void {
 }
 
 /**
- * Closes and reopens the connection — used after a restore overwrites the
+ * Closes and reopens the connection - used after a restore overwrites the
  * live DB file on disk.
  */
 export function reopenDb(): Database.Database {

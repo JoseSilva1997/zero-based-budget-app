@@ -1,5 +1,5 @@
 /* ============================================================
-   Accounts — per-item funding account selector + funding plan
+   Accounts - per-item funding account selector + funding plan
    ============================================================ */
 import { useEffect } from 'react';
 import { Avatar, Icons, MiniBar } from './components.jsx';
@@ -44,7 +44,7 @@ function AccountPanel({ mo, accounts, members, currency, dispatch, month }) {
   const shared = assigned.filter(t => !t.account.owner);
   const sharedAmt = round2(shared.reduce((a, t) => a + t.allocated, 0));
 
-  // savings wallets — each item in the savings group is a "wallet" of the (single) savings account
+  // savings wallets - each item in the savings group is a "wallet" of the (single) savings account
   const savingsAccount = accounts.find(a => a.type === "savings");
   const savingsItems = [];
   mo.groups.filter(g => g.isSavings).forEach(g => g.items.forEach(it => {
@@ -53,7 +53,7 @@ function AccountPanel({ mo, accounts, members, currency, dispatch, month }) {
   const savingsTotal = round2(savingsItems.reduce((a, it) => a + it.allocated, 0));
 
   // "By account" order: group by owner (in member order), joint/shared accounts last.
-  // Savings accounts are excluded — they get their own per-wallet breakdown below.
+  // Savings accounts are excluded - they get their own per-wallet breakdown below.
   const ownerRank = owner => { const i = members.findIndex(m => m.id === owner); return i < 0 ? members.length : i; };
   const byAccount = assigned.filter(t => t.account.type !== "savings").sort((a, b) => {
     const ao = a.account.owner, bo = b.account.owner;
@@ -117,7 +117,7 @@ function AccountPanel({ mo, accounts, members, currency, dispatch, month }) {
         })}
       </div>
 
-      {/* savings wallets — breakdown of the savings group into the savings account's wallets */}
+      {/* savings wallets - breakdown of the savings group into the savings account's wallets */}
       {savingsItems.length > 0 && (
         <>
           <div style={{ fontSize: 11, color: "var(--ink-2)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 10, marginTop: 22, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -161,7 +161,7 @@ function hexToSoft(hex) {
   return `rgba(${r}, ${g}, ${b}, 0.20)`;
 }
 
-/* the Wallet drawer — slide-over holding the panel */
+/* the Wallet drawer - slide-over holding the panel */
 function WalletDrawer({ mo, accounts, members, currency, dispatch, month, onClose }) {
   useEffect(() => { const h = (e) => e.key === "Escape" && onClose(); window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h); }, [onClose]);
   const { toFund, hasUnassigned } = walletSummary(mo, accounts);

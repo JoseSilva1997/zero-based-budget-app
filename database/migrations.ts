@@ -1,5 +1,5 @@
 /* ============================================================
-   Migration system — integer versioning via PRAGMA user_version.
+   Migration system - integer versioning via PRAGMA user_version.
 
    - The committed `schema` + `triggers` are the baseline = version 1.
    - Each migration is a numbered, idempotent `up(db)`.
@@ -75,7 +75,7 @@ const MIGRATIONS: Migration[] = [
     version: 6,
     name: 'drop unused tables, columns, triggers and indices',
     // Not atomic: a table rebuild needs PRAGMA foreign_keys=OFF, which only
-    // takes effect outside a transaction. Idempotent — a no-op on a DB that is
+    // takes effect outside a transaction. Idempotent - a no-op on a DB that is
     // already lean (every drop is guarded), so it is safe to re-run.
     atomic: false,
     up: (db) => {
@@ -177,7 +177,7 @@ const MIGRATIONS: Migration[] = [
 
           if (hasColumn(db, 'budget_item_actual_entries', 'entered_by_member_id')) {
             // entered_by_member_id is a foreign-key column, so DROP COLUMN is
-            // refused — rebuild the table without it.
+            // refused - rebuild the table without it.
             db.exec(`
               CREATE TABLE budget_item_actual_entries_new (
                 id INTEGER PRIMARY KEY,

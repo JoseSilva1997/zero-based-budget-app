@@ -1,7 +1,6 @@
 /* ============================================================
-   app_meta — key/value store for blob-level state with no normalised
-   home: currency, theme, autoBackup, lastBackup, activeMonth, and a
-   `saved` flag (so budget:load can return null on a truly fresh DB).
+   app_meta - key/value store for blob-level state with no normalised
+   home: currency, theme, autoBackup, lastBackup, and the active month key.
    ============================================================ */
 import type Database from 'better-sqlite3';
 
@@ -10,8 +9,7 @@ export type MetaKey =
   | 'theme'
   | 'autoBackup'
   | 'lastBackup'
-  | 'activeMonth'
-  | 'saved';
+  | 'activeMonth';
 
 export function getMeta(db: Database.Database, key: MetaKey): string | null {
   const row = db.prepare(`SELECT value FROM app_meta WHERE key = ?`).get(key) as

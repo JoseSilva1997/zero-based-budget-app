@@ -1,10 +1,10 @@
 /* ============================================================
-   House Budget — sleek dark system
+   House Budget - sleek dark system
    Deep slate / charcoal base · 12 swappable accent themes
    ============================================================ */
 :root {
   --font-sans: "Geist", system-ui, -apple-system, sans-serif;
-  /* serif dropped — alias to sans so legacy .serif usages stay clean */
+  /* serif dropped - alias to sans so legacy .serif usages stay clean */
   --font-serif: var(--font-sans);
   --font-mono: "Geist Mono", ui-monospace, "SF Mono", monospace;
 
@@ -19,7 +19,7 @@
   --info: oklch(0.72 0.13 240);
   --info-soft: oklch(0.31 0.08 240);
 
-  /* text drawn on top of an accent fill — overridden per light-accent theme */
+  /* text drawn on top of an accent fill - overridden per light-accent theme */
   --on-accent: #ffffff;
 
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.4), 0 1px 1px rgba(0,0,0,0.3);
@@ -44,7 +44,7 @@
 }
 
 /* ============================================================
-   Theme palettes — cool-slate / true-black / charcoal / navy / warm
+   Theme palettes - cool-slate / true-black / charcoal / navy / warm
    Each sets surface ramp, ink ramp, borders, and the accent family.
    ============================================================ */
 
@@ -336,7 +336,7 @@ input { font-family: inherit; }
 .drawer-body::-webkit-scrollbar { width: 10px; }
 .drawer-body::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 99px; border: 3px solid var(--surface); }
 
-/* wallet trigger button — accent-tinted hero action */
+/* wallet trigger button - accent-tinted hero action */
 .wallet-btn {
   gap: 8px; font-weight: 600;
   background: color-mix(in srgb, var(--accent) 13%, var(--surface));
@@ -358,7 +358,7 @@ input { font-family: inherit; }
 }
 .wallet-btn .wallet-warn { width: 7px; height: 7px; border-radius: 99px; background: var(--neg); flex: none; box-shadow: 0 0 0 3px var(--neg-soft); }
 
-/* new month — subtle accent edge */
+/* new month - subtle accent edge */
 .new-month-btn {
   font-weight: 600;
   border-color: color-mix(in srgb, var(--accent) 30%, var(--border));

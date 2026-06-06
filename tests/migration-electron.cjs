@@ -1,6 +1,6 @@
 /* ============================================================
    Migration test: builds an in-memory DB shaped like a real pre-cleanup
-   database (schema version 5 — dead tables/columns present, populated with
+   database (schema version 5 - dead tables/columns present, populated with
    data), runs the compiled migration runner, and asserts that migration 6
    removes the dead schema while preserving all data and referential integrity.
 

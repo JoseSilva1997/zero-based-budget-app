@@ -3,9 +3,9 @@
 
    Two layers live here:
 
-   1. DB-layer entity types — one per table in `schema`. All money is
+   1. DB-layer entity types - one per table in `schema`. All money is
       `number` (integer cents); all dates are `string`.
-   2. The renderer `AppState` "blob" types — the exact shape the existing
+   2. The renderer `AppState` "blob" types - the exact shape the existing
       frontend loads/saves through `window.api`. NOTE: in the blob, money is
       expressed in DOLLARS (float), ids are STRINGS, and actual-entry dates
       are "M/DD" (no year). The repository layer converts between the two.
@@ -159,7 +159,113 @@ export interface AppState {
   activeMonth: string;
 }
 
-/* ---------- 3. IPC envelope + payloads ----------------------------------- */
+/* ---------- 3. SQL-computed read models ---------------------------------- */
+/* Returned over IPC to the renderer. Money is DOLLARS (float), ids are the
+   DB-owned INTEGER PKs, and actual-entry dates carry both the raw "YYYY-MM-DD"
+   ('spent_on') and the UI's "M/DD" ('date'). */
+
+export interface ActualRead {
+  id: number;
+  amount: number; // dollars
+  note: string;
+  date: string; // "M/DD"
+  spent_on: string; // "YYYY-MM-DD"
+}
+
+export interface ItemRead {
+  id: number;
+  name: string;
+  allocated: number; // dollars
+  account: number | null; // bank_account id
+  actuals: ActualRead[];
+}
+
+export interface GroupRead {
+  id: number;
+  name: string;
+  isSavings: boolean;
+  collapsed: boolean;
+  kind: GroupKind;
+  items: ItemRead[];
+}
+
+export interface IncomeRead {
+  id: number;
+  memberId: number;
+  amount: number; // dollars
+  label: string;
+}
+
+export interface MonthTree {
+  id: number; // budget_months.id
+  month: string; // "YYYY-MM"
+  incomes: IncomeRead[];
+  groups: GroupRead[];
+}
+
+export interface MonthTotals {
+  income: number;
+  allocated: number;
+  actual: number;
+  savings: number;
+  unallocated: number;
+}
+
+export interface FundingPlanRow {
+  account: BankAccount | null; // null = unassigned bucket
+  allocated: number;
+  actual: number;
+  count: number;
+}
+
+export interface OverBudgetRow {
+  group: string;
+  item: string;
+  over: number;
+  allocated: number;
+  actual: number;
+}
+
+export interface TrendPoint {
+  id: number;
+  month: string; // "YYYY-MM"
+  income: number;
+  alloc: number;
+  actual: number;
+  savings: number;
+  byGroup: Record<string, number>; // group name -> actual (dollars)
+  savingsByCat: Record<string, number>; // item name -> allocated (dollars)
+  overCount: number;
+  over: OverBudgetRow[]; // the over-budget items themselves (for chronic-offender charts)
+  byDay: number[]; // length 32, index 1..31 -> dollars spent on that day-of-month
+}
+
+export interface ReusableCandidate {
+  name: string;
+  allocated: number; // dollars
+  account: number | null;
+  groupName: string;
+  isSavings: boolean;
+  month: string; // "YYYY-MM"
+}
+
+export interface BootstrapSettings {
+  currency: string;
+  theme: string;
+  autoBackup: AutoBackupMode;
+  lastBackup: string | null;
+  members: HouseholdMember[];
+  accounts: BankAccount[];
+}
+
+/** The one-shot read the renderer issues on startup (and after a restore). */
+export interface BootstrapData {
+  settings: BootstrapSettings;
+  monthList: BudgetMonth[];
+  activeMonth: string | null; // "YYYY-MM", null on a fresh/empty DB
+}
+
+/* ---------- 4. IPC envelope + payloads ----------------------------------- */
 
 export type IpcResult<T> = { data: T } | { error: string };
 

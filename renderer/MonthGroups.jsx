@@ -1,10 +1,11 @@
 /* ============================================================
-   Groups & Items — collapsible groups, inline edit, quick-add,
+   Groups & Items - collapsible groups, inline edit, quick-add,
    reorder, delete-this-month-only, and the New Month flow.
    ============================================================ */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DiffPill, Icons, MiniBar, Modal, MoneyInput, TextInline, evalMoney, isExpr } from './components.jsx';
-import { actualDay, daysInMonth, fmt, groupActual, groupAllocated, itemActual, makeActualDate, monthLabel, nextMonthId, normalizeItemName, reusableItemCandidates, round2 } from './lib/index.js';
+import { actualDay, daysInMonth, fmt, groupActual, groupAllocated, itemActual, makeActualDate, monthLabel, nextMonthId, normalizeItemName, round2 } from './lib/index.js';
+import { useStore } from './store.jsx';
 import { AccountSelect } from './Accounts.jsx';
 
 /* Small day-of-month editor (1..last day of the month). */
@@ -138,10 +139,17 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
   );
 }
 
-function AddItemSearch({ state, month, groupId, currency, dispatch, onClose }) {
+function AddItemSearch({ month, groupId, currency, dispatch, onClose }) {
+  const { reusableItems } = useStore();
   const [query, setQuery] = useState("");
+  const [candidates, setCandidates] = useState([]);
   const rootRef = useRef(null);
-  const candidates = useMemo(() => reusableItemCandidates(state, month, query), [state, month, query]);
+  // Candidates come from SQL (items in other months not present in this one).
+  useEffect(() => {
+    let live = true;
+    reusableItems(query).then((c) => { if (live) setCandidates(c); });
+    return () => { live = false; };
+  }, [reusableItems, query]);
   const exact = candidates.find(c => normalizeItemName(c.name) === normalizeItemName(query));
   const trimmed = query.trim();
   useEffect(() => {
@@ -267,7 +275,7 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, onDragSt
               onDragEnd={endDrag} />
           ))}
           {addingItem ? (
-            <AddItemSearch state={state} month={month} groupId={group.id} currency={currency} dispatch={dispatch} onClose={() => setAddingItem(false)} />
+            <AddItemSearch month={month} groupId={group.id} currency={currency} dispatch={dispatch} onClose={() => setAddingItem(false)} />
           ) : (
             <div style={{ background: "var(--surface-2)", borderTop: "1px solid var(--hairline)", padding: "4px 0" }}>
               <button className="btn btn-ghost btn-sm" style={{ margin: "8px 10px", color: "var(--muted)" }} onClick={() => setAddingItem(true)}><Icons.plus size={14} /> Add item</button>
@@ -280,16 +288,20 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, onDragSt
 }
 
 /* ---- new month modal ---------------------------------------------------- */
-function NewMonthModal({ state, onClose, dispatch }) {
+function NewMonthModal({ onClose, dispatch }) {
+  const { state, getMonth } = useStore();
   const lastId = state.order[state.order.length - 1];
   const targetId = nextMonthId(lastId);
   const lbl = monthLabel(targetId);
   const prevLbl = monthLabel(lastId);
-  const hasPrev = !!state.months[lastId];
+  const hasPrev = !!lastId;
   const [copy, setCopy] = useState(true);
   const [copyIncome, setCopyIncome] = useState(true);
-  const prevGroups = hasPrev ? state.months[lastId].groups.length : 0;
-  const prevItems = hasPrev ? state.months[lastId].groups.reduce((a, g) => a + g.items.length, 0) : 0;
+  // The source (latest) month may not be the cached active one - fetch it for counts.
+  const [prev, setPrev] = useState(null);
+  useEffect(() => { let live = true; if (lastId) getMonth(lastId).then((m) => { if (live) setPrev(m); }); return () => { live = false; }; }, [lastId, getMonth]);
+  const prevGroups = prev ? prev.groups.length : 0;
+  const prevItems = prev ? prev.groups.reduce((a, g) => a + g.items.length, 0) : 0;
   const create = () => { dispatch({ type: "createMonth", id: targetId, copyFrom: copy ? lastId : null, copyIncome: copy && copyIncome }); onClose(); };
   return (
     <Modal onClose={onClose} width={500}>
@@ -313,7 +325,7 @@ function NewMonthModal({ state, onClose, dispatch }) {
             <div style={radioStyle(!copy)}>{!copy && <Icons.check size={13} />}</div>
             <div>
               <div style={{ fontWeight: 600, fontSize: 14 }}>Start empty</div>
-              <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 2 }}>A blank month — add groups and items from scratch.</div>
+              <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 2 }}>A blank month - add groups and items from scratch.</div>
             </div>
           </label>
         </div>
@@ -323,7 +335,7 @@ function NewMonthModal({ state, onClose, dispatch }) {
         <button className="btn btn-primary" onClick={create}><Icons.plus size={15} /> Create {lbl.mo}</button>
       </div>
       <div style={{ marginTop: 14, fontSize: 11.5, color: "var(--faint)", display: "flex", alignItems: "center", gap: 6 }}>
-        <Icons.check size={13} /> The new month is fully independent — edits here never change past months.
+        <Icons.check size={13} /> The new month is fully independent - edits here never change past months.
       </div>
     </Modal>
   );

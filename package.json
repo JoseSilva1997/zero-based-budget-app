@@ -1,7 +1,7 @@
 {
   "name": "house-budget",
   "version": "1.0.0",
-  "description": "House Budget — local-first zero-based budgeting (Electron + SQLite).",
+  "description": "House Budget - local-first zero-based budgeting (Electron + SQLite).",
   "main": "build/main/index.js",
   "author": "",
   "license": "MIT",

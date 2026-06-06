@@ -1,19 +1,30 @@
 /* ============================================================
-   History screen — month list, comparison, trends (charts)
-   buildSeries lives in lib/selectors.js; ChartCard in components.jsx.
+   History screen - month list, comparison, trends (charts).
+   The per-month series comes from the store's 'trends' read (SQL-computed);
+   ChartCard lives in components.jsx.
    ============================================================ */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ChartCard, Icons, Modal } from './components.jsx';
-import { buildSeries, fmt, groupActual, groupAllocated, itemActual, monthLabel, round2 } from './lib/index.js';
+import { useStore } from './store.jsx';
+import { fmt, groupActual, groupAllocated, itemActual, monthLabel, round2 } from './lib/index.js';
 
-function HistoryScreen({ state, dispatch, currency, onOpenMonth }) {
-  const series = useMemo(() => buildSeries(state), [state]);
+function HistoryScreen({ currency, onOpenMonth }) {
+  const { state, trends, getMonth } = useStore();
+  const activeMonth = state.activeMonth;
+  const [series, setSeries] = useState([]);
+  useEffect(() => { let live = true; trends().then((s) => { if (live) setSeries(s); }); return () => { live = false; }; }, [trends]);
   const groupNames = useMemo(() => {
     const set = []; series.forEach(s => Object.keys(s.byGroup).forEach(n => { if (!set.includes(n)) set.push(n); })); return set;
   }, [series]);
   const [detail, setDetail] = useState(null);
-  const [cmpA, setCmpA] = useState(series[Math.max(0, series.length - 2)]?.id);
-  const [cmpB, setCmpB] = useState(series[series.length - 1]?.id);
+  const [cmpA, setCmpA] = useState(null);
+  const [cmpB, setCmpB] = useState(null);
+  // Default the comparison selectors to the two most recent months once loaded.
+  useEffect(() => {
+    if (!series.length) return;
+    setCmpA((v) => v ?? series[Math.max(0, series.length - 2)]?.id);
+    setCmpB((v) => v ?? series[series.length - 1]?.id);
+  }, [series]);
 
   return (
     <div className="fade-in">
@@ -36,7 +47,7 @@ function HistoryScreen({ state, dispatch, currency, onOpenMonth }) {
             <button key={s.id} onClick={() => setDetail(s.id)} className="budget-row" style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr 1fr 1fr 90px", gap: 10, padding: "13px 18px", alignItems: "center", borderTop: "1px solid var(--hairline)", background: "transparent", border: "none", borderTopWidth: 1, borderTopStyle: "solid", borderTopColor: "var(--hairline)", width: "100%", textAlign: "left", cursor: "pointer", color: "var(--ink)" }}>
               <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontWeight: 600, fontSize: 14 }}>{s.label}</span>
-                {s.id === state.activeMonth && <span className="pill pill-neutral" style={{ fontSize: 10 }}>current</span>}
+                {s.id === activeMonth && <span className="pill pill-neutral" style={{ fontSize: 10 }}>current</span>}
               </span>
               <span className="mono" style={{ textAlign: "right", fontSize: 13.5 }}>{fmt(currency, s.income, { cents: false })}</span>
               <span className="mono" style={{ textAlign: "right", fontSize: 13.5 }}>{fmt(currency, s.alloc, { cents: false })}</span>
@@ -52,7 +63,7 @@ function HistoryScreen({ state, dispatch, currency, onOpenMonth }) {
       <div className="section-head"><h2>Compare months</h2></div>
       <Comparison series={series} cmpA={cmpA} cmpB={cmpB} setCmpA={setCmpA} setCmpB={setCmpB} currency={currency} groupNames={groupNames} />
 
-      {detail && <MonthDetail series={series.find(s => s.id === detail)} currency={currency} onClose={() => setDetail(null)} onOpen={() => { onOpenMonth(detail); setDetail(null); }} isCurrent={detail === state.activeMonth} />}
+      {detail && <MonthDetail series={series.find(s => s.id === detail)} getMonth={getMonth} currency={currency} onClose={() => setDetail(null)} onOpen={() => { onOpenMonth(detail); setDetail(null); }} isCurrent={detail === activeMonth} />}
     </div>
   );
 }
@@ -103,8 +114,9 @@ function Comparison({ series, cmpA, cmpB, setCmpA, setCmpB, currency, groupNames
 }
 
 /* read-only month detail */
-function MonthDetail({ series, currency, onClose, onOpen, isCurrent }) {
-  const mo = series.mo;
+function MonthDetail({ series, getMonth, currency, onClose, onOpen, isCurrent }) {
+  const [mo, setMo] = useState(null);
+  useEffect(() => { let live = true; getMonth(series.id).then((m) => { if (live) setMo(m); }); return () => { live = false; }; }, [series.id, getMonth]);
   return (
     <Modal onClose={onClose} width={620}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
@@ -123,7 +135,8 @@ function MonthDetail({ series, currency, onClose, onOpen, isCurrent }) {
         ))}
       </div>
       <div style={{ maxHeight: 320, overflowY: "auto", margin: "0 -4px", paddingRight: 4 }}>
-        {mo.groups.map(g => (
+        {!mo && <div style={{ padding: "12px 8px", color: "var(--muted)", fontSize: 13 }}>Loading…</div>}
+        {mo && mo.groups.map(g => (
           <div key={g.id} style={{ marginBottom: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 600, fontSize: 13.5, padding: "6px 8px", background: "var(--surface-2)", borderRadius: 7 }}>
               <span>{g.name}{g.isSavings ? " · savings" : ""}</span>

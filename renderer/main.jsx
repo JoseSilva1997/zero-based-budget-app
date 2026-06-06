@@ -1,10 +1,11 @@
 /* ============================================================
-   App shell — nav, theme, month budget composition, tweaks
+   App shell - nav, theme, month budget composition, tweaks
    Entry point: esbuild bundles starting here, following the imports below.
    ============================================================ */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
-import { THEME_IDS, buildEmpty, fmt, monthLabel, reducer, walletSummary } from './lib/index.js';
+import { THEME_IDS, fmt, monthLabel, walletSummary } from './lib/index.js';
+import { StoreProvider, useStore } from './store.jsx';
 import { Avatar, Icons } from './components.jsx';
 import { WalletDrawer } from './Accounts.jsx';
 import { GroupCard, NewMonthModal } from './MonthGroups.jsx';
@@ -45,7 +46,7 @@ function MonthBudgetScreen({ state, dispatch, currency }) {
           <button className="month-step" disabled={idx >= state.order.length - 1} title="Next month" onClick={() => dispatch({ type: "setActive", id: state.order[idx + 1] })}><Icons.right size={18} /></button>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn wallet-btn" onClick={() => setWalletOpen(true)} title="Open Wallet — funding plan by account">
+          <button className="btn wallet-btn" onClick={() => setWalletOpen(true)} title="Open Wallet - funding plan by account">
             <Icons.wallet size={16} />
             Wallet
             <span className="wallet-amt">{fmt(currency, wallet.toFund, { cents: false })}</span>
@@ -114,24 +115,21 @@ function Toast({ msg }) {
   return <div style={{ position: "fixed", bottom: 26, left: "50%", transform: "translateX(-50%)", background: "var(--ink)", color: "var(--surface)", padding: "11px 18px", borderRadius: 10, fontSize: 13.5, fontWeight: 500, boxShadow: "var(--shadow-lg)", zIndex: 80, display: "flex", alignItems: "center", gap: 9, animation: "pop .2s ease" }}><Icons.check size={16} style={{ color: "var(--accent)" }} /> {msg}</div>;
 }
 
+/* ---- loading shell ------------------------------------------------------ */
+function LoadingScreen() {
+  return (
+    <div style={{ position: "fixed", inset: 0, display: "grid", placeItems: "center", color: "var(--muted)", fontSize: 14 }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+        <div className="brand-mark"><Icons.plant size={22} /></div>
+        Loading your budget…
+      </div>
+    </div>
+  );
+}
+
 /* ---- app ---------------------------------------------------------------- */
 function App() {
-  const [state, dispatch] = React.useReducer(reducer, null, () => {
-    // channel: "budget:load" — input {}, returns AppState | null (null ⇒ seed).
-    const normaliseTheme = (st) => { if (st && st.settings && !THEME_IDS.includes(st.settings.theme)) st.settings.theme = "indigo"; return st; };
-    if (window.api && typeof window.api.loadBudget === "function") {
-      try {
-        const loaded = window.api.loadBudget();
-        return loaded ? normaliseTheme(loaded) : buildEmpty();
-      } catch (e) { console.error("budget:load failed", e); }
-    }
-    // Browser fallback (no Electron): localStorage.
-    try {
-      const saved = localStorage.getItem("housebudget_v3");
-      if (saved) return normaliseTheme(JSON.parse(saved));
-    } catch {}
-    return buildEmpty();
-  });
+  const { state, loading, error, dispatch } = useStore();
   const [tab, setTab] = useState("dashboard");
   const [newMonth, setNewMonth] = useState(false);
   const [toastMsg, setToastMsg] = useState(null);
@@ -139,21 +137,16 @@ function App() {
   const toast = useCallback((m) => { setToastMsg(m); clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => setToastMsg(null), 2600); }, []);
 
   useEffect(() => { window.__openNewMonth = () => setNewMonth(true); }, []);
-  useEffect(() => {
-    // channel: "budget:save" — input { state }, returns { ok }.
-    if (window.api && typeof window.api.saveBudget === "function") {
-      window.api.saveBudget(state).catch((e) => console.error("budget:save failed", e));
-      return;
-    }
-    // Browser fallback (no Electron): localStorage.
-    try { localStorage.setItem("housebudget_v3", JSON.stringify(state)); } catch {}
-  }, [state]);
+  // Surface store/IPC failures (e.g. removing a member still referenced) as toasts.
+  useEffect(() => { if (error) toast(error.message); }, [error, toast]);
 
-  // resolve theme from settings — dark-only, 12 named palettes
-  const themePref = THEME_IDS.includes(state.settings.theme) ? state.settings.theme : "indigo";
+  // resolve theme from settings - dark-only, 12 named palettes
+  const themePref = state && THEME_IDS.includes(state.settings.theme) ? state.settings.theme : "indigo";
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", themePref);
   }, [themePref]);
+
+  if (loading || !state) return <LoadingScreen />;
 
   const currency = state.settings.currency;
   const NAV = [["dashboard", "Dashboard", Icons.monitor], ["budget", "Month Budget", Icons.budget], ["history", "History", Icons.history], ["settings", "Settings", Icons.settings]];
@@ -179,17 +172,21 @@ function App() {
 
       <main className="main">
         <div className="main-inner">
-          {tab === "dashboard" && <DashboardScreen state={state} dispatch={dispatch} currency={currency} onOpenMonth={(id) => { dispatch({ type: "setActive", id }); setTab("budget"); }} />}
+          {tab === "dashboard" && <DashboardScreen currency={currency} onOpenMonth={(id) => { dispatch({ type: "setActive", id }); setTab("budget"); }} />}
           {tab === "budget" && <MonthBudgetScreen state={state} dispatch={dispatch} currency={currency} />}
-          {tab === "history" && <HistoryScreen state={state} dispatch={dispatch} currency={currency} onOpenMonth={(id) => { dispatch({ type: "setActive", id }); setTab("budget"); }} />}
+          {tab === "history" && <HistoryScreen currency={currency} onOpenMonth={(id) => { dispatch({ type: "setActive", id }); setTab("budget"); }} />}
           {tab === "settings" && <SettingsScreen state={state} dispatch={dispatch} currency={currency} toast={toast} />}
         </div>
       </main>
 
-      {newMonth && <NewMonthModal state={state} dispatch={dispatch} onClose={() => setNewMonth(false)} />}
+      {newMonth && <NewMonthModal dispatch={dispatch} onClose={() => setNewMonth(false)} />}
       <Toast msg={toastMsg} />
     </div>
   );
 }
 
-createRoot(document.getElementById("root")).render(<App />);
+createRoot(document.getElementById("root")).render(
+  <StoreProvider>
+    <App />
+  </StoreProvider>
+);

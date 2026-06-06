@@ -44,7 +44,7 @@ function findTargets(dir, out = []) {
 
 const nm = join(process.cwd(), 'node_modules');
 if (!existsSync(nm)) {
-  console.error('node_modules not found — run `npm install` first.');
+  console.error('node_modules not found - run `npm install` first.');
   process.exit(1);
 }
 

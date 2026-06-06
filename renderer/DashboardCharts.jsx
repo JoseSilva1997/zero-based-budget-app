@@ -1,10 +1,10 @@
 /* ============================================================
-   Dashboard chart toolkit — Recharts widgets + shared tooltip
+   Dashboard chart toolkit - Recharts widgets + shared tooltip
    ============================================================ */
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
          AreaChart, Area, ComposedChart, Line, LabelList } from 'recharts';
 import { ChartCard, Icons } from './components.jsx';
-import { GROUP_PALETTE, actualDay, buildSeries, fmt, round2 } from './lib/index.js';
+import { GROUP_PALETTE, fmt, round2 } from './lib/index.js';
 
 /* short "Jan" style x-axis label from a "Jan 2025" series label */
 const shortMo = (label) => String(label).split(" ")[0];
@@ -19,7 +19,7 @@ function abbrMoney(v, c = "$") {
 const axisProps = { stroke: "var(--hairline)", tick: { fill: "var(--faint)", fontSize: 11 }, tickLine: false };
 const gridProps = { stroke: "var(--hairline)", strokeDasharray: "0", vertical: false };
 
-/* themed tooltip — mirrors the dark var(--ink) box from Charts.jsx.
+/* themed tooltip - mirrors the dark var(--ink) box from Charts.jsx.
    Recharts injects { active, payload, label }; extra props are passed by us. */
 function DashTooltip(props) {
   const { active, payload, label, currency = "$", heading, rows, hideZero } = props;
@@ -246,11 +246,14 @@ function SpendingTiming({ series, currency }) {
   if (!months) return <ChartEmpty note="No months tracked yet." />;
   const totals = new Array(32).fill(0); // index 1..31
   let anySpend = false;
-  series.forEach(m => m.mo.groups.forEach(g => g.items.forEach(it => it.actuals.forEach(a => {
-    const day = actualDay(a, m.id);
-    totals[day] = round2(totals[day] + (a.amount || 0));
-    if (a.amount > 0) anySpend = true;
-  }))));
+  // byDay is the SQL-computed per-day spend for each month (dollars).
+  series.forEach(m => {
+    const bd = m.byDay || [];
+    for (let d = 1; d <= 31; d++) {
+      const v = bd[d] || 0;
+      if (v > 0) { totals[d] = round2(totals[d] + v); anySpend = true; }
+    }
+  });
   if (!anySpend) return <ChartEmpty note="No dated spending yet. Add some actuals to see when money goes out." />;
   let cum = 0;
   const data = [];

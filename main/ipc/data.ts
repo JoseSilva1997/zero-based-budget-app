@@ -1,5 +1,5 @@
 /* ============================================================
-   IPC: data:revealFolder — opens the userData folder in the OS explorer.
+   IPC: data:revealFolder - opens the userData folder in the OS explorer.
    ============================================================ */
 import { ipcMain, shell } from 'electron';
 import { userDataDir } from '../paths';

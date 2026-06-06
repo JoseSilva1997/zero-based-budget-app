@@ -23,40 +23,31 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
   const fileRef = useRef(null);
 
   const doBackup = async () => {
-    // channel: "backup:create" — input { state }, returns { path, savedAt }.
+    // channel: "backup:create" - no input (DB is already current), returns { path, savedAt }.
     if (window.api && typeof window.api.createBackup === "function") {
       try {
-        const { savedAt } = await window.api.createBackup(state);
-        dispatch({ type: "updateSettings", patch: { lastBackup: savedAt } });
+        await window.api.createBackup();
+        dispatch({ type: "refreshSettings" }); // pick up the new lastBackup from SQL
         toast("Backup saved to your data folder");
       } catch (err) { console.error("backup:create failed", err); toast("Backup failed"); }
       return;
     }
-    // Browser fallback (no Electron): download a JSON snapshot.
-    const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = `house-budget-backup-${new Date().toISOString().slice(0, 10)}.json`; a.click();
-    URL.revokeObjectURL(url);
-    dispatch({ type: "updateSettings", patch: { lastBackup: new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) } });
-    toast("Backup saved to your downloads folder");
+    toast("Backups need the desktop app");
   };
   const doRestore = async (e) => {
     const f = e.target.files[0]; if (!f) return;
-    // channel: "backup:restore" — input { filePath }, returns { state }.
+    // channel: "backup:restore" - input { filePath }; renderer re-bootstraps after.
     const filePath = window.api && typeof window.api.pathForFile === "function" ? window.api.pathForFile(f) : f.path;
     if (window.api && typeof window.api.restoreBackup === "function" && filePath) {
       try {
-        const { state: restored } = await window.api.restoreBackup(filePath);
-        if (restored && restored.months && restored.settings) { dispatch({ type: "restore", data: restored }); toast("Backup restored"); }
-        else toast("That doesn't look like a valid backup");
+        await window.api.restoreBackup(filePath);
+        dispatch({ type: "restore" }); // re-hydrate the whole store from the restored DB
+        toast("Backup restored");
       } catch (err) { console.error("backup:restore failed", err); toast("Couldn't restore that file"); }
       e.target.value = ""; return;
     }
-    // Browser fallback (no Electron): read a JSON backup file.
-    const r = new FileReader();
-    r.onload = () => { try { const data = JSON.parse(r.result); if (data.months && data.settings) { dispatch({ type: "restore", data }); toast("Backup restored"); } else toast("That doesn't look like a valid backup"); } catch { toast("Couldn't read that file"); } };
-    r.readAsText(f); e.target.value = "";
+    toast("Restoring needs the desktop app");
+    e.target.value = "";
   };
 
   const CURRENCIES = ["$", "£", "€", "¥", "₹", "C$", "A$"];
@@ -82,7 +73,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
       <div className="section-head"><h2>Appearance</h2></div>
       <div className="card" style={{ padding: "18px 22px" }}>
         <div style={{ fontWeight: 600, fontSize: 14.5 }}>Theme</div>
-        <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 3, marginBottom: 16, lineHeight: 1.45 }}>Twelve dark palettes. Switch any time — also available from the Tweaks panel.</div>
+        <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 3, marginBottom: 16, lineHeight: 1.45 }}>Twelve dark palettes. Switch any time - also available from the Tweaks panel.</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
           {BUDGET_THEMES.map((th) => {
             const on = s.theme === th.id;
@@ -130,7 +121,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
       <div className="section-head"><h2>Funding accounts</h2></div>
       <div className="card">
         <div style={{ padding: "12px 22px", fontSize: 12.5, color: "var(--muted)", borderTop: "1px solid var(--hairline)", lineHeight: 1.5 }}>
-          Accounts are <em>where</em> money lives — main accounts, shared/joint, wallets like Revolut, or savings. Assign each budget item to one account, and the Month Budget funding plan shows who moves what.
+          Accounts are <em>where</em> money lives - main accounts, shared/joint, wallets like Revolut, or savings. Assign each budget item to one account, and the Month Budget funding plan shows who moves what.
         </div>
         {(s.accounts || []).map(a => {
           const owner = s.members.find(m => m.id === a.owner);
@@ -173,7 +164,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
         </Setting>
         <Setting title="Data folder" sub="Your database lives in the app's private data folder on this Mac.">
           <button className="btn" onClick={async () => {
-            // channel: "data:revealFolder" — input {}, returns { path }.
+            // channel: "data:revealFolder" - input {}, returns { path }.
             if (window.api && typeof window.api.revealDataFolder === "function") {
               try { await window.api.revealDataFolder(); toast("Opening data folder…"); }
               catch (err) { console.error("data:revealFolder failed", err); toast("Couldn't open the data folder"); }

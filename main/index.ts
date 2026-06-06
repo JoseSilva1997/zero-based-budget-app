@@ -65,7 +65,11 @@ app.on('before-quit', (event) => {
   if (didCloseTasks) return;
 
   const db = getDb();
-  const wantsBackup = getMeta(db, 'autoBackup') === 'onclose' && getMeta(db, 'saved') === '1';
+  // Back up on close when enabled, but skip an empty database (no months) so a
+  // never-used app makes no backups.
+  const hasData =
+    (db.prepare(`SELECT COUNT(*) AS n FROM budget_months`).get() as { n: number }).n > 0;
+  const wantsBackup = getMeta(db, 'autoBackup') === 'onclose' && hasData;
 
   if (!wantsBackup) {
     didCloseTasks = true;

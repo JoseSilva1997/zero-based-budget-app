@@ -76,7 +76,7 @@ export function pruneBackups(backupsDir: string, keep = MAX_BACKUPS): void {
     try {
       fs.unlinkSync(old.path);
     } catch {
-      /* ignore — best-effort prune */
+      /* ignore - best-effort prune */
     }
   }
 }

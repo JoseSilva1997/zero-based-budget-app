@@ -5,14 +5,14 @@ import { app } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 
-/** userData/data — holds the live SQLite database. */
+/** userData/data - holds the live SQLite database. */
 export function dataDir(): string {
   const dir = path.join(app.getPath('userData'), 'data');
   fs.mkdirSync(dir, { recursive: true });
   return dir;
 }
 
-/** userData/backups — holds dated database snapshots. */
+/** userData/backups - holds dated database snapshots. */
 export function backupsDir(): string {
   const dir = path.join(app.getPath('userData'), 'backups');
   fs.mkdirSync(dir, { recursive: true });

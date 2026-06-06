@@ -1,5 +1,5 @@
 /* ============================================================
-   Month Budget screen — the main working screen
+   Month Budget screen - the main working screen
    ============================================================ */
 import { useState } from 'react';
 import { Avatar, Icons, MoneyInput, TextInline } from './components.jsx';
