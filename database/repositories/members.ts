@@ -13,8 +13,8 @@ export interface NewMember {
 export function insertMember(db: Database.Database, m: NewMember): number {
   const info = db
     .prepare(
-      `INSERT INTO household_members (name, sort_order, is_active, color)
-       VALUES (@name, @sort_order, 1, @color)`
+      `INSERT INTO household_members (name, sort_order, color)
+       VALUES (@name, @sort_order, @color)`
     )
     .run(m);
   return Number(info.lastInsertRowid);

@@ -15,6 +15,14 @@ interface Migration {
   version: number;
   name: string;
   up: (db: Database.Database) => void;
+  /**
+   * When false, the runner does NOT wrap `up` in its own transaction. Use for
+   * migrations that must control transactions/pragmas themselves (e.g. a table
+   * rebuild that needs `PRAGMA foreign_keys=OFF`, which is a no-op inside a
+   * transaction). Such migrations must be idempotent and manage their own
+   * atomicity. Defaults to true.
+   */
+  atomic?: boolean;
 }
 
 /** Returns true if a column already exists (keeps ALTERs safe to re-run). */
@@ -63,6 +71,153 @@ const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 6,
+    name: 'drop unused tables, columns, triggers and indices',
+    // Not atomic: a table rebuild needs PRAGMA foreign_keys=OFF, which only
+    // takes effect outside a transaction. Idempotent — a no-op on a DB that is
+    // already lean (every drop is guarded), so it is safe to re-run.
+    atomic: false,
+    up: (db) => {
+      const fkWasOn = db.pragma('foreign_keys', { simple: true }) === 1;
+      db.pragma('foreign_keys = OFF');
+      try {
+        const work = db.transaction(() => {
+          // 1. Tables that are never written or read.
+          db.exec(`
+            DROP TABLE IF EXISTS budget_adjustments;
+            DROP TABLE IF EXISTS savings_transfers;
+            DROP TABLE IF EXISTS budget_item_templates;
+            DROP TABLE IF EXISTS budget_group_templates;
+          `);
+
+          // 2. Triggers tied to dropped tables or the dropped actual_cents column.
+          db.exec(`
+            DROP TRIGGER IF EXISTS budget_group_templates_set_updated_at;
+            DROP TRIGGER IF EXISTS budget_item_templates_set_updated_at;
+            DROP TRIGGER IF EXISTS actual_entries_after_insert;
+            DROP TRIGGER IF EXISTS actual_entries_after_update;
+            DROP TRIGGER IF EXISTS actual_entries_after_delete;
+          `);
+
+          // 3. Indices on dropped tables.
+          db.exec(`
+            DROP INDEX IF EXISTS idx_adjustments_month;
+            DROP INDEX IF EXISTS idx_savings_transfers_month;
+          `);
+
+          // 4. Rebuild the tables whose unused columns are bound by a CHECK or
+          //    FK constraint (plain DROP COLUMN is refused for those). Data and
+          //    primary keys are preserved; indices/triggers are recreated.
+          if (hasColumn(db, 'budget_months', 'status') || hasColumn(db, 'budget_months', 'notes')) {
+            db.exec(`
+              CREATE TABLE budget_months_new (
+                id INTEGER PRIMARY KEY,
+                month TEXT NOT NULL UNIQUE,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+              );
+              INSERT INTO budget_months_new (id, month, created_at, updated_at)
+                SELECT id, month, created_at, updated_at FROM budget_months;
+              DROP TABLE budget_months;
+              ALTER TABLE budget_months_new RENAME TO budget_months;
+              CREATE TRIGGER budget_months_set_updated_at
+              AFTER UPDATE ON budget_months FOR EACH ROW
+              BEGIN UPDATE budget_months SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id; END;
+            `);
+          }
+
+          if (hasColumn(db, 'budget_groups', 'template_id')) {
+            db.exec(`
+              CREATE TABLE budget_groups_new (
+                id INTEGER PRIMARY KEY,
+                budget_month_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                kind TEXT NOT NULL DEFAULT 'spend' CHECK (kind IN ('spend','savings','debt')),
+                collapsed INTEGER NOT NULL DEFAULT 0,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (budget_month_id) REFERENCES budget_months(id) ON DELETE CASCADE
+              );
+              INSERT INTO budget_groups_new (id, budget_month_id, name, kind, collapsed, sort_order, created_at, updated_at)
+                SELECT id, budget_month_id, name, kind, collapsed, sort_order, created_at, updated_at FROM budget_groups;
+              DROP TABLE budget_groups;
+              ALTER TABLE budget_groups_new RENAME TO budget_groups;
+              CREATE INDEX idx_budget_groups_month ON budget_groups(budget_month_id);
+              CREATE TRIGGER budget_groups_set_updated_at
+              AFTER UPDATE ON budget_groups FOR EACH ROW
+              BEGIN UPDATE budget_groups SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id; END;
+            `);
+          }
+
+          if (hasColumn(db, 'budget_items', 'actual_cents') || hasColumn(db, 'budget_items', 'template_id')) {
+            db.exec(`
+              CREATE TABLE budget_items_new (
+                id INTEGER PRIMARY KEY,
+                budget_group_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                planned_cents INTEGER NOT NULL DEFAULT 0 CHECK (planned_cents >= 0),
+                bank_account_id INTEGER REFERENCES bank_accounts(id),
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (budget_group_id) REFERENCES budget_groups(id) ON DELETE CASCADE
+              );
+              INSERT INTO budget_items_new (id, budget_group_id, name, planned_cents, bank_account_id, sort_order, created_at, updated_at)
+                SELECT id, budget_group_id, name, planned_cents, bank_account_id, sort_order, created_at, updated_at FROM budget_items;
+              DROP TABLE budget_items;
+              ALTER TABLE budget_items_new RENAME TO budget_items;
+              CREATE INDEX idx_budget_items_group ON budget_items(budget_group_id);
+              CREATE TRIGGER budget_items_set_updated_at
+              AFTER UPDATE ON budget_items FOR EACH ROW
+              BEGIN UPDATE budget_items SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id; END;
+            `);
+          }
+
+          if (hasColumn(db, 'budget_item_actual_entries', 'entered_by_member_id')) {
+            // entered_by_member_id is a foreign-key column, so DROP COLUMN is
+            // refused — rebuild the table without it.
+            db.exec(`
+              CREATE TABLE budget_item_actual_entries_new (
+                id INTEGER PRIMARY KEY,
+                budget_item_id INTEGER NOT NULL,
+                spent_on TEXT NOT NULL,
+                amount_cents INTEGER NOT NULL CHECK (amount_cents >= 0),
+                description TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (budget_item_id) REFERENCES budget_items(id) ON DELETE CASCADE
+              );
+              INSERT INTO budget_item_actual_entries_new (id, budget_item_id, spent_on, amount_cents, description, created_at, updated_at)
+                SELECT id, budget_item_id, spent_on, amount_cents, description, created_at, updated_at FROM budget_item_actual_entries;
+              DROP TABLE budget_item_actual_entries;
+              ALTER TABLE budget_item_actual_entries_new RENAME TO budget_item_actual_entries;
+              CREATE INDEX idx_actual_entries_item ON budget_item_actual_entries(budget_item_id);
+              CREATE INDEX idx_actual_entries_spent_on ON budget_item_actual_entries(spent_on);
+              CREATE TRIGGER actual_entries_set_updated_at
+              AFTER UPDATE ON budget_item_actual_entries FOR EACH ROW
+              BEGIN UPDATE budget_item_actual_entries SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id; END;
+            `);
+          }
+
+          // 5. Plain column drops where no constraint blocks them.
+          if (hasColumn(db, 'household_members', 'is_active')) db.exec(`ALTER TABLE household_members DROP COLUMN is_active;`);
+          if (hasColumn(db, 'bank_accounts', 'is_active')) db.exec(`ALTER TABLE bank_accounts DROP COLUMN is_active;`);
+          if (hasColumn(db, 'budget_incomes', 'is_expected')) db.exec(`ALTER TABLE budget_incomes DROP COLUMN is_expected;`);
+
+          // 6. Verify integrity before committing (rolls back on any violation).
+          const violations = db.pragma('foreign_key_check') as unknown[];
+          if (violations.length > 0) {
+            throw new Error(`migration 6 left ${violations.length} foreign-key violation(s)`);
+          }
+        });
+        work();
+      } finally {
+        db.pragma(`foreign_keys = ${fkWasOn ? 'ON' : 'OFF'}`);
+      }
+    },
+  },
 ];
 
 /** Highest version this build knows about. */
@@ -89,11 +244,18 @@ function setUserVersion(db: Database.Database, version: number): void {
 export function runMigrations(db: Database.Database): void {
   let current = getUserVersion(db);
   for (const migration of MIGRATIONS.filter((m) => m.version > current)) {
-    const apply = db.transaction(() => {
+    if (migration.atomic === false) {
+      // The migration owns its own transaction(s); we just bump the version
+      // afterwards. Idempotent migrations re-run cleanly if this is interrupted.
       migration.up(db);
       setUserVersion(db, migration.version);
-    });
-    apply();
+    } else {
+      const apply = db.transaction(() => {
+        migration.up(db);
+        setUserVersion(db, migration.version);
+      });
+      apply();
+    }
     current = migration.version;
   }
 }

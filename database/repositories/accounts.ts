@@ -16,8 +16,8 @@ export interface NewAccount {
 export function insertAccount(db: Database.Database, a: NewAccount): number {
   const info = db
     .prepare(
-      `INSERT INTO bank_accounts (name, kind, owner_member_id, sort_order, is_active, color)
-       VALUES (@name, @kind, @owner_member_id, @sort_order, 1, @color)`
+      `INSERT INTO bank_accounts (name, kind, owner_member_id, sort_order, color)
+       VALUES (@name, @kind, @owner_member_id, @sort_order, @color)`
     )
     .run(a);
   return Number(info.lastInsertRowid);

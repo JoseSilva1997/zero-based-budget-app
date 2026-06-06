@@ -15,14 +15,12 @@
 
 export type GroupKind = 'spend' | 'savings' | 'debt';
 export type BankAccountKind = 'main' | 'joint' | 'wallet' | 'savings' | 'other';
-export type BudgetMonthStatus = 'open' | 'closed' | 'archived';
 
 export interface HouseholdMember {
   id: number;
   name: string;
+  color: string | null;
   sort_order: number;
-  is_active: number;
-  color: string | null; // migration 2
   created_at: string;
   updated_at: string;
 }
@@ -32,9 +30,8 @@ export interface BankAccount {
   name: string;
   kind: BankAccountKind;
   owner_member_id: number | null;
+  color: string | null;
   sort_order: number;
-  is_active: number;
-  color: string | null; // migration 3
   created_at: string;
   updated_at: string;
 }
@@ -42,8 +39,6 @@ export interface BankAccount {
 export interface BudgetMonth {
   id: number;
   month: string; // YYYY-MM
-  notes: string | null;
-  status: BudgetMonthStatus;
   created_at: string;
   updated_at: string;
 }
@@ -54,7 +49,6 @@ export interface BudgetIncome {
   household_member_id: number;
   label: string;
   amount_cents: number;
-  is_expected: number;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -63,11 +57,10 @@ export interface BudgetIncome {
 export interface BudgetGroup {
   id: number;
   budget_month_id: number;
-  template_id: number | null;
   name: string;
   kind: GroupKind;
+  collapsed: number;
   sort_order: number;
-  collapsed: number; // migration 4
   created_at: string;
   updated_at: string;
 }
@@ -75,14 +68,8 @@ export interface BudgetGroup {
 export interface BudgetItem {
   id: number;
   budget_group_id: number;
-  template_id: number | null;
   name: string;
   planned_cents: number;
-  actual_cents: number; // kept in sync by triggers
-  carryover_cents: number;
-  notes: string | null;
-  is_recurring: number;
-  is_fixed: number;
   bank_account_id: number | null;
   sort_order: number;
   created_at: string;
@@ -95,7 +82,6 @@ export interface BudgetItemActualEntry {
   spent_on: string; // YYYY-MM-DD
   amount_cents: number;
   description: string | null;
-  entered_by_member_id: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -173,39 +159,7 @@ export interface AppState {
   activeMonth: string;
 }
 
-/* ---------- 3. Computed / nested types (per the brief) ------------------- */
-/* Aggregates the repository layer can compute in SQL. Not all are consumed by
-   the current renderer (it recomputes from the blob), but they back the
-   funding-plan / month-detail logic the brief's Phase 2 requires. */
-
-export interface FundingAccountTotal {
-  bank_account_id: number | null;
-  allocated_cents: number;
-  actual_cents: number;
-  item_count: number;
-}
-
-export interface MonthTotals {
-  income_cents: number;
-  allocated_cents: number;
-  actual_cents: number;
-  savings_cents: number;
-  unallocated_cents: number;
-}
-
-export interface BudgetMonthDetail {
-  month: BudgetMonth;
-  totals: MonthTotals;
-  fundingPlan: FundingAccountTotal[];
-  incomes: BudgetIncome[];
-  groups: Array<
-    BudgetGroup & {
-      items: Array<BudgetItem & { actuals: BudgetItemActualEntry[] }>;
-    }
-  >;
-}
-
-/* ---------- 4. IPC envelope + payloads ----------------------------------- */
+/* ---------- 3. IPC envelope + payloads ----------------------------------- */
 
 export type IpcResult<T> = { data: T } | { error: string };
 
