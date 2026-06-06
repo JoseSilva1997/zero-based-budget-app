@@ -1,10 +1,10 @@
 /* ============================================================
    History screen — month list, comparison, trends (charts)
-   buildSeries + ChartCard now live in store.jsx / components.jsx.
+   buildSeries lives in lib/selectors.js; ChartCard in components.jsx.
    ============================================================ */
 import { useMemo, useState } from 'react';
 import { ChartCard, Icons, Modal } from './components.jsx';
-import { buildSeries, fmt, groupActual, groupAllocated, itemActual, monthLabel, round2 } from './store.jsx';
+import { buildSeries, fmt, groupActual, groupAllocated, itemActual, monthLabel, round2 } from './lib/index.js';
 
 function HistoryScreen({ state, dispatch, currency, onOpenMonth }) {
   const series = useMemo(() => buildSeries(state), [state]);

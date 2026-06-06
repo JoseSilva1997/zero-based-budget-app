@@ -4,9 +4,9 @@
    ============================================================ */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createRoot } from 'react-dom/client';
-import { THEME_IDS, buildEmpty, fmt, monthLabel, reducer } from './store.jsx';
+import { THEME_IDS, buildEmpty, fmt, monthLabel, reducer, walletSummary } from './lib/index.js';
 import { Avatar, Icons } from './components.jsx';
-import { WalletDrawer, walletSummary } from './Accounts.jsx';
+import { WalletDrawer } from './Accounts.jsx';
 import { GroupCard, NewMonthModal } from './MonthGroups.jsx';
 import { IncomeSection, SummaryHero } from './MonthBudget.jsx';
 import { HistoryScreen } from './History.jsx';

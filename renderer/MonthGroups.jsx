@@ -4,7 +4,7 @@
    ============================================================ */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DiffPill, Icons, MiniBar, Modal, MoneyInput, TextInline, evalMoney, isExpr } from './components.jsx';
-import { actualDay, daysInMonth, fmt, groupActual, groupAllocated, itemActual, makeActualDate, monthLabel, nextMonthId, normalizeItemName, reusableItemCandidates, round2 } from './store.jsx';
+import { actualDay, daysInMonth, fmt, groupActual, groupAllocated, itemActual, makeActualDate, monthLabel, nextMonthId, normalizeItemName, reusableItemCandidates, round2 } from './lib/index.js';
 import { AccountSelect } from './Accounts.jsx';
 
 /* Small day-of-month editor (1..last day of the month). */

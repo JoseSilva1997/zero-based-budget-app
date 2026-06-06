@@ -2,7 +2,7 @@
    Shared UI: icons, MoneyInput, StatTile, helpers
    ============================================================ */
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { fmt } from './store.jsx';
+import { fmt } from './lib/index.js';
 
 /* ---- icons (stroke, 1.6) ------------------------------------------------ */
 function Ic({ d, size = 18, fill, ...p }) {

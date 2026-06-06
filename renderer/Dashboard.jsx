@@ -4,7 +4,7 @@
    ============================================================ */
 import { useMemo } from 'react';
 import { ChartCard, Icons } from './components.jsx';
-import { buildSeries } from './store.jsx';
+import { buildSeries } from './lib/index.js';
 import { BudgetAccuracyChart, CategoryTrends, CumulativeSavingsChart, HeadlineStats, SavingsChart, SpendingTiming } from './DashboardCharts.jsx';
 
 function DashboardScreen({ state, dispatch, currency, onOpenMonth }) {

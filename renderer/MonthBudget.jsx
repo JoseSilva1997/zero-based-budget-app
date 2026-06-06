@@ -3,7 +3,7 @@
    ============================================================ */
 import { useState } from 'react';
 import { Avatar, Icons, MoneyInput, TextInline } from './components.jsx';
-import { fmt, monthActual, monthAllocated, monthIncome, monthSavings, monthUnallocated, overBudgetItems, round2 } from './store.jsx';
+import { fmt, monthActual, monthAllocated, monthIncome, monthSavings, monthUnallocated, overBudgetItems, round2 } from './lib/index.js';
 
 function SummaryHero({ mo, currency }) {
   const income = monthIncome(mo), alloc = monthAllocated(mo), actual = monthActual(mo);

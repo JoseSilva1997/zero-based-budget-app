@@ -3,7 +3,7 @@
    ============================================================ */
 import { useEffect } from 'react';
 import { Avatar, Icons, MiniBar } from './components.jsx';
-import { accountTotals, fmt, itemActual, monthLabel, round2 } from './store.jsx';
+import { accountTotals, fmt, itemActual, monthLabel, round2, walletSummary } from './lib/index.js';
 
 const ACCT_ICON = { joint: "user", main: "budget", wallet: "coins", savings: "plant" };
 const ACCT_TYPE_LABEL = { joint: "Shared", main: "Main account", wallet: "Wallet", savings: "Savings" };
@@ -155,14 +155,6 @@ function AccountPanel({ mo, accounts, members, currency, dispatch, month }) {
   );
 }
 
-/* lightweight summary for the Wallet trigger button */
-function walletSummary(mo, accounts) {
-  const totals = accountTotals(mo, accounts);
-  const toFund = round2(totals.filter(t => t.account).reduce((a, t) => a + t.allocated, 0));
-  const unassigned = totals.find(t => !t.account);
-  return { toFund, hasUnassigned: !!unassigned, unassignedAmt: unassigned ? unassigned.allocated : 0 };
-}
-
 function hexToSoft(hex) {
   const h = hex.replace("#", "");
   const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
@@ -199,4 +191,4 @@ function WalletDrawer({ mo, accounts, members, currency, dispatch, month, onClos
   );
 }
 
-export { AccountSelect, AccountPanel, WalletDrawer, walletSummary, AccountDot, ACCT_TYPE_LABEL, ACCT_ICON, hexToSoft };
+export { AccountSelect, AccountPanel, WalletDrawer, AccountDot, ACCT_TYPE_LABEL, ACCT_ICON, hexToSoft };

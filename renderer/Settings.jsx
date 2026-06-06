@@ -3,7 +3,7 @@
    ============================================================ */
 import React, { useRef } from 'react';
 import { Avatar, Icons, TextInline } from './components.jsx';
-import { BUDGET_THEMES } from './store.jsx';
+import { BUDGET_THEMES } from './lib/index.js';
 import { ACCT_ICON, ACCT_TYPE_LABEL, hexToSoft } from './Accounts.jsx';
 
 function Setting({ title, sub, children }) {
