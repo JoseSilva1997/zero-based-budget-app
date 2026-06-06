@@ -30,9 +30,10 @@ export function userDataDir(): string {
 }
 
 /**
- * Location of the bundled `schema` / `triggers` SQL files. In dev this is the
- * repo root (app path); when packaged they sit alongside the app resources.
+ * Location of the bundled `schema.sql` / `triggers.sql` files under database/.
+ * In dev this resolves under the repo root (app path); when packaged they sit
+ * alongside the app resources.
  */
 export function sqlFilePath(name: 'schema' | 'triggers'): string {
-  return path.join(app.getAppPath(), name);
+  return path.join(app.getAppPath(), 'database', `${name}.sql`);
 }

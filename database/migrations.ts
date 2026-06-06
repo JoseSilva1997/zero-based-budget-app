@@ -83,7 +83,7 @@ function setUserVersion(db: Database.Database, version: number): void {
 
 /**
  * Apply every pending migration. Assumes the baseline schema already exists
- * (db.ts execs `schema`/`triggers` and sets user_version = BASELINE_VERSION on
+ * (db.ts execs `schema.sql`/`triggers.sql` and sets user_version = BASELINE_VERSION on
  * a fresh DB before calling this).
  */
 export function runMigrations(db: Database.Database): void {

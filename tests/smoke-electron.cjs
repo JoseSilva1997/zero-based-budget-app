@@ -18,8 +18,8 @@ app.whenReady().then(() => {
     const Database = require('better-sqlite3');
     const db = new Database(':memory:');
     db.pragma('foreign_keys = ON');
-    db.exec(fs.readFileSync(path.join(__dirname, '..', 'schema'), 'utf8'));
-    db.exec(fs.readFileSync(path.join(__dirname, '..', 'triggers'), 'utf8'));
+    db.exec(fs.readFileSync(path.join(__dirname, '..', 'database', 'schema.sql'), 'utf8'));
+    db.exec(fs.readFileSync(path.join(__dirname, '..', 'database', 'triggers.sql'), 'utf8'));
     const v = db.prepare('SELECT sqlite_version() AS v').get().v;
     const tables = db
       .prepare(`SELECT COUNT(*) AS n FROM sqlite_master WHERE type='table'`)

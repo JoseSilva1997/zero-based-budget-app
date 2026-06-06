@@ -27,8 +27,8 @@
       "build/**/*",
       "renderer/dist/**/*",
       "assets/icon.ico",
-      "schema",
-      "triggers"
+      "database/schema.sql",
+      "database/triggers.sql"
     ],
     "asarUnpack": [
       "**/node_modules/better-sqlite3/**"
