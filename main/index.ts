@@ -24,6 +24,7 @@ function createWindow(): void {
     minHeight: 640,
     backgroundColor: '#0d1016',
     show: false,
+    icon: path.join(app.getAppPath(), 'assets', 'icon.ico'),
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload', 'index.js'),
       contextIsolation: true,
@@ -33,7 +34,12 @@ function createWindow(): void {
   });
 
   mainWindow.once('ready-to-show', () => mainWindow?.show());
-  mainWindow.loadFile(path.join(app.getAppPath(), 'renderer', 'index.html'));
+  // Packaged builds load the pre-bundled, offline renderer (renderer/dist);
+  // in dev we load the CDN/Babel index.html for live-edit iteration.
+  const rendererHtml = app.isPackaged
+    ? path.join(app.getAppPath(), 'renderer', 'dist', 'index.html')
+    : path.join(app.getAppPath(), 'renderer', 'index.html');
+  mainWindow.loadFile(rendererHtml);
 
   mainWindow.on('closed', () => {
     mainWindow = null;

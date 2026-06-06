@@ -7,20 +7,57 @@
   "license": "MIT",
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "build:renderer": "node scripts/build-renderer.mjs",
+    "icon": "node scripts/make-icon.mjs",
     "rebuild": "node scripts/fix-node-gyp.mjs && electron-rebuild -f -w better-sqlite3",
     "prestart": "npm run build",
     "start": "electron .",
     "dev": "npm run build && electron .",
-    "verify:db": "node --experimental-sqlite scripts/verify-db.mjs"
+    "verify:db": "node --experimental-sqlite scripts/verify-db.mjs",
+    "pack": "npm run build && npm run build:renderer && node scripts/make-icon.mjs && node scripts/fix-node-gyp.mjs && electron-builder --dir",
+    "dist": "npm run build && npm run build:renderer && node scripts/make-icon.mjs && node scripts/fix-node-gyp.mjs && electron-builder"
+  },
+  "build": {
+    "appId": "com.housebudget.app",
+    "productName": "House Budget",
+    "directories": {
+      "output": "release",
+      "buildResources": "assets"
+    },
+    "files": [
+      "build/**/*",
+      "renderer/dist/**/*",
+      "assets/icon.ico",
+      "schema",
+      "triggers"
+    ],
+    "asarUnpack": [
+      "**/node_modules/better-sqlite3/**"
+    ],
+    "win": {
+      "target": "nsis",
+      "signAndEditExecutable": true
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false
+    }
   },
   "dependencies": {
-    "better-sqlite3": "^12.10.0"
+    "better-sqlite3": "^12.10.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "recharts": "^3.8.1"
   },
   "devDependencies": {
     "@electron/rebuild": "^4.0.4",
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.10.5",
     "electron": "^41.7.1",
+    "electron-builder": "^26.8.1",
+    "esbuild": "^0.28.0",
     "typescript": "^5.7.3"
   }
 }
