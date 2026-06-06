@@ -5,7 +5,7 @@
    exit (or a NODE_MODULE_VERSION error) means the native rebuild did not
    match Electron's ABI.
 
-   Run with:  npx electron scripts/smoke-electron.cjs
+   Run with:  npx electron tests/smoke-electron.cjs
    ============================================================ */
 const { app } = require('electron');
 const fs = require('fs');
