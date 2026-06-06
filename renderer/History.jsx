@@ -2,6 +2,9 @@
    History screen — month list, comparison, trends (charts)
    buildSeries + ChartCard now live in store.jsx / components.jsx.
    ============================================================ */
+import { useMemo, useState } from 'react';
+import { ChartCard, Icons, Modal } from './components.jsx';
+import { buildSeries, fmt, groupActual, groupAllocated, itemActual, monthLabel, round2 } from './store.jsx';
 
 function HistoryScreen({ state, dispatch, currency, onOpenMonth }) {
   const series = useMemo(() => buildSeries(state), [state]);
@@ -141,4 +144,4 @@ function MonthDetail({ series, currency, onClose, onOpen, isCurrent }) {
   );
 }
 
-Object.assign(window, { HistoryScreen });
+export { HistoryScreen };

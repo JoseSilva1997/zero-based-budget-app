@@ -1,7 +1,8 @@
 /* ============================================================
    Shared UI: icons, MoneyInput, StatTile, helpers
    ============================================================ */
-const { useState, useEffect, useRef, useMemo, useCallback } = React;
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { fmt } from './store.jsx';
 
 /* ---- icons (stroke, 1.6) ------------------------------------------------ */
 function Ic({ d, size = 18, fill, ...p }) {
@@ -148,4 +149,4 @@ function ChartCard({ title, sub, children, wide }) {
   );
 }
 
-Object.assign(window, { Icons, MoneyInput, TextInline, Avatar, DiffPill, MiniBar, Modal, ChartCard, evalMoney, isExpr });
+export { Icons, MoneyInput, TextInline, Avatar, DiffPill, MiniBar, Modal, ChartCard, evalMoney, isExpr };

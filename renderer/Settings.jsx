@@ -1,6 +1,11 @@
 /* ============================================================
    Settings screen
    ============================================================ */
+import React, { useRef } from 'react';
+import { Avatar, Icons, TextInline } from './components.jsx';
+import { BUDGET_THEMES } from './store.jsx';
+import { ACCT_ICON, ACCT_TYPE_LABEL, hexToSoft } from './Accounts.jsx';
+
 function Setting({ title, sub, children }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 24, alignItems: "center", padding: "18px 22px", borderTop: "1px solid var(--hairline)" }}>
@@ -59,7 +64,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
   const MEMBER_COLORS = ["#2fbf87", "#f0894e", "#5b8def", "#a87bf0", "#e0b84a", "#fb5e7e"];
 
   return (
-    <div className="fade-in" style={{ maxWidth: 760 }}>
+    <div className="fade-in" style={{ maxWidth: 760, margin: "0 auto" }}>
       <div className="topbar"><div><div className="page-title">Settings</div><div className="page-sub">Preferences for this household. Everything stays on this device.</div></div></div>
 
       <div className="section-head"><h2>General</h2></div>
@@ -185,4 +190,4 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
   );
 }
 
-Object.assign(window, { SettingsScreen });
+export { SettingsScreen };

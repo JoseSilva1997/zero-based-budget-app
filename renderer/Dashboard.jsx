@@ -2,6 +2,10 @@
    Dashboard screen — at-a-glance overview of spending & saving
    Trailing 12-month window; degrades gracefully with less data.
    ============================================================ */
+import { useMemo } from 'react';
+import { ChartCard, Icons } from './components.jsx';
+import { buildSeries } from './store.jsx';
+import { BudgetAccuracyChart, CategoryTrends, CumulativeSavingsChart, HeadlineStats, SavingsChart, SpendingTiming } from './DashboardCharts.jsx';
 
 function DashboardScreen({ state, dispatch, currency, onOpenMonth }) {
   const allSeries = useMemo(() => buildSeries(state), [state]);
@@ -63,4 +67,4 @@ function DashboardScreen({ state, dispatch, currency, onOpenMonth }) {
   );
 }
 
-Object.assign(window, { DashboardScreen });
+export { DashboardScreen };

@@ -1,6 +1,9 @@
 /* ============================================================
    Month Budget screen — the main working screen
    ============================================================ */
+import { useState } from 'react';
+import { Avatar, Icons, MoneyInput, TextInline } from './components.jsx';
+import { fmt, monthActual, monthAllocated, monthIncome, monthSavings, monthUnallocated, overBudgetItems, round2 } from './store.jsx';
 
 function SummaryHero({ mo, currency }) {
   const income = monthIncome(mo), alloc = monthAllocated(mo), actual = monthActual(mo);
@@ -119,4 +122,4 @@ function IncomeSection({ mo, currency, members, dispatch, month }) {
   );
 }
 
-Object.assign(window, { SummaryHero, IncomeSection });
+export { SummaryHero, IncomeSection };

@@ -34,11 +34,10 @@ function createWindow(): void {
   });
 
   mainWindow.once('ready-to-show', () => mainWindow?.show());
-  // Packaged builds load the pre-bundled, offline renderer (renderer/dist);
-  // in dev we load the CDN/Babel index.html for live-edit iteration.
-  const rendererHtml = app.isPackaged
-    ? path.join(app.getAppPath(), 'renderer', 'dist', 'index.html')
-    : path.join(app.getAppPath(), 'renderer', 'index.html');
+  // Both dev and packaged builds load the esbuild-bundled renderer from
+  // renderer/dist. In dev, `npm run dev` keeps that bundle rebuilt on save
+  // (esbuild watch); press Ctrl+R to reload after a change.
+  const rendererHtml = path.join(app.getAppPath(), 'renderer', 'dist', 'index.html');
   mainWindow.loadFile(rendererHtml);
 
   mainWindow.on('closed', () => {

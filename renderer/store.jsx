@@ -1,6 +1,6 @@
 /* ============================================================
    Store: data model, mock data, reducer, selectors
-   Exposed on window for cross-file (Babel) sharing.
+   Pure logic, no React. Exported as an ES module; bundled by esbuild.
    ============================================================ */
 const uid = (() => { let n = 1; return (p = "id") => `${p}_${(n++).toString(36)}_${Math.random().toString(36).slice(2, 6)}`; })();
 
@@ -247,10 +247,10 @@ function buildSeries(state) {
   });
 }
 
-Object.assign(window, {
+export {
   uid, MONTH_NAMES, monthLabel, prevMonthId, nextMonthId, fmt, buildEmpty, reducer,
   BUDGET_THEMES, THEME_IDS, GROUP_PALETTE, buildSeries,
   itemActual, monthIncome, monthAllocated, monthActual, monthSavings, monthUnallocated,
   groupAllocated, groupActual, overBudgetItems, accountTotals, reusableItemCandidates, normalizeItemName, round2,
   daysInMonth, actualDay, makeActualDate,
-});
+};

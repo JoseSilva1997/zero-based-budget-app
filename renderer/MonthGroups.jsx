@@ -2,6 +2,10 @@
    Groups & Items — collapsible groups, inline edit, quick-add,
    reorder, delete-this-month-only, and the New Month flow.
    ============================================================ */
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { DiffPill, Icons, MiniBar, Modal, MoneyInput, TextInline, evalMoney, isExpr } from './components.jsx';
+import { actualDay, daysInMonth, fmt, groupActual, groupAllocated, itemActual, makeActualDate, monthLabel, nextMonthId, normalizeItemName, reusableItemCandidates, round2 } from './store.jsx';
+import { AccountSelect } from './Accounts.jsx';
 
 /* Small day-of-month editor (1..last day of the month). */
 function DayField({ day, monthId, onCommit, title = "Day of month" }) {
@@ -327,4 +331,4 @@ function NewMonthModal({ state, onClose, dispatch }) {
 function optStyle(active) { return { display: "flex", gap: 12, padding: "13px 14px", borderRadius: 11, border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`, background: active ? "var(--accent-soft)" : "var(--surface)", cursor: "pointer", transition: ".14s" }; }
 function radioStyle(active) { return { width: 20, height: 20, borderRadius: 99, flex: "none", marginTop: 1, display: "grid", placeItems: "center", color: "#fff", background: active ? "var(--accent)" : "transparent", border: `1.5px solid ${active ? "var(--accent)" : "var(--border-strong)"}` }; }
 
-Object.assign(window, { GroupCard, NewMonthModal });
+export { GroupCard, NewMonthModal };

@@ -1,6 +1,17 @@
 /* ============================================================
    App shell — nav, theme, month budget composition, tweaks
+   Entry point: esbuild bundles starting here, following the imports below.
    ============================================================ */
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createRoot } from 'react-dom/client';
+import { THEME_IDS, buildEmpty, fmt, monthLabel, reducer } from './store.jsx';
+import { Avatar, Icons } from './components.jsx';
+import { WalletDrawer, walletSummary } from './Accounts.jsx';
+import { GroupCard, NewMonthModal } from './MonthGroups.jsx';
+import { IncomeSection, SummaryHero } from './MonthBudget.jsx';
+import { HistoryScreen } from './History.jsx';
+import { DashboardScreen } from './Dashboard.jsx';
+import { SettingsScreen } from './Settings.jsx';
 
 function MonthBudgetScreen({ state, dispatch, currency }) {
   const mid = state.activeMonth;
@@ -181,4 +192,4 @@ function App() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+createRoot(document.getElementById("root")).render(<App />);

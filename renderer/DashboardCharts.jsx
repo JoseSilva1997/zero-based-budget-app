@@ -1,10 +1,10 @@
 /* ============================================================
    Dashboard chart toolkit — Recharts widgets + shared tooltip
-   Analogue of Charts.jsx, but built on the Recharts UMD global.
-   Reads GROUP_PALETTE, buildSeries, selectors, Icons, fmt off window.
    ============================================================ */
-const { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
-        AreaChart, Area, ComposedChart, Line, LabelList } = Recharts;
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
+         AreaChart, Area, ComposedChart, Line, LabelList } from 'recharts';
+import { ChartCard, Icons } from './components.jsx';
+import { GROUP_PALETTE, actualDay, buildSeries, fmt, round2 } from './store.jsx';
 
 /* short "Jan" style x-axis label from a "Jan 2025" series label */
 const shortMo = (label) => String(label).split(" ")[0];
@@ -281,7 +281,7 @@ function SpendingTiming({ series, currency }) {
   );
 }
 
-Object.assign(window, {
+export {
   DashTooltip, ChartEmpty, HeadlineStats, SavingsChart,
   CumulativeSavingsChart, BudgetAccuracyChart, CategoryTrends, SpendingTiming,
-});
+};

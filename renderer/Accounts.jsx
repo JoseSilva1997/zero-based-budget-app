@@ -1,6 +1,10 @@
 /* ============================================================
    Accounts — per-item funding account selector + funding plan
    ============================================================ */
+import { useEffect } from 'react';
+import { Avatar, Icons, MiniBar } from './components.jsx';
+import { accountTotals, fmt, itemActual, monthLabel, round2 } from './store.jsx';
+
 const ACCT_ICON = { joint: "user", main: "budget", wallet: "coins", savings: "plant" };
 const ACCT_TYPE_LABEL = { joint: "Shared", main: "Main account", wallet: "Wallet", savings: "Savings" };
 
@@ -195,4 +199,4 @@ function WalletDrawer({ mo, accounts, members, currency, dispatch, month, onClos
   );
 }
 
-Object.assign(window, { AccountSelect, AccountPanel, WalletDrawer, walletSummary, AccountDot, ACCT_TYPE_LABEL, ACCT_ICON, hexToSoft });
+export { AccountSelect, AccountPanel, WalletDrawer, walletSummary, AccountDot, ACCT_TYPE_LABEL, ACCT_ICON, hexToSoft };
