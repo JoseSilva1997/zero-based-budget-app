@@ -16,13 +16,13 @@ House Budget is a desktop app built with Electron, React, and SQLite. Your data 
 ## Requirements
 
 - [Node.js](https://nodejs.org/) 18 or newer (includes npm)
-- Windows is the primary target (the packaged build ships an NSIS installer). The app also runs from source on macOS and Linux.
-- A C/C++ toolchain is needed once to compile the native `better-sqlite3` module (Visual Studio Build Tools on Windows, Xcode CLT on macOS, `build-essential` on Linux).
+- Windows. This is the only platform that has been built and tested; the packaged build ships an NSIS installer. macOS and Linux are untested and may need extra work.
+- A C/C++ toolchain (Visual Studio Build Tools on Windows) is needed once to compile the native `better-sqlite3` module.
 
 ## Installation
 
 ```bash
-git clone https://github.com/JoseSilva1997/house_budget.git
+git clone https://github.com/JoseSilva1997/zero-based-budget-app.git
 cd house_budget
 npm install
 ```
