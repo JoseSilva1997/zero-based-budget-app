@@ -8,40 +8,74 @@ import { actualDay, daysInMonth, fmt, groupActual, groupAllocated, itemActual, m
 import { useStore } from './store.jsx';
 import { AccountSelect } from './Accounts.jsx';
 
-/* Small day-of-month editor (1..last day of the month). */
-function DayField({ day, monthId, onCommit, title = "Day of month" }) {
+/* Small day-of-month editor (1..last day of the month). 'onEnter' makes Enter
+   submit rather than just blur, and receives the clamped day directly: the
+   commit that goes with it only lands in state after this keystroke. */
+function DayField({ day, monthId, onCommit, onEnter, inputRef, autoFocus = false, title = "Day of month" }) {
   const [txt, setTxt] = useState(String(day));
   useEffect(() => { setTxt(String(day)); }, [day]);
-  const commit = () => {
-    const last = daysInMonth(monthId);
-    let n = parseInt(txt, 10);
-    if (!Number.isInteger(n)) n = day;
-    n = Math.max(1, Math.min(last, n));
-    setTxt(String(n));
-    onCommit(n);
+  const clampTo = (n) => Math.max(1, Math.min(daysInMonth(monthId), n));
+  const parsed = () => {
+    const n = parseInt(txt, 10);
+    return Number.isInteger(n) ? n : day;
   };
+  const clamp = () => {
+    const n = clampTo(parsed());
+    setTxt(String(n));
+    return n;
+  };
+  // Arrows nudge the shown value only; like typing, it commits on blur/Enter -
+  // so holding an arrow on an existing entry is not one database write per step.
+  const step = (delta) => setTxt(String(clampTo(parsed() + delta)));
   return (
-    <input className="minput mono" value={txt} inputMode="numeric" title={title} aria-label={title}
+    <input ref={inputRef} autoFocus={autoFocus} className="minput mono" value={txt} inputMode="numeric" title={title} aria-label={title}
       onChange={(e) => setTxt(e.target.value.replace(/[^0-9]/g, "").slice(0, 2))}
       onFocus={(e) => e.target.select()}
-      onBlur={commit}
-      onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); if (e.key === "Escape") { setTxt(String(day)); e.target.blur(); } }}
+      onBlur={() => onCommit(clamp())}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          const n = clamp();
+          onCommit(n);
+          if (onEnter) onEnter(n); else e.target.blur();
+        }
+        if (e.key === "Escape") { setTxt(String(day)); e.target.blur(); }
+        if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+          e.preventDefault(); // otherwise the caret jumps to one end of the field
+          step(e.key === "ArrowUp" ? 1 : -1);
+        }
+      }}
       style={{ width: 44, height: 26, textAlign: "center", fontSize: 12, padding: "0 4px", flex: "none", color: "var(--ink-2)" }} />
   );
+}
+
+/* The day a new entry starts on: the one most recently added to this item (so a
+   run of receipts from the same day needs no re-typing), or the 1st when the
+   item has no entries yet. Entries read back in date order, so "most recent"
+   is the highest id, not the last row. */
+function nextEntryDay(item, month) {
+  if (!item.actuals.length) return 1;
+  return actualDay(item.actuals.reduce((a, b) => (b.id > a.id ? b : a)), month);
 }
 
 function EntriesDrawer({ item, group, currency, dispatch, month }) {
   const [amt, setAmt] = useState("");
   const [name, setName] = useState("");
   const [note, setNote] = useState("");
-  const [day, setDay] = useState(() => daysInMonth(month));
-  const addRef = useRef(null);
-  useEffect(() => { setDay(daysInMonth(month)); }, [month]);
-  const add = () => {
+  const startDay = nextEntryDay(item, month);
+  const [day, setDay] = useState(startDay);
+  const dayRef = useRef(null);
+  const amtRef = useRef(null);
+  useEffect(() => { setDay(startDay); }, [startDay]);
+  const focusDay = () => requestAnimationFrame(() => {
+    if (dayRef.current) { dayRef.current.focus(); dayRef.current.select(); }
+  });
+  // 'dayOverride' is for Enter pressed in the day field itself, whose new value
+  // is not in 'day' yet.
+  const add = (dayOverride) => {
     const n = evalMoney(amt);
-    if (n === null || n <= 0) { addRef.current && addRef.current.focus(); return; }
-    dispatch({ type: "addActual", month, groupId: group.id, itemId: item.id, amount: n, name: name.trim(), note: note.trim(), day });
-    setAmt(""); setName(""); setNote(""); requestAnimationFrame(() => addRef.current && addRef.current.focus());
+    if (n === null || n <= 0) { amtRef.current && amtRef.current.focus(); return; }
+    dispatch({ type: "addActual", month, groupId: group.id, itemId: item.id, amount: n, name: name.trim(), note: note.trim(), day: dayOverride === undefined ? day : dayOverride });
+    setAmt(""); setName(""); setNote(""); focusDay();
   };
   const amtPreview = isExpr(amt) ? evalMoney(amt) : null;
   return (
@@ -68,18 +102,18 @@ function EntriesDrawer({ item, group, currency, dispatch, month }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 150px 158px 150px 78px", alignItems: "center", gap: 10, height: 32 }}>
         <div style={{ gridColumn: "span 2", display: "flex", alignItems: "center", gap: 10, paddingLeft: 30 }}>
           <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 500, marginRight: 2, whiteSpace: "nowrap" }}>Add spend</span>
-          <DayField day={day} monthId={month} title="Day of month for this entry" onCommit={setDay} />
-          <input ref={addRef} className="tinput" value={name} aria-label="What the spending was for" onChange={(e) => setName(e.target.value)} placeholder="What was it?" style={{ flex: "1 1 0", minWidth: 0, fontSize: 13, height: 32 }} onKeyDown={(e) => e.key === "Enter" && add()} />
+          <DayField day={day} monthId={month} title="Day of month for this entry" onCommit={setDay} onEnter={add} inputRef={dayRef} autoFocus />
+          <input className="tinput" value={name} aria-label="What the spending was for" onChange={(e) => setName(e.target.value)} placeholder="What was it?" style={{ flex: "1 1 0", minWidth: 0, fontSize: 13, height: 32 }} onKeyDown={(e) => e.key === "Enter" && add()} />
           <input className="tinput" value={note} aria-label="Note for this spending entry (optional)" onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)" style={{ flex: "1 1 0", minWidth: 0, fontSize: 13, height: 32, color: "var(--ink-2)" }} onKeyDown={(e) => e.key === "Enter" && add()} />
         </div>
         <div style={{ position: "relative", height: 32 }}>
-          <input className="minput" aria-label="Amount spent" style={{ paddingLeft: 8, height: 32, fontSize: 13 }} inputMode="text" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder={`${currency}0.00`} onKeyDown={(e) => e.key === "Enter" && add()} />
+          <input ref={amtRef} className="minput" aria-label="Amount spent" style={{ paddingLeft: 8, height: 32, fontSize: 13 }} inputMode="text" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder={`${currency}0.00`} onKeyDown={(e) => e.key === "Enter" && add()} />
           {amtPreview !== null && (
             <span className="mono" style={{ position: "absolute", right: 4, bottom: "100%", marginBottom: 3, background: "var(--ink)", color: "var(--surface)", fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 6, whiteSpace: "nowrap", zIndex: 4 }}>= {fmt(currency, amtPreview)}</span>
           )}
         </div>
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <button className="btn btn-sm btn-primary" style={{ height: 32 }} onClick={add}><Icons.plus size={14} /> Add</button>
+          <button className="btn btn-sm btn-primary" style={{ height: 32 }} onClick={() => add()}><Icons.plus size={14} /> Add</button>
         </div>
         <div />
       </div>
