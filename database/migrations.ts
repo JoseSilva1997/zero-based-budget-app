@@ -218,6 +218,20 @@ const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    version: 7,
+    name: 'split actual entries into name + note',
+    // The single 'description' column was only ever filled with a short label
+    // of what the spend was, so it becomes 'name'; 'note' is new and empty.
+    up: (db) => {
+      if (hasColumn(db, 'budget_item_actual_entries', 'description')) {
+        db.exec(`ALTER TABLE budget_item_actual_entries RENAME COLUMN description TO name;`);
+      }
+      if (!hasColumn(db, 'budget_item_actual_entries', 'note')) {
+        db.exec(`ALTER TABLE budget_item_actual_entries ADD COLUMN note TEXT;`);
+      }
+    },
+  },
 ];
 
 /** Highest version this build knows about. */

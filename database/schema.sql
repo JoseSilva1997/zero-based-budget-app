@@ -70,7 +70,8 @@ CREATE TABLE budget_item_actual_entries (
   budget_item_id INTEGER NOT NULL,
   spent_on TEXT NOT NULL, -- YYYY-MM-DD
   amount_cents INTEGER NOT NULL CHECK (amount_cents >= 0),
-  description TEXT,
+  name TEXT, -- short label: what the spend was
+  note TEXT, -- optional longer detail
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (budget_item_id) REFERENCES budget_items(id) ON DELETE CASCADE

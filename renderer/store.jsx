@@ -65,6 +65,7 @@ function normIncomePatch(p) {
 function normActualPatch(monthKey, p) {
   const out = {};
   if ("amount" in p) out.amount = p.amount;
+  if ("name" in p) out.name = p.name;
   if ("note" in p) out.note = p.note;
   if ("date" in p) out.spent_on = spentOn(monthKey, dayFromMonthDay(p.date));
   return out;
@@ -270,6 +271,7 @@ export function StoreProvider({ children }) {
           case "addActual":
             await api.actualAdd(Number(A.itemId), {
               amount: A.amount,
+              name: A.name || "",
               note: A.note || "",
               spent_on: spentOn(mk, A.day),
             });

@@ -15,6 +15,7 @@ import {
 
 interface ActualPatch {
   amount?: number; // dollars
+  name?: string;
   note?: string;
   spent_on?: string; // "YYYY-MM-DD"
 }
@@ -22,14 +23,15 @@ interface ActualPatch {
 export function registerActualIpc(): void {
   ipcMain.handle(
     'actual:add',
-    (_e, p: { itemId: number; amount: number; note?: string; spent_on: string }) =>
+    (_e, p: { itemId: number; amount: number; name?: string; note?: string; spent_on: string }) =>
       guardAsync(async () => {
         const db = getDb();
         const id = insertActualEntry(db, {
           budget_item_id: p.itemId,
           spent_on: p.spent_on,
           amount_cents: dollarsToCents(p.amount),
-          description: p.note ? p.note : null,
+          name: p.name ? p.name : null,
+          note: p.note ? p.note : null,
         });
         return getActualById(db, id);
       })
@@ -39,7 +41,8 @@ export function registerActualIpc(): void {
     guardAsync(async () => {
       const f: Record<string, unknown> = {};
       if (p.patch.amount !== undefined) f.amount_cents = dollarsToCents(p.patch.amount);
-      if (p.patch.note !== undefined) f.description = p.patch.note ? p.patch.note : null;
+      if (p.patch.name !== undefined) f.name = p.patch.name ? p.patch.name : null;
+      if (p.patch.note !== undefined) f.note = p.patch.note ? p.patch.note : null;
       if (p.patch.spent_on !== undefined) f.spent_on = p.patch.spent_on;
       updateActual(getDb(), p.id, f);
       return { ok: true };

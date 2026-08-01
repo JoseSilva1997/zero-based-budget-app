@@ -83,11 +83,13 @@ const api = {
     invoke<Ok>('item:reorder', { groupId, id, targetId }),
 
   /* ---------- actuals ---------- */
-  actualAdd: (itemId: number, fields: { amount: number; note?: string; spent_on: string }) =>
-    invoke<ActualRead>('actual:add', { itemId, ...fields }),
+  actualAdd: (
+    itemId: number,
+    fields: { amount: number; name?: string; note?: string; spent_on: string }
+  ) => invoke<ActualRead>('actual:add', { itemId, ...fields }),
   actualUpdate: (
     id: number,
-    patch: { amount?: number; note?: string; spent_on?: string }
+    patch: { amount?: number; name?: string; note?: string; spent_on?: string }
   ) => invoke<Ok>('actual:update', { id, patch }),
   actualRemove: (id: number) => invoke<Ok>('actual:remove', { id }),
 

@@ -69,6 +69,12 @@ app.whenReady().then(() => {
     assert(!columnNames(db, 'budget_incomes').includes('is_expected'), 'budget_incomes.is_expected should be gone');
     assert(!columnNames(db, 'household_members').includes('is_active'), 'household_members.is_active should be gone');
 
+    // An actual entry carries a short label and a separate optional note.
+    const entryCols = columnNames(db, 'budget_item_actual_entries');
+    assert(!entryCols.includes('description'), 'budget_item_actual_entries.description should be gone');
+    assert(entryCols.includes('name'), 'budget_item_actual_entries.name is missing');
+    assert(entryCols.includes('note'), 'budget_item_actual_entries.note is missing');
+
     const v = db.prepare('SELECT sqlite_version() AS v').get().v;
     console.log(
       `SMOKE_OK sqlite=${v} tables=${tables.length} electron=${process.versions.electron} abi=${process.versions.modules}`

@@ -155,6 +155,14 @@ app.whenReady().then(() => {
     assert(!cols('household_members').includes('is_active'), 'household_members.is_active survived');
     assert(!cols('budget_item_actual_entries').includes('entered_by_member_id'), 'entered_by_member_id survived');
 
+    // Migration 7: 'description' became 'name', and 'note' was added alongside.
+    assert(!cols('budget_item_actual_entries').includes('description'), 'description survived');
+    assert(cols('budget_item_actual_entries').includes('name'), 'actual entry name missing');
+    assert(cols('budget_item_actual_entries').includes('note'), 'actual entry note missing');
+    const entry = db.prepare(`SELECT name, note FROM budget_item_actual_entries WHERE id=1`).get();
+    assert(entry.name === 'top up', `old description not carried into name (got ${entry.name})`);
+    assert(entry.note === null, 'new note column should start empty');
+
     // Data preserved through the rebuilds.
     assert(db.prepare(`SELECT COUNT(*) n FROM household_members`).get().n === 1, 'member lost');
     assert(db.prepare(`SELECT month FROM budget_months WHERE id=1`).get().month === '2026-06', 'month value lost');

@@ -99,15 +99,16 @@ export interface NewActualEntry {
   budget_item_id: number;
   spent_on: string; // YYYY-MM-DD
   amount_cents: number;
-  description: string | null;
+  name: string | null;
+  note: string | null;
 }
 
 export function insertActualEntry(db: Database.Database, e: NewActualEntry): number {
   const info = db
     .prepare(
       `INSERT INTO budget_item_actual_entries
-         (budget_item_id, spent_on, amount_cents, description)
-       VALUES (@budget_item_id, @spent_on, @amount_cents, @description)`
+         (budget_item_id, spent_on, amount_cents, name, note)
+       VALUES (@budget_item_id, @spent_on, @amount_cents, @name, @note)`
     )
     .run(e);
   return Number(info.lastInsertRowid);
@@ -165,7 +166,7 @@ export function deleteItem(db: Database.Database, id: number): void {
 export function updateActual(
   db: Database.Database,
   id: number,
-  fields: Partial<Pick<BudgetItemActualEntry, 'spent_on' | 'amount_cents' | 'description'>>
+  fields: Partial<Pick<BudgetItemActualEntry, 'spent_on' | 'amount_cents' | 'name' | 'note'>>
 ): void {
   patchById(db, 'budget_item_actual_entries', id, fields);
 }
@@ -341,7 +342,8 @@ function toActualRead(a: BudgetItemActualEntry): ActualRead {
   return {
     id: a.id,
     amount: centsToDollars(a.amount_cents),
-    note: a.description || '',
+    name: a.name || '',
+    note: a.note || '',
     date: toMonthDay(a.spent_on),
     spent_on: a.spent_on,
   };

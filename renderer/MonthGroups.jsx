@@ -32,6 +32,7 @@ function DayField({ day, monthId, onCommit, title = "Day of month" }) {
 
 function EntriesDrawer({ item, group, currency, dispatch, month }) {
   const [amt, setAmt] = useState("");
+  const [name, setName] = useState("");
   const [note, setNote] = useState("");
   const [day, setDay] = useState(() => daysInMonth(month));
   const addRef = useRef(null);
@@ -39,8 +40,8 @@ function EntriesDrawer({ item, group, currency, dispatch, month }) {
   const add = () => {
     const n = evalMoney(amt);
     if (n === null || n <= 0) { addRef.current && addRef.current.focus(); return; }
-    dispatch({ type: "addActual", month, groupId: group.id, itemId: item.id, amount: n, note: note.trim(), day });
-    setAmt(""); setNote(""); requestAnimationFrame(() => addRef.current && addRef.current.focus());
+    dispatch({ type: "addActual", month, groupId: group.id, itemId: item.id, amount: n, name: name.trim(), note: note.trim(), day });
+    setAmt(""); setName(""); setNote(""); requestAnimationFrame(() => addRef.current && addRef.current.focus());
   };
   const amtPreview = isExpr(amt) ? evalMoney(amt) : null;
   return (
@@ -52,7 +53,8 @@ function EntriesDrawer({ item, group, currency, dispatch, month }) {
               <div style={{ gridColumn: "span 2", display: "flex", alignItems: "center", gap: 10, paddingLeft: 30, minWidth: 0 }}>
                 <DayField day={actualDay(a, month)} monthId={month} title="Day of month (when it was spent)"
                   onCommit={(d) => dispatch({ type: "updateActual", month, groupId: group.id, itemId: item.id, id: a.id, patch: { date: makeActualDate(month, d) } })} />
-                <TextInline value={a.note} placeholder="Note" col="entryNote" label="Note for this spending entry" onCommit={(v) => dispatch({ type: "updateActual", month, groupId: group.id, itemId: item.id, id: a.id, patch: { note: v } })} style={{ fontSize: 13, color: "var(--ink-2)" }} />
+                <TextInline value={a.name} placeholder="What was it?" col="entryName" label="What this spending entry was for" onCommit={(v) => dispatch({ type: "updateActual", month, groupId: group.id, itemId: item.id, id: a.id, patch: { name: v } })} style={{ flex: "1 1 0", minWidth: 0, fontSize: 13 }} />
+                <TextInline value={a.note} placeholder="Note" col="entryNote" label="Note for this spending entry" allowEmpty onCommit={(v) => dispatch({ type: "updateActual", month, groupId: group.id, itemId: item.id, id: a.id, patch: { note: v } })} style={{ flex: "1 1 0", minWidth: 0, fontSize: 13, color: "var(--ink-2)" }} />
               </div>
               <MoneyInput value={a.amount} currency={currency} col="entryAmount" label="Amount spent" onCommit={(v) => dispatch({ type: "updateActual", month, groupId: group.id, itemId: item.id, id: a.id, patch: { amount: v } })} />
               <div />
@@ -67,7 +69,8 @@ function EntriesDrawer({ item, group, currency, dispatch, month }) {
         <div style={{ gridColumn: "span 2", display: "flex", alignItems: "center", gap: 10, paddingLeft: 30 }}>
           <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 500, marginRight: 2, whiteSpace: "nowrap" }}>Add spend</span>
           <DayField day={day} monthId={month} title="Day of month for this entry" onCommit={setDay} />
-          <input ref={addRef} className="tinput" value={note} aria-label="What the spending was for" onChange={(e) => setNote(e.target.value)} placeholder="What was it?" style={{ fontSize: 13, height: 32 }} onKeyDown={(e) => e.key === "Enter" && add()} />
+          <input ref={addRef} className="tinput" value={name} aria-label="What the spending was for" onChange={(e) => setName(e.target.value)} placeholder="What was it?" style={{ flex: "1 1 0", minWidth: 0, fontSize: 13, height: 32 }} onKeyDown={(e) => e.key === "Enter" && add()} />
+          <input className="tinput" value={note} aria-label="Note for this spending entry (optional)" onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)" style={{ flex: "1 1 0", minWidth: 0, fontSize: 13, height: 32, color: "var(--ink-2)" }} onKeyDown={(e) => e.key === "Enter" && add()} />
         </div>
         <div style={{ position: "relative", height: 32 }}>
           <input className="minput" aria-label="Amount spent" style={{ paddingLeft: 8, height: 32, fontSize: 13 }} inputMode="text" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder={`${currency}0.00`} onKeyDown={(e) => e.key === "Enter" && add()} />

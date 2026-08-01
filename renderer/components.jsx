@@ -123,14 +123,16 @@ function MoneyInput({ value, onCommit, currency = "$", className = "", placehold
 }
 
 /* ---- text input (inline rename) ---------------------------------------- */
-function TextInline({ value, onCommit, className = "", placeholder = "", style, col, label }) {
+/* 'allowEmpty' is for genuinely optional text (an entry's note): without it a
+   cleared field snaps back to its old value, so the field can never be emptied. */
+function TextInline({ value, onCommit, className = "", placeholder = "", style, col, label, allowEmpty = false }) {
   const [txt, setTxt] = useState(value);
   useEffect(() => { setTxt(value); }, [value]);
   return (
     <input className={`tinput ${className}`} value={txt} placeholder={placeholder} style={style}
       data-col={col} aria-label={label}
       onChange={(e) => setTxt(e.target.value)}
-      onBlur={() => onCommit(txt.trim() || value)}
+      onBlur={() => onCommit(allowEmpty ? txt.trim() : txt.trim() || value)}
       onKeyDown={(e) => {
         // Blur commits, so moving focus is enough - no explicit commit here.
         if (e.key === "Enter") {

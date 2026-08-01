@@ -81,7 +81,8 @@ export interface BudgetItemActualEntry {
   budget_item_id: number;
   spent_on: string; // YYYY-MM-DD
   amount_cents: number;
-  description: string | null;
+  name: string | null; // short label: what the spend was
+  note: string | null; // optional longer detail
   created_at: string;
   updated_at: string;
 }
@@ -119,6 +120,7 @@ export interface BlobSettings {
 export interface BlobActual {
   id: string;
   amount: number; // dollars
+  name: string;
   note: string;
   date: string; // "M/DD"
 }
@@ -167,6 +169,7 @@ export interface AppState {
 export interface ActualRead {
   id: number;
   amount: number; // dollars
+  name: string;
   note: string;
   date: string; // "M/DD"
   spent_on: string; // "YYYY-MM-DD"

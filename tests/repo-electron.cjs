@@ -58,12 +58,12 @@ app.whenReady().then(() => {
 
     // Rent: planned 100000, actual 90000 (under) on Main.
     const rent = months.insertItem(db, { budget_group_id: gSpend, name: 'Rent', planned_cents: 100000, bank_account_id: main, sort_order: 0 });
-    months.insertActualEntry(db, { budget_item_id: rent, spent_on: '2026-06-01', amount_cents: 50000, description: null });
-    months.insertActualEntry(db, { budget_item_id: rent, spent_on: '2026-06-02', amount_cents: 40000, description: 'part 2' });
+    months.insertActualEntry(db, { budget_item_id: rent, spent_on: '2026-06-01', amount_cents: 50000, name: null, note: null });
+    months.insertActualEntry(db, { budget_item_id: rent, spent_on: '2026-06-02', amount_cents: 40000, name: 'part 2', note: 'landlord asked to split it' });
 
     // Food: planned 20000, actual 25000 (OVER) on Wallet.
     const food = months.insertItem(db, { budget_group_id: gSpend, name: 'Food', planned_cents: 20000, bank_account_id: wallet, sort_order: 1 });
-    months.insertActualEntry(db, { budget_item_id: food, spent_on: '2026-06-05', amount_cents: 25000, description: null });
+    months.insertActualEntry(db, { budget_item_id: food, spent_on: '2026-06-05', amount_cents: 25000, name: null, note: null });
 
     // Emergency (savings): planned 50000, no actuals, unassigned account.
     const emerg = months.insertItem(db, { budget_group_id: gSave, name: 'Emergency', planned_cents: 50000, bank_account_id: null, sort_order: 0 });
@@ -102,6 +102,11 @@ app.whenReady().then(() => {
     eq(rentRead.allocated, 1000, 'tree rent allocated');
     eq(rentRead.actuals.length, 2, 'tree rent actuals');
     eq(rentRead.actuals[0].date, '6/01', 'tree actual M/DD date');
+    // name and note are separate fields; both read back as '' when unset.
+    eq(rentRead.actuals[0].name, '', 'tree actual empty name');
+    eq(rentRead.actuals[0].note, '', 'tree actual empty note');
+    eq(rentRead.actuals[1].name, 'part 2', 'tree actual name');
+    eq(rentRead.actuals[1].note, 'landlord asked to split it', 'tree actual note');
     assert(tree.groups[1].isSavings === true, 'savings group flagged');
 
     /* ---- copyMonth: clones plan, NOT actuals; income only when asked ---- */
@@ -131,6 +136,11 @@ app.whenReady().then(() => {
     months.updateItem(db, rent, { planned_cents: 110000 });
     eq(months.getItemById(db, rent).allocated, 1100, 'updateItem planned');
     months.updateActual(db, rent, {}); // no-op patch is safe
+    const entryId = rentRead.actuals[1].id;
+    months.updateActual(db, entryId, { name: 'Rent part 2', note: null });
+    const patchedEntry = months.getActualById(db, entryId);
+    eq(patchedEntry.name, 'Rent part 2', 'updateActual name');
+    eq(patchedEntry.note, '', 'updateActual clears note');
 
     /* ---- account delete nulls item refs, then succeeds ---- */
     accounts.deleteAccount(db, wallet);
