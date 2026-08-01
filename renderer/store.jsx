@@ -81,12 +81,40 @@ function normAccountPatch(p) {
 
 const idify = (v) => (v != null && v !== "" ? Number(v) : null);
 
+/* ---------- error copy ---------------------------------------------------
+   SQLite speaks in constraint names. Users need to know what failed and what
+   to do about it, so translate the signatures we actually produce and pass
+   anything else through unchanged rather than inventing a cause. */
+function humanError(raw, actionType) {
+  const m = String(raw || "");
+  if (/FOREIGN KEY constraint failed/i.test(m)) {
+    if (actionType === "removeMember") {
+      return "That person still has income recorded in at least one month, so they can't be removed. Delete their income rows first if you really want them gone.";
+    }
+    if (actionType === "removeAccount") {
+      return "That account is still in use and couldn't be removed.";
+    }
+    return "That can't be removed while something else still refers to it.";
+  }
+  if (/SQLITE_BUSY|database is locked/i.test(m)) {
+    return "Your budget file is busy. If House Budget is open in another window, close it and try again.";
+  }
+  if (/readonly|SQLITE_READONLY/i.test(m)) {
+    return "Your budget file is read-only, so the change couldn't be saved. Check the file's permissions in the data folder.";
+  }
+  if (/disk I\/O|SQLITE_IOERR|ENOSPC|no space/i.test(m)) {
+    return "The change couldn't be written to disk. Check that this device isn't out of space.";
+  }
+  return m;
+}
+
 /* ---------- provider ----------------------------------------------------- */
 
 export function StoreProvider({ children }) {
   const [state, setState] = useState(null); // { settings, months, order, activeMonth }
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null); // { message, id }
+  const [error, setError] = useState(null); // { message, id } - recoverable, shown as a toast
+  const [fatal, setFatal] = useState(null); // Error - the app never came up
 
   const stateRef = useRef(state);
   const monthListRef = useRef([]); // [{ id, month }]
@@ -102,43 +130,47 @@ export function StoreProvider({ children }) {
     []
   );
 
-  const raise = useCallback((err) => {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("[store]", message);
-    setError({ message, id: Date.now() + Math.random() });
+  const raise = useCallback((err, actionType) => {
+    const raw = err instanceof Error ? err.message : String(err);
+    console.error("[store]", actionType || "", raw);
+    setError({ message: humanError(raw, actionType), id: Date.now() + Math.random() });
   }, []);
 
   /* ---- full (re)hydrate from SQL ----
      The renderer is a view layer: it holds only the ACTIVE month's tree (plus
      settings + the month-key list). Other months are fetched on demand. */
   const reload = useCallback(async () => {
-    if (!hasApi) {
-      const empty = buildEmpty();
-      monthListRef.current = empty.order.map((k) => ({ id: k, month: k }));
-      setState(empty);
+    // 'finally', not a trailing call: a throw here used to leave 'loading' true
+    // forever, which showed as a loading screen that never resolved.
+    try {
+      if (!hasApi) {
+        const empty = buildEmpty();
+        monthListRef.current = empty.order.map((k) => ({ id: k, month: k }));
+        setState(empty);
+        return;
+      }
+      let bs = await api.bootstrap();
+      if (!bs.monthList || bs.monthList.length === 0) {
+        // Fresh/empty DB: seed the current month so the budget screen has a month.
+        await api.monthCreate({ month: currentMonthKey() });
+        bs = await api.bootstrap();
+      }
+      monthListRef.current = bs.monthList;
+      const order = bs.monthList.map((m) => m.month);
+      const activeMonth =
+        bs.activeMonth && order.includes(bs.activeMonth)
+          ? bs.activeMonth
+          : order[order.length - 1] || "";
+      const activeRow = bs.monthList.find((m) => m.month === activeMonth);
+      const months = {};
+      if (activeRow) {
+        const tree = await api.getMonth(activeRow.id);
+        if (tree) months[tree.month] = treeToBlobMonth(tree);
+      }
+      setState({ settings: settingsFromBootstrap(bs), months, order, activeMonth });
+    } finally {
       setLoading(false);
-      return;
     }
-    let bs = await api.bootstrap();
-    if (!bs.monthList || bs.monthList.length === 0) {
-      // Fresh/empty DB: seed the current month so the budget screen has a month.
-      await api.monthCreate({ month: currentMonthKey() });
-      bs = await api.bootstrap();
-    }
-    monthListRef.current = bs.monthList;
-    const order = bs.monthList.map((m) => m.month);
-    const activeMonth =
-      bs.activeMonth && order.includes(bs.activeMonth)
-        ? bs.activeMonth
-        : order[order.length - 1] || "";
-    const activeRow = bs.monthList.find((m) => m.month === activeMonth);
-    const months = {};
-    if (activeRow) {
-      const tree = await api.getMonth(activeRow.id);
-      if (tree) months[tree.month] = treeToBlobMonth(tree);
-    }
-    setState({ settings: settingsFromBootstrap(bs), months, order, activeMonth });
-    setLoading(false);
   }, []);
 
   /* ---- targeted refreshes ---- */
@@ -161,9 +193,21 @@ export function StoreProvider({ children }) {
     setState((s) => (s ? { ...s, settings: settingsFromBootstrap(bs) } : s));
   }, []);
 
+  /* A failure during the FIRST load is different in kind from a failed edit:
+     there is no UI to fall back to, so it gets its own screen rather than a
+     toast that nothing is mounted to show. */
   useEffect(() => {
-    reload().catch(raise);
-  }, [reload, raise]);
+    reload().catch((err) => {
+      console.error("[store] bootstrap failed", err);
+      setFatal(err instanceof Error ? err : new Error(String(err)));
+    });
+  }, [reload]);
+
+  const retry = useCallback(() => {
+    setFatal(null);
+    setLoading(true);
+    reload().catch((err) => setFatal(err instanceof Error ? err : new Error(String(err))));
+  }, [reload]);
 
   /* ---- action dispatch: map each action to its granular IPC call ---- */
   const dispatch = useCallback(
@@ -304,7 +348,7 @@ export function StoreProvider({ children }) {
             return;
         }
       };
-      run().catch(raise);
+      run().catch((err) => raise(err, A.type));
     },
     [idForKey, refreshMonth, refreshSettings, reload, raise]
   );
@@ -338,6 +382,8 @@ export function StoreProvider({ children }) {
     state,
     loading,
     error,
+    fatal,
+    retry,
     dispatch,
     reload,
     refreshSettings,

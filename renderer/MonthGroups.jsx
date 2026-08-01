@@ -3,7 +3,7 @@
    reorder, delete-this-month-only, and the New Month flow.
    ============================================================ */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { DiffPill, Icons, MiniBar, Modal, MoneyInput, TextInline, evalMoney, isExpr } from './components.jsx';
+import { ConfirmDialog, DiffPill, Icons, MiniBar, Modal, MoneyInput, TextInline, evalMoney, isExpr } from './components.jsx';
 import { actualDay, daysInMonth, fmt, groupActual, groupAllocated, itemActual, makeActualDate, monthLabel, nextMonthId, normalizeItemName, round2 } from './lib/index.js';
 import { useStore } from './store.jsx';
 import { AccountSelect } from './Accounts.jsx';
@@ -52,9 +52,9 @@ function EntriesDrawer({ item, group, currency, dispatch, month }) {
               <div style={{ gridColumn: "span 2", display: "flex", alignItems: "center", gap: 10, paddingLeft: 30, minWidth: 0 }}>
                 <DayField day={actualDay(a, month)} monthId={month} title="Day of month (when it was spent)"
                   onCommit={(d) => dispatch({ type: "updateActual", month, groupId: group.id, itemId: item.id, id: a.id, patch: { date: makeActualDate(month, d) } })} />
-                <TextInline value={a.note} placeholder="Note" onCommit={(v) => dispatch({ type: "updateActual", month, groupId: group.id, itemId: item.id, id: a.id, patch: { note: v } })} style={{ fontSize: 13, color: "var(--ink-2)" }} />
+                <TextInline value={a.note} placeholder="Note" col="entryNote" label="Note for this spending entry" onCommit={(v) => dispatch({ type: "updateActual", month, groupId: group.id, itemId: item.id, id: a.id, patch: { note: v } })} style={{ fontSize: 13, color: "var(--ink-2)" }} />
               </div>
-              <MoneyInput value={a.amount} currency={currency} onCommit={(v) => dispatch({ type: "updateActual", month, groupId: group.id, itemId: item.id, id: a.id, patch: { amount: v } })} />
+              <MoneyInput value={a.amount} currency={currency} col="entryAmount" label="Amount spent" onCommit={(v) => dispatch({ type: "updateActual", month, groupId: group.id, itemId: item.id, id: a.id, patch: { amount: v } })} />
               <div />
               <div style={{ display: "flex", justifyContent: "flex-end" }}>
                 <button className="icon-btn subtle" title="Remove entry" onClick={() => dispatch({ type: "removeActual", month, groupId: group.id, itemId: item.id, id: a.id })}><Icons.x size={14} /></button>
@@ -67,10 +67,10 @@ function EntriesDrawer({ item, group, currency, dispatch, month }) {
         <div style={{ gridColumn: "span 2", display: "flex", alignItems: "center", gap: 10, paddingLeft: 30 }}>
           <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 500, marginRight: 2, whiteSpace: "nowrap" }}>Add spend</span>
           <DayField day={day} monthId={month} title="Day of month for this entry" onCommit={setDay} />
-          <input ref={addRef} className="tinput" value={note} onChange={(e) => setNote(e.target.value)} placeholder="What was it?" style={{ fontSize: 13, height: 32 }} onKeyDown={(e) => e.key === "Enter" && add()} />
+          <input ref={addRef} className="tinput" value={note} aria-label="What the spending was for" onChange={(e) => setNote(e.target.value)} placeholder="What was it?" style={{ fontSize: 13, height: 32 }} onKeyDown={(e) => e.key === "Enter" && add()} />
         </div>
         <div style={{ position: "relative", height: 32 }}>
-          <input className="minput" style={{ paddingLeft: 8, height: 32, fontSize: 13 }} inputMode="text" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder={`${currency}0.00`} onKeyDown={(e) => e.key === "Enter" && add()} />
+          <input className="minput" aria-label="Amount spent" style={{ paddingLeft: 8, height: 32, fontSize: 13 }} inputMode="text" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder={`${currency}0.00`} onKeyDown={(e) => e.key === "Enter" && add()} />
           {amtPreview !== null && (
             <span className="mono" style={{ position: "absolute", right: 4, bottom: "100%", marginBottom: 3, background: "var(--ink)", color: "var(--surface)", fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 6, whiteSpace: "nowrap", zIndex: 4 }}>= {fmt(currency, amtPreview)}</span>
           )}
@@ -104,12 +104,14 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
         style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, flex: "none", cursor: "grab", color: "var(--faint)"}}><Icons.drag size={25} /></div>
       <div className="budget-row" style={{ flex: 1, minWidth: 0, display: "grid", gridTemplateColumns: "1fr 150px 158px 150px 78px", alignItems: "center", gap: 10, padding: "7px 8px", minHeight: "var(--row-h)" }}>
         <div style={{ minWidth: 0, paddingRight: 6, display: "flex", flexDirection: "column", gap: 4 }}>
-          <TextInline value={item.name} onCommit={(v) => dispatch({ type: "renameItem", month, groupId: group.id, itemId: item.id, name: v })} />
+          <TextInline value={item.name} col="itemName" label="Item name"
+            onCommit={(v) => dispatch({ type: "renameItem", month, groupId: group.id, itemId: item.id, name: v })} />
           <div style={{ paddingLeft: 8 }}>
             <AccountSelect value={item.account} accounts={accounts} onChange={(a) => dispatch({ type: "setItemAccount", month, groupId: group.id, itemId: item.id, account: a })} />
           </div>
         </div>
-        <MoneyInput value={item.allocated} currency={currency} onCommit={(v) => dispatch({ type: "updateAllocated", month, groupId: group.id, itemId: item.id, value: v })} />
+        <MoneyInput value={item.allocated} currency={currency} col="allocated" label={`Allocated for ${item.name}`}
+          onCommit={(v) => dispatch({ type: "updateAllocated", month, groupId: group.id, itemId: item.id, value: v })} />
         <button onClick={onToggle} title="View / add spending entries"
           style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 7, background: open ? "var(--surface-sunken)" : "transparent", border: "1px solid transparent", borderRadius: 7, padding: "5px 9px", color: "var(--ink)", transition: ".12s" }}>
           <span className="mono" style={{ fontSize: 14 }}>{fmt(currency, actual)}</span>
@@ -126,14 +128,12 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
       </div>
       {open && <EntriesDrawer item={item} group={group} currency={currency} dispatch={dispatch} month={month} />}
       {confirmDelete && (
-        <Modal onClose={() => setConfirmDelete(false)} width={440}>
-          <h3>Delete "{item.name}"?</h3>
-          <p>This removes the item from this month only. {item.actuals.length > 0 ? `Its ${item.actuals.length} spending ${item.actuals.length === 1 ? "entry" : "entries"} will be deleted too.` : ""} Past months are not affected.</p>
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 18 }}>
-            <button className="btn btn-ghost" onClick={() => setConfirmDelete(false)}>Cancel</button>
-            <button className="btn btn-danger" onClick={() => { dispatch({ type: "deleteItem", month, groupId: group.id, itemId: item.id }); setConfirmDelete(false); }}><Icons.trash size={15} /> Delete item</button>
-          </div>
-        </Modal>
+        <ConfirmDialog title={`Delete "${item.name}"?`} width={440}
+          confirmLabel="Delete item" icon={<Icons.trash size={15} />}
+          onClose={() => setConfirmDelete(false)}
+          onConfirm={() => { dispatch({ type: "deleteItem", month, groupId: group.id, itemId: item.id }); setConfirmDelete(false); }}>
+          This removes the item from this month only. {item.actuals.length > 0 ? `Its ${item.actuals.length} spending ${item.actuals.length === 1 ? "entry" : "entries"} will be deleted too.` : ""} Past months are not affected.
+        </ConfirmDialog>
       )}
     </div>
   );
@@ -175,7 +175,7 @@ function AddItemSearch({ month, groupId, currency, dispatch, onClose }) {
   return (
     <div ref={rootRef} style={{ padding: "10px 16px", borderTop: "1px solid var(--hairline)", background: "var(--surface-2)" }}>
       <div style={{ display: "flex", gap: 8 }}>
-        <input autoFocus className="tinput" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search previous items or type new..." style={{ maxWidth: 340 }}
+        <input autoFocus className="tinput" value={query} aria-label="Search previous items, or type a new item name" onChange={(e) => setQuery(e.target.value)} placeholder="Search previous items or type new..." style={{ maxWidth: 340 }}
           onKeyDown={(e) => {
             if (e.key === "Enter") createItem();
             if (e.key === "Escape") { setQuery(""); onClose(); }
@@ -214,7 +214,12 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, onDragSt
   const [dragId, setDragId] = useState(null);
   const [overId, setOverId] = useState(null);
   const [openItems, setOpenItems] = useState(() => new Set());
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const cardRef = useRef(null);
+  // A group takes its items and their spending with it - count both so the
+  // confirm can say exactly what is about to go.
+  const itemCount = group.items.length;
+  const entryCount = group.items.reduce((n, it) => n + it.actuals.length, 0);
   const toggleItem = (itemId) => setOpenItems(prev => {
     const next = new Set(prev);
     next.has(itemId) ? next.delete(itemId) : next.add(itemId);
@@ -245,16 +250,16 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, onDragSt
         style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, flex: "none", cursor: "grab", color: "var(--faint)", background: "var(--surface-2)", borderBottom: group.collapsed ? "none" : "1px solid var(--border-strong)" }}><Icons.drag size={25} /></div>
       <div style={{ flex: 1, minWidth: 0, display: "grid", gridTemplateColumns: "1fr 150px 158px 150px 78px", alignItems: "center", gap: 10, padding: "16px 8px", background: "var(--surface-2)", borderBottom: group.collapsed ? "none" : "1px solid var(--border-strong)" }} className="budget-row">
         <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-          <button className="icon-btn" onClick={() => dispatch({ type: "toggleCollapse", month, groupId: group.id })} style={{ transform: group.collapsed ? "rotate(-90deg)" : "none", transition: "transform .18s" }}><Icons.down size={16} /></button>
-          <TextInline value={group.name} onCommit={(v) => dispatch({ type: "renameGroup", month, groupId: group.id, name: v })} style={{ fontWeight: 600, fontSize: 15 }} />
-          {group.isSavings && <span className="pill pill-pos" style={{ background: "var(--accent-soft)" }}><Icons.plant size={12} /> Savings</span>}
+          <button className="icon-btn" aria-expanded={!group.collapsed} aria-label={group.collapsed ? `Expand ${group.name}` : `Collapse ${group.name}`} onClick={() => dispatch({ type: "toggleCollapse", month, groupId: group.id })} style={{ transform: group.collapsed ? "rotate(-90deg)" : "none", transition: "transform .18s" }}><Icons.down size={16} /></button>
+          <TextInline value={group.name} col="groupName" label="Group name" onCommit={(v) => dispatch({ type: "renameGroup", month, groupId: group.id, name: v })} style={{ fontWeight: 600, fontSize: 15 }} />
+          {group.isSavings && <span className="pill pill-pos"><Icons.plant size={12} /> Savings</span>}
         </div>
         <div className="mono" style={{ textAlign: "right", fontSize: 13.5, fontWeight: 600, paddingRight: 8 }}>{fmt(currency, alloc, { cents: false })}</div>
         <div className="mono" style={{ textAlign: "right", fontSize: 13.5, color: "var(--ink-2)", paddingRight: 9 }}>{fmt(currency, actual, { cents: false })}</div>
         <div style={{ textAlign: "right" }}><DiffPill diff={diff} currency={currency} /></div>
         <div className="row-actions" style={{ justifyContent: "flex-end" }}>
-          <button className="icon-btn" title={group.isSavings ? "Unmark as savings" : "Mark as savings group"} onClick={() => dispatch({ type: "setSavings", month, groupId: group.id, value: !group.isSavings })} style={{ color: group.isSavings ? "var(--accent)" : undefined }}><Icons.plant size={15} /></button>
-          <button className="icon-btn" title="Delete group (this month only)" onClick={() => dispatch({ type: "deleteGroup", month, groupId: group.id })}><Icons.trash size={15} /></button>
+          <button className="icon-btn" title={group.isSavings ? "Unmark as savings" : "Mark as savings group"} onClick={() => dispatch({ type: "setSavings", month, groupId: group.id, value: !group.isSavings })} style={{ color: group.isSavings ? "var(--pos)" : undefined }}><Icons.plant size={15} /></button>
+          <button className="icon-btn" title="Delete group (this month only)" onClick={() => setConfirmDelete(true)}><Icons.trash size={15} /></button>
         </div>
       </div>
       </div>
@@ -282,6 +287,17 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, onDragSt
             </div>
           )}
         </div>
+      )}
+      {confirmDelete && (
+        <ConfirmDialog title={`Delete "${group.name}"?`}
+          confirmLabel="Delete group" icon={<Icons.trash size={15} />}
+          onClose={() => setConfirmDelete(false)}
+          onConfirm={() => { dispatch({ type: "deleteGroup", month, groupId: group.id }); setConfirmDelete(false); }}>
+          {itemCount === 0
+            ? "This group is empty, so nothing else goes with it. It is removed from this month only, and past months are not affected."
+            : <>This removes the group and its {itemCount} {itemCount === 1 ? "item" : "items"}
+              {entryCount > 0 ? <> and their {entryCount} spending {entryCount === 1 ? "entry" : "entries"}</> : null} from this month only. Past months are not affected.</>}
+        </ConfirmDialog>
       )}
     </div>
   );

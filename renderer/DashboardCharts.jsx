@@ -101,12 +101,12 @@ function SavingsChart({ series, currency }) {
           <DashTooltip currency={currency} rows={(p) => {
             const d = p[0] && p[0].payload;
             return [
-              { label: "Saved", color: "var(--accent)", value: fmt(currency, d.saved, { cents: false }) },
+              { label: "Saved", color: "var(--pos)", value: fmt(currency, d.saved, { cents: false }) },
               { label: "Rate", value: d.rateLabel },
             ];
           }} />
         } />
-        <Bar dataKey="saved" name="Saved" fill="var(--accent)" radius={[4, 4, 0, 0]}>
+        <Bar dataKey="saved" name="Saved" fill="var(--pos)" radius={[4, 4, 0, 0]}>
           <LabelList dataKey="rateLabel" position="top" fill="var(--faint)" fontSize={10.5} />
         </Bar>
       </BarChart>
@@ -215,7 +215,7 @@ function CategoryTrends({ series, currency }) {
       {rows.map(row => {
         const up = row.isNew ? true : row.pct > 0;
         const flat = !row.isNew && row.pct === 0;
-        const color = flat ? "var(--faint)" : up ? "var(--neg-ink)" : "var(--accent-ink)";
+        const color = flat ? "var(--faint)" : up ? "var(--neg-ink)" : "var(--pos-ink)";
         return (
           <div key={row.g} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 0", borderBottom: "1px solid var(--hairline)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}>
@@ -273,12 +273,12 @@ function SpendingTiming({ series, currency }) {
             const d = p[0] && p[0].payload;
             return [
               { label: "Avg spend", color: "var(--muted)", value: fmt(currency, d.avg, { cents: false }) },
-              { label: "Cumulative", color: "var(--accent)", value: fmt(currency, d.cum, { cents: false }) },
+              { label: "Cumulative", color: "var(--pos)", value: fmt(currency, d.cum, { cents: false }) },
             ];
           }} />
         } />
         <Bar dataKey="avg" name="Avg spend" fill="var(--muted)" radius={[2, 2, 0, 0]} />
-        <Line type="monotone" dataKey="cum" name="Cumulative" stroke="var(--accent)" strokeWidth={2} dot={false} />
+        <Line type="monotone" dataKey="cum" name="Cumulative" stroke="var(--pos)" strokeWidth={2} dot={false} />
       </ComposedChart>
     </ResponsiveContainer>
   );

@@ -11,3 +11,6 @@ release/
 *.sqlite-shm
 
 docs/
+
+# skills
+.impeccable/

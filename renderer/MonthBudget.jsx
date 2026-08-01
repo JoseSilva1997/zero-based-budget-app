@@ -18,15 +18,15 @@ function SummaryHero({ mo, currency }) {
         {/* hero unallocated */}
         <div style={{ padding: "26px 28px", borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column", justifyContent: "space-between", background: state === "zero" ? "linear-gradient(160deg, var(--pos-soft), transparent)" : state === "over" ? "linear-gradient(160deg, var(--neg-soft), transparent)" : "transparent" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", fontWeight: 600 }}>
-            {state === "zero" ? <Icons.check size={15} style={{ color: "var(--accent)" }} /> : <Icons.coins size={15} />}
+            {state === "zero" ? <Icons.check size={15} style={{ color: "var(--pos)" }} /> : <Icons.coins size={15} />}
             {state === "over" ? "Over-allocated" : "Left to allocate"}
           </div>
           <div>
-            <div className="mono tnum" style={{ fontSize: 50, fontWeight: 500, lineHeight: 1, letterSpacing: "-0.03em", margin: "14px 0 8px", color: state === "zero" ? "var(--accent-ink)" : state === "over" ? "var(--neg-ink)" : "var(--ink)" }}>
+            <div className="mono tnum" style={{ fontSize: 50, fontWeight: 500, lineHeight: 1, letterSpacing: "-0.03em", margin: "14px 0 8px", color: state === "zero" ? "var(--pos-ink)" : state === "over" ? "var(--neg-ink)" : "var(--ink)" }}>
               {fmt(currency, Math.abs(unalloc))}
             </div>
             <div style={{ fontSize: 13.5, color: "var(--ink-2)", lineHeight: 1.4 }}>
-              {state === "zero" && <span style={{ color: "var(--accent-ink)", fontWeight: 500 }}>Every {currency} has a job, this month is fully allocated.</span>}
+              {state === "zero" && <span style={{ color: "var(--pos-ink)", fontWeight: 500 }}>Every {currency} has a job, this month is fully allocated.</span>}
               {state === "left" && <>Assign this to a group or to savings to reach zero.</>}
               {state === "over" && <span style={{ color: "var(--neg-ink)", fontWeight: 500 }}>You've allocated more than you earn. Trim {fmt(currency, Math.abs(unalloc), { cents: false })}.</span>}
             </div>
@@ -37,7 +37,7 @@ function SummaryHero({ mo, currency }) {
               <span>{Math.round(pctAlloc * 100)}% of income</span>
             </div>
             <div style={{ height: 8, borderRadius: 99, background: "var(--surface-sunken)", overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${pctAlloc * 100}%`, borderRadius: 99, background: state === "over" ? "var(--neg)" : "linear-gradient(90deg, var(--accent), var(--accent-strong))", transition: "width .35s ease" }} />
+              <div style={{ height: "100%", width: "100%", transformOrigin: "left", transform: `scaleX(${pctAlloc})`, background: state === "over" ? "var(--neg)" : "var(--pos)", transition: "transform .35s ease" }} />
             </div>
           </div>
         </div>
@@ -46,7 +46,7 @@ function SummaryHero({ mo, currency }) {
           <Stat label="Total income" value={fmt(currency, income)} tone="ink" />
           <Stat label="Total allocated" value={fmt(currency, alloc)} tone="ink" border />
           <Stat label="Total actual" value={fmt(currency, actual)} sub={`${income>0?Math.round(actual/income*100):0}% of income spent`} top />
-          <Stat label="Savings allocated" value={fmt(currency, savings)} tone="accent" icon={<Icons.plant size={15} />} border top />
+          <Stat label="Savings allocated" value={fmt(currency, savings)} tone="pos" icon={<Icons.plant size={15} />} border top />
         </div>
       </div>
       {over.length > 0 && (
@@ -66,7 +66,7 @@ function Stat({ label, value, sub, tone, icon, border, top }) {
   return (
     <div style={{ padding: "18px 22px", borderLeft: border ? "1px solid var(--border)" : "none", borderTop: top ? "1px solid var(--border)" : "none", display: "flex", flexDirection: "column", justifyContent: "center" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--muted)", fontWeight: 500, marginBottom: 8 }}>{icon}{label}</div>
-      <div className="mono" style={{ fontSize: 23, fontWeight: 500, letterSpacing: "-0.01em", color: tone === "accent" ? "var(--accent-ink)" : "var(--ink)" }}>{value}</div>
+      <div className="mono" style={{ fontSize: 23, fontWeight: 500, letterSpacing: "-0.01em", color: tone === "pos" ? "var(--pos-ink)" : "var(--ink)" }}>{value}</div>
       {sub && <div style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 4 }}>{sub}</div>}
     </div>
   );
@@ -99,13 +99,14 @@ function IncomeSection({ mo, currency, members, dispatch, month }) {
             <div className="income-row" key={inc.id} style={{ display: "grid", gridTemplateColumns: "1fr 200px 150px 40px", alignItems: "center", gap: 10, padding: "9px 16px", borderTop: idx ? "1px solid var(--hairline)" : "none" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <Avatar member={m} />
-                <select value={inc.memberId} onChange={(e) => dispatch({ type: "updateIncome", month, id: inc.id, patch: { memberId: e.target.value } })}
+                <select value={inc.memberId} aria-label="Who this income belongs to" onChange={(e) => dispatch({ type: "updateIncome", month, id: inc.id, patch: { memberId: e.target.value } })}
                   style={{ border: "1px solid transparent", background: "transparent", fontFamily: "inherit", fontSize: 13.5, fontWeight: 500, color: "var(--ink)", borderRadius: 6, padding: "3px 4px", cursor: "pointer" }}>
                   {members.map(mm => <option key={mm.id} value={mm.id}>{mm.name}</option>)}
                 </select>
               </div>
-              <TextInline value={inc.label} onCommit={(v) => dispatch({ type: "updateIncome", month, id: inc.id, patch: { label: v } })} placeholder="Source" style={{ fontWeight: 400, color: "var(--ink-2)", fontSize: 13 }} />
-              <MoneyInput value={inc.amount} currency={currency} onCommit={(v) => dispatch({ type: "updateIncome", month, id: inc.id, patch: { amount: v } })} />
+              <TextInline value={inc.label} col="incomeLabel" label="Income source" onCommit={(v) => dispatch({ type: "updateIncome", month, id: inc.id, patch: { label: v } })} placeholder="Source" style={{ fontWeight: 400, color: "var(--ink-2)", fontSize: 13 }} />
+              <MoneyInput value={inc.amount} currency={currency} col="income" label="Income amount"
+                onCommit={(v) => dispatch({ type: "updateIncome", month, id: inc.id, patch: { amount: v } })} />
               <div className="row-actions"><button className="icon-btn" title="Remove" onClick={() => dispatch({ type: "removeIncome", month, id: inc.id })}><Icons.trash size={15} /></button></div>
             </div>
           );

@@ -126,7 +126,7 @@ function AccountPanel({ mo, accounts, members, currency, dispatch, month }) {
           </div>
           <div className="card" style={{ overflow: "hidden" }}>
             {savingsItems.map((it, i) => {
-              const color = savingsAccount ? savingsAccount.color : "var(--accent)";
+              const color = savingsAccount ? savingsAccount.color : "var(--pos)";
               return (
                 <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 15px", borderTop: i ? "1px solid var(--border)" : "none" }}>
                   <span style={{ width: 34, height: 34, borderRadius: 9, flex: "none", background: hexToSoft(savingsAccount ? savingsAccount.color : "#2dd4a8"), color, display: "grid", placeItems: "center" }}><Icons.plant size={17} /></span>
@@ -171,7 +171,7 @@ function WalletDrawer({ mo, accounts, members, currency, dispatch, month, onClos
       <aside className="drawer" role="dialog" aria-label="Wallet">
         <div className="drawer-head">
           <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
-            <span style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(150deg, var(--accent), var(--accent-strong))", color: "var(--on-accent)", display: "grid", placeItems: "center", boxShadow: "var(--glow-sm), inset 0 1px 0 color-mix(in srgb, #fff 22%, transparent)", flex: "none" }}><Icons.wallet size={19} /></span>
+            <span style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(150deg, var(--accent-btn), var(--accent))", color: "var(--on-accent)", display: "grid", placeItems: "center", boxShadow: "var(--glow-sm), inset 0 1px 0 color-mix(in srgb, #fff 22%, transparent)", flex: "none" }}><Icons.wallet size={19} /></span>
             <div>
               <div style={{ fontWeight: 600, fontSize: 16 }}>Wallet</div>
               <div style={{ fontSize: 12, color: "var(--muted)" }}> Movements for {monthLabel(month).mo}</div>

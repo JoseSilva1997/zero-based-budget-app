@@ -25,6 +25,8 @@ import type {
   BankAccount,
   GroupKind,
   AutoBackupMode,
+  BackupInfo,
+  RestorePreview,
 } from '../shared/types';
 
 type Ok = { ok: true };
@@ -116,8 +118,20 @@ const api = {
 
   /* ---------- backup / data ---------- */
   createBackup: () => invoke<{ path: string; savedAt: string }>('backup:create'),
-  restoreBackup: (filePath: string) => invoke<Ok>('backup:restore', filePath),
+  listBackups: () => invoke<BackupInfo[]>('backup:list'),
+  previewBackup: (filePath: string) => invoke<RestorePreview>('backup:preview', filePath),
+  restoreBackup: (filePath: string) =>
+    invoke<{ ok: true; safetyCopy: string; savedAt: string }>('backup:restore', filePath),
   revealDataFolder: () => invoke<{ path: string }>('data:revealFolder'),
+
+  /* ---------- application menu ----------
+     Menu items post a command here rather than acting in the main process,
+     because the renderer owns the state they change. Returns an unsubscribe. */
+  onMenuCommand: (handler: (command: string) => void): (() => void) => {
+    const listener = (_e: unknown, command: string) => handler(command);
+    ipcRenderer.on('menu:command', listener);
+    return () => { ipcRenderer.off('menu:command', listener); };
+  },
 
   // Not an IPC channel - resolves a picked File's absolute path (replaces the
   // removed File.path), used by the restore flow.

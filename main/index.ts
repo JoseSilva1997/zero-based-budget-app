@@ -10,6 +10,7 @@ import * as path from 'path';
 import { initDb, getDb, closeDb } from './db';
 import { backupsDir, userDataDir } from './paths';
 import { registerIpcHandlers } from './ipc';
+import { buildAppMenu } from './menu';
 import { createDbBackup } from '../database/repositories/backups';
 import { getMeta, setMeta } from '../database/repositories/meta';
 
@@ -49,6 +50,7 @@ app.whenReady().then(() => {
   // DB and IPC must be ready before the renderer can call window.api.
   initDb();
   registerIpcHandlers();
+  buildAppMenu();
   createWindow();
 
   app.on('activate', () => {

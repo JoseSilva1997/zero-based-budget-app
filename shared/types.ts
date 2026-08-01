@@ -275,3 +275,18 @@ export interface BackupInfo {
   savedAt: string; // ISO-ish display string
   size: number;
 }
+
+/** What a database holds, used to tell the user what a restore would replace. */
+export interface DbSummary {
+  months: number;
+  entries: number;
+}
+
+/** A validated restore candidate: file metadata plus its contents. */
+export interface BackupSummary extends BackupInfo, DbSummary {}
+
+/** Both sides of a pending restore, so the confirm can name what is at risk. */
+export interface RestorePreview {
+  live: DbSummary;
+  incoming: BackupSummary;
+}

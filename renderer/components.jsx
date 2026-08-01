@@ -61,28 +61,60 @@ function evalMoney(raw) {
 }
 function isExpr(s) { return /[+\-*/]/.test(String(s).replace(/^\s*-/, "")); }
 
+/* ---- column-wise keyboard navigation ------------------------------------
+   Budgeting is a column of numbers, so Enter should behave the way it does in
+   a spreadsheet: commit and drop to the same field one row down (Shift+Enter
+   goes back up). Fields opt in with a `col` name; document order is row order.
+   Returns false at the ends of a column so the caller can just blur. */
+function focusInColumn(el, dir) {
+  const col = el && el.getAttribute("data-col");
+  if (!col) return false;
+  const all = Array.from(document.querySelectorAll(`[data-col="${CSS.escape(col)}"]`))
+    .filter((n) => !n.disabled && n.offsetParent !== null);
+  const i = all.indexOf(el);
+  if (i === -1) return false;
+  const next = all[i + dir];
+  if (!next) return false;
+  next.focus();
+  if (typeof next.select === "function") next.select();
+  return true;
+}
+
 /* ---- money input -------------------------------------------------------- */
-function MoneyInput({ value, onCommit, currency = "$", className = "", placeholder = "0.00", autoFocus }) {
+function MoneyInput({ value, onCommit, currency = "$", className = "", placeholder = "0.00", autoFocus, col, label }) {
   const [txt, setTxt] = useState("");
   const [editing, setEditing] = useState(false);
   const ref = useRef(null);
+  // Enter commits and then moves focus, which fires blur on the way out. The
+  // latch keeps that from writing the same value twice.
+  const done = useRef(false);
   useEffect(() => { if (autoFocus && ref.current) ref.current.focus(); }, [autoFocus]);
   const display = editing ? txt : (value === 0 || value == null ? "" : Number(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
   const preview = editing && isExpr(txt) ? evalMoney(txt) : null;
   const commit = () => {
+    if (done.current) return;
+    done.current = true;
     setEditing(false);
     const n = evalMoney(txt);
     if (n !== null) onCommit(n); else if (String(txt).trim() === "") onCommit(0);
   };
   return (
     <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-      <span style={{ position: "absolute", left: 9, color: "var(--faint)", fontSize: 13, pointerEvents: "none", fontFamily: "var(--font-mono)" }}>{currency}</span>
+      <span aria-hidden="true" style={{ position: "absolute", left: 9, color: "var(--faint)", fontSize: 13, pointerEvents: "none", fontFamily: "var(--font-mono)" }}>{currency}</span>
       <input ref={ref} className={`minput ${className}`} style={{ paddingLeft: 20 }} inputMode="text"
+        data-col={col} aria-label={label}
         value={display} placeholder={placeholder}
-        onFocus={(e) => { setEditing(true); setTxt(value ? String(value) : ""); requestAnimationFrame(() => { const el = e.target; const end = el.value.length; el.setSelectionRange(end, end); }); }}
+        onFocus={(e) => { done.current = false; setEditing(true); setTxt(value ? String(value) : ""); requestAnimationFrame(() => { const el = e.target; const end = el.value.length; el.setSelectionRange(end, end); }); }}
         onChange={(e) => setTxt(e.target.value)}
         onBlur={commit}
-        onKeyDown={(e) => { if (e.key === "Enter") { commit(); e.target.blur(); } if (e.key === "Escape") { setEditing(false); e.target.blur(); } }} />
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            commit();
+            if (!focusInColumn(e.target, e.shiftKey ? -1 : 1)) e.target.blur();
+          }
+          if (e.key === "Escape") { done.current = true; setEditing(false); e.target.blur(); }
+        }} />
       {preview !== null && (
         <span className="mono" style={{ position: "absolute", right: 6, bottom: "100%", marginBottom: 3, background: "var(--ink)", color: "var(--surface)", fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 6, whiteSpace: "nowrap", boxShadow: "var(--shadow-sm)", zIndex: 4 }}>= {fmt(currency, preview)}</span>
       )}
@@ -91,14 +123,22 @@ function MoneyInput({ value, onCommit, currency = "$", className = "", placehold
 }
 
 /* ---- text input (inline rename) ---------------------------------------- */
-function TextInline({ value, onCommit, className = "", placeholder = "", style }) {
+function TextInline({ value, onCommit, className = "", placeholder = "", style, col, label }) {
   const [txt, setTxt] = useState(value);
   useEffect(() => { setTxt(value); }, [value]);
   return (
     <input className={`tinput ${className}`} value={txt} placeholder={placeholder} style={style}
+      data-col={col} aria-label={label}
       onChange={(e) => setTxt(e.target.value)}
       onBlur={() => onCommit(txt.trim() || value)}
-      onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); if (e.key === "Escape") { setTxt(value); e.target.blur(); } }} />
+      onKeyDown={(e) => {
+        // Blur commits, so moving focus is enough - no explicit commit here.
+        if (e.key === "Enter") {
+          e.preventDefault();
+          if (!focusInColumn(e.target, e.shiftKey ? -1 : 1)) e.target.blur();
+        }
+        if (e.key === "Escape") { setTxt(value); e.target.blur(); }
+      }} />
   );
 }
 
@@ -119,20 +159,74 @@ function DiffPill({ diff, currency }) {
 function MiniBar({ actual, allocated }) {
   const pct = allocated > 0 ? Math.min(actual / allocated, 1) : (actual > 0 ? 1 : 0);
   const over = actual > allocated + 0.001;
+  // scaleX rather than width: animating width relayouts every row on each commit.
   return (
     <div style={{ height: 5, borderRadius: 99, background: "var(--surface-sunken)", overflow: "hidden", width: "100%" }}>
-      <div style={{ height: "100%", width: `${pct * 100}%`, borderRadius: 99, background: over ? "var(--neg)" : "var(--accent)", transition: "width .3s ease" }} />
+      <div style={{ height: "100%", width: "100%", transformOrigin: "left", transform: `scaleX(${pct})`, background: over ? "var(--neg)" : "var(--pos)", transition: "transform .3s ease" }} />
     </div>
   );
 }
 
 /* ---- modal -------------------------------------------------------------- */
-function Modal({ children, onClose, width }) {
-  useEffect(() => { const h = (e) => e.key === "Escape" && onClose(); window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h); }, [onClose]);
+const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
+function Modal({ children, onClose, width, label }) {
+  const boxRef = useRef(null);
+  const titleId = useRef(`modal-title-${Math.random().toString(36).slice(2, 9)}`).current;
+
+  // Escape closes; Tab is trapped inside the dialog so focus can never land on
+  // the page behind the veil.
+  useEffect(() => {
+    const h = (e) => {
+      if (e.key === "Escape") { onClose(); return; }
+      if (e.key !== "Tab" || !boxRef.current) return;
+      const items = Array.from(boxRef.current.querySelectorAll(FOCUSABLE)).filter((el) => el.offsetParent !== null);
+      if (items.length === 0) return;
+      const first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [onClose]);
+
+  // Move focus in on open, put it back where it came from on close.
+  useEffect(() => {
+    const returnTo = document.activeElement;
+    const box = boxRef.current;
+    const target = box && (box.querySelector("[data-autofocus]") || box.querySelector(FOCUSABLE));
+    if (target) target.focus();
+    return () => { if (returnTo && typeof returnTo.focus === "function") returnTo.focus(); };
+  }, []);
+
   return (
     <div className="modal-veil" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal" style={width ? { width } : undefined}>{children}</div>
+      <div ref={boxRef} className="modal" role="dialog" aria-modal="true"
+        aria-label={label} aria-labelledby={label ? undefined : titleId}
+        style={width ? { width } : undefined}>
+        <div id={titleId} style={{ display: "contents" }}>{children}</div>
+      </div>
     </div>
+  );
+}
+
+/* ---- confirmation ------------------------------------------------------- */
+/* One shape for every destructive action, so the guarantee a user learns from
+   deleting an item holds when they delete a group, an account, or a member. */
+function ConfirmDialog({ title, children, confirmLabel, onConfirm, onClose, busy, icon, width = 460 }) {
+  return (
+    <Modal onClose={busy ? () => {} : onClose} width={width}>
+      <h3>{title}</h3>
+      <p>{children}</p>
+      {/* Cancel takes focus, never the destructive button: a stray Enter on an
+          unexpected dialog must not be the thing that deletes the data. */}
+      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 18 }}>
+        <button className="btn btn-ghost" data-autofocus onClick={onClose} disabled={busy}>Cancel</button>
+        <button className="btn btn-danger" onClick={onConfirm} disabled={busy}>
+          {icon}{busy ? "Working…" : confirmLabel}
+        </button>
+      </div>
+    </Modal>
   );
 }
 
@@ -149,4 +243,4 @@ function ChartCard({ title, sub, children, wide }) {
   );
 }
 
-export { Icons, MoneyInput, TextInline, Avatar, DiffPill, MiniBar, Modal, ChartCard, evalMoney, isExpr };
+export { Icons, MoneyInput, TextInline, Avatar, DiffPill, MiniBar, Modal, ConfirmDialog, ChartCard, evalMoney, isExpr };

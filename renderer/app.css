@@ -22,6 +22,12 @@
   /* text drawn on top of an accent fill - overridden per light-accent theme */
   --on-accent: #ffffff;
 
+  /* The accent is free to be any hue the user likes, but text sitting ON it is
+     not. --accent-btn is the accent darkened (per theme, below) to the point
+     where --on-accent clears WCAG AA at 4.5:1. Themes whose accent is already
+     light enough to carry dark ink inherit the accent unchanged. */
+  --accent-btn: var(--accent);
+
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.4), 0 1px 1px rgba(0,0,0,0.3);
   --shadow-md: 0 8px 24px -10px rgba(0,0,0,0.6), 0 2px 8px -4px rgba(0,0,0,0.45);
   --shadow-lg: 0 30px 70px -22px rgba(0,0,0,0.75), 0 10px 28px -14px rgba(0,0,0,0.55);
@@ -57,10 +63,12 @@
 }
 [data-theme="indigo"] {
   --accent: oklch(0.60 0.19 276); --accent-strong: oklch(0.67 0.20 276);
+  --accent-btn: oklch(0.575 0.19 276); /* white ink: 4.62:1 */
   --accent-soft: oklch(0.31 0.10 276); --accent-ink: oklch(0.82 0.15 276);
 }
 [data-theme="violet"] {
   --accent: oklch(0.62 0.21 305); --accent-strong: oklch(0.69 0.22 305);
+  --accent-btn: oklch(0.585 0.21 305); /* white ink: 4.65:1 */
   --accent-soft: oklch(0.31 0.11 305); --accent-ink: oklch(0.84 0.16 305);
 }
 [data-theme="cyan"] {
@@ -106,10 +114,12 @@
 }
 [data-theme="rose"] {
   --accent: oklch(0.66 0.20 12); --accent-strong: oklch(0.72 0.21 12);
+  --accent-btn: oklch(0.585 0.20 12); /* white ink: 4.67:1 */
   --accent-soft: oklch(0.31 0.10 12); --accent-ink: oklch(0.83 0.16 12);
 }
 [data-theme="sky"] {
   --accent: oklch(0.68 0.16 242); --accent-strong: oklch(0.74 0.17 242);
+  --accent-btn: oklch(0.550 0.16 242); /* white ink: 4.66:1 */
   --accent-soft: oklch(0.31 0.09 242); --accent-ink: oklch(0.85 0.13 242);
 }
 
@@ -122,6 +132,7 @@
 }
 [data-theme="ocean"] {
   --accent: oklch(0.64 0.18 250); --accent-strong: oklch(0.71 0.19 250);
+  --accent-btn: oklch(0.555 0.18 250); /* white ink: 4.69:1 */
   --accent-soft: oklch(0.31 0.10 250); --accent-ink: oklch(0.83 0.14 250);
 }
 [data-theme="teal"] {
@@ -137,6 +148,7 @@
   --ink: #f1ebe4;      --ink-2: #c4bab0;     --muted: #908579; --faint: #635a50;
   --border: #362e26;   --border-strong: #473c32; --hairline: #282018;
   --accent: oklch(0.70 0.17 38); --accent-strong: oklch(0.76 0.18 38);
+  --accent-btn: oklch(0.580 0.17 38); /* white ink: 4.62:1 */
   --accent-soft: oklch(0.32 0.09 38); --accent-ink: oklch(0.84 0.14 38);
 }
 
@@ -187,7 +199,7 @@ input { font-family: inherit; }
 .brand { display: flex; align-items: center; gap: 11px; padding: 6px 8px 22px; }
 .brand-mark {
   width: 34px; height: 34px; border-radius: 10px; flex: none;
-  background: linear-gradient(150deg, var(--accent), var(--accent-strong));
+  background: linear-gradient(150deg, var(--accent-btn), var(--accent));
   display: grid; place-items: center; color: var(--on-accent);
   box-shadow: var(--glow-sm), inset 0 1px 0 color-mix(in srgb, #fff 22%, transparent);
 }
@@ -246,8 +258,11 @@ input { font-family: inherit; }
 }
 .btn:hover { border-color: var(--border-strong); transform: translateY(-1px); box-shadow: var(--shadow-md); }
 .btn:active { transform: translateY(0); }
-.btn-primary { background: linear-gradient(160deg, var(--accent), var(--accent-strong)); color: var(--on-accent); border-color: transparent; box-shadow: var(--glow-sm), inset 0 1px 0 color-mix(in srgb, #fff 18%, transparent); font-weight: 600; }
-.btn-primary:hover { box-shadow: var(--glow-md), inset 0 1px 0 color-mix(in srgb, #fff 18%, transparent); filter: brightness(1.05); }
+/* Flat, not a gradient: the light end of the old gradient dropped the label
+   under AA in six of the twelve themes. Depth comes from the inset highlight
+   and the accent glow, and hover brightens the glow rather than the fill. */
+.btn-primary { background: var(--accent-btn); color: var(--on-accent); border-color: transparent; box-shadow: var(--glow-sm), inset 0 1px 0 color-mix(in srgb, #fff 18%, transparent); font-weight: 600; }
+.btn-primary:hover { box-shadow: var(--glow-md), inset 0 1px 0 color-mix(in srgb, #fff 26%, transparent); }
 .btn-ghost { background: transparent; border-color: transparent; box-shadow: none; color: var(--ink-2); }
 .btn-ghost:hover { background: var(--surface-sunken); box-shadow: none; color: var(--ink); }
 .btn-sm { padding: 6px 10px; font-size: 12.5px; }
@@ -287,6 +302,11 @@ input { font-family: inherit; }
 .tinput:hover { background: var(--surface-sunken); }
 .tinput:focus { outline: none; background: var(--surface); border-color: var(--accent); box-shadow: var(--ring); }
 
+/* Keyboard focus must be visible everywhere, not only on the two input classes
+   that happened to style it. Text fields keep their own ring treatment above. */
+:focus-visible:not(.minput):not(.tinput) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn:focus-visible, .nav-item:focus-visible, .icon-btn:focus-visible, .month-step:focus-visible { outline-offset: 3px; }
+
 /* account chip (item funding account) */
 .acct-chip {
   position: relative; display: inline-flex; align-items: center; gap: 6px;
@@ -312,8 +332,12 @@ input { font-family: inherit; }
 
 /* misc */
 .divider { height: 1px; background: var(--border); border: none; margin: 0; }
-.row-actions { display: flex; align-items: center; gap: 2px; opacity: 0; transition: opacity .14s; }
-.budget-row:hover .row-actions, .income-row:hover .row-actions { opacity: 1; }
+/* Hidden row actions stay unreachable until the row is engaged: opacity alone
+   left a delete button focusable while invisible. Focus reveals them too, so
+   keyboard users can reach what the mouse reveals on hover. */
+.row-actions { display: flex; align-items: center; gap: 2px; opacity: 0; pointer-events: none; transition: opacity .14s; }
+.budget-row:hover .row-actions, .income-row:hover .row-actions,
+.budget-row:focus-within .row-actions, .income-row:focus-within .row-actions { opacity: 1; pointer-events: auto; }
 .empty {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
   padding: 44px 20px; text-align: center; color: var(--muted);
@@ -333,8 +357,9 @@ input { font-family: inherit; }
 @keyframes slidein { from { transform: translateX(100%); } }
 .drawer-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 20px 22px 16px; border-bottom: 1px solid var(--border); }
 .drawer-body { overflow-y: auto; padding: 18px 22px 30px; flex: 1; }
-.drawer-body::-webkit-scrollbar { width: 10px; }
-.drawer-body::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 99px; border: 3px solid var(--surface); }
+.drawer-body::-webkit-scrollbar, .scroll-list::-webkit-scrollbar { width: 10px; }
+.drawer-body::-webkit-scrollbar-thumb, .scroll-list::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 99px; border: 3px solid var(--surface); }
+.drawer-body::-webkit-scrollbar-track, .scroll-list::-webkit-scrollbar-track { background: transparent; }
 
 /* wallet trigger button - accent-tinted hero action */
 .wallet-btn {
@@ -368,6 +393,17 @@ input { font-family: inherit; }
   border-color: color-mix(in srgb, var(--accent) 48%, var(--border-strong));
 }
 .new-month-btn svg { color: var(--accent-ink); }
+
+/* Respect the OS "reduce motion" setting: drop the travel, keep the states. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .btn:hover, .month-step:hover:not(:disabled) { transform: none; }
+}
 
 /* scrollbar */
 .main::-webkit-scrollbar { width: 12px; }

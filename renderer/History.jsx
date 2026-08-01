@@ -52,7 +52,7 @@ function HistoryScreen({ currency, onOpenMonth }) {
               <span className="mono" style={{ textAlign: "right", fontSize: 13.5 }}>{fmt(currency, s.income, { cents: false })}</span>
               <span className="mono" style={{ textAlign: "right", fontSize: 13.5 }}>{fmt(currency, s.alloc, { cents: false })}</span>
               <span className="mono" style={{ textAlign: "right", fontSize: 13.5, color: "var(--ink-2)" }}>{fmt(currency, s.actual, { cents: false })}</span>
-              <span className="mono" style={{ textAlign: "right", fontSize: 13.5, color: "var(--accent-ink)", fontWeight: 600 }}>{fmt(currency, s.savings, { cents: false })}</span>
+              <span className="mono" style={{ textAlign: "right", fontSize: 13.5, color: "var(--pos-ink)", fontWeight: 600 }}>{fmt(currency, s.savings, { cents: false })}</span>
               <span style={{ textAlign: "right" }}>{s.overCount > 0 ? <span className="pill pill-neg">{s.overCount} over</span> : <span className="pill pill-pos">clean</span>}</span>
             </button>
           );
@@ -101,7 +101,7 @@ function Comparison({ series, cmpA, cmpB, setCmpA, setCmpB, currency, groupNames
             <div key={r.label} style={{ padding: "14px 16px", borderRadius: 12, background: "var(--surface-2)", border: "1px solid var(--hairline)" }}>
               <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>{r.label}</div>
               <div className="mono" style={{ fontSize: 19, fontWeight: 500, marginBottom: 6 }}>{fmt(currency, r.b, { cents: false })}</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: neutral ? "var(--faint)" : goodDir ? "var(--accent-ink)" : "var(--neg-ink)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: neutral ? "var(--faint)" : goodDir ? "var(--pos-ink)" : "var(--neg-ink)" }}>
                 {!neutral && (positive ? <Icons.up size={13} /> : <Icons.down size={13} />)}
                 <span className="mono" style={{ fontWeight: 600 }}>{neutral ? "no change" : `${fmt(currency, Math.abs(delta), { cents: false })}${pct !== null ? ` · ${Math.abs(pct)}%` : ""}`}</span>
               </div>
