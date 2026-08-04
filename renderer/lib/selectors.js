@@ -26,13 +26,16 @@ export function overBudgetItems(mo) {
 
 export function accountTotals(mo, accounts) {
   const map = {};
-  accounts.forEach((a) => { map[a.id] = { account: a, allocated: 0, actual: 0, count: 0 }; });
-  const unassigned = { account: null, allocated: 0, actual: 0, count: 0 };
+  accounts.forEach((a) => { map[a.id] = { account: a, allocated: 0, actual: 0, count: 0, items: [] }; });
+  const unassigned = { account: null, allocated: 0, actual: 0, count: 0, items: [] };
   mo.groups.forEach((g) => g.items.forEach((it) => {
     const bucket = it.account && map[it.account] ? map[it.account] : unassigned;
+    const actual = itemActual(it);
     bucket.allocated = round2(bucket.allocated + it.allocated);
-    bucket.actual = round2(bucket.actual + itemActual(it));
+    bucket.actual = round2(bucket.actual + actual);
     bucket.count += 1;
+    // budget order (group order, then item order) so rows match Month Budget
+    bucket.items.push({ id: it.id, name: it.name, group: g.name, allocated: it.allocated, actual });
   }));
   const list = accounts.map((a) => map[a.id]).filter((b) => b.count > 0 || b.allocated > 0);
   if (unassigned.count > 0) list.push(unassigned);

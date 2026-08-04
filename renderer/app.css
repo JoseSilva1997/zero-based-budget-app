@@ -383,6 +383,11 @@ input { font-family: inherit; }
 .drawer-body::-webkit-scrollbar-thumb, .scroll-list::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 99px; border: 3px solid var(--surface); }
 .drawer-body::-webkit-scrollbar-track, .scroll-list::-webkit-scrollbar-track { background: transparent; }
 
+/* "By account" row in the Wallet drawer - expands to its allocations */
+.acct-row { transition: filter .12s; }
+.acct-row:not(:disabled):hover { filter: brightness(1.06); }
+.acct-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
 /* wallet trigger button - accent-tinted hero action */
 .wallet-btn {
   gap: 8px; font-weight: 600;

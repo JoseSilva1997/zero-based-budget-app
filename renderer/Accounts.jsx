@@ -1,7 +1,7 @@
 /* ============================================================
    Accounts - per-item funding account selector + funding plan
    ============================================================ */
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Avatar, Icons, MiniBar } from './components.jsx';
 import { accountTotals, fmt, itemActual, monthLabel, round2, walletSummary } from './lib/index.js';
 
@@ -30,6 +30,9 @@ function AccountSelect({ value, accounts, onChange }) {
 
 /* the live funding plan card */
 function AccountPanel({ mo, accounts, members, currency, dispatch, month }) {
+  // ids of the "By account" rows expanded to show their allocations
+  const [openAccts, setOpenAccts] = useState(() => new Set());
+  const toggleAcct = (id) => setOpenAccts(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
   const totals = accountTotals(mo, accounts);
   const assigned = totals.filter(t => t.account);
   const unassigned = totals.find(t => !t.account);
@@ -95,23 +98,50 @@ function AccountPanel({ mo, accounts, members, currency, dispatch, month }) {
           const owner = members.find(m => m.id === t.account.owner);
           const pct = totalToFund > 0 ? t.allocated / totalToFund : 0;
           const Icon = Icons[ACCT_ICON[t.account.type] || "coins"];
+          const canOpen = t.items.length > 0;
+          const open = openAccts.has(t.account.id);
+          const listId = `acct-items-${t.account.id}`;
+          const tint = owner ? `color-mix(in srgb, ${owner.color} 3%, var(--surface-2))` : `color-mix(in srgb, var(--info) 3%, var(--surface-2))`;
           return (
-            <div key={t.account.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 15px", borderTop: i ? "1px solid var(--border)" : "none", background: owner ? `color-mix(in srgb, ${owner.color} 3%, var(--surface-2))` : `color-mix(in srgb, var(--info) 3%, var(--surface-2))` }}>
-              <span style={{ width: 34, height: 34, borderRadius: 9, flex: "none", background: hexToSoft(t.account.color), color: t.account.color, display: "grid", placeItems: "center" }}><Icon size={17} /></span>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontWeight: 600, fontSize: 13.5, display: "flex", alignItems: "center", gap: 7 }}>{t.account.name}
-                  {owner ? <span className="pill pill-neutral" style={{ fontSize: 10 }}>{owner.name}</span> : <span className="pill pill-neutral" style={{ fontSize: 10 }}>{ACCT_TYPE_LABEL[t.account.type] || "Shared"}</span>}
+            <div key={t.account.id} style={{ borderTop: i ? "1px solid var(--border)" : "none" }}>
+              <button className="acct-row" onClick={canOpen ? () => toggleAcct(t.account.id) : undefined} disabled={!canOpen}
+                aria-expanded={canOpen ? open : undefined} aria-controls={canOpen ? listId : undefined}
+                title={canOpen ? (open ? "Hide allocations" : "Show allocations") : undefined}
+                style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "12px 15px", border: "none", textAlign: "left", color: "var(--ink)", cursor: canOpen ? "pointer" : "default", background: tint }}>
+                <span style={{ width: 34, height: 34, borderRadius: 9, flex: "none", background: hexToSoft(t.account.color), color: t.account.color, display: "grid", placeItems: "center" }}><Icon size={17} /></span>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13.5, display: "flex", alignItems: "center", gap: 7 }}>{t.account.name}
+                    {owner ? <span className="pill pill-neutral" style={{ fontSize: 10 }}>{owner.name}</span> : <span className="pill pill-neutral" style={{ fontSize: 10 }}>{ACCT_TYPE_LABEL[t.account.type] || "Shared"}</span>}
+                  </div>
+                  <div style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ flex: "none" }}>{t.count} item{t.count !== 1 ? "s" : ""}</span>
+                    <span style={{ flex: 1, maxWidth: 90 }}><MiniBar actual={t.actual} allocated={t.allocated} /></span>
+                    <span className="mono" style={{ flex: "none" }}>{fmt(currency, t.actual, { cents: false })} spent</span>
+                  </div>
                 </div>
-                <div style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ flex: "none" }}>{t.count} item{t.count !== 1 ? "s" : ""}</span>
-                  <span style={{ flex: 1, maxWidth: 90 }}><MiniBar actual={t.actual} allocated={t.allocated} /></span>
-                  <span className="mono" style={{ flex: "none" }}>{fmt(currency, t.actual, { cents: false })} spent</span>
+                {canOpen && <Icons.down size={16} style={{ flex: "none", color: "var(--faint)", transform: open ? "none" : "rotate(-90deg)", transition: "transform .18s" }} />}
+                <div style={{ textAlign: "right", flex: "none" }}>
+                  <div className="mono" style={{ fontSize: 15.5, fontWeight: 600 }}>{fmt(currency, t.allocated)}</div>
+                  <div className="mono" style={{ fontSize: 10.5, color: "var(--faint)", marginTop: 2 }}>{Math.round(pct * 100)}% of plan</div>
                 </div>
-              </div>
-              <div style={{ textAlign: "right", flex: "none" }}>
-                <div className="mono" style={{ fontSize: 15.5, fontWeight: 600 }}>{fmt(currency, t.allocated)}</div>
-                <div className="mono" style={{ fontSize: 10.5, color: "var(--faint)", marginTop: 2 }}>{Math.round(pct * 100)}% of plan</div>
-              </div>
+              </button>
+              {canOpen && open && (
+                <div id={listId} className="fade-in" style={{ background: "var(--surface-sunken)", borderTop: "1px solid var(--border)", boxShadow: `inset 3px 0 0 0 ${t.account.color}` }}>
+                  {t.items.map((it, j) => (
+                    <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "9px 15px 9px 26px", borderTop: j ? "1px solid var(--border)" : "none" }}>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontSize: 12.5, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.name}</div>
+                        <div style={{ fontSize: 11, color: "var(--faint)", marginTop: 3, display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ flex: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 110 }}>{it.group}</span>
+                          <span style={{ flex: 1, maxWidth: 70 }}><MiniBar actual={it.actual} allocated={it.allocated} /></span>
+                          <span className="mono" style={{ flex: "none" }}>{fmt(currency, it.actual, { cents: false })} spent</span>
+                        </div>
+                      </div>
+                      <div className="mono" style={{ fontSize: 13.5, fontWeight: 600, flex: "none" }}>{fmt(currency, it.allocated)}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
