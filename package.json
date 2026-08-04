@@ -1,6 +1,6 @@
 {
   "name": "house-budget",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "House Budget. A simple zero-based budget desktop application to manage your expenses and income.",
   "main": "build/main/index.js",
   "author": "",
