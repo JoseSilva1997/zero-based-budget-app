@@ -8,6 +8,10 @@
    Edit a renderer .jsx, save, then press Ctrl+R in the app window to reload
    (the bundle is already rebuilt by the watcher). Edit main/preload TypeScript
    and you'll need to restart this command, since tsc only runs once here.
+
+   Extra arguments are passed straight through to Electron, which is how the
+   update simulation is switched on:
+     npm run dev -- --update-sim=available
    ============================================================ */
 import { spawn } from 'node:child_process';
 import { buildRenderer } from './build-renderer.mjs';
@@ -29,7 +33,7 @@ await run('npm', ['run', 'build']);
 const ctx = await buildRenderer({ dev: true, watch: true });
 
 // 3. Launch Electron; shut the watcher down when the app exits.
-const electron = spawn('npx', ['electron', '.'], { stdio: 'inherit', shell: true });
+const electron = spawn('npx', ['electron', '.', ...process.argv.slice(2)], { stdio: 'inherit', shell: true });
 electron.on('exit', async (code) => {
   await ctx?.dispose();
   process.exit(code ?? 0);

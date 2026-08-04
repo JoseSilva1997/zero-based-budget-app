@@ -98,6 +98,43 @@ npm run dist   # full installer (Windows NSIS) into release/
 | `npm run watch:renderer` | Rebuild the renderer on save. |
 | `npm run rebuild` | Rebuild the native `better-sqlite3` module for Electron. |
 | `npm start` | Build everything, then launch Electron. |
+| `npm test` | Build, then run the Electron test suites in `tests/`. |
+| `npm run dev:update` | Dev loop with a faked update, to see the update banner. |
+| `npm run dev:update:downloaded` | As above, starting from an update that is ready to install. |
+
+### Seeing the update banner
+
+Updates are never downloaded on their own: a check reports that a version is
+available, and the banner at the foot of the sidebar offers a **Download**
+button. Since that needs a newer published release to happen for real, dev
+builds can fake the whole sequence:
+
+```bash
+npm run dev:update
+```
+
+Roughly five seconds after launch the banner offers an update; Download shows
+a progress bar, and the finished download offers **Restart now** (which only
+logs, and never installs anything). Other scenarios have their own scripts:
+
+```bash
+npm run dev:update:downloaded   # skip straight to a pending install
+npm run dev:update:none         # "you are running the latest version"
+npm run dev:update:error        # a failed check
+```
+
+The terminal names every status as it is pushed (`[updater] SIMULATION pushed
+"downloaded"`), which is the quickest way to tell a missing check from a
+missing banner.
+
+`npm run dev -- --update-sim=<scenario>` works too, including in PowerShell,
+where the `--` separator is dropped and npm keeps the flag as a config of its
+own: the app reads `npm_config_update_sim` as a fallback. Setting
+`HB_UPDATE_SIM` directly always works.
+
+Settings › Updates shows the same statuses in words, including the errors the
+banner deliberately stays quiet about. Simulation is refused in packaged
+builds.
 
 ### Project structure
 

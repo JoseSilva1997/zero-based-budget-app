@@ -145,6 +145,7 @@ const api = {
       React has subscribed. */
   updateStatus: () => invoke<UpdateStatus>('updater:status:get'),
   updateCheck: () => invoke<UpdateStatus>('updater:check'),
+  updateDownload: () => invoke<UpdateStatus>('updater:download'),
   updateInstall: () => invoke<Ok>('updater:install'),
   onUpdateStatus: (handler: (status: UpdateStatus) => void): (() => void) => {
     const listener = (_e: unknown, status: UpdateStatus) => handler(status);

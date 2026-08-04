@@ -235,7 +235,8 @@ function App() {
         case "checkUpdates":
           window.api.updateCheck().then((s) => {
             if (s.state === "none") toast("You're on the latest version.");
-            else if (s.state === "available" || s.state === "downloading") toast(`Downloading version ${s.version}…`);
+            else if (s.state === "available") toast(`Version ${s.version} is ready to download.`);
+            else if (s.state === "downloading") toast(`Downloading version ${s.version}…`);
             else if (s.state === "downloaded") toast(`Version ${s.version} is ready. Restart to install.`);
             else if (s.state === "error") toast(`Couldn't check for updates: ${s.message}`, "error");
             else if (s.state === "checking") toast("Already checking for updates…");
@@ -273,6 +274,7 @@ function App() {
           <button key={id} className={`nav-item ${tab === id ? "active" : ""}`} onClick={() => setTab(id)}><Ico size={18} /> {label}</button>
         ))}
         <div className="sidebar-foot">
+          <UpdateBanner />
           <div className="nav-label" style={{ paddingLeft: 10 }}>Household</div>
           {state.settings.members.map(m => (
             <div className="member-chip" key={m.id}><Avatar member={m} size={24} /> {m.name}</div>
@@ -290,7 +292,6 @@ function App() {
       </main>
 
       {newMonth && <NewMonthModal dispatch={dispatch} onClose={() => setNewMonth(false)} />}
-      <UpdateBanner />  
       <Toast msg={toastMsg} onDismiss={() => setToastMsg(null)} />
     </div>
   );
