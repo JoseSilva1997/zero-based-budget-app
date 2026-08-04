@@ -1,7 +1,7 @@
 {
   "name": "house-budget",
   "version": "1.0.0",
-  "description": "House Budget - local-first zero-based budgeting (Electron + SQLite).",
+  "description": "House Budget. A simple zero-based budget desktop application to manage your expenses and income.",
   "main": "build/main/index.js",
   "author": "",
   "license": "MIT",
@@ -22,6 +22,7 @@
   },
   "build": {
     "appId": "com.housebudget.app",
+    "artifactName": "${name}-Setup-${version}.${ext}",
     "productName": "House Budget",
     "directories": {
       "output": "release",
