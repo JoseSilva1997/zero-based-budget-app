@@ -11,7 +11,11 @@ import { UpdateSettings } from './UpdateBanner.jsx';
    The menu accelerators are fetched from the main process rather than
    restated here, so this section cannot drift from what the menu binds.
    These in-app keys have no menu entry, so they are listed by hand; keep
-   them in step with the components named beside each group. */
+   them in step with the components named beside each group.
+
+   The two kinds are listed apart rather than merged: a menu accelerator
+   answers wherever you are, an in-app key only answers inside the field,
+   list or dialog it belongs to, and that is the difference a reader needs. */
 const IN_APP_SHORTCUTS = [
   { group: "Editing the budget", label: "Commit and move down the same column", keys: ["Enter"] },
   { group: "Editing the budget", label: "Commit and move up the same column", keys: ["Shift", "Enter"] },
@@ -41,9 +45,23 @@ function Keys({ keys, alt }) {
   );
 }
 
-function ShortcutGroup({ title, rows }) {
+/* Fixed group order, so the section reads the same however the menu list
+   happens to arrive from the main process. Anything unlisted follows, by name. */
+const GROUP_ORDER = ["Actions", "Navigation", "Editing the budget", "Quick entry", "Find", "Dialogs"];
+
+function groupByTitle(rows) {
+  const out = [];
+  rows.forEach((r) => {
+    const g = out.find((x) => x.title === r.group);
+    if (g) g.rows.push(r); else out.push({ title: r.group, rows: [r] });
+  });
+  const rank = (t) => { const i = GROUP_ORDER.indexOf(t); return i === -1 ? GROUP_ORDER.length : i; };
+  return out.sort((a, b) => rank(a.title) - rank(b.title) || a.title.localeCompare(b.title));
+}
+
+function ShortcutGroup({ title, rows, first }) {
   return (
-    <div style={{ borderTop: "1px solid var(--hairline)", padding: "14px 22px 16px" }}>
+    <div style={{ borderTop: first ? "none" : "1px solid var(--hairline)", padding: first ? "10px 22px 16px" : "14px 22px 16px" }}>
       <div style={{ fontSize: 11, color: "var(--ink-2)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 8 }}>{title}</div>
       {rows.map((r) => (
         <div key={r.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20, padding: "5px 0" }}>
@@ -68,11 +86,10 @@ function ShortcutsSection() {
     return () => { live = false; };
   }, []);
 
-  const groups = [];
-  [...menuShortcuts, ...IN_APP_SHORTCUTS].forEach((r) => {
-    const g = groups.find((x) => x.title === r.group);
-    if (g) g.rows.push(r); else groups.push({ title: r.group, rows: [r] });
-  });
+  const sections = [
+    { kind: "menu", title: "From the application menu", note: "These answer anywhere in the app.", groups: groupByTitle(menuShortcuts) },
+    { kind: "in-app", title: "Inside the app", note: "These answer only where they apply: the field you're editing, the list that's open, the dialog in front of you.", groups: groupByTitle(IN_APP_SHORTCUTS) },
+  ].filter((s) => s.groups.length);
 
   return (
     <div className="card">
@@ -81,7 +98,15 @@ function ShortcutsSection() {
           The menu shortcuts couldn't be read, so only the in-app keys are listed below.
         </div>
       )}
-      {groups.map((g) => <ShortcutGroup key={g.title} title={g.title} rows={g.rows} />)}
+      {sections.map((s) => (
+        <div key={s.kind}>
+          <div style={{ borderTop: "1px solid var(--hairline)", padding: "16px 22px 0" }}>
+            <div style={{ fontWeight: 600, fontSize: 14.5 }}>{s.title}</div>
+            <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 3, lineHeight: 1.45 }}>{s.note}</div>
+          </div>
+          {s.groups.map((g, i) => <ShortcutGroup key={g.title} title={g.title} rows={g.rows} first={i === 0} />)}
+        </div>
+      ))}
     </div>
   );
 }
@@ -214,6 +239,17 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
   const [restoring, setRestoring] = useState(false);
   const [removeMember, setRemoveMember] = useState(null);
   const [removeAccount, setRemoveAccount] = useState(null);
+  // Asked for rather than typed, so this and Help > Version cannot drift.
+  const [version, setVersion] = useState(null);
+  useEffect(() => {
+    // channel: "app:version" - input {}, returns the string from app.getVersion().
+    if (!window.api || typeof window.api.appVersion !== "function") return;
+    let live = true;
+    window.api.appVersion()
+      .then((v) => { if (live) setVersion(v); })
+      .catch((err) => console.error("app:version failed", err));
+    return () => { live = false; };
+  }, []);
 
   const doBackup = async () => {
     // channel: "backup:create" - no input (DB is already current), returns { path, savedAt }.
@@ -237,6 +273,9 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
   const CURRENCIES = ["$", "£", "€", "¥", "₹", "C$", "A$"];
   const AUTO = [["off", "Off"], ["onclose", "On app close"], ["daily", "Once a day"]];
   const MEMBER_COLORS = ["#2fbf87", "#f0894e", "#5b8def", "#a87bf0", "#e0b84a", "#fb5e7e"];
+  // A swatch that differs only by its fill is six identical buttons to anyone
+  // who cannot see it, so each one is named by the colour it actually sets.
+  const COLOR_NAME = { "#2fbf87": "Green", "#f0894e": "Orange", "#5b8def": "Blue", "#a87bf0": "Purple", "#e0b84a": "Gold", "#fb5e7e": "Pink" };
 
   return (
     <div className="fade-in" style={{ maxWidth: 760, margin: "0 auto" }}>
@@ -245,11 +284,24 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
       <div className="section-head"><h2>General</h2></div>
       <div className="card">
         <Setting title="Currency symbol" sub="Shown before every amount across the app.">
-          <div style={{ display: "flex", gap: 6 }}>
-            {CURRENCIES.map(c => (
-              <button key={c} onClick={() => dispatch({ type: "updateSettings", patch: { currency: c } })}
-                className="mono" style={{ width: 38, height: 36, borderRadius: 8, border: `1px solid ${s.currency === c ? "var(--accent)" : "var(--border)"}`, background: s.currency === c ? "var(--accent-soft)" : "var(--surface)", color: s.currency === c ? "var(--accent-ink)" : "var(--ink-2)", fontWeight: 600 }}>{c}</button>
-            ))}
+          {/* A radiogroup, not seven buttons: the choice is one of a set, and the
+              tick says which without asking anyone to read a border colour. */}
+          <div role="radiogroup" aria-label="Currency symbol" style={{ display: "flex", gap: 6 }}>
+            {CURRENCIES.map(c => {
+              const on = s.currency === c;
+              return (
+                <button key={c} role="radio" aria-checked={on} aria-label={`Use ${c} as the currency symbol`}
+                  onClick={() => dispatch({ type: "updateSettings", patch: { currency: c } })}
+                  className="mono" style={{ position: "relative", width: 38, height: 36, borderRadius: 8, border: `1px solid ${on ? "var(--accent)" : "var(--border)"}`, background: on ? "var(--accent-soft)" : "var(--surface)", color: on ? "var(--accent-ink)" : "var(--ink-2)", fontWeight: on ? 700 : 600 }}>
+                  {c}
+                  {on && (
+                    <span style={{ position: "absolute", top: -5, right: -5, width: 15, height: 15, borderRadius: 99, background: "var(--accent)", color: "var(--on-accent)", display: "grid", placeItems: "center" }}>
+                      <Icons.check size={9} />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </Setting>
       </div>
@@ -258,11 +310,14 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
       <div className="card" style={{ padding: "18px 22px" }}>
         <div style={{ fontWeight: 600, fontSize: 14.5 }}>Theme</div>
         <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 3, marginBottom: 16, lineHeight: 1.45 }}>Twelve dark palettes. Switch any time; amounts keep their meaning in every one.</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
+        {/* The "Active" caption under the chosen palette is what carries the
+            selection: the glow around the card is a colour cue on its own. */}
+        <div role="radiogroup" aria-label="Theme" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
           {BUDGET_THEMES.map((th) => {
             const on = s.theme === th.id;
             return (
-              <button key={th.id} onClick={() => dispatch({ type: "updateSettings", patch: { theme: th.id } })}
+              <button key={th.id} role="radio" aria-checked={on} aria-label={`${th.label} theme`}
+                onClick={() => dispatch({ type: "updateSettings", patch: { theme: th.id } })}
                 style={{
                   position: "relative", display: "flex", alignItems: "center", gap: 11,
                   padding: "12px 14px", borderRadius: 12, cursor: "pointer", textAlign: "left",
@@ -288,13 +343,22 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
           <div key={m.id} style={{ display: "grid", gridTemplateColumns: "auto 1fr auto auto", gap: 12, alignItems: "center", padding: "12px 22px", borderTop: "1px solid var(--hairline)" }}>
             <Avatar member={m} size={32} />
             <TextInline value={m.name} col="memberName" label="Member name" onCommit={(v) => dispatch({ type: "updateMember", id: m.id, patch: { name: v } })} style={{ fontWeight: 500, fontSize: 14 }} />
-            <div style={{ display: "flex", gap: 5 }}>
-              {MEMBER_COLORS.map(c => (
-                <button key={c} onClick={() => dispatch({ type: "updateMember", id: m.id, patch: { color: c } })}
-                  style={{ width: 20, height: 20, borderRadius: 99, background: c, border: m.color === c ? "2px solid var(--ink)" : "2px solid transparent", outline: m.color === c ? "1px solid var(--surface)" : "none", cursor: "pointer" }} title="Set color" />
-              ))}
+            <div role="radiogroup" aria-label={`Colour for ${m.name}`} style={{ display: "flex", gap: 5 }}>
+              {MEMBER_COLORS.map(c => {
+                const on = m.color === c;
+                return (
+                  <button key={c} role="radio" aria-checked={on} aria-label={COLOR_NAME[c] || c}
+                    title={COLOR_NAME[c] || c}
+                    onClick={() => dispatch({ type: "updateMember", id: m.id, patch: { color: c } })}
+                    style={{ width: 20, height: 20, padding: 0, borderRadius: 99, background: c, border: on ? "2px solid var(--ink)" : "2px solid transparent", outline: on ? "1px solid var(--surface)" : "none", cursor: "pointer", display: "grid", placeItems: "center", color: "rgba(0,0,0,0.72)" }}>
+                    {/* the swatches are fixed hex, not theme tokens, so a dark
+                        tick reads on every one of them */}
+                    {on && <Icons.check size={11} />}
+                  </button>
+                );
+              })}
             </div>
-            <button className="icon-btn" title="Remove member" disabled={s.members.length <= 1} style={{ opacity: s.members.length <= 1 ? .3 : 1 }} onClick={() => setRemoveMember(m)}><Icons.trash size={16} /></button>
+            <button className="icon-btn" title={`Remove ${m.name}`} aria-label={`Remove ${m.name}`} disabled={s.members.length <= 1} style={{ opacity: s.members.length <= 1 ? .3 : 1 }} onClick={() => setRemoveMember(m)}><Icons.trash size={16} /></button>
           </div>
         ))}
         <div style={{ padding: "12px 18px", borderTop: "1px solid var(--hairline)" }}>
@@ -320,7 +384,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
                 <option value="">Shared</option>
                 {s.members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
               </select>
-              <button className="icon-btn" title="Remove account" onClick={() => setRemoveAccount(a)}><Icons.trash size={16} /></button>
+              <button className="icon-btn" title={`Remove ${a.name}`} aria-label={`Remove account ${a.name}`} onClick={() => setRemoveAccount(a)}><Icons.trash size={16} /></button>
             </div>
           );
         })}
@@ -335,11 +399,19 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
           <button className="btn btn-primary" onClick={doBackup}><Icons.download size={15} /> Back up now</button>
         </Setting>
         <Setting title="Automatic backups" sub="When the app should quietly save a snapshot for you.">
-          <div style={{ display: "flex", gap: 4, background: "var(--surface-sunken)", padding: 4, borderRadius: 10 }}>
-            {AUTO.map(([val, label]) => (
-              <button key={val} onClick={() => dispatch({ type: "updateSettings", patch: { autoBackup: val } })}
-                style={{ padding: "7px 12px", borderRadius: 7, border: "none", fontSize: 13, fontWeight: 500, background: s.autoBackup === val ? "var(--surface)" : "transparent", color: s.autoBackup === val ? "var(--ink)" : "var(--muted)", boxShadow: s.autoBackup === val ? "var(--shadow-sm)" : "none" }}>{label}</button>
-            ))}
+          <div role="radiogroup" aria-label="Automatic backups" style={{ display: "flex", gap: 4, background: "var(--surface-sunken)", padding: 4, borderRadius: 10 }}>
+            {AUTO.map(([val, label]) => {
+              const on = s.autoBackup === val;
+              return (
+                <button key={val} role="radio" aria-checked={on} onClick={() => dispatch({ type: "updateSettings", patch: { autoBackup: val } })}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 7, border: "none", fontSize: 13, fontWeight: on ? 600 : 500, background: on ? "var(--surface)" : "transparent", color: on ? "var(--ink)" : "var(--muted)", boxShadow: on ? "var(--shadow-sm)" : "none" }}>
+                  {/* the tick keeps its space when hidden, so choosing an option
+                      does not shuffle the other two sideways */}
+                  <Icons.check size={12} style={{ flex: "none", visibility: on ? "visible" : "hidden" }} />
+                  {label}
+                </button>
+              );
+            })}
           </div>
         </Setting>
         <Setting title="Restore from backup" sub="Go back to a saved snapshot. You'll see what it contains and confirm before anything is replaced, and your current data is backed up first.">
@@ -363,7 +435,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
       <div className="section-head"><h2>Updates</h2></div>
       <div className="card"><UpdateSettings /></div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center", margin: "26px 0 10px", color: "var(--faint)", fontSize: 12 }}>
-        <Icons.coins size={14} /> House Budget · local-first · v1.0
+        <Icons.coins size={14} /> House Budget · local-first{version ? ` · v${version}` : ""}
       </div>
 
 

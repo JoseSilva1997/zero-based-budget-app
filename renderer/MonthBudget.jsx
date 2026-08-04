@@ -1,14 +1,29 @@
 /* ============================================================
    Month Budget screen - the main working screen
    ============================================================ */
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Avatar, Icons, MoneyInput, TextInline } from './components.jsx';
 import { fmt, monthActual, monthAllocated, monthIncome, monthSavings, monthUnallocated, overBudgetItems, round2 } from './lib/index.js';
+import { focusAllocated } from './MonthGroups.jsx';
+import { useStore } from './store.jsx';
+
+/* overBudgetItems reports names; routing to the row that fixes one needs its
+   id, so the reported rows are paired back to the tree by group and item name.
+   Two items with the same name in one group route to the first of them, which
+   is the right kind of wrong. */
+function withRowIds(mo, over) {
+  const byName = new Map();
+  mo.groups.forEach((g) => g.items.forEach((it) => {
+    const key = `${g.name}::${it.name}`;
+    if (!byName.has(key)) byName.set(key, { id: it.id, groupId: g.id });
+  }));
+  return over.map((o) => ({ ...o, ...(byName.get(`${o.group}::${o.item}`) || {}) }));
+}
 
 function SummaryHero({ mo, currency }) {
   const income = monthIncome(mo), alloc = monthAllocated(mo), actual = monthActual(mo);
   const savings = monthSavings(mo), unalloc = monthUnallocated(mo);
-  const over = overBudgetItems(mo);
+  const over = withRowIds(mo, overBudgetItems(mo));
   const state = Math.abs(unalloc) < 0.005 ? "zero" : unalloc > 0 ? "left" : "over";
   const pctAlloc = income > 0 ? Math.min(alloc / income, 1) : 0;
 
@@ -50,11 +65,30 @@ function SummaryHero({ mo, currency }) {
         </div>
       </div>
       {over.length > 0 && (
+        /* The named items are links, not a read-out: being told which three
+           items are over and then having to go hunting for them is what makes
+           this the worst moment on the screen. Nothing here may push the total
+           out of the card either, so the names are the only part that gives
+           way. */
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 22px", borderTop: "1px solid var(--border)", background: "var(--neg-soft)", color: "var(--neg-ink)", fontSize: 13 }}>
-          <Icons.alert size={16} />
-          <strong style={{ fontWeight: 600 }}>{over.length} item{over.length > 1 ? "s" : ""} over budget</strong>
-          <span style={{ opacity: 0.8 }}>· {over.slice(0, 3).map(o => o.item).join(", ")}{over.length > 3 ? "…" : ""}</span>
-          <span className="mono" style={{ marginLeft: "auto", fontWeight: 600 }}>{fmt(currency, sumOver(over))} over total</span>
+          <Icons.alert size={16} style={{ flex: "none" }} />
+          <strong style={{ fontWeight: 600, flex: "none" }}>{over.length} item{over.length > 1 ? "s" : ""} over budget</strong>
+          <span style={{ opacity: 0.9, flex: "1 1 auto", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            ·{" "}
+            {over.slice(0, 3).map((o, i) => (
+              <span key={`${o.id != null ? o.id : o.item}-${i}`}>
+                {i > 0 ? ", " : ""}
+                <button type="button" onClick={() => focusAllocated(o.id, o.groupId)}
+                  title={`Go to ${o.item} in ${o.group}`}
+                  aria-label={`Go to ${o.item} in ${o.group}, ${fmt(currency, o.over)} over`}
+                  style={{ background: "transparent", border: 0, padding: 0, font: "inherit", color: "inherit", textDecoration: "underline", textUnderlineOffset: 2, cursor: "pointer" }}>
+                  {o.item}
+                </button>
+              </span>
+            ))}
+            {over.length > 3 ? "…" : ""}
+          </span>
+          <span className="mono" style={{ marginLeft: "auto", fontWeight: 600, flex: "none" }}>{fmt(currency, sumOver(over))} over total</span>
         </div>
       )}
     </div>
@@ -74,9 +108,45 @@ function Stat({ label, value, sub, tone, icon, border, top }) {
 
 /* ---- income section ----------------------------------------------------- */
 function IncomeSection({ mo, currency, members, dispatch, month }) {
+  const { toast } = useStore();
   const [addOpen, setAddOpen] = useState(false);
   const total = monthIncome(mo);
   const byMember = members.map(m => ({ m, total: round2(mo.incomes.filter(i => i.memberId === m.id).reduce((a, i) => a + i.amount, 0)) }));
+
+  /* Undoing a removed income row takes two writes: 'addIncome' only takes a
+     member, and dispatch cannot hand back the id it created. So the second
+     write waits for the row to appear - the one carrying that member that was
+     not there a moment ago - and then puts the source and the amount back. */
+  const incomesRef = useRef(mo.incomes);
+  const restoreRef = useRef(null);
+  useEffect(() => {
+    incomesRef.current = mo.incomes;
+    const pending = restoreRef.current;
+    if (!pending) return;
+    const fresh = mo.incomes.find(i => !pending.known.has(i.id) && String(i.memberId) === String(pending.memberId));
+    if (!fresh) return;
+    restoreRef.current = null;
+    dispatch({ type: "updateIncome", month, id: fresh.id, patch: { label: pending.label, amount: pending.amount } });
+  }, [mo.incomes, dispatch, month]);
+
+  /* No confirm dialog here: a deleted income row is one member, one label and
+     one number, and the toast can put all three back. */
+  const removeIncome = (inc, memberName) => {
+    restoreRef.current = null;
+    dispatch({ type: "removeIncome", month, id: inc.id });
+    toast(`Removed ${inc.label ? `"${inc.label}"` : "income"} for ${memberName}.`, "success", {
+      label: "Undo",
+      onAct: () => {
+        restoreRef.current = {
+          memberId: inc.memberId,
+          label: inc.label || "",
+          amount: inc.amount,
+          known: new Set(incomesRef.current.map(i => i.id)),
+        };
+        dispatch({ type: "addIncome", month, memberId: inc.memberId });
+      },
+    });
+  };
   return (
     <>
       <div className="section-head">
@@ -107,7 +177,10 @@ function IncomeSection({ mo, currency, members, dispatch, month }) {
               <TextInline value={inc.label} col="incomeLabel" label="Income source" onCommit={(v) => dispatch({ type: "updateIncome", month, id: inc.id, patch: { label: v } })} placeholder="Source" style={{ fontWeight: 400, color: "var(--ink-2)", fontSize: 13 }} />
               <MoneyInput value={inc.amount} currency={currency} col="income" label="Income amount"
                 onCommit={(v) => dispatch({ type: "updateIncome", month, id: inc.id, patch: { amount: v } })} />
-              <div className="row-actions"><button className="icon-btn" title="Remove" onClick={() => dispatch({ type: "removeIncome", month, id: inc.id })}><Icons.trash size={15} /></button></div>
+              <div className="row-actions">
+                <button className="icon-btn" title="Remove" onClick={() => removeIncome(inc, m ? m.name : "this household")}
+                  aria-label={`Remove ${inc.label ? `"${inc.label}"` : "unnamed"} income of ${fmt(currency, inc.amount)} for ${m ? m.name : "this household"}`}><Icons.trash size={15} /></button>
+              </div>
             </div>
           );
         })}

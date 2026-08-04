@@ -25,6 +25,13 @@ const HL_CURRENT = "find-current";
 const INPUT_SEL = "input.tinput, input.minput";
 /* Re-scan delay after the rendered content changes. */
 const RESCAN_MS = 80;
+/* Keystroke settle before a query is walked, so a typed word costs one scan. */
+const TYPE_MS = 120;
+/* Anything modal: the find bar floats above these, but the content it would
+   highlight and scroll to is behind their veil. */
+const DIALOG_SEL = '[role="dialog"]';
+/* Enough matches for any real search; the walk and the count both stay bounded. */
+const MAX_MATCHES = 999;
 
 const highlightsSupported = () => typeof CSS !== "undefined" && !!CSS.highlights && typeof Highlight === "function";
 
@@ -53,6 +60,7 @@ export function collectMatches(root, query) {
     },
   });
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (out.length >= MAX_MATCHES) break;
     if (node.nodeType === Node.ELEMENT_NODE) {
       // One match per field: the whole control lights up, so a second hit
       // inside the same field would be a step that changes nothing on screen.
@@ -60,7 +68,7 @@ export function collectMatches(root, query) {
       continue;
     }
     const hay = node.data.toLowerCase();
-    for (let i = hay.indexOf(q); i !== -1; i = hay.indexOf(q, i + q.length)) {
+    for (let i = hay.indexOf(q); i !== -1 && out.length < MAX_MATCHES; i = hay.indexOf(q, i + q.length)) {
       out.push({ type: "text", node, start: i, end: i + q.length });
     }
   }
@@ -118,39 +126,70 @@ function FindBar({ onClose, focusToken }) {
   const queryRef = useRef("");
   useEffect(() => { queryRef.current = query; }, [query]);
 
+  // Find and a dialog cannot both be the thing in front of you. Opening over
+  // one would highlight and scroll content nobody can see behind the veil, so
+  // the bar refuses to open there, and stands down if one arrives while it is
+  // up. The check is made here rather than at the Ctrl+F binding because the
+  // dialogs mount themselves; asking the document is what actually knows.
+  const [blocked] = useState(() => !!document.querySelector(DIALOG_SEL));
+  const closeRef = useRef(onClose);
+  useEffect(() => { closeRef.current = onClose; }, [onClose]);
+  useEffect(() => { if (blocked) closeRef.current(); }, [blocked]);
+  useEffect(() => {
+    if (blocked) return;
+    // childList only, and one selector per batch: this fires on every commit
+    // in the app, so it must stay close to free.
+    const obs = new MutationObserver(() => {
+      if (document.querySelector(DIALOG_SEL)) closeRef.current();
+    });
+    obs.observe(document.body, { childList: true, subtree: true });
+    return () => obs.disconnect();
+  }, [blocked]);
+
   // Ctrl+F while already open re-selects, the way an editor does.
   useEffect(() => {
     const el = inputRef.current;
     if (el) { el.focus(); el.select(); }
   }, [focusToken]);
 
-  // A new query searches from the top and jumps to the first hit.
-  useEffect(() => {
-    const next = collectMatches(document.querySelector(SEARCH_ROOT), query);
+  /* One walk of the tree, shared by both the things that ask for it.
+     `fresh` is a new query: start at the top and jump to the first hit.
+     Otherwise the content moved under us and the user keeps their place. */
+  const scan = useCallback((fresh) => {
+    const q = queryRef.current;
+    if (!q) { setMatches([]); setCurrent(0); return; }
+    const next = collectMatches(document.querySelector(SEARCH_ROOT), q);
     setMatches(next);
-    setCurrent(0);
-    if (next.length) reveal(next[0]);
-  }, [query]);
+    if (fresh) { setCurrent(0); if (next.length) reveal(next[0]); }
+    else setCurrent((c) => (next.length ? Math.min(c, next.length - 1) : 0));
+  }, []);
+
+  // Typing is debounced: every keystroke re-walking the whole tab meant a
+  // typed word cost one full walk per letter.
+  useEffect(() => {
+    if (!query) { setMatches([]); setCurrent(0); return; }
+    const t = setTimeout(() => scan(true), TYPE_MS);
+    return () => clearTimeout(t);
+  }, [query, scan]);
 
   // The rendered content changes under us on tab switch, month switch and
   // every edit. Re-scan without moving the user's place in the results.
   // Only childList/characterData are observed: painting a field toggles a
   // class, and observing attributes would make that feed back into a re-scan.
+  // With no query there is nothing to keep in step, and the whole walk is
+  // skipped: an open find bar must not tax every commit in the month.
   useEffect(() => {
     const root = document.querySelector(SEARCH_ROOT);
-    if (!root) return;
+    if (!root || blocked) return;
     let timer = null;
     const obs = new MutationObserver(() => {
+      if (!queryRef.current) return;
       clearTimeout(timer);
-      timer = setTimeout(() => {
-        const next = collectMatches(root, queryRef.current);
-        setMatches(next);
-        setCurrent((c) => (next.length ? Math.min(c, next.length - 1) : 0));
-      }, RESCAN_MS);
+      timer = setTimeout(() => scan(false), RESCAN_MS);
     });
     obs.observe(root, { childList: true, subtree: true, characterData: true });
     return () => { clearTimeout(timer); obs.disconnect(); };
-  }, []);
+  }, [blocked, scan]);
 
   useEffect(() => { paint(document.querySelector(SEARCH_ROOT), matches, current); }, [matches, current]);
   useEffect(() => () => clearPaint(document.querySelector(SEARCH_ROOT)), []);
@@ -168,10 +207,19 @@ function FindBar({ onClose, focusToken }) {
     if (e.key === "Enter") { e.preventDefault(); go(e.shiftKey ? -1 : 1); }
     else if (e.key === "ArrowDown") { e.preventDefault(); go(1); }
     else if (e.key === "ArrowUp") { e.preventDefault(); go(-1); }
-    else if (e.key === "Escape") { e.preventDefault(); onClose(); }
+    // Modal and WalletDrawer both listen for Escape on window, which is the
+    // last stop on the way up. Stopping the event here means one Escape
+    // closes one thing: this bar, and not the dialog behind it as well.
+    else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); onClose(); }
   };
 
   const none = query.length > 0 && matches.length === 0;
+  // The walk stops at MAX_MATCHES, so say "of 999+" rather than claiming a
+  // total that was never counted.
+  const capped = matches.length >= MAX_MATCHES;
+  const count = `${current + 1} of ${matches.length}${capped ? "+" : ""}`;
+
+  if (blocked) return null;
 
   return (
     <div className="find-bar" role="search">
@@ -180,7 +228,7 @@ function FindBar({ onClose, focusToken }) {
         placeholder="Find in this tab…" aria-label="Find in this tab"
         onChange={(e) => setQuery(e.target.value)} onKeyDown={onKeyDown} />
       <span className={`find-count ${none ? "find-count-none" : ""}`} aria-live="polite">
-        {query.length === 0 ? "" : none ? "No results" : `${current + 1} of ${matches.length}`}
+        {query.length === 0 ? "" : none ? "No results" : count}
       </span>
       <button className="icon-btn" onClick={() => go(-1)} disabled={!matches.length} title="Previous match (Shift+Enter)" aria-label="Previous match"><Icons.up size={15} /></button>
       <button className="icon-btn" onClick={() => go(1)} disabled={!matches.length} title="Next match (Enter)" aria-label="Next match"><Icons.down size={15} /></button>

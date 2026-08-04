@@ -13,6 +13,7 @@ import type {
   BootstrapData,
   MonthTree,
   MonthTotals,
+  MonthDeleteResult,
   FundingPlanRow,
   OverBudgetRow,
   TrendPoint,
@@ -59,6 +60,7 @@ const api = {
   entrySuggestions: (monthId: number, query: string) =>
     invoke<EntrySuggestion[]>('actuals:suggestions', { monthId, query }),
   shortcuts: () => invoke<ShortcutDoc[]>('shortcuts:list'),
+  appVersion: () => invoke<string>('app:version'),
 
   /* ---------- income ---------- */
   incomeAdd: (monthId: number, memberId: number) =>
@@ -102,6 +104,7 @@ const api = {
   /* ---------- months ---------- */
   monthCreate: (opts: { month: string; copyFrom?: number; copyIncome?: boolean }) =>
     invoke<{ id: number; month: string }>('month:create', opts),
+  monthDelete: (id: number) => invoke<MonthDeleteResult>('month:delete', { id }),
   monthSetActive: (month: string) => invoke<Ok>('month:setActive', { month }),
 
   /* ---------- members ---------- */

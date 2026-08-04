@@ -22,7 +22,16 @@ function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 860,
-    minWidth: 960,
+    // 1024 is the narrowest window the budget screen runs at undegraded: it is
+    // the width at which the grid still gives every money column its natural
+    // size and the item name column 308px, with the sidebar at 200px. The
+    // renderer does have a tier below this (see the breakpoints in app.css),
+    // but that tier shrinks the money columns and the sidebar, and it exists
+    // for the View menu's zoom levels, which shrink the CSS viewport under the
+    // window and so cannot be held off by a window minimum. The old 960 left
+    // the item name column 32px wide, 26px of it usable, with the funding
+    // account chip underneath it.
+    minWidth: 1024,
     minHeight: 640,
     backgroundColor: '#0d1016',
     show: false,

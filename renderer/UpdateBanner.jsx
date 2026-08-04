@@ -17,6 +17,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Icons } from './components.jsx';
 
+/** What went wrong with the last click, said in the banner that offered it. */
+function BannerFailure({ text }) {
+  return (
+    <div className="update-banner-line" style={{ color: 'var(--neg-ink)' }}>
+      <Icons.alert size={15} style={{ flex: 'none', marginTop: 1 }} />
+      <span>{text}</span>
+    </div>
+  );
+}
+
 /** Subscribe to updater status, seeded with whatever it is right now. */
 function useUpdateStatus() {
   const [status, setStatus] = useState({ state: 'idle' });
@@ -36,18 +46,26 @@ export function UpdateBanner() {
   const status = useUpdateStatus();
   const [dismissedVersion, setDismissedVersion] = useState(null);
   const [busy, setBusy] = useState(false);
+  // A click that does nothing is the worst of the failure modes: the banner
+  // sits in the same state and the user is left to guess. The updater pushes
+  // no status for a rejected call, so the banner has to hold the reason
+  // itself. Any status that does arrive supersedes it.
+  const [failure, setFailure] = useState(null);
+  useEffect(() => { setFailure(null); }, [status]);
 
   // The status push flips the banner to its next state, so busy only has to
   // cover the gap between the click and that arriving.
   const download = async () => {
     setBusy(true);
-    try { await window.api.updateDownload(); } catch (e) { console.error(e); }
+    try { await window.api.updateDownload(); }
+    catch (e) { console.error(e); setFailure(`The download couldn't be started. ${e.message || e}`); }
     finally { setBusy(false); }
   };
 
   const install = async () => {
     setBusy(true);
-    try { await window.api.updateInstall(); } catch (e) { console.error(e); setBusy(false); }
+    try { await window.api.updateInstall(); }
+    catch (e) { console.error(e); setFailure(`The restart couldn't be started. ${e.message || e}`); setBusy(false); }
   };
 
   const shown = status.state === 'available' || status.state === 'downloading' || status.state === 'downloaded';
@@ -62,7 +80,10 @@ export function UpdateBanner() {
         <>
           <div className="update-banner-line">Downloading version {status.version}…</div>
           <div className="update-banner-track">
-            <div className="update-banner-bar" style={{ width: `${status.percent}%` }} />
+            {/* Handed to CSS as a scale factor, not a width: the bar is out of
+                flow and transitions transform only, so a progress push cannot
+                re-lay out the sidebar it sits in. */}
+            <div className="update-banner-bar" style={{ "--pct": (status.percent || 0) / 100 }} />
           </div>
         </>
       ) : status.state === 'available' ? (
@@ -71,9 +92,10 @@ export function UpdateBanner() {
             <Icons.download size={15} style={{ color: 'var(--accent)', flex: 'none', marginTop: 1 }} />
             <span><strong>Version {status.version}</strong> is ready to download.</span>
           </div>
+          {failure && <BannerFailure text={failure} />}
           <div className="update-banner-actions">
             <button className="btn btn-sm btn-primary" disabled={busy} onClick={download}>
-              {busy ? 'Starting…' : 'Download'}
+              {busy ? 'Starting…' : failure ? 'Try again' : 'Download'}
             </button>
             <button className="btn btn-sm" onClick={() => setDismissedVersion(status.version)}>
               Not now
@@ -86,9 +108,10 @@ export function UpdateBanner() {
             <Icons.check size={15} style={{ color: 'var(--pos)', flex: 'none', marginTop: 1 }} />
             <span><strong>Version {status.version}</strong> is ready to install.</span>
           </div>
+          {failure && <BannerFailure text={failure} />}
           <div className="update-banner-actions">
             <button className="btn btn-sm btn-primary" disabled={busy} onClick={install}>
-              {busy ? 'Restarting…' : 'Restart now'}
+              {busy ? 'Restarting…' : failure ? 'Try again' : 'Restart now'}
             </button>
             <button className="btn btn-sm" onClick={() => setDismissedVersion(status.version)}>
               Later
@@ -104,16 +127,22 @@ export function UpdateSettings() {
   const status = useUpdateStatus();
   const [checking, setChecking] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  // A call that never reaches the updater pushes no status, so the same
+  // promise here has to carry its own refusal to the person who asked.
+  const [failure, setFailure] = useState(null);
+  useEffect(() => { setFailure(null); }, [status]);
 
   const check = useCallback(async () => {
     setChecking(true);
-    try { await window.api.updateCheck(); } catch (e) { console.error(e); }
+    try { await window.api.updateCheck(); }
+    catch (e) { console.error(e); setFailure(`Couldn't check for updates. ${e.message || e}`); }
     finally { setChecking(false); }
   }, []);
 
   const download = useCallback(async () => {
     setDownloading(true);
-    try { await window.api.updateDownload(); } catch (e) { console.error(e); }
+    try { await window.api.updateDownload(); }
+    catch (e) { console.error(e); setFailure(`The download couldn't be started. ${e.message || e}`); }
     finally { setDownloading(false); }
   }, []);
 
@@ -133,16 +162,16 @@ export function UpdateSettings() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   gap: 16, padding: '14px 18px' }}>
-      <div style={{ fontSize: 13.5, color: status.state === 'error' ? 'var(--neg-ink)' : 'var(--ink)' }}>
-        {line}
+      <div style={{ fontSize: 13.5, color: (failure || status.state === 'error') ? 'var(--neg-ink)' : 'var(--ink)' }}>
+        {failure || line}
       </div>
       {status.state === 'available' ? (
         <button className="btn btn-sm btn-primary" disabled={downloading} onClick={download}>
-          {downloading ? 'Starting…' : 'Download'}
+          {downloading ? 'Starting…' : failure ? 'Try again' : 'Download'}
         </button>
       ) : (
         <button className="btn btn-sm" disabled={checking || status.state === 'checking'} onClick={check}>
-          Check now
+          {failure ? 'Try again' : 'Check now'}
         </button>
       )}
     </div>

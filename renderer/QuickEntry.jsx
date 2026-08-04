@@ -56,7 +56,7 @@ function SuggestionRow({ s, active, currency, onPick, id }) {
 }
 
 function QuickEntrySection({ mo, month, currency, dispatch }) {
-  const { entrySuggestions } = useStore();
+  const { entrySuggestions, toastMsg, toast } = useStore();
   const items = useMemo(() => flatItems(mo), [mo]);
   const recent = useMemo(() => recentEntries(mo, 3), [mo]);
   const entryCount = useMemo(() => recentEntries(mo).length, [mo]);
@@ -86,12 +86,40 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
   // Candidates come from SQL (every named entry ever, resolved against this
   // month's items). An empty query returns the most recent ones. 'month' is a
   // dependency because a suggestion carries an item id that only means anything
-  // in the month it was resolved against.
+  // in the month it was resolved against. Debounced, so typing a name is one
+  // query and not one per character.
   useEffect(() => {
     let live = true;
-    entrySuggestions(name).then((list) => { if (live) { setSuggestions(list); setHi(-1); } });
-    return () => { live = false; };
+    const timer = setTimeout(() => {
+      entrySuggestions(name)
+        .then((list) => { if (live) { setSuggestions(list); setHi(-1); } })
+        .catch((err) => { if (live) { setSuggestions([]); setHi(-1); console.error("[entrySuggestions]", err); } });
+    }, 140);
+    return () => { live = false; clearTimeout(timer); };
   }, [entrySuggestions, name, month, entryCount]);
+
+  /* A logged entry clears six fields at once so the next statement line can be
+     typed straight away, and 'dispatch' is fire-and-forget, so a rejected write
+     would take all six with it. The typing is held until the entry actually
+     appears in the month, and handed back if the write fails instead. A failed
+     write announces itself as an error toast, and every toast is a fresh
+     object, so a new one is one this entry has not seen before. */
+  const pendingRef = useRef(null);
+  const seenToast = useRef(null);
+  useEffect(() => {
+    const pending = pendingRef.current;
+    if (!pending) return;
+    if (entryCount !== pending.count) { pendingRef.current = null; return; } // it landed
+    if (!toastMsg || toastMsg === seenToast.current || toastMsg.tone !== "error") return;
+    pendingRef.current = null;
+    // Unless the next statement line is already being typed: putting the old
+    // one back on top of that would be a loss of its own.
+    if (name || note || amt || itemId != null) return;
+    setName(pending.name); setNote(pending.note); setAmt(pending.amt);
+    setItemId(pending.itemId); setPicked(pending.picked); setDay(pending.day);
+    setOpen(false); setHi(-1);
+    requestAnimationFrame(() => { if (amtRef.current) amtRef.current.focus(); });
+  }, [entryCount, toastMsg, name, note, amt, itemId]);
 
   // A half-typed entry belongs to the month it was started in.
   useEffect(() => {
@@ -144,16 +172,32 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
     if (!trimmedName) { nameRef.current && nameRef.current.focus(); return; }
     if (!target) { itemRef.current && itemRef.current.focus(); return; }
     if (amtValue === null || amtValue <= 0) { amtRef.current && amtRef.current.focus(); return; }
+    const entryDay = dayOverride === undefined ? day : dayOverride;
+    pendingRef.current = { count: entryCount, name, note, amt, itemId, picked, day: entryDay };
+    seenToast.current = toastMsg;
     dispatch({
       type: "addActual", month, groupId: target.groupId, itemId: target.id,
       amount: amtValue, name: trimmedName, note: note.trim(),
-      day: dayOverride === undefined ? day : dayOverride,
+      day: entryDay,
     });
     setName(""); setNote(""); setAmt(""); setItemId(null); setPicked(null); setOpen(false); setHi(-1);
     // Back to the day, selected: the next statement line is usually the same
     // date (just press Enter through) or the next one (type over it).
     requestAnimationFrame(() => {
       if (dayRef.current) { dayRef.current.focus(); dayRef.current.select(); }
+    });
+  };
+
+  /* Same trade as the item drawers: a single click on a hover-revealed icon,
+     in the middle of the fastest task in the app, gets an undo rather than a
+     fifth confirmation dialog. The entry comes back as a new row, so its id
+     changes, but its day, name, note and amount do not. */
+  const removeEntry = (a, it, g) => {
+    const restore = { amount: a.amount, name: a.name || "", note: a.note || "", day: actualDay(a, month) };
+    dispatch({ type: "removeActual", month, groupId: g.id, itemId: it.id, id: a.id });
+    toast(`Removed ${a.name ? `"${a.name}"` : "entry"} from ${it.name}.`, "success", {
+      label: "Undo",
+      onAct: () => dispatch({ type: "addActual", month, groupId: g.id, itemId: it.id, ...restore }),
     });
   };
 
@@ -296,7 +340,8 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
                 <span className="mono" style={{ fontSize: 13, textAlign: "right" }}>{fmt(currency, a.amount)}</span>
                 <div className="row-actions">
                   <button className="icon-btn subtle" title="Remove entry"
-                    onClick={() => dispatch({ type: "removeActual", month, groupId: g.id, itemId: it.id, id: a.id })}><Icons.x size={14} /></button>
+                    aria-label={`Remove ${a.name ? `"${a.name}"` : "unnamed"} entry of ${fmt(currency, a.amount)} from ${it.name}`}
+                    onClick={() => removeEntry(a, it, g)}><Icons.x size={14} /></button>
                 </div>
               </div>
             ))}

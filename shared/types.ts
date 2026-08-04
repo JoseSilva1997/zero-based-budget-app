@@ -296,6 +296,16 @@ export interface ShortcutDoc {
   keys: string[];
 }
 
+/**
+ * The outcome of 'month:delete'. The active month key is echoed back because
+ * the delete may have had to repoint it, and the renderer should settle on the
+ * month the database now considers active rather than one of its own choosing.
+ */
+export interface MonthDeleteResult {
+  ok: true;
+  activeMonth: string | null;
+}
+
 export interface BackupInfo {
   path: string;
   fileName: string;

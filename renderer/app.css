@@ -4,8 +4,6 @@
    ============================================================ */
 :root {
   --font-sans: "Geist", system-ui, -apple-system, sans-serif;
-  /* serif dropped - alias to sans so legacy .serif usages stay clean */
-  --font-serif: var(--font-sans);
   --font-mono: "Geist Mono", ui-monospace, "SF Mono", monospace;
 
   /* universal status colors (tuned for dark) */
@@ -31,20 +29,29 @@
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.4), 0 1px 1px rgba(0,0,0,0.3);
   --shadow-md: 0 8px 24px -10px rgba(0,0,0,0.6), 0 2px 8px -4px rgba(0,0,0,0.45);
   --shadow-lg: 0 30px 70px -22px rgba(0,0,0,0.75), 0 10px 28px -14px rgba(0,0,0,0.55);
-  --shadow-pop: 0 18px 44px -14px rgba(0,0,0,0.62);
 
   --radius-sm: 9px;
   --radius: 13px;
   --radius-lg: 18px;
-  --radius-xl: 24px;
 
   --row-h: 50px;
-  --gap: 20px;
+  /* The default gap between blocks. Inline JSX still hard-codes 16 in a lot of
+     places; those are free to move to var(--gap) as they are touched. */
+  --gap: 16px;
   --sidebar-w: 232px;
   --maxw: 1080px;
 
-  /* glow + focus ring derived from the active accent */
-  --ring: 0 0 0 3px color-mix(in srgb, var(--accent) 32%, transparent);
+  /* The budget grid, in one place, because five call sites draw it: the column
+     header and the four row shapes (item, group, entry, add-entry). Callers
+     pair it with gap: 10 and padding: 7px 8px. The Difference column is the
+     fifth track; below 1200px it is dropped here and hidden with .col-diff. */
+  --budget-cols: 1fr 150px 158px 150px 78px;
+
+  /* Focus ring. The solid 2px core is what carries the indicator: raw --accent
+     clears 3:1 against every surface in all twelve themes (worst 3.96:1, indigo
+     on --surface). The soft outer band is decoration on top of that, not the
+     indicator itself, which is why it is no longer a lone 32% wash at 1.5:1. */
+  --ring: 0 0 0 2px var(--accent), 0 0 0 5px color-mix(in srgb, var(--accent) 26%, transparent);
   --glow-sm: 0 4px 18px -6px color-mix(in srgb, var(--accent) 55%, transparent);
   --glow-md: 0 8px 28px -8px color-mix(in srgb, var(--accent) 60%, transparent);
 }
@@ -52,32 +59,55 @@
 /* ============================================================
    Theme palettes - cool-slate / true-black / charcoal / navy / warm
    Each sets surface ramp, ink ramp, borders, and the accent family.
+
+   The ink ramp is measured, not eyeballed. --faint and --muted are stated in
+   oklch and their lightness is solved so that both clear 4.5:1 against
+   --surface, which is the worst of the four backdrops and the one most of this
+   text actually sits on. Hue and chroma are carried over from the old hex, so
+   each family keeps its tint: the slate ramp stays blue, the warm ramp stays
+   warm. The ramp itself is preserved by construction, faint < muted < ink-2 <
+   ink, with a real step between each rung rather than three near-identical
+   greys. Measured on --surface, per family:
+       faint 4.61-4.62 · muted 6.29-6.31 · ink-2 8.12-9.85 · ink 13.75-16.74
+
+   Borders are graded by what they carry. --border-strong is the boundary or the
+   state of something interactive (buttons, the month steppers, the active nav
+   item, the "Assign account" chip, keycaps, the sidebar and drawer edges), so
+   it is solved to 3:1 against --surface per WCAG 1.4.11. --border is structure
+   (card outlines, dividers, the progress track) and --hairline is a row rule
+   between rows that are already self-identifying; both are decorative, but at
+   1.03-1.38:1 they were invisible rather than subtle, so they are lifted to
+   2.30:1 and 1.90:1 where they can at least be seen.
    ============================================================ */
 
 /* ---- cool slate family (Linear / Vercel) -------------------------------- */
 [data-theme="indigo"], [data-theme="violet"], [data-theme="cyan"], [data-theme="emerald"] {
   --bg: #0d1016;       --bg-grad-1: #12151c; --bg-grad-2: #090b10;
   --surface: #1a1f2a;  --surface-2: #151b24; --surface-sunken: #0e1118;
-  --ink: #e8ecf4;      --ink-2: #b2bccc;     --muted: #7c8699; --faint: #555f6f;
-  --border: #2d3748;   --border-strong: #3d4d5e; --hairline: #1f2834;
+  --ink: #e8ecf4;      --ink-2: #b2bccc;
+  --muted: oklch(0.706 0.031 263.3);   /* 6.31:1 on --surface */
+  --faint: oklch(0.625 0.029 259.8);   /* 4.62:1 on --surface */
+  --border: oklch(0.459 0.033 260.9);        /* 2.30:1 */
+  --border-strong: oklch(0.524 0.035 250.2); /* 3.06:1 */
+  --hairline: oklch(0.414 0.026 255.7);      /* 1.90:1 */
 }
 [data-theme="indigo"] {
-  --accent: oklch(0.60 0.19 276); --accent-strong: oklch(0.67 0.20 276);
+  --accent: oklch(0.60 0.19 276);
   --accent-btn: oklch(0.575 0.19 276); /* white ink: 4.62:1 */
   --accent-soft: oklch(0.31 0.10 276); --accent-ink: oklch(0.82 0.15 276);
 }
 [data-theme="violet"] {
-  --accent: oklch(0.62 0.21 305); --accent-strong: oklch(0.69 0.22 305);
+  --accent: oklch(0.62 0.21 305);
   --accent-btn: oklch(0.585 0.21 305); /* white ink: 4.65:1 */
   --accent-soft: oklch(0.31 0.11 305); --accent-ink: oklch(0.84 0.16 305);
 }
 [data-theme="cyan"] {
-  --accent: oklch(0.82 0.13 205); --accent-strong: oklch(0.88 0.13 205);
+  --accent: oklch(0.82 0.13 205);
   --accent-soft: oklch(0.31 0.06 205); --accent-ink: oklch(0.87 0.11 205);
   --on-accent: #04161c;
 }
 [data-theme="emerald"] {
-  --accent: oklch(0.74 0.16 162); --accent-strong: oklch(0.80 0.16 162);
+  --accent: oklch(0.74 0.16 162);
   --accent-soft: oklch(0.31 0.08 162); --accent-ink: oklch(0.85 0.14 162);
   --on-accent: #04170f;
 }
@@ -86,21 +116,25 @@
 [data-theme="mono"], [data-theme="lime"], [data-theme="amber"] {
   --bg: #000000;       --bg-grad-1: #0a0a0c; --bg-grad-2: #000000;
   --surface: #141418;  --surface-2: #0e0e12; --surface-sunken: #060607;
-  --ink: #f4f4f7;      --ink-2: #bdbdc6;     --muted: #84848f; --faint: #54545d;
-  --border: #272730;   --border-strong: #353540; --hairline: #1d1d22;
+  --ink: #f4f4f7;      --ink-2: #bdbdc6;
+  --muted: oklch(0.678 0.016 285.9);   /* 6.31:1 on --surface */
+  --faint: oklch(0.599 0.015 285.8);   /* 4.62:1 on --surface */
+  --border: oklch(0.434 0.016 285.3);        /* 2.30:1 */
+  --border-strong: oklch(0.500 0.019 285.3); /* 3.05:1 */
+  --hairline: oklch(0.389 0.010 285.6);      /* 1.90:1 */
 }
 [data-theme="mono"] {
-  --accent: oklch(0.74 0.025 258); --accent-strong: oklch(0.82 0.03 258);
+  --accent: oklch(0.74 0.025 258);
   --accent-soft: oklch(0.27 0.012 258); --accent-ink: oklch(0.90 0.02 258);
   --on-accent: #0a0a0c;
 }
 [data-theme="lime"] {
-  --accent: oklch(0.86 0.19 128); --accent-strong: oklch(0.91 0.20 128);
+  --accent: oklch(0.86 0.19 128);
   --accent-soft: oklch(0.31 0.09 128); --accent-ink: oklch(0.88 0.17 128);
   --on-accent: #0c1604;
 }
 [data-theme="amber"] {
-  --accent: oklch(0.83 0.15 76); --accent-strong: oklch(0.88 0.16 76);
+  --accent: oklch(0.83 0.15 76);
   --accent-soft: oklch(0.32 0.07 76); --accent-ink: oklch(0.87 0.13 76);
   --on-accent: #1a1203;
 }
@@ -109,16 +143,20 @@
 [data-theme="rose"], [data-theme="sky"] {
   --bg: #131316;       --bg-grad-1: #17171b; --bg-grad-2: #0f0f12;
   --surface: #212128;  --surface-2: #1a1a20; --surface-sunken: #121215;
-  --ink: #eeeef1;      --ink-2: #b8b8c0;     --muted: #83838d; --faint: #56565f;
-  --border: #333340;   --border-strong: #424250; --hairline: #252528;
+  --ink: #eeeef1;      --ink-2: #b8b8c0;
+  --muted: oklch(0.714 0.015 286);     /* 6.29:1 on --surface */
+  --faint: oklch(0.633 0.014 285.8);   /* 4.61:1 on --surface */
+  --border: oklch(0.467 0.023 285.1);        /* 2.30:1 */
+  --border-strong: oklch(0.533 0.024 285.2); /* 3.05:1 */
+  --hairline: oklch(0.421 0.006 286);        /* 1.90:1 */
 }
 [data-theme="rose"] {
-  --accent: oklch(0.66 0.20 12); --accent-strong: oklch(0.72 0.21 12);
+  --accent: oklch(0.66 0.20 12);
   --accent-btn: oklch(0.585 0.20 12); /* white ink: 4.67:1 */
   --accent-soft: oklch(0.31 0.10 12); --accent-ink: oklch(0.83 0.16 12);
 }
 [data-theme="sky"] {
-  --accent: oklch(0.68 0.16 242); --accent-strong: oklch(0.74 0.17 242);
+  --accent: oklch(0.68 0.16 242);
   --accent-btn: oklch(0.550 0.16 242); /* white ink: 4.66:1 */
   --accent-soft: oklch(0.31 0.09 242); --accent-ink: oklch(0.85 0.13 242);
 }
@@ -127,16 +165,20 @@
 [data-theme="ocean"], [data-theme="teal"] {
   --bg: #0a0f1e;       --bg-grad-1: #0e1426; --bg-grad-2: #070b16;
   --surface: #162034;  --surface-2: #111a2c; --surface-sunken: #0a0f1e;
-  --ink: #e7ecf7;      --ink-2: #afb9d0;     --muted: #7a87a2; --faint: #515d76;
-  --border: #28364e;   --border-strong: #36486a; --hairline: #1c2840;
+  --ink: #e7ecf7;      --ink-2: #afb9d0;
+  --muted: oklch(0.709 0.044 264.9);   /* 6.29:1 on --surface */
+  --faint: oklch(0.629 0.043 264.8);   /* 4.62:1 on --surface */
+  --border: oklch(0.462 0.047 260.9);        /* 2.30:1 */
+  --border-strong: oklch(0.528 0.062 262.5); /* 3.05:1 */
+  --hairline: oklch(0.418 0.048 263.4);      /* 1.90:1 */
 }
 [data-theme="ocean"] {
-  --accent: oklch(0.64 0.18 250); --accent-strong: oklch(0.71 0.19 250);
+  --accent: oklch(0.64 0.18 250);
   --accent-btn: oklch(0.555 0.18 250); /* white ink: 4.69:1 */
   --accent-soft: oklch(0.31 0.10 250); --accent-ink: oklch(0.83 0.14 250);
 }
 [data-theme="teal"] {
-  --accent: oklch(0.78 0.13 188); --accent-strong: oklch(0.84 0.13 188);
+  --accent: oklch(0.78 0.13 188);
   --accent-soft: oklch(0.31 0.07 188); --accent-ink: oklch(0.86 0.11 188);
   --on-accent: #041613;
 }
@@ -145,9 +187,13 @@
 [data-theme="sunset"] {
   --bg: #15110f;       --bg-grad-1: #191411; --bg-grad-2: #100c0a;
   --surface: #241e18;  --surface-2: #1c1712; --surface-sunken: #130f0c;
-  --ink: #f1ebe4;      --ink-2: #c4bab0;     --muted: #908579; --faint: #635a50;
-  --border: #362e26;   --border-strong: #473c32; --hairline: #282018;
-  --accent: oklch(0.70 0.17 38); --accent-strong: oklch(0.76 0.18 38);
+  --ink: #f1ebe4;      --ink-2: #c4bab0;
+  --muted: oklch(0.706 0.022 69.8);    /* 6.29:1 on --surface */
+  --faint: oklch(0.626 0.020 70.3);    /* 4.62:1 on --surface */
+  --border: oklch(0.459 0.018 67.1);        /* 2.30:1 */
+  --border-strong: oklch(0.526 0.023 64.3); /* 3.06:1 */
+  --hairline: oklch(0.415 0.019 66.8);      /* 1.90:1 */
+  --accent: oklch(0.70 0.17 38);
   --accent-btn: oklch(0.580 0.17 38); /* white ink: 4.62:1 */
   --accent-soft: oklch(0.32 0.09 38); --accent-ink: oklch(0.84 0.14 38);
 }
@@ -170,7 +216,6 @@ input { font-family: inherit; }
 
 .tnum { font-variant-numeric: tabular-nums; }
 .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-.serif { font-family: var(--font-sans); }
 
 /* ============================================================
    App shell
@@ -242,28 +287,43 @@ input { font-family: inherit; }
 }
 .update-banner-line strong { color: var(--ink); font-weight: 600; }
 .update-banner-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+/* A download pushes progress every few hundred kilobytes. Filling the bar by
+   its width would make each push a layout pass on the sidebar around it, so
+   UpdateBanner hands the fraction down as --pct and the fill is a scale on the
+   x axis: the bar is out of flow inside a contained track, and the only
+   property that transitions is the transform. The fallback of 1 keeps the bar
+   full if the fraction is ever missing, which reads better than empty. */
 .update-banner-track {
+  position: relative; contain: layout paint;
   height: 4px; margin-top: 9px; border-radius: 999px;
   background: var(--border); overflow: hidden;
 }
 .update-banner-bar {
-  height: 100%; border-radius: 999px;
-  background: var(--accent); transition: width .3s ease;
+  position: absolute; top: 0; bottom: 0; left: 0; width: 100%;
+  border-radius: 999px; background: var(--accent);
+  transform: scaleX(var(--pct, 1)); transform-origin: left center;
+  transition: transform .3s cubic-bezier(.16, 1, .3, 1);
 }
 
-/* Main column */
-.main { min-width: 0; overflow-y: auto; overflow-x: hidden; height: 100%; }
+/* Main column. overflow-x was hidden, which clipped rather than scrolled: at a
+   narrow window the budget grid ran off the right edge and scrollWidth stayed
+   pinned, so there was no way to reach what had been cut off. The breakpoints
+   below mean this should almost never engage, but when content genuinely
+   cannot fit (deep zoom, a very long currency string) reaching it beats
+   losing it. */
+.main { min-width: 0; overflow-y: auto; overflow-x: auto; height: 100%; }
 .main-inner { max-width: var(--maxw); margin: 0 auto; padding: 30px 38px 80px; }
 
 /* Topbar with month nav */
-.topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: var(--gap); margin-bottom: 24px; }
 .month-nav { display: flex; align-items: center; gap: 14px; }
 .month-step {
   width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
-  background: var(--surface); border: 1px solid var(--border); color: var(--ink-2);
-  box-shadow: var(--shadow-sm); transition: .14s;
+  background: var(--surface); border: 1px solid var(--border-strong); color: var(--ink-2);
+  box-shadow: var(--shadow-sm);
+  transition: color .14s, border-color .14s, box-shadow .14s, transform .14s;
 }
-.month-step:hover:not(:disabled) { color: var(--ink); border-color: var(--border-strong); transform: translateY(-1px); }
+.month-step:hover:not(:disabled) { color: var(--ink); border-color: color-mix(in srgb, var(--accent) 45%, var(--border-strong)); transform: translateY(-1px); }
 .month-step:disabled { opacity: .4; cursor: default; }
 .month-title { display: flex; flex-direction: column; line-height: 1; }
 .month-title .yr { font-size: 12.5px; color: var(--muted); letter-spacing: 0.06em; margin-bottom: 4px; font-weight: 500; }
@@ -271,14 +331,18 @@ input { font-family: inherit; }
 .page-title { font-size: 30px; font-weight: 600; letter-spacing: -0.025em; }
 .page-sub { color: var(--muted); font-size: 14px; margin-top: 4px; }
 
-/* Buttons */
+/* Buttons. The resting border is --border-strong, not --border: a secondary
+   button's fill is only 1.17:1 against the page background, so the border is
+   the whole of what says "this is a control", and 1.4.11 asks 3:1 of it.
+   Hover then moves to an accent-tinted edge, matching .wallet-btn. */
 .btn {
   display: inline-flex; align-items: center; gap: 7px; justify-content: center;
   padding: 9px 15px; border-radius: var(--radius-sm); font-size: 13.5px; font-weight: 500;
-  border: 1px solid var(--border); background: var(--surface); color: var(--ink);
-  box-shadow: var(--shadow-sm); transition: .14s;
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink);
+  box-shadow: var(--shadow-sm);
+  transition: color .14s, background-color .14s, border-color .14s, box-shadow .14s, transform .14s;
 }
-.btn:hover { border-color: var(--border-strong); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.btn:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border-strong)); transform: translateY(-1px); box-shadow: var(--shadow-md); }
 .btn:active { transform: translateY(0); }
 /* Flat, not a gradient: the light end of the old gradient dropped the label
    under AA in six of the twelve themes. Depth comes from the inset highlight
@@ -292,7 +356,8 @@ input { font-family: inherit; }
 .btn-danger:hover { background: var(--neg-soft); border-color: transparent; }
 .icon-btn {
   width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center;
-  border: 1px solid transparent; background: transparent; color: var(--muted); transition: .14s;
+  border: 1px solid transparent; background: transparent; color: var(--muted);
+  transition: background-color .14s, color .14s, border-color .14s;
 }
 .icon-btn:hover { background: var(--surface-sunken); color: var(--ink); }
 .icon-btn.subtle { color: var(--faint); }
@@ -308,47 +373,97 @@ input { font-family: inherit; }
 .pill-neg { background: var(--neg-soft); color: var(--neg-ink); }
 .pill-neutral { background: var(--surface-sunken); color: var(--ink-2); }
 
-/* Inline editable money input */
+/* Inline editable money and text fields. These deliberately keep :focus rather
+   than :focus-visible. They are borderless and look like plain text until they
+   are engaged, so the ring is not a keyboard affordance bolted onto an already
+   obvious control: it is the only thing that says which of forty cells in the
+   grid is now taking your typing, and that is as necessary after a click as
+   after a Tab. The hover state gains a border for the same reason: a background
+   change alone was 1.1:1 and could not be seen. */
 .minput {
   font-family: var(--font-mono); font-variant-numeric: tabular-nums;
   border: 1px solid transparent; background: transparent; color: var(--ink);
   border-radius: 8px; padding: 5px 8px; text-align: right; width: 100%;
-  font-size: 14px; transition: .12s;
+  font-size: 14px;
+  transition: background-color .12s, border-color .12s, box-shadow .12s;
 }
-.minput:hover { background: var(--surface-sunken); }
+.minput:hover { background: var(--surface-sunken); border-color: var(--border); }
 .minput:focus { outline: none; background: var(--surface); border-color: var(--accent); box-shadow: var(--ring); }
 .tinput {
   border: 1px solid transparent; background: transparent; color: var(--ink);
-  border-radius: 8px; padding: 5px 8px; font-size: 14px; width: 100%; transition: .12s; font-weight: 500;
+  border-radius: 8px; padding: 5px 8px; font-size: 14px; width: 100%; font-weight: 500;
+  transition: background-color .12s, border-color .12s, box-shadow .12s;
 }
-.tinput:hover { background: var(--surface-sunken); }
+.tinput:hover { background: var(--surface-sunken); border-color: var(--border); }
 .tinput:focus { outline: none; background: var(--surface); border-color: var(--accent); box-shadow: var(--ring); }
 
 /* Keyboard focus must be visible everywhere, not only on the two input classes
-   that happened to style it. Text fields keep their own ring treatment above. */
-:focus-visible:not(.minput):not(.tinput) { outline: 2px solid var(--accent); outline-offset: 2px; }
-.btn:focus-visible, .nav-item:focus-visible, .icon-btn:focus-visible, .month-step:focus-visible { outline-offset: 3px; }
+   that happened to style it. Text fields keep their own ring treatment above:
+   .minput:focus / .tinput:focus already set outline: none and outrank this.
+
+   The :not(.minput):not(.tinput) chain this rule used to carry made it (0,3,0),
+   which quietly beat every .class:focus-visible override below it, including
+   the outline-offset line that follows and the inset outline on .acct-row. A
+   bare :focus-visible is (0,1,0), so the per-class rules can now actually do
+   their job. */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn:focus-visible, .nav-item:focus-visible, .icon-btn:focus-visible,
+.month-step:focus-visible, .find-input:focus-visible { outline-offset: 3px; }
+
+/* Drag handles are keyboard-operable, so they need resting, hover and focus
+   states of their own. Their colour is set inline in JSX, so this rule sticks
+   to the properties that leaves alone. The outline is inset because the handle
+   sits flush against the left edge of its row. */
+.drag-handle { background: transparent; border-radius: 8px; transition: background-color .12s; }
+.drag-handle:hover { background: var(--surface-sunken); }
+.drag-handle:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; background: var(--surface-sunken); }
+
+/* The copy / start-empty option cards in the new-month dialog. Their fill and
+   border are inline (they carry the selected state), so hover lifts them with
+   a shadow instead and focus gets a ring the label never had. */
+.copy-opt { border-radius: var(--radius); cursor: pointer; transition: box-shadow .12s; }
+.copy-opt:hover { box-shadow: var(--shadow-sm); }
+/* The focusable element is the off-screen radio inside the card, so the ring
+   has to come from the card that the user is actually looking at. */
+.copy-opt:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* account chip (item funding account) */
 .acct-chip {
   position: relative; display: inline-flex; align-items: center; gap: 6px;
   padding: 3px 8px 3px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 500;
-  color: var(--ink-2); background: var(--surface-sunken); border: 1px solid transparent;
-  max-width: 100%; transition: .12s; cursor: pointer;
+  color: var(--ink-2); background: var(--surface-sunken); border: 1px solid var(--border);
+  max-width: 100%; cursor: pointer;
+  transition: background-color .12s, border-color .12s, color .12s, box-shadow .12s;
 }
 .acct-chip:hover { border-color: var(--border-strong); color: var(--ink); }
+/* The chip's real focus target is the invisible select stretched across it, so
+   the generic :focus-visible outline was being painted on an opacity: 0 box and
+   every funding-account chip in the budget was keyboard-reachable with nothing
+   to show for it. The ring goes on the chip instead, and the select's own
+   outline is dropped so there is exactly one indicator. */
+.acct-chip:focus-within { box-shadow: var(--ring); border-color: var(--accent); color: var(--ink); }
 .acct-chip-empty { color: var(--faint); background: transparent; border: 1px dashed var(--border-strong); }
 .acct-chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px; }
 .acct-chip select {
   position: absolute; inset: 0; width: 100%; height: 100%;
   opacity: 0; cursor: pointer; border: none; -webkit-appearance: none; appearance: none;
 }
+.acct-chip select:focus-visible { outline: none; }
 
 /* Modal */
 .modal-veil { position: fixed; inset: 0; background: rgba(0,0,0,0.62); backdrop-filter: blur(4px); display: grid; place-items: center; z-index: 60; animation: veil .18s ease; }
 @keyframes veil { from { opacity: 0; } }
-.modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); width: 460px; max-width: calc(100vw - 40px); padding: 26px; animation: pop .2s cubic-bezier(.2,.9,.3,1.2); }
-@keyframes pop { from { opacity: 0; transform: translateY(8px) scale(.98); } }
+.modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); width: 460px; max-width: calc(100vw - 40px); padding: 26px; animation: pop .22s; }
+/* The curve lives on the keyframe rather than on each caller, so the toast in
+   main.jsx inherits it through its own inline animation: a timing function
+   declared on a keyframe governs the segment starting there and overrides the
+   one on the element. It used to overshoot its resting position and settle
+   back. Every dialog and every message in a money app springing past where it
+   means to land is not a texture this app wants, so it is an exponential
+   ease-out: fast out of the gate, long settle, nothing to recover from. */
+@keyframes pop {
+  from { opacity: 0; transform: translateY(8px) scale(.98); animation-timing-function: cubic-bezier(.16, 1, .3, 1); }
+}
 .modal h3 { margin: 0 0 6px; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
 .modal p { margin: 0 0 18px; color: var(--muted); font-size: 14px; line-height: 1.5; }
 
@@ -364,7 +479,7 @@ input { font-family: inherit; }
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
   padding: 44px 20px; text-align: center; color: var(--muted);
 }
-.empty-icon { width: 46px; height: 46px; border-radius: 13px; background: var(--surface-sunken); display: grid; place-items: center; color: var(--faint); }
+.empty-icon { width: 46px; height: 46px; border-radius: var(--radius); background: var(--surface-sunken); display: grid; place-items: center; color: var(--faint); }
 
 .fade-in { animation: fade .26s ease; }
 @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -421,6 +536,51 @@ input { font-family: inherit; }
 }
 .new-month-btn svg { color: var(--accent-ink); }
 
+/* ============================================================
+   Breakpoints
+
+   Placed where this layout actually breaks, not at device sizes. Two things
+   have to give as the window narrows: the sidebar, which was a fixed 232px
+   that never collapsed, and the budget grid, whose four fixed columns plus
+   gaps, row padding, drag handle and card border came to 620px before the item
+   name got anything at all. At the old 960px window minimum that left the name
+   column 32px wide, 26px of it usable, and it also has to carry the funding
+   account chip underneath. That is not a narrow screen, it is an unusable one.
+
+   >= 1200px  five columns, full sidebar. Name column 272px at 1200.
+   < 1200px   the Difference column is dropped. It is the only derived column
+              on the row (allocated minus actual), both of its inputs stay on
+              screen next to it, and the mini bar beside it already says the
+              same thing, so it is the one column that costs nothing to lose.
+              Sidebar and page padding tighten with it. Name column 308px at
+              1024, which is more than the five-column layout ever gave.
+   < 1024px   the money columns give up their slack too. Below the window
+              minimum this tier is reached only through the View menu's zoom,
+              which shrinks the CSS viewport under the window, so it is a
+              graceful-degradation tier rather than a window size. Name column
+              250px at 880 CSS px, 138px at 768.
+   ============================================================ */
+@media (max-width: 1199px) {
+  :root {
+    --sidebar-w: 200px;
+    --budget-cols: 1fr 150px 158px 78px;
+  }
+  .main-inner { padding: 26px 28px 72px; }
+  .col-diff { display: none; }
+}
+@media (max-width: 1023px) {
+  :root {
+    --sidebar-w: 176px;
+    --budget-cols: 1fr 136px 144px 68px;
+  }
+  .main-inner { padding: 22px 20px 64px; }
+  .sidebar { padding: 18px 11px; }
+  .brand { padding: 4px 6px 16px; }
+  .month-title .mo, .page-title { font-size: 25px; }
+  .find-bar { right: 20px; }
+  .app.find-open .main-inner { padding-top: 76px; }
+}
+
 /* Respect the OS "reduce motion" setting: drop the travel, keep the states. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -432,8 +592,8 @@ input { font-family: inherit; }
   .btn:hover, .month-step:hover:not(:disabled) { transform: none; }
 }
 
-/* scrollbar */
-.main::-webkit-scrollbar { width: 12px; }
+/* scrollbar. Height as well as width now, because .main can scroll sideways. */
+.main::-webkit-scrollbar { width: 12px; height: 12px; }
 .main::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 99px; border: 3px solid var(--bg); }
 .main::-webkit-scrollbar-track { background: transparent; }
 
@@ -455,27 +615,42 @@ kbd {
   display: flex; align-items: center; gap: 6px;
   padding: 7px 8px 7px 12px;
   background: var(--surface-2); border: 1px solid var(--border-strong);
-  border-radius: 12px; box-shadow: var(--shadow-lg);
-  animation: pop .16s ease;
+  border-radius: var(--radius); box-shadow: var(--shadow-lg);
+  animation: pop .16s;
 }
 /* The bar floats, so the content it covers is pushed clear of it instead. */
 .app.find-open .main-inner { padding-top: 84px; }
 .find-input {
-  width: 210px; background: transparent; border: 0;
+  width: 210px; background: transparent; border: 0; border-radius: 6px;
   color: var(--ink); font-family: inherit; font-size: 13.5px; padding: 3px 2px;
 }
 .find-input::placeholder { color: var(--faint); }
 .find-count {
   font-family: var(--font-mono); font-size: 11.5px; color: var(--muted);
-  min-width: 64px; text-align: right; flex: none; white-space: nowrap;
+  /* Wide enough to hold "1000 of 1000" at 11.5px mono, so the count stops
+     resizing the whole bar as you type. 64px only covered single digits. */
+  min-width: 92px; text-align: right; flex: none; white-space: nowrap;
 }
 .find-count-none { color: var(--neg-ink); }
 
 /* Text-node matches. ::highlight() paints without touching the DOM, so React
-   keeps ownership of the tree. Only a few properties are honoured here. */
-::highlight(find-match) { background-color: color-mix(in srgb, var(--accent) 34%, transparent); color: var(--ink); }
-::highlight(find-current) { background-color: var(--accent); color: var(--on-accent); }
+   keeps ownership of the tree. Only a few properties are honoured here.
 
-/* Input matches: the value is not a text node, so the whole field lights up. */
-.find-hit { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 42%, transparent) !important; }
-.find-hit-current { box-shadow: 0 0 0 2px var(--accent), 0 0 0 5px color-mix(in srgb, var(--accent) 22%, transparent) !important; }
+   The current match is the one word the user is hunting for, and it used to be
+   --on-accent on raw --accent, which measures 2.84:1 in sky and 2.86:1 in
+   sunset: the least legible text on screen was the thing being searched for.
+   It is a fixed pair now, deliberately outside the theme system, because a
+   found-match marker is a tool and not decoration, and because a pair that has
+   to hold across twelve accents cannot be derived from any of them. Amber on
+   near-black measures 13.67:1 in every theme, and it is the colour every
+   browser's own find already uses, so it reads as "here" instantly. The
+   non-current wash stays accent-tinted (that is where the theme belongs) and
+   goes from 34% to 40%, which lifts the tint against plain text while keeping
+   --ink on it at 5.17:1 in the worst case, cyan on --surface. */
+::highlight(find-match) { background-color: color-mix(in srgb, var(--accent) 40%, transparent); color: var(--ink); }
+::highlight(find-current) { background-color: #ffd84d; color: #161006; }
+
+/* Input matches: the value is not a text node, so the whole field lights up.
+   The current one borrows the same amber so "current" means one thing. */
+.find-hit { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent) !important; }
+.find-hit-current { box-shadow: 0 0 0 2px #ffd84d, 0 0 0 5px color-mix(in srgb, #ffd84d 26%, transparent) !important; }

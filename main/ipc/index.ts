@@ -15,6 +15,7 @@ import { registerBackupIpc } from './backup';
 import { registerDataIpc } from './data';
 import { registerUpdaterIpc } from './updater';
 import { registerShortcutIpc } from './shortcuts';
+import { registerAppIpc } from './app';
 
 export function registerIpcHandlers(): void {
   registerReadIpc();
@@ -30,4 +31,5 @@ export function registerIpcHandlers(): void {
   registerDataIpc();
   registerUpdaterIpc();
   registerShortcutIpc();
+  registerAppIpc();
 }

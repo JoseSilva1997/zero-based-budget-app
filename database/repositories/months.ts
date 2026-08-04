@@ -28,7 +28,7 @@ import type {
   EntrySuggestion,
 } from '../../shared/types';
 import { centsToDollars, toMonthDay } from '../conversions';
-import { setMeta } from './meta';
+import { getMeta, setMeta } from './meta';
 import { patchById, nextSortOrder } from './_sql';
 import { listAccounts } from './accounts';
 
@@ -832,6 +832,59 @@ export function actualEntrySuggestions(
 }
 
 /* ---------- destructive helpers ------------------------------------------ */
+
+/**
+ * Deletes a month, but only an empty one. budget_groups and budget_incomes
+ * cascade from budget_months, so an unguarded delete would take a year of
+ * entries with it; the only month worth removing is one nobody has used yet
+ * (typically a mis-pressed Ctrl+N). The guards live here rather than in the IPC
+ * handler so the invariant holds for every caller. Returns the active month key
+ * as it stands afterwards.
+ */
+export function deleteMonth(db: Database.Database, id: number): string | null {
+  const tx = db.transaction(() => {
+    const month = db.prepare(`SELECT * FROM budget_months WHERE id = ?`).get(id) as
+      | BudgetMonth
+      | undefined;
+    if (!month) {
+      throw new Error('That month is no longer in your budget, so there is nothing to delete.');
+    }
+
+    const remaining = listMonths(db).filter((m) => m.id !== id); // month key ascending
+    if (remaining.length === 0) {
+      throw new Error(
+        "That's the only month in your budget, so it can't be deleted. Create the month you want to keep first, then delete this one."
+      );
+    }
+
+    const used = db
+      .prepare(
+        `SELECT (SELECT COUNT(*) FROM budget_groups  WHERE budget_month_id = ?) AS groups,
+                (SELECT COUNT(*) FROM budget_incomes WHERE budget_month_id = ?) AS incomes`
+      )
+      .get(id, id) as { groups: number; incomes: number };
+    if (used.groups > 0 || used.incomes > 0) {
+      throw new Error(
+        "That month still has income or groups in it, so it can't be deleted. Only an empty month can be removed, so clear it out first if you really want it gone."
+      );
+    }
+
+    db.prepare(`DELETE FROM budget_months WHERE id = ?`).run(id);
+
+    // The active month is stored as a key, not an id, so deleting the month the
+    // user is sitting on would leave app_meta pointing at nothing. Step to the
+    // nearest surviving month (the one before it where there is one) instead of
+    // leaving the next launch to guess.
+    const active = getMeta(db, 'activeMonth');
+    if (active !== month.month) return active;
+
+    const earlier = remaining.filter((m) => m.month < month.month);
+    const neighbour = earlier.length ? earlier[earlier.length - 1] : remaining[0];
+    setActiveMonth(db, neighbour.month);
+    return neighbour.month;
+  });
+  return tx();
+}
 
 /** Deletes all months (cascades to incomes, groups, items, actual entries). */
 export function deleteAllMonths(db: Database.Database): void {

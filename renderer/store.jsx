@@ -97,6 +97,9 @@ function humanError(raw, actionType) {
     }
     return "That can't be removed while something else still refers to it.";
   }
+  if (/UNIQUE constraint failed/i.test(m)) {
+    return "That month is already in your budget. Step to it with the month arrows, or open it from History, rather than creating it again.";
+  }
   if (/SQLITE_BUSY|database is locked/i.test(m)) {
     return "Your budget file is busy. If House Budget is open in another window, close it and try again.";
   }
@@ -114,8 +117,8 @@ function humanError(raw, actionType) {
 export function StoreProvider({ children }) {
   const [state, setState] = useState(null); // { settings, months, order, activeMonth }
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null); // { message, id } - recoverable, shown as a toast
   const [fatal, setFatal] = useState(null); // Error - the app never came up
+  const [toastMsg, setToastMsg] = useState(null); // { message, tone, action } - the one live toast
 
   const stateRef = useRef(state);
   const monthListRef = useRef([]); // [{ id, month }]
@@ -131,11 +134,28 @@ export function StoreProvider({ children }) {
     []
   );
 
+  /* ---- toast ----
+     The store owns it because the store is where failures are found: 'raise'
+     can then report one without a round trip through the app shell. Errors
+     never expire, since a message you can miss is a message that lets a failed
+     write read as a success. An offered action gets longer than a bare
+     confirmation, because it has to be read and then acted on. */
+  const toastTimer = useRef(null);
+  const toast = useCallback((message, tone = "success", action) => {
+    setToastMsg({ message, tone, action });
+    clearTimeout(toastTimer.current);
+    if (tone !== "error") toastTimer.current = setTimeout(() => setToastMsg(null), action ? 6000 : 2600);
+  }, []);
+  const dismissToast = useCallback(() => {
+    clearTimeout(toastTimer.current);
+    setToastMsg(null);
+  }, []);
+
   const raise = useCallback((err, actionType) => {
     const raw = err instanceof Error ? err.message : String(err);
     console.error("[store]", actionType || "", raw);
-    setError({ message: humanError(raw, actionType), id: Date.now() + Math.random() });
-  }, []);
+    toast(humanError(raw, actionType), "error");
+  }, [toast]);
 
   /* ---- full (re)hydrate from SQL ----
      The renderer is a view layer: it holds only the ACTIVE month's tree (plus
@@ -315,6 +335,18 @@ export function StoreProvider({ children }) {
             });
             return reload();
 
+          case "deleteMonth": {
+            const monthId = idForKey(A.id);
+            if (monthId == null || typeof api.monthDelete !== "function") return;
+            await api.monthDelete(monthId);
+            // Land on the neighbour before rehydrating, so the user is returned
+            // to a month that still exists rather than whichever one is last.
+            if (A.next) await api.monthSetActive(A.next);
+            await reload();
+            toast(`${monthLabel(A.id).short} deleted.`);
+            return;
+          }
+
           case "updateSettings":
             setState((s) => (s ? { ...s, settings: { ...s.settings, ...A.patch } } : s));
             await api.settingsUpdate(A.patch);
@@ -352,7 +384,7 @@ export function StoreProvider({ children }) {
       };
       run().catch((err) => raise(err, A.type));
     },
-    [idForKey, refreshMonth, refreshSettings, reload, raise]
+    [idForKey, refreshMonth, refreshSettings, reload, raise, toast]
   );
 
   /* ---- on-demand SQL reads for cross-month views ---- */
@@ -393,9 +425,11 @@ export function StoreProvider({ children }) {
   const value = {
     state,
     loading,
-    error,
     fatal,
     retry,
+    toast,
+    toastMsg,
+    dismissToast,
     dispatch,
     reload,
     refreshSettings,

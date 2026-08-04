@@ -2,11 +2,11 @@
    App shell - nav, theme, month budget composition, tweaks
    Entry point: esbuild bundles starting here, following the imports below.
    ============================================================ */
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { THEME_IDS, fmt, monthLabel, walletSummary } from './lib/index.js';
 import { StoreProvider, useStore } from './store.jsx';
-import { Avatar, Icons } from './components.jsx';
+import { Avatar, ConfirmDialog, Icons } from './components.jsx';
 import { WalletDrawer } from './Accounts.jsx';
 import { GroupCard, NewMonthModal } from './MonthGroups.jsx';
 import { IncomeSection, SummaryHero } from './MonthBudget.jsx';
@@ -17,7 +17,7 @@ import { SettingsScreen } from './Settings.jsx';
 import { UpdateBanner } from './UpdateBanner.jsx';
 import { FindBar } from './Find.jsx';
 
-function MonthBudgetScreen({ state, dispatch, currency }) {
+function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
   const mid = state.activeMonth;
   const mo = state.months[mid];
   const lbl = monthLabel(mid);
@@ -25,6 +25,11 @@ function MonthBudgetScreen({ state, dispatch, currency }) {
   const [addingGroup, setAddingGroup] = useState(false);
   const [newGroup, setNewGroup] = useState("");
   const [walletOpen, setWalletOpen] = useState(false);
+  const [confirmMonth, setConfirmMonth] = useState(false);
+  // Deleting the last remaining month would leave the budget screen with
+  // nothing to show, and the delete needs the desktop bridge to exist at all.
+  const canDeleteMonth = state.order.length > 1 && !!window.api && typeof window.api.monthDelete === "function";
+  const neighbourMonth = state.order[idx - 1] || state.order[idx + 1];
   const commitGroup = () => { if (newGroup.trim()) dispatch({ type: "addGroup", month: mid, name: newGroup.trim() }); setNewGroup(""); setAddingGroup(false); };
   const wallet = walletSummary(mo, state.settings.accounts);
   const [dragGroupId, setDragGroupId] = useState(null);
@@ -41,21 +46,24 @@ function MonthBudgetScreen({ state, dispatch, currency }) {
     <div className="fade-in">
       <div className="topbar">
         <div className="month-nav">
-          <button className="month-step" disabled={idx <= 0} title="Previous month" onClick={() => dispatch({ type: "setActive", id: state.order[idx - 1] })}><Icons.left size={18} /></button>
+          <button className="month-step" disabled={idx <= 0} aria-label="Previous month" title="Previous month" onClick={() => dispatch({ type: "setActive", id: state.order[idx - 1] })}><Icons.left size={18} /></button>
           <div className="month-title">
             <span className="yr">{lbl.yr}</span>
             <span className="mo">{lbl.mo}</span>
           </div>
-          <button className="month-step" disabled={idx >= state.order.length - 1} title="Next month" onClick={() => dispatch({ type: "setActive", id: state.order[idx + 1] })}><Icons.right size={18} /></button>
+          <button className="month-step" disabled={idx >= state.order.length - 1} aria-label="Next month" title="Next month" onClick={() => dispatch({ type: "setActive", id: state.order[idx + 1] })}><Icons.right size={18} /></button>
+          {canDeleteMonth && (
+            <button className="icon-btn subtle" aria-label={`Delete ${lbl.mo} ${lbl.yr}`} title="Delete this month" onClick={() => setConfirmMonth(true)}><Icons.trash size={15} /></button>
+          )}
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn wallet-btn" onClick={() => setWalletOpen(true)} title="Open Wallet - funding plan by account">
             <Icons.wallet size={16} />
             Wallet
             <span className="wallet-amt">{fmt(currency, wallet.toFund, { cents: false })}</span>
-            {wallet.hasUnassigned && <span className="wallet-warn" title="Some allocations aren't assigned to an account" />}
+            {wallet.hasUnassigned && <span className="wallet-warn" role="img" aria-label="Some allocations aren't assigned to an account" title="Some allocations aren't assigned to an account" />}
           </button>
-          <button className="btn new-month-btn" onClick={() => window.__openNewMonth()}><Icons.plus size={16} /> New month</button>
+          <button className="btn new-month-btn" onClick={onNewMonth}><Icons.plus size={16} /> New month</button>
         </div>
       </div>
 
@@ -67,11 +75,15 @@ function MonthBudgetScreen({ state, dispatch, currency }) {
 
       <div className="section-head">
         <h2>Allocations</h2>
-        <div style={{ display: "flex", alignItems: "center", gap: 14, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--faint)", fontWeight: 600 }}>
-          <span style={{ width: 150, textAlign: "right" }}>Allocated</span>
-          <span style={{ width: 158, textAlign: "right" }}>Actual</span>
-          <span style={{ width: 150, textAlign: "right" }}>Difference</span>
-          <span style={{ width: 78 }} />
+        {/* Same grid as the rows below, plus a leading cell for their 26px drag
+            handle, so each label sits over the column it names. */}
+        <div style={{ flex: 1, minWidth: 0, display: "grid", gridTemplateColumns: "26px var(--budget-cols)", alignItems: "center", gap: 10, padding: "7px 8px", fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--faint)", fontWeight: 600 }}>
+          <span />
+          <span />
+          <span style={{ textAlign: "right" }}>Allocated</span>
+          <span style={{ textAlign: "right" }}>Actual</span>
+          <span className="col-diff" style={{ textAlign: "right" }}>Difference</span>
+          <span />
         </div>
       </div>
 
@@ -109,14 +121,25 @@ function MonthBudgetScreen({ state, dispatch, currency }) {
         <button className="btn" style={{ width: "100%", justifyContent: "center", borderStyle: "dashed", background: "transparent", color: "var(--muted)" }} onClick={() => setAddingGroup(true)}><Icons.plus size={16} /> Add group</button>
       )}
 
-      {walletOpen && <WalletDrawer mo={mo} accounts={state.settings.accounts} members={state.settings.members} currency={currency} dispatch={dispatch} month={mid} onClose={() => setWalletOpen(false)} />}
+      {walletOpen && <WalletDrawer mo={mo} accounts={state.settings.accounts} members={state.settings.members} currency={currency} month={mid} onClose={() => setWalletOpen(false)} />}
+
+      {confirmMonth && (
+        <ConfirmDialog title={`Delete ${lbl.mo} ${lbl.yr}?`} width={440}
+          confirmLabel="Delete month" icon={<Icons.trash size={15} />}
+          onClose={() => setConfirmMonth(false)}
+          onConfirm={() => { dispatch({ type: "deleteMonth", id: mid, next: neighbourMonth }); setConfirmMonth(false); }}>
+          Only an empty month can go. If this one still has groups or income, delete those first. Other months are not affected.
+        </ConfirmDialog>
+      )}
     </div>
   );
 }
 
 /* ---- toast --------------------------------------------------------------
    Success and failure must not look alike. Errors get their own colour, an
-   alert icon, no auto-dismiss, and role="alert" so they are announced. */
+   alert icon, no auto-dismiss, and role="alert" so they are announced.
+   'msg.action' is how a one-click delete stays recoverable: the toast that
+   reports it also carries the way back. */
 function Toast({ msg, onDismiss }) {
   if (!msg) return null;
   const isError = msg.tone === "error";
@@ -139,6 +162,14 @@ function Toast({ msg, onDismiss }) {
         ? <Icons.alert size={16} style={{ flex: "none", marginTop: 1 }} />
         : <Icons.check size={16} style={{ color: "var(--pos)", flex: "none", marginTop: 1 }} />}
       <span style={{ minWidth: 0 }}>{msg.message}</span>
+      {msg.action && (
+        // Inherits the toast's own text colour, so it reads at the same
+        // contrast as the message it sits beside; the border is decoration.
+        <button onClick={() => { msg.action.onAct(); onDismiss(); }}
+          style={{ flex: "none", background: "transparent", color: "inherit", font: "inherit", fontWeight: 600, lineHeight: 1.45, textDecoration: "underline", textUnderlineOffset: 2, border: "1px solid color-mix(in srgb, currentColor 40%, transparent)", borderRadius: 7, padding: "0 9px" }}>
+          {msg.action.label}
+        </button>
+      )}
       {isError && (
         <button onClick={onDismiss} aria-label="Dismiss"
           style={{ flex: "none", marginLeft: 4, background: "transparent", border: 0, color: "inherit", opacity: .7, display: "grid", placeItems: "center", padding: 2, borderRadius: 6 }}>
@@ -152,7 +183,7 @@ function Toast({ msg, onDismiss }) {
 /* ---- loading shell ------------------------------------------------------ */
 function LoadingScreen() {
   return (
-    <div style={{ position: "fixed", inset: 0, display: "grid", placeItems: "center", color: "var(--muted)", fontSize: 14 }}>
+    <div role="status" style={{ position: "fixed", inset: 0, display: "grid", placeItems: "center", color: "var(--muted)", fontSize: 14 }}>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
         <div className="brand-mark"><Icons.plant size={22} /></div>
         Loading your budget…
@@ -195,26 +226,15 @@ function StartupErrorScreen({ error, onRetry }) {
 
 /* ---- app ---------------------------------------------------------------- */
 function App() {
-  const { state, loading, error, fatal, retry, dispatch } = useStore();
+  const { state, loading, fatal, retry, dispatch, toast, toastMsg, dismissToast } = useStore();
   const [tab, setTab] = useState("dashboard");
   const [newMonth, setNewMonth] = useState(false);
   // find: `token` bumps on every Ctrl+F so an already-open bar re-selects.
   const [find, setFind] = useState({ open: false, token: 0 });
-  const [toastMsg, setToastMsg] = useState(null);
-  const toastTimer = useRef(null);
   // Menu handlers are registered once; they read live state through this ref
   // rather than re-subscribing on every store change.
   const stateRef = useRef(state);
   useEffect(() => { stateRef.current = state; }, [state]);
-  // Errors stay until dismissed; a message you can miss is a message that
-  // lets a failed write read as a success.
-  const toast = useCallback((message, tone = "success") => {
-    setToastMsg({ message, tone });
-    clearTimeout(toastTimer.current);
-    if (tone !== "error") toastTimer.current = setTimeout(() => setToastMsg(null), 2600);
-  }, []);
-
-  useEffect(() => { window.__openNewMonth = () => setNewMonth(true); }, []);
 
   // Application-menu accelerators. The menu owns discoverability; this owns
   // the behaviour, because the state these commands change lives here.
@@ -228,7 +248,18 @@ function App() {
         case "goBudget": setTab("budget"); break;
         case "goHistory": setTab("history"); break;
         case "goSettings": setTab("settings"); break;
-        case "backupNow": setTab("settings"); break;
+        case "backupNow": {
+          // A backup that reports itself in a toast has no reason to move the
+          // user; Settings is only where you go when there is nothing to run.
+          if (!window.api || typeof window.api.createBackup !== "function") { setTab("settings"); break; }
+          window.api.createBackup()
+            .then(() => {
+              dispatch({ type: "refreshSettings" }); // pick up the new lastBackup from SQL
+              toast("Backup saved to your data folder");
+            })
+            .catch((err) => { console.error("backup:create failed", err); toast(`Backup failed. ${err.message}`, "error"); });
+          break;
+        }
         case "prevMonth": case "nextMonth": {
           const s = stateRef.current;
           if (!s) break;
@@ -250,9 +281,7 @@ function App() {
         default: break;
       }
     });
-  }, [dispatch]);
-  // Surface store/IPC failures (e.g. removing a member still referenced) as toasts.
-  useEffect(() => { if (error) toast(error.message, "error"); }, [error, toast]);
+  }, [dispatch, toast]);
 
   // resolve theme from settings - dark-only, 12 named palettes
   const themePref = state && THEME_IDS.includes(state.settings.theme) ? state.settings.theme : "indigo";
@@ -271,12 +300,18 @@ function App() {
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-mark"><Icons.plant size={20} /></div>
-          <div><div className="brand-name">House Budget</div><div className="brand-sub">Zero-based · local</div></div>
+          {/* The app title, so the page has a level-one heading. 'margin: 0'
+              only cancels the UA default; the look comes from .brand-name. */}
+          <div><h1 className="brand-name" style={{ margin: 0 }}>House Budget</h1><div className="brand-sub">Zero-based · local</div></div>
         </div>
         <div className="nav-label">Workspace</div>
-        {NAV.map(([id, label, Ico]) => (
-          <button key={id} className={`nav-item ${tab === id ? "active" : ""}`} onClick={() => setTab(id)}><Ico size={18} /> {label}</button>
-        ))}
+        {/* The nav is a new box in the sidebar's column, so it repeats the
+            column's own gap to leave the items spaced exactly as before. */}
+        <nav aria-label="Sections" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {NAV.map(([id, label, Ico]) => (
+            <button key={id} className={`nav-item ${tab === id ? "active" : ""}`} aria-current={tab === id ? "page" : undefined} onClick={() => setTab(id)}><Ico size={18} /> {label}</button>
+          ))}
+        </nav>
         <div className="sidebar-foot">
           <UpdateBanner />
           <div className="nav-label" style={{ paddingLeft: 10 }}>Household</div>
@@ -289,7 +324,7 @@ function App() {
       <main className="main">
         <div className="main-inner">
           {tab === "dashboard" && <DashboardScreen currency={currency} onOpenMonth={(id) => { dispatch({ type: "setActive", id }); setTab("budget"); }} />}
-          {tab === "budget" && <MonthBudgetScreen state={state} dispatch={dispatch} currency={currency} />}
+          {tab === "budget" && <MonthBudgetScreen state={state} dispatch={dispatch} currency={currency} onNewMonth={() => setNewMonth(true)} />}
           {tab === "history" && <HistoryScreen currency={currency} onOpenMonth={(id) => { dispatch({ type: "setActive", id }); setTab("budget"); }} />}
           {tab === "settings" && <SettingsScreen state={state} dispatch={dispatch} currency={currency} toast={toast} />}
         </div>
@@ -298,7 +333,7 @@ function App() {
       {find.open && <FindBar focusToken={find.token} onClose={() => setFind((f) => ({ ...f, open: false }))} />}
 
       {newMonth && <NewMonthModal dispatch={dispatch} onClose={() => setNewMonth(false)} />}
-      <Toast msg={toastMsg} onDismiss={() => setToastMsg(null)} />
+      <Toast msg={toastMsg} onDismiss={dismissToast} />
     </div>
   );
 }

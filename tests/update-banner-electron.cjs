@@ -107,7 +107,10 @@ window.__runTests = async () => {
   check('downloading shows progress text', /downloading/i.test(text()), text());
   const bar = host.querySelector('.update-banner-bar');
   check('downloading renders a progress bar', !!bar);
-  check('progress bar tracks the percent', bar && bar.style.width === '55%', bar && bar.style.width);
+  // The bar is filled by a transform, not a width, so a progress push cannot
+  // re-lay out the sidebar around it. --pct carries the fraction to the scale.
+  check('progress bar tracks the percent', bar && bar.style.getPropertyValue('--pct') === '0.55',
+    bar && bar.style.getPropertyValue('--pct'));
   check('downloading has no action buttons', host.querySelectorAll('button').length === 0);
 
   /* ---- downloaded ----------------------------------------------------- */

@@ -1,8 +1,8 @@
 /* ============================================================
    Accounts - per-item funding account selector + funding plan
    ============================================================ */
-import { useEffect, useState } from 'react';
-import { Avatar, Icons, MiniBar } from './components.jsx';
+import { useEffect, useRef, useState } from 'react';
+import { Avatar, DiffPill, Icons, MiniBar } from './components.jsx';
 import { accountTotals, fmt, itemActual, monthLabel, round2, walletSummary } from './lib/index.js';
 
 const ACCT_ICON = { joint: "user", main: "budget", wallet: "coins", savings: "plant" };
@@ -12,15 +12,19 @@ function AccountDot({ acc, size = 9 }) {
   return <span style={{ width: size, height: size, borderRadius: 3, background: acc ? acc.color : "var(--faint)", flex: "none", display: "inline-block" }} />;
 }
 
-/* compact inline select shown under each item name */
-function AccountSelect({ value, accounts, onChange }) {
+/* compact inline select shown under each item name.
+   The real <select> is transparent and covers the chip, so the chip is what a
+   focus ring has to be drawn on: the select stays a descendant of .acct-chip
+   (which carries :focus-within in the stylesheet) and takes no focus styling
+   of its own, which would only paint on the invisible element. */
+function AccountSelect({ value, accounts, onChange, label = "Funding account" }) {
   const acc = accounts.find(a => a.id === value);
   return (
     <span className={`acct-chip ${acc ? "" : "acct-chip-empty"}`}>
       {acc ? <AccountDot acc={acc} size={8} /> : <span style={{ display: "inline-flex" }}><Icons.coins size={12} /></span>}
       <span className="acct-chip-name">{acc ? acc.name : "Assign account"}</span>
       <Icons.down size={12} style={{ opacity: 0.5, marginLeft: -2 }} />
-      <select value={value || ""} onChange={(e) => onChange(e.target.value || null)} aria-label="Funding account">
+      <select value={value || ""} onChange={(e) => onChange(e.target.value || null)} aria-label={label}>
         <option value="">Unassigned</option>
         {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
       </select>
@@ -28,8 +32,8 @@ function AccountSelect({ value, accounts, onChange }) {
   );
 }
 
-/* the live funding plan card */
-function AccountPanel({ mo, accounts, members, currency, dispatch, month }) {
+/* the live funding plan card - a read-out, so it takes no dispatch */
+function AccountPanel({ mo, accounts, members, currency }) {
   // ids of the "By account" rows expanded to show their allocations
   const [openAccts, setOpenAccts] = useState(() => new Set());
   const toggleAcct = (id) => setOpenAccts(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
@@ -113,10 +117,14 @@ function AccountPanel({ mo, accounts, members, currency, dispatch, month }) {
                   <div style={{ fontWeight: 600, fontSize: 13.5, display: "flex", alignItems: "center", gap: 7 }}>{t.account.name}
                     {owner ? <span className="pill pill-neutral" style={{ fontSize: 10 }}>{owner.name}</span> : <span className="pill pill-neutral" style={{ fontSize: 10 }}>{ACCT_TYPE_LABEL[t.account.type] || "Shared"}</span>}
                   </div>
+                  {/* The pill only appears when the account is over: the item
+                      rows carry one permanently, but a "on track" pill on every
+                      row here would bury the one row that is not. */}
                   <div style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ flex: "none" }}>{t.count} item{t.count !== 1 ? "s" : ""}</span>
                     <span style={{ flex: 1, maxWidth: 90 }}><MiniBar actual={t.actual} allocated={t.allocated} /></span>
                     <span className="mono" style={{ flex: "none" }}>{fmt(currency, t.actual, { cents: false })} spent</span>
+                    {t.actual > t.allocated + 0.001 && <DiffPill diff={round2(t.allocated - t.actual)} currency={currency} />}
                   </div>
                 </div>
                 {canOpen && <Icons.down size={16} style={{ flex: "none", color: "var(--faint)", transform: open ? "none" : "rotate(-90deg)", transition: "transform .18s" }} />}
@@ -165,6 +173,7 @@ function AccountPanel({ mo, accounts, members, currency, dispatch, month }) {
                     <div style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
                       <span style={{ flex: 1, maxWidth: 90 }}><MiniBar actual={it.actual} allocated={it.allocated} /></span>
                       <span className="mono" style={{ flex: "none" }}>{fmt(currency, it.actual, { cents: false })} moved</span>
+                      {it.actual > it.allocated + 0.001 && <DiffPill diff={round2(it.allocated - it.actual)} currency={currency} />}
                     </div>
                   </div>
                   <div className="mono" style={{ textAlign: "right", flex: "none", fontSize: 15.5, fontWeight: 600 }}>{fmt(currency, it.allocated)}</div>
@@ -191,14 +200,42 @@ function hexToSoft(hex) {
   return `rgba(${r}, ${g}, ${b}, 0.20)`;
 }
 
-/* the Wallet drawer - slide-over holding the panel */
-function WalletDrawer({ mo, accounts, members, currency, dispatch, month, onClose }) {
-  useEffect(() => { const h = (e) => e.key === "Escape" && onClose(); window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h); }, [onClose]);
+/* the Wallet drawer - slide-over holding the panel.
+
+   The veil stops the mouse reaching the budget behind it, so the keyboard must
+   not be able to either: this is the same trap, initial focus and focus
+   restore that Modal does in components.jsx, applied to a drawer rather than
+   invented a second time. */
+const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
+function WalletDrawer({ mo, accounts, members, currency, month, onClose }) {
+  const boxRef = useRef(null);
+  useEffect(() => {
+    const h = (e) => {
+      if (e.key === "Escape") { onClose(); return; }
+      if (e.key !== "Tab" || !boxRef.current) return;
+      const items = Array.from(boxRef.current.querySelectorAll(FOCUSABLE)).filter((el) => el.offsetParent !== null);
+      if (items.length === 0) return;
+      const first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [onClose]);
+  // Move focus in on open, put it back on the Wallet button on close.
+  useEffect(() => {
+    const returnTo = document.activeElement;
+    const box = boxRef.current;
+    const target = box && box.querySelector(FOCUSABLE);
+    if (target) target.focus();
+    return () => { if (returnTo && typeof returnTo.focus === "function") returnTo.focus(); };
+  }, []);
   const { toFund, hasUnassigned } = walletSummary(mo, accounts);
   return (
     <>
       <div className="drawer-veil" onClick={onClose} />
-      <aside className="drawer" role="dialog" aria-label="Wallet">
+      <aside ref={boxRef} className="drawer" role="dialog" aria-modal="true" aria-label="Wallet">
         <div className="drawer-head">
           <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
             <span style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(150deg, var(--accent-btn), var(--accent))", color: "var(--on-accent)", display: "grid", placeItems: "center", boxShadow: "var(--glow-sm), inset 0 1px 0 color-mix(in srgb, #fff 22%, transparent)", flex: "none" }}><Icons.wallet size={19} /></span>
@@ -207,14 +244,14 @@ function WalletDrawer({ mo, accounts, members, currency, dispatch, month, onClos
               <div style={{ fontSize: 12, color: "var(--muted)" }}> Movements for {monthLabel(month).mo}</div>
             </div>
           </div>
-          <button className="icon-btn" onClick={onClose} title="Close"><Icons.x size={18} /></button>
+          <button className="icon-btn" onClick={onClose} aria-label="Close the Wallet" title="Close"><Icons.x size={18} /></button>
         </div>
         <div style={{ padding: "16px 22px 18px", borderBottom: "1px solid var(--border)", background: "color-mix(in srgb, var(--accent) 8%, var(--surface-2))" }}>
           <div style={{ fontSize: 11.5, color: "var(--muted)", fontWeight: 500, marginBottom: 6 }}>Total to move this month</div>
           <span className="mono" style={{ fontSize: 30, fontWeight: 600, letterSpacing: "-0.025em", color: "var(--ink)" }}>{fmt(currency, toFund)}</span>
         </div>
         <div className="drawer-body">
-          <AccountPanel mo={mo} accounts={accounts} members={members} currency={currency} dispatch={dispatch} month={month} />
+          <AccountPanel mo={mo} accounts={accounts} members={members} currency={currency} />
         </div>
       </aside>
     </>

@@ -1,14 +1,18 @@
 /* ============================================================
    Shared UI: icons, MoneyInput, StatTile, helpers
    ============================================================ */
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react';
 import { daysInMonth, fmt } from './lib/index.js';
 
-/* ---- icons (stroke, 1.6) ------------------------------------------------ */
+/* ---- icons (stroke, 1.6) ------------------------------------------------
+   Every icon here is decorative: it sits next to a label, or inside a button
+   that carries its own name. Hiding the svg keeps assistive tech from reading
+   an unnamed graphic beside the name that already says the same thing. The
+   attribute goes before the spread so a caller can still opt back in. */
 function Ic({ d, size = 18, fill, ...p }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill={fill || "none"} stroke="currentColor"
-      strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...p}>
+      strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...p}>
       {Array.isArray(d) ? d.map((x, i) => <path key={i} d={x} />) : <path d={d} />}
     </svg>
   );
@@ -43,22 +47,135 @@ const Icons = {
   search: (p) => <Ic {...p} d={["M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z","M20 20l-4.2-4.2"]} />,
 };
 
-/* ---- safe arithmetic evaluation for money fields ------------------------ */
-function evalMoney(raw) {
-  if (raw == null) return null;
-  let s = String(raw).trim();
-  if (s === "") return 0;
-  // keep only digits, operators, decimal points, parens
-  s = s.replace(/[^0-9+\-*/.()]/g, "");
-  if (s === "") return null;
-  // no operators → plain number
-  if (!/[+\-*/]/.test(s.replace(/^-/, ""))) { const n = parseFloat(s); return isNaN(n) ? null : Math.round(n * 100) / 100; }
-  if (!/^[-+*/.()0-9]+$/.test(s)) return null;
-  try {
-    const val = Function('"use strict"; return (' + s + ')')();
-    if (typeof val === "number" && isFinite(val)) return Math.round(val * 100) / 100;
-  } catch (e) {}
+/* ---- arithmetic evaluation for money fields -----------------------------
+   Money fields take small sums ("40+12.50"), so their text has to be evaluated.
+   It is parsed by hand rather than handed to Function(): an eval of whatever a
+   user typed is a code path worth not owning at all, allowlist or no allowlist.
+   Every failure carries a reason, because a field that rejects a value without
+   saying why is indistinguishable from one that dropped a keystroke. */
+const MONEY_ERRORS = {
+  number: "That isn't a number I can read.",
+  chars: "Numbers and + - * / only.",
+  comma: "That comma is unclear. Use a full stop for decimals.",
+  incomplete: "That sum isn't finished.",
+  zero: "Can't divide by zero.",
+  range: "That works out too large to store.",
+};
+const moneyFail = (reason) => ({ ok: false, reason: MONEY_ERRORS[reason] || MONEY_ERRORS.number });
+function moneyOk(v) {
+  if (!Number.isFinite(v)) return moneyFail("range");
+  const r = Math.round(v * 100) / 100;
+  return Number.isFinite(r) ? { ok: true, value: r } : moneyFail("range");
+}
+
+/* Half the world writes 12,50 for twelve and a half, and the app offers €, ¥
+   and ₹, so a comma has to mean something. Thousands grouping wins where the
+   digits say so (1,234); a trailing one- or two-digit group is decimal; and
+   anything that could honestly be read either way is refused, not guessed. */
+function normalizeNumber(lex) {
+  if (lex.indexOf(",") === -1) return /^(\d+(\.\d+)?|\.\d+)$/.test(lex) ? lex : null;
+  const dot = lex.indexOf(".");
+  if (dot !== -1) {
+    // Alongside a decimal point a comma can only be grouping.
+    const head = lex.slice(0, dot), tail = lex.slice(dot);
+    if (!/^\d{1,3}(,\d{3})+$/.test(head) || !/^\.\d+$/.test(tail)) return null;
+    return head.replace(/,/g, "") + tail;
+  }
+  if (/^\d{1,3}(,\d{3})+$/.test(lex)) return lex.replace(/,/g, "");
+  if (/^\d+,\d{1,2}$/.test(lex)) return lex.replace(",", ".");
   return null;
+}
+
+const NUM_CHAR = /[0-9.,]/;
+function tokenizeMoney(s) {
+  const out = [];
+  for (let i = 0; i < s.length;) {
+    const c = s[i];
+    if (c === " " || c === "\t") { i++; continue; }
+    if ("+-*/()".indexOf(c) !== -1) { out.push({ t: c }); i++; continue; }
+    if (NUM_CHAR.test(c)) {
+      let j = i;
+      while (j < s.length && NUM_CHAR.test(s[j])) j++;
+      const lex = s.slice(i, j);
+      const norm = normalizeNumber(lex);
+      if (norm === null) return { err: lex.indexOf(",") !== -1 ? "comma" : "number" };
+      out.push({ t: "n", v: parseFloat(norm) });
+      i = j;
+      continue;
+    }
+    // Anything else, including the 'e' of 1e5, which must never quietly become 15.
+    return { err: "chars" };
+  }
+  return { tokens: out };
+}
+
+/* Recursive descent: expr → term → factor, so * and / bind tighter than + and -
+   and unary minus binds tighter still. */
+function parseMoneyTokens(tokens) {
+  let i = 0, err = null;
+  const peek = () => tokens[i];
+  const factor = () => {
+    const tk = peek();
+    if (!tk) { err = "incomplete"; return 0; }
+    if (tk.t === "+" || tk.t === "-") { i++; const v = factor(); return tk.t === "-" ? -v : v; }
+    if (tk.t === "n") { i++; return tk.v; }
+    if (tk.t === "(") {
+      i++;
+      const v = expr();
+      if (err) return 0;
+      if (!peek() || peek().t !== ")") { err = "incomplete"; return 0; }
+      i++;
+      return v;
+    }
+    err = "incomplete"; return 0;
+  };
+  const term = () => {
+    let v = factor();
+    if (err) return 0;
+    while (peek() && (peek().t === "*" || peek().t === "/")) {
+      const op = tokens[i++].t;
+      const r = factor();
+      if (err) return 0;
+      if (op === "/") { if (r === 0) { err = "zero"; return 0; } v = v / r; }
+      else v = v * r;
+    }
+    return v;
+  };
+  const expr = () => {
+    let v = term();
+    if (err) return 0;
+    while (peek() && (peek().t === "+" || peek().t === "-")) {
+      const op = tokens[i++].t;
+      const r = term();
+      if (err) return 0;
+      v = op === "+" ? v + r : v - r;
+    }
+    return v;
+  };
+  const val = expr();
+  if (err) return { err };
+  if (i < tokens.length) return { err: "incomplete" }; // trailing junk: "2 3", "1)"
+  return { value: val };
+}
+
+function parseMoney(raw) {
+  if (raw == null) return moneyFail("number");
+  const s = String(raw).trim();
+  if (s === "") return { ok: true, value: 0 };
+  const lexed = tokenizeMoney(s);
+  if (lexed.err) return moneyFail(lexed.err);
+  const tokens = lexed.tokens;
+  if (tokens.length === 0) return moneyFail("number");
+  // A plain number is the overwhelmingly common case: no need to walk the grammar.
+  if (tokens.length === 1) return tokens[0].t === "n" ? moneyOk(tokens[0].v) : moneyFail("incomplete");
+  const out = parseMoneyTokens(tokens);
+  return out.err ? moneyFail(out.err) : moneyOk(out.value);
+}
+
+/* null for anything unparseable, which is the shape every caller branches on. */
+function evalMoney(raw) {
+  const r = parseMoney(raw);
+  return r.ok ? r.value : null;
 }
 function isExpr(s) { return /[+\-*/]/.test(String(s).replace(/^\s*-/, "")); }
 
@@ -70,7 +187,10 @@ function isExpr(s) { return /[+\-*/]/.test(String(s).replace(/^\s*-/, "")); }
 function focusInColumn(el, dir) {
   const col = el && el.getAttribute("data-col");
   if (!col) return false;
-  const all = Array.from(document.querySelectorAll(`[data-col="${CSS.escape(col)}"]`))
+  // Every column lives inside the scrolling main pane, so search that rather
+  // than the whole document on each keystroke. Same elements, same order.
+  const root = el.closest("main") || document;
+  const all = Array.from(root.querySelectorAll(`[data-col="${CSS.escape(col)}"]`))
     .filter((n) => !n.disabled && n.offsetParent !== null);
   const i = all.indexOf(el);
   if (i === -1) return false;
@@ -85,38 +205,55 @@ function focusInColumn(el, dir) {
 function MoneyInput({ value, onCommit, currency = "$", className = "", placeholder = "0.00", autoFocus, col, label }) {
   const [txt, setTxt] = useState("");
   const [editing, setEditing] = useState(false);
+  // The reason the last commit was refused, or null. Held in state rather than
+  // recomputed on every keystroke so a half-typed sum isn't scolded as you type.
+  const [invalid, setInvalid] = useState(null);
   const ref = useRef(null);
+  const noteId = useRef(`minput-note-${Math.random().toString(36).slice(2, 9)}`).current;
   // Enter commits and then moves focus, which fires blur on the way out. The
   // latch keeps that from writing the same value twice.
   const done = useRef(false);
   useEffect(() => { if (autoFocus && ref.current) ref.current.focus(); }, [autoFocus]);
   const display = editing ? txt : (value === 0 || value == null ? "" : Number(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-  const preview = editing && isExpr(txt) ? evalMoney(txt) : null;
+  const preview = editing && !invalid && isExpr(txt) ? evalMoney(txt) : null;
+  // Returns whether the value went in: a refused commit keeps the field open,
+  // holding what was typed, so the fix is one keystroke away rather than a retype.
   const commit = () => {
-    if (done.current) return;
+    if (done.current) return true;
+    const r = parseMoney(txt);
+    if (!r.ok) { setInvalid(r.reason); return false; }
     done.current = true;
+    setInvalid(null);
     setEditing(false);
-    const n = evalMoney(txt);
-    if (n !== null) onCommit(n); else if (String(txt).trim() === "") onCommit(0);
+    onCommit(r.value);
+    return true;
   };
   return (
     <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
       <span aria-hidden="true" style={{ position: "absolute", left: 9, color: "var(--faint)", fontSize: 13, pointerEvents: "none", fontFamily: "var(--font-mono)" }}>{currency}</span>
-      <input ref={ref} className={`minput ${className}`} style={{ paddingLeft: 20 }} inputMode="text"
+      <input ref={ref} className={`minput ${className}`} inputMode="text"
+        style={invalid ? { paddingLeft: 20, borderColor: "var(--neg)", boxShadow: "none" } : { paddingLeft: 20 }}
         data-col={col} aria-label={label}
+        aria-invalid={invalid ? true : undefined} aria-describedby={invalid ? noteId : undefined}
         value={display} placeholder={placeholder}
-        onFocus={(e) => { done.current = false; setEditing(true); setTxt(value ? String(value) : ""); requestAnimationFrame(() => { const el = e.target; const end = el.value.length; el.setSelectionRange(end, end); }); }}
-        onChange={(e) => setTxt(e.target.value)}
+        // Coming back to a refused value must not wipe it, so only a clean field reloads from store.
+        onFocus={(e) => { done.current = false; setEditing(true); if (!invalid) setTxt(value ? String(value) : ""); requestAnimationFrame(() => { const el = e.target; const end = el.value.length; el.setSelectionRange(end, end); }); }}
+        onChange={(e) => { const v = e.target.value; setTxt(v); if (invalid && parseMoney(v).ok) setInvalid(null); }}
         onBlur={commit}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
             e.preventDefault();
-            commit();
+            // Nothing was stored, so don't march the user down the column away from it.
+            if (!commit()) return;
             if (!focusInColumn(e.target, e.shiftKey ? -1 : 1)) e.target.blur();
           }
-          if (e.key === "Escape") { done.current = true; setEditing(false); e.target.blur(); }
+          if (e.key === "Escape") { done.current = true; setInvalid(null); setEditing(false); e.target.blur(); }
         }} />
-      {preview !== null && (
+      {/* One chip above the field, carrying either the arithmetic preview or the
+          reason the value was refused. */}
+      {invalid ? (
+        <span id={noteId} role="alert" style={{ position: "absolute", right: 6, bottom: "100%", marginBottom: 3, background: "var(--neg-soft)", color: "var(--neg-ink)", border: "1px solid var(--neg)", fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 6, maxWidth: 230, lineHeight: 1.35, textAlign: "right", boxShadow: "var(--shadow-sm)", zIndex: 4 }}>{invalid}</span>
+      ) : preview !== null && (
         <span className="mono" style={{ position: "absolute", right: 6, bottom: "100%", marginBottom: 3, background: "var(--ink)", color: "var(--surface)", fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 6, whiteSpace: "nowrap", boxShadow: "var(--shadow-sm)", zIndex: 4 }}>= {fmt(currency, preview)}</span>
       )}
     </div>
@@ -203,10 +340,21 @@ function DiffPill({ diff, currency }) {
 function MiniBar({ actual, allocated }) {
   const pct = allocated > 0 ? Math.min(actual / allocated, 1) : (actual > 0 ? 1 : 0);
   const over = actual > allocated + 0.001;
+  // Beside an item row a DiffPill says "over" in words, but in the wallet drawer
+  // the bar stands alone, so it has to say it itself: a name for screen readers,
+  // and a hatch for anyone who can't tell the red fill from the green one. A bar
+  // that is over is always full, so the stripes never stretch out of shape.
+  const share = allocated > 0 ? actual / allocated : (actual > 0 ? 1 : 0);
+  const label = allocated > 0
+    ? `${Math.round(share * 100)}% of the budget used${over ? ", over budget" : ""}`
+    : (over ? "Over budget, nothing allocated" : "Nothing allocated");
+  const fill = over
+    ? "repeating-linear-gradient(-45deg, var(--neg) 0 2px, color-mix(in srgb, var(--neg) 45%, var(--surface-sunken)) 2px 4px)"
+    : "var(--pos)";
   // scaleX rather than width: animating width relayouts every row on each commit.
   return (
-    <div style={{ height: 5, borderRadius: 99, background: "var(--surface-sunken)", overflow: "hidden", width: "100%" }}>
-      <div style={{ height: "100%", width: "100%", transformOrigin: "left", transform: `scaleX(${pct})`, background: over ? "var(--neg)" : "var(--pos)", transition: "transform .3s ease" }} />
+    <div role="img" aria-label={label} style={{ height: 5, borderRadius: 99, background: "var(--surface-sunken)", overflow: "hidden", width: "100%" }}>
+      <div style={{ height: "100%", width: "100%", transformOrigin: "left", transform: `scaleX(${pct})`, background: fill, transition: "transform .3s ease" }} />
     </div>
   );
 }
@@ -217,6 +365,18 @@ const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:n
 function Modal({ children, onClose, width, label }) {
   const boxRef = useRef(null);
   const titleId = useRef(`modal-title-${Math.random().toString(36).slice(2, 9)}`).current;
+  const [titledBy, setTitledBy] = useState(null);
+
+  // The name of a dialog is its title, not its contents. Rather than ask every
+  // caller to label its dialog, find the heading each one already renders and
+  // point at that; before paint, so the name is right the first time it is read.
+  useLayoutEffect(() => {
+    if (label) return;
+    const h = boxRef.current && boxRef.current.querySelector("h1,h2,h3,h4");
+    if (!h) return;
+    if (!h.id) h.id = titleId;
+    setTitledBy(h.id);
+  }, [label, titleId, children]);
 
   // Escape closes; Tab is trapped inside the dialog so focus can never land on
   // the page behind the veil.
@@ -246,9 +406,9 @@ function Modal({ children, onClose, width, label }) {
   return (
     <div className="modal-veil" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div ref={boxRef} className="modal" role="dialog" aria-modal="true"
-        aria-label={label} aria-labelledby={label ? undefined : titleId}
+        aria-label={label || (titledBy ? undefined : "Dialog")} aria-labelledby={label ? undefined : titledBy || undefined}
         style={width ? { width } : undefined}>
-        <div id={titleId} style={{ display: "contents" }}>{children}</div>
+        {children}
       </div>
     </div>
   );
