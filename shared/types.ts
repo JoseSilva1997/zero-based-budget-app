@@ -252,6 +252,19 @@ export interface ReusableCandidate {
   month: string; // "YYYY-MM"
 }
 
+/** A spending-entry name logged before, offered back for central logging.
+ *  'itemId' is the item in the TARGET month it should land under, or null when
+ *  that month has no item by the same name and the user must choose one. */
+export interface EntrySuggestion {
+  name: string; // the entry name as last written
+  amount: number; // dollars, the most recent amount logged under this name
+  itemId: number | null; // destination in the target month, null = unresolved
+  itemName: string; // the item it was last logged under
+  groupName: string; // that item's group
+  month: string; // "YYYY-MM" it was last logged in
+  uses: number; // how many times this name+item pair has been logged
+}
+
 export interface BootstrapSettings {
   currency: string;
   theme: string;

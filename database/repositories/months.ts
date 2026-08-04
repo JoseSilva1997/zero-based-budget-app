@@ -25,6 +25,7 @@ import type {
   OverBudgetRow,
   TrendPoint,
   ReusableCandidate,
+  EntrySuggestion,
 } from '../../shared/types';
 import { centsToDollars, toMonthDay } from '../conversions';
 import { setMeta } from './meta';
@@ -738,6 +739,96 @@ export function reusableItemCandidates(
     if (out.length >= 30) break;
   }
   return out;
+}
+
+/* ---------- spending-entry suggestions ------------------------------------ */
+
+/** Rank a suggestion for a typed query: a name that STARTS with what was typed
+ *  is what the typist meant, so it comes before a mere substring match. */
+function entryRank(s: EntrySuggestion, q: string): number {
+  return normalizeItemName(s.name).startsWith(q) ? 0 : 1;
+}
+
+/**
+ * Spending-entry names logged before, for the central "log a spend" input.
+ * Deduped by (entry name, item name) so a name used under two different items
+ * offers both, most recently spent first, each resolved to the item in
+ * 'monthId' that carries the same name - or null when this month has no such
+ * item and the caller must pick the destination. Filtered by a fuzzy 'query'
+ * (all terms must appear in "name itemName groupName"). Capped at 30.
+ */
+export function actualEntrySuggestions(
+  db: Database.Database,
+  monthId: number,
+  query = ''
+): EntrySuggestion[] {
+  // Items available in the target month, keyed by normalised name: an entry
+  // whose old item still exists here already knows where it belongs.
+  const targetItems = new Map<string, number>();
+  const itemRows = db
+    .prepare(
+      `SELECT it.id AS id, it.name AS name
+         FROM budget_items it
+         JOIN budget_groups g ON it.budget_group_id = g.id
+        WHERE g.budget_month_id = ?
+        ORDER BY g.sort_order, it.sort_order, it.id`
+    )
+    .all(monthId) as Array<{ id: number; name: string }>;
+  for (const r of itemRows) {
+    const key = normalizeItemName(r.name);
+    if (key && !targetItems.has(key)) targetItems.set(key, r.id);
+  }
+
+  // Every named entry across every month, most recent spend first, so the first
+  // row seen for a pair is the one whose amount and month get shown.
+  const rows = db
+    .prepare(
+      `SELECT e.name AS name, e.amount_cents AS amount_cents,
+              it.name AS item_name, g.name AS group_name, m.month AS month
+         FROM budget_item_actual_entries e
+         JOIN budget_items it ON e.budget_item_id = it.id
+         JOIN budget_groups g ON it.budget_group_id = g.id
+         JOIN budget_months m ON g.budget_month_id = m.id
+        WHERE e.name IS NOT NULL AND trim(e.name) <> ''
+        ORDER BY e.spent_on DESC, e.id DESC`
+    )
+    .all() as Array<{
+    name: string;
+    amount_cents: number;
+    item_name: string;
+    group_name: string;
+    month: string;
+  }>;
+
+  const byKey = new Map<string, EntrySuggestion>();
+  for (const r of rows) {
+    const itemKey = normalizeItemName(r.item_name);
+    const key = `${normalizeItemName(r.name)}|${itemKey}`;
+    const seen = byKey.get(key);
+    if (seen) {
+      seen.uses += 1;
+      continue;
+    }
+    byKey.set(key, {
+      name: r.name,
+      amount: centsToDollars(r.amount_cents),
+      itemId: targetItems.has(itemKey) ? (targetItems.get(itemKey) as number) : null,
+      itemName: r.item_name,
+      groupName: r.group_name,
+      month: r.month,
+      uses: 1,
+    });
+  }
+
+  const q = normalizeItemName(query);
+  const terms = q.split(' ').filter(Boolean);
+  const haystack = (s: EntrySuggestion) =>
+    normalizeItemName(`${s.name} ${s.itemName} ${s.groupName}`);
+  const out = [...byKey.values()].filter((s) => terms.every((t) => haystack(s).includes(t)));
+  // Array.prototype.sort is stable, so recency (the map's insertion order)
+  // still decides between two names that both start with the query.
+  if (q) out.sort((a, b) => entryRank(a, q) - entryRank(b, q));
+  return out.slice(0, 30);
 }
 
 /* ---------- destructive helpers ------------------------------------------ */

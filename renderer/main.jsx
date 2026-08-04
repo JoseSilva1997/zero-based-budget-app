@@ -10,6 +10,7 @@ import { Avatar, Icons } from './components.jsx';
 import { WalletDrawer } from './Accounts.jsx';
 import { GroupCard, NewMonthModal } from './MonthGroups.jsx';
 import { IncomeSection, SummaryHero } from './MonthBudget.jsx';
+import { QuickEntrySection } from './QuickEntry.jsx';
 import { HistoryScreen } from './History.jsx';
 import { DashboardScreen } from './Dashboard.jsx';
 import { SettingsScreen } from './Settings.jsx';
@@ -59,6 +60,8 @@ function MonthBudgetScreen({ state, dispatch, currency }) {
       <SummaryHero mo={mo} currency={currency} />
 
       <IncomeSection mo={mo} currency={currency} members={state.settings.members} dispatch={dispatch} month={mid} />
+
+      <QuickEntrySection mo={mo} month={mid} currency={currency} dispatch={dispatch} />
 
       <div className="section-head">
         <h2>Allocations</h2>

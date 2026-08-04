@@ -3,50 +3,10 @@
    reorder, delete-this-month-only, and the New Month flow.
    ============================================================ */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ConfirmDialog, DiffPill, Icons, MiniBar, Modal, MoneyInput, TextInline, evalMoney, isExpr } from './components.jsx';
-import { actualDay, daysInMonth, fmt, groupActual, groupAllocated, itemActual, makeActualDate, monthLabel, nextMonthId, normalizeItemName, round2 } from './lib/index.js';
+import { ConfirmDialog, DayField, DiffPill, Icons, MiniBar, Modal, MoneyInput, TextInline, evalMoney, isExpr } from './components.jsx';
+import { actualDay, fmt, groupActual, groupAllocated, itemActual, makeActualDate, monthLabel, nextMonthId, normalizeItemName, round2 } from './lib/index.js';
 import { useStore } from './store.jsx';
 import { AccountSelect } from './Accounts.jsx';
-
-/* Small day-of-month editor (1..last day of the month). 'onEnter' makes Enter
-   submit rather than just blur, and receives the clamped day directly: the
-   commit that goes with it only lands in state after this keystroke. */
-function DayField({ day, monthId, onCommit, onEnter, inputRef, autoFocus = false, title = "Day of month" }) {
-  const [txt, setTxt] = useState(String(day));
-  useEffect(() => { setTxt(String(day)); }, [day]);
-  const clampTo = (n) => Math.max(1, Math.min(daysInMonth(monthId), n));
-  const parsed = () => {
-    const n = parseInt(txt, 10);
-    return Number.isInteger(n) ? n : day;
-  };
-  const clamp = () => {
-    const n = clampTo(parsed());
-    setTxt(String(n));
-    return n;
-  };
-  // Arrows nudge the shown value only; like typing, it commits on blur/Enter -
-  // so holding an arrow on an existing entry is not one database write per step.
-  const step = (delta) => setTxt(String(clampTo(parsed() + delta)));
-  return (
-    <input ref={inputRef} autoFocus={autoFocus} className="minput mono" value={txt} inputMode="numeric" title={title} aria-label={title}
-      onChange={(e) => setTxt(e.target.value.replace(/[^0-9]/g, "").slice(0, 2))}
-      onFocus={(e) => e.target.select()}
-      onBlur={() => onCommit(clamp())}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") {
-          const n = clamp();
-          onCommit(n);
-          if (onEnter) onEnter(n); else e.target.blur();
-        }
-        if (e.key === "Escape") { setTxt(String(day)); e.target.blur(); }
-        if (e.key === "ArrowUp" || e.key === "ArrowDown") {
-          e.preventDefault(); // otherwise the caret jumps to one end of the field
-          step(e.key === "ArrowUp" ? 1 : -1);
-        }
-      }}
-      style={{ width: 44, height: 26, textAlign: "center", fontSize: 12, padding: "0 4px", flex: "none", color: "var(--ink-2)" }} />
-  );
-}
 
 /* The day a new entry starts on: the one most recently added to this item (so a
    run of receipts from the same day needs no re-typing), or the 1st when the

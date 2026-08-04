@@ -17,6 +17,7 @@ import type {
   OverBudgetRow,
   TrendPoint,
   ReusableCandidate,
+  EntrySuggestion,
   IncomeRead,
   GroupRead,
   ItemRead,
@@ -53,6 +54,8 @@ const api = {
   trends: () => invoke<TrendPoint[]>('trends:series'),
   reusableItems: (monthId: number, query: string) =>
     invoke<ReusableCandidate[]>('items:reusable', { monthId, query }),
+  entrySuggestions: (monthId: number, query: string) =>
+    invoke<EntrySuggestion[]>('actuals:suggestions', { monthId, query }),
 
   /* ---------- income ---------- */
   incomeAdd: (monthId: number, memberId: number) =>

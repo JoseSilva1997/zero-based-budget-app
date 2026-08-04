@@ -372,6 +372,16 @@ export function StoreProvider({ children }) {
     return list.map((c) => ({ ...c, monthLabel: monthLabel(c.month).short }));
   }, [idForKey]);
 
+  /* Past spending-entry names for the central quick-entry field. The month is
+     the ACTIVE one, because that is where a chosen suggestion has to land. */
+  const entrySuggestions = useCallback(async (query) => {
+    if (!hasApi || !stateRef.current) return [];
+    const id = idForKey(stateRef.current.activeMonth);
+    if (id == null) return [];
+    const list = await api.entrySuggestions(id, query || "");
+    return list.map((s) => ({ ...s, monthLabel: monthLabel(s.month).short }));
+  }, [idForKey]);
+
   const getMonth = useCallback(async (key) => {
     if (!hasApi) return null;
     const id = idForKey(key);
@@ -391,6 +401,7 @@ export function StoreProvider({ children }) {
     refreshSettings,
     trends,
     reusableItems,
+    entrySuggestions,
     getMonth,
   };
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

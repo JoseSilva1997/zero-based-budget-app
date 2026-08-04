@@ -2,7 +2,7 @@
    Shared UI: icons, MoneyInput, StatTile, helpers
    ============================================================ */
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { fmt } from './lib/index.js';
+import { daysInMonth, fmt } from './lib/index.js';
 
 /* ---- icons (stroke, 1.6) ------------------------------------------------ */
 function Ic({ d, size = 18, fill, ...p }) {
@@ -119,6 +119,47 @@ function MoneyInput({ value, onCommit, currency = "$", className = "", placehold
         <span className="mono" style={{ position: "absolute", right: 6, bottom: "100%", marginBottom: 3, background: "var(--ink)", color: "var(--surface)", fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 6, whiteSpace: "nowrap", boxShadow: "var(--shadow-sm)", zIndex: 4 }}>= {fmt(currency, preview)}</span>
       )}
     </div>
+  );
+}
+
+/* ---- day-of-month editor (1..last day of the month) ---------------------
+   'onEnter' makes Enter submit rather than just blur, and receives the clamped
+   day directly: the commit that goes with it only lands in state after this
+   keystroke. */
+function DayField({ day, monthId, onCommit, onEnter, inputRef, autoFocus = false, title = "Day of month" }) {
+  const [txt, setTxt] = useState(String(day));
+  useEffect(() => { setTxt(String(day)); }, [day]);
+  const clampTo = (n) => Math.max(1, Math.min(daysInMonth(monthId), n));
+  const parsed = () => {
+    const n = parseInt(txt, 10);
+    return Number.isInteger(n) ? n : day;
+  };
+  const clamp = () => {
+    const n = clampTo(parsed());
+    setTxt(String(n));
+    return n;
+  };
+  // Arrows nudge the shown value only; like typing, it commits on blur/Enter -
+  // so holding an arrow on an existing entry is not one database write per step.
+  const step = (delta) => setTxt(String(clampTo(parsed() + delta)));
+  return (
+    <input ref={inputRef} autoFocus={autoFocus} className="minput mono" value={txt} inputMode="numeric" title={title} aria-label={title}
+      onChange={(e) => setTxt(e.target.value.replace(/[^0-9]/g, "").slice(0, 2))}
+      onFocus={(e) => e.target.select()}
+      onBlur={() => onCommit(clamp())}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          const n = clamp();
+          onCommit(n);
+          if (onEnter) onEnter(n); else e.target.blur();
+        }
+        if (e.key === "Escape") { setTxt(String(day)); e.target.blur(); }
+        if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+          e.preventDefault(); // otherwise the caret jumps to one end of the field
+          step(e.key === "ArrowUp" ? 1 : -1);
+        }
+      }}
+      style={{ width: 44, height: 26, textAlign: "center", fontSize: 12, padding: "0 4px", flex: "none", color: "var(--ink-2)" }} />
   );
 }
 
@@ -245,4 +286,4 @@ function ChartCard({ title, sub, children, wide }) {
   );
 }
 
-export { Icons, MoneyInput, TextInline, Avatar, DiffPill, MiniBar, Modal, ConfirmDialog, ChartCard, evalMoney, isExpr };
+export { Icons, MoneyInput, TextInline, DayField, Avatar, DiffPill, MiniBar, Modal, ConfirmDialog, ChartCard, evalMoney, isExpr };

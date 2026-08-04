@@ -13,6 +13,7 @@ import {
   overBudgetItems,
   trendSeries,
   reusableItemCandidates,
+  actualEntrySuggestions,
 } from '../../database/repositories/months';
 
 export function registerReadIpc(): void {
@@ -38,5 +39,9 @@ export function registerReadIpc(): void {
 
   ipcMain.handle('items:reusable', (_e, p: { monthId: number; query?: string }) =>
     guardAsync(async () => reusableItemCandidates(getDb(), p.monthId, p.query || ''))
+  );
+
+  ipcMain.handle('actuals:suggestions', (_e, p: { monthId: number; query?: string }) =>
+    guardAsync(async () => actualEntrySuggestions(getDb(), p.monthId, p.query || ''))
   );
 }

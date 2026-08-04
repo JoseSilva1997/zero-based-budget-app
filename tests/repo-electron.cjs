@@ -180,6 +180,34 @@ app.whenReady().then(() => {
     eq(cands2.length, 1, 'reusable filtered count');
     eq(cands2[0].name, 'Holiday Fund', 'reusable filtered name');
 
+    /* ---- actualEntrySuggestions: past entry names, resolved to this month --- */
+    // June's own 'Rent part 2' resolves to June's Rent item.
+    const sugg = months.actualEntrySuggestions(db, mid, 'rent');
+    eq(sugg.length, 1, 'suggestion filtered count');
+    eq(sugg[0].name, 'Rent part 2', 'suggestion name');
+    eq(sugg[0].itemId, rent, 'suggestion resolves to this month\'s item');
+    eq(sugg[0].itemName, 'Rent', 'suggestion item name');
+    eq(sugg[0].amount, 400, 'suggestion last amount');
+    // Logged against an item July has but June does not: no home here, so the
+    // renderer has to ask which item it belongs to.
+    const julHoliday = months.getMonthTree(db, julId).groups[0].items.find((i) => i.name === 'Holiday Fund').id;
+    months.insertActualEntry(db, { budget_item_id: julHoliday, spent_on: '2026-07-04', amount_cents: 2500, name: 'Flights', note: null });
+    const orphan = months.actualEntrySuggestions(db, mid, 'flights');
+    eq(orphan.length, 1, 'orphan suggestion count');
+    eq(orphan[0].itemId, null, 'orphan suggestion is unresolved');
+    eq(orphan[0].itemName, 'Holiday Fund', 'orphan suggestion names its old item');
+    // Repeats of the same name+item collapse to one row and count their uses.
+    months.insertActualEntry(db, { budget_item_id: julHoliday, spent_on: '2026-07-06', amount_cents: 900, name: 'flights', note: null });
+    const repeat = months.actualEntrySuggestions(db, mid, 'flights');
+    eq(repeat.length, 1, 'repeated name deduped');
+    eq(repeat[0].uses, 2, 'repeated name use count');
+    eq(repeat[0].amount, 9, 'deduped row keeps the most recent amount');
+    // Entries with no name are not suggestions (Food's entry has none).
+    assert(
+      months.actualEntrySuggestions(db, mid, '').every((s) => s.name.trim() !== ''),
+      'unnamed entries excluded'
+    );
+
     /* ---- referential integrity clean throughout ---- */
     const violations = db.pragma('foreign_key_check');
     assert(violations.length === 0, `foreign-key violations: ${JSON.stringify(violations)}`);
