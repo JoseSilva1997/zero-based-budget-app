@@ -285,6 +285,17 @@ export interface BootstrapData {
 
 export type IpcResult<T> = { data: T } | { error: string };
 
+/**
+ * One documented keyboard shortcut, as the Settings section renders it.
+ * `keys` is already resolved for this platform ("Ctrl" or "⌘", "←"/"→"),
+ * so the renderer only has to draw the chips.
+ */
+export interface ShortcutDoc {
+  group: string;
+  label: string;
+  keys: string[];
+}
+
 export interface BackupInfo {
   path: string;
   fileName: string;

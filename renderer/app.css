@@ -437,6 +437,16 @@ input { font-family: inherit; }
 .main::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 99px; border: 3px solid var(--bg); }
 .main::-webkit-scrollbar-track { background: transparent; }
 
+/* keycap, for the Shortcuts section in Settings */
+kbd {
+  display: inline-block; min-width: 22px; text-align: center;
+  font-family: var(--font-mono); font-size: 11.5px; line-height: 1.5;
+  padding: 2px 7px; border-radius: 6px;
+  background: var(--surface-sunken); color: var(--ink-2);
+  border: 1px solid var(--border-strong); border-bottom-width: 2px;
+  white-space: nowrap;
+}
+
 /* ---- find (Ctrl+F) ------------------------------------------------------
    The bar floats over the content rather than covering it, and sits outside
    .main-inner so it is never part of what it searches. */

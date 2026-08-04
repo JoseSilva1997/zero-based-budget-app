@@ -29,6 +29,7 @@ import type {
   BackupInfo,
   RestorePreview,
   UpdateStatus,
+  ShortcutDoc,
 } from '../shared/types';
 
 type Ok = { ok: true };
@@ -57,6 +58,7 @@ const api = {
     invoke<ReusableCandidate[]>('items:reusable', { monthId, query }),
   entrySuggestions: (monthId: number, query: string) =>
     invoke<EntrySuggestion[]>('actuals:suggestions', { monthId, query }),
+  shortcuts: () => invoke<ShortcutDoc[]>('shortcuts:list'),
 
   /* ---------- income ---------- */
   incomeAdd: (monthId: number, memberId: number) =>

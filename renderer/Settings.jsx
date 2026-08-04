@@ -7,6 +7,85 @@ import { BUDGET_THEMES } from './lib/index.js';
 import { ACCT_ICON, ACCT_TYPE_LABEL, hexToSoft } from './Accounts.jsx';
 import { UpdateSettings } from './UpdateBanner.jsx';
 
+/* ---- shortcuts ----------------------------------------------------------
+   The menu accelerators are fetched from the main process rather than
+   restated here, so this section cannot drift from what the menu binds.
+   These in-app keys have no menu entry, so they are listed by hand; keep
+   them in step with the components named beside each group. */
+const IN_APP_SHORTCUTS = [
+  { group: "Editing the budget", label: "Commit and move down the same column", keys: ["Enter"] },
+  { group: "Editing the budget", label: "Commit and move up the same column", keys: ["Shift", "Enter"] },
+  { group: "Editing the budget", label: "Discard the edit and leave the field", keys: ["Esc"] },
+  { group: "Editing the budget", label: "Step an entry's day up or down", keys: ["↑", "↓"], alt: true },
+  { group: "Find", label: "Next match", keys: ["Enter"] },
+  { group: "Find", label: "Previous match", keys: ["Shift", "Enter"] },
+  { group: "Find", label: "Next / previous match", keys: ["↓", "↑"], alt: true },
+  { group: "Find", label: "Close find", keys: ["Esc"] },
+  { group: "Quick entry", label: "Move through the suggestions", keys: ["↓", "↑"], alt: true },
+  { group: "Quick entry", label: "Pick the highlighted suggestion, or log the entry", keys: ["Enter"] },
+  { group: "Quick entry", label: "Close the suggestion list", keys: ["Esc"] },
+  { group: "Dialogs", label: "Close the Wallet, a dialog or a modal", keys: ["Esc"] },
+];
+
+/* `alt` rows are alternatives ("↓ or ↑"); everything else is a chord. */
+function Keys({ keys, alt }) {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, flex: "none" }}>
+      {keys.map((k, i) => (
+        <React.Fragment key={k}>
+          {i > 0 && <span style={{ color: "var(--faint)", fontSize: 11 }}>{alt ? "/" : "+"}</span>}
+          <kbd>{k}</kbd>
+        </React.Fragment>
+      ))}
+    </span>
+  );
+}
+
+function ShortcutGroup({ title, rows }) {
+  return (
+    <div style={{ borderTop: "1px solid var(--hairline)", padding: "14px 22px 16px" }}>
+      <div style={{ fontSize: 11, color: "var(--ink-2)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 8 }}>{title}</div>
+      {rows.map((r) => (
+        <div key={r.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20, padding: "5px 0" }}>
+          <span style={{ fontSize: 13.5, color: "var(--ink-2)", minWidth: 0 }}>{r.label}</span>
+          <Keys keys={r.keys} alt={r.alt} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ShortcutsSection() {
+  const [menuShortcuts, setMenuShortcuts] = useState([]);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let live = true;
+    if (!window.api || typeof window.api.shortcuts !== "function") { setFailed(true); return; }
+    // channel: "shortcuts:list" - input {}, returns ShortcutDoc[].
+    window.api.shortcuts()
+      .then((rows) => { if (live) setMenuShortcuts(rows); })
+      .catch((err) => { console.error("shortcuts:list failed", err); if (live) setFailed(true); });
+    return () => { live = false; };
+  }, []);
+
+  const groups = [];
+  [...menuShortcuts, ...IN_APP_SHORTCUTS].forEach((r) => {
+    const g = groups.find((x) => x.title === r.group);
+    if (g) g.rows.push(r); else groups.push({ title: r.group, rows: [r] });
+  });
+
+  return (
+    <div className="card">
+      {failed && (
+        <div style={{ padding: "14px 22px", fontSize: 13, color: "var(--muted)", borderTop: "1px solid var(--hairline)" }}>
+          The menu shortcuts couldn't be read, so only the in-app keys are listed below.
+        </div>
+      )}
+      {groups.map((g) => <ShortcutGroup key={g.title} title={g.title} rows={g.rows} />)}
+    </div>
+  );
+}
+
 function fileSize(n) {
   if (!n) return "";
   if (n < 1024 * 1024) return `${Math.max(1, Math.round(n / 1024))} KB`;
@@ -278,6 +357,9 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
           }}><Icons.folder size={15} /> Open data folder</button>
         </Setting>
       </div>
+      <div className="section-head"><h2>Shortcuts</h2></div>
+      <ShortcutsSection />
+
       <div className="section-head"><h2>Updates</h2></div>
       <div className="card"><UpdateSettings /></div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center", margin: "26px 0 10px", color: "var(--faint)", fontSize: 12 }}>
