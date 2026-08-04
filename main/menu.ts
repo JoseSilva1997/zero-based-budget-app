@@ -21,7 +21,8 @@ export type MenuCommand =
   | 'goBudget'
   | 'goHistory'
   | 'goSettings'
-  | 'checkUpdates';
+  | 'checkUpdates'
+  | 'openFind';
 
 function send(command: MenuCommand): void {
   BrowserWindow.getFocusedWindow()?.webContents.send('menu:command', command);
@@ -52,6 +53,8 @@ export function buildAppMenu(): void {
     {
       label: '&Edit',
       submenu: [
+        item('Find…', 'CmdOrCtrl+F', 'openFind'),
+        { type: 'separator' },
         { role: 'undo' },
         { role: 'redo' },
         { type: 'separator' },

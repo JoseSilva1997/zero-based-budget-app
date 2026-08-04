@@ -436,3 +436,36 @@ input { font-family: inherit; }
 .main::-webkit-scrollbar { width: 12px; }
 .main::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 99px; border: 3px solid var(--bg); }
 .main::-webkit-scrollbar-track { background: transparent; }
+
+/* ---- find (Ctrl+F) ------------------------------------------------------
+   The bar floats over the content rather than covering it, and sits outside
+   .main-inner so it is never part of what it searches. */
+.find-bar {
+  position: fixed; top: 16px; right: 30px; z-index: 90;
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 8px 7px 12px;
+  background: var(--surface-2); border: 1px solid var(--border-strong);
+  border-radius: 12px; box-shadow: var(--shadow-lg);
+  animation: pop .16s ease;
+}
+/* The bar floats, so the content it covers is pushed clear of it instead. */
+.app.find-open .main-inner { padding-top: 84px; }
+.find-input {
+  width: 210px; background: transparent; border: 0;
+  color: var(--ink); font-family: inherit; font-size: 13.5px; padding: 3px 2px;
+}
+.find-input::placeholder { color: var(--faint); }
+.find-count {
+  font-family: var(--font-mono); font-size: 11.5px; color: var(--muted);
+  min-width: 64px; text-align: right; flex: none; white-space: nowrap;
+}
+.find-count-none { color: var(--neg-ink); }
+
+/* Text-node matches. ::highlight() paints without touching the DOM, so React
+   keeps ownership of the tree. Only a few properties are honoured here. */
+::highlight(find-match) { background-color: color-mix(in srgb, var(--accent) 34%, transparent); color: var(--ink); }
+::highlight(find-current) { background-color: var(--accent); color: var(--on-accent); }
+
+/* Input matches: the value is not a text node, so the whole field lights up. */
+.find-hit { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 42%, transparent) !important; }
+.find-hit-current { box-shadow: 0 0 0 2px var(--accent), 0 0 0 5px color-mix(in srgb, var(--accent) 22%, transparent) !important; }

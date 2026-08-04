@@ -15,6 +15,7 @@ import { HistoryScreen } from './History.jsx';
 import { DashboardScreen } from './Dashboard.jsx';
 import { SettingsScreen } from './Settings.jsx';
 import { UpdateBanner } from './UpdateBanner.jsx';
+import { FindBar } from './Find.jsx';
 
 function MonthBudgetScreen({ state, dispatch, currency }) {
   const mid = state.activeMonth;
@@ -197,6 +198,8 @@ function App() {
   const { state, loading, error, fatal, retry, dispatch } = useStore();
   const [tab, setTab] = useState("dashboard");
   const [newMonth, setNewMonth] = useState(false);
+  // find: `token` bumps on every Ctrl+F so an already-open bar re-selects.
+  const [find, setFind] = useState({ open: false, token: 0 });
   const [toastMsg, setToastMsg] = useState(null);
   const toastTimer = useRef(null);
   // Menu handlers are registered once; they read live state through this ref
@@ -220,6 +223,7 @@ function App() {
     return window.api.onMenuCommand((command) => {
       switch (command) {
         case "newMonth": setNewMonth(true); break;
+        case "openFind": setFind((f) => ({ open: true, token: f.token + 1 })); break;
         case "goDashboard": setTab("dashboard"); break;
         case "goBudget": setTab("budget"); break;
         case "goHistory": setTab("history"); break;
@@ -263,7 +267,7 @@ function App() {
   const NAV = [["dashboard", "Dashboard", Icons.monitor], ["budget", "Month Budget", Icons.budget], ["history", "History", Icons.history], ["settings", "Settings", Icons.settings]];
 
   return (
-    <div className="app">
+    <div className={`app ${find.open ? "find-open" : ""}`}>
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-mark"><Icons.plant size={20} /></div>
@@ -290,6 +294,8 @@ function App() {
           {tab === "settings" && <SettingsScreen state={state} dispatch={dispatch} currency={currency} toast={toast} />}
         </div>
       </main>
+
+      {find.open && <FindBar focusToken={find.token} onClose={() => setFind((f) => ({ ...f, open: false }))} />}
 
       {newMonth && <NewMonthModal dispatch={dispatch} onClose={() => setNewMonth(false)} />}
       <Toast msg={toastMsg} onDismiss={() => setToastMsg(null)} />
