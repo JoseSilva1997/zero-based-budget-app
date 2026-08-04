@@ -46,7 +46,15 @@
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "deleteAppDataOnUninstall": false
-    }
+    },
+    "publish": [
+    {
+      "provider": "github",
+      "owner": "JoseSilva1997",
+      "repo": "zero-based-budget-app",
+      "releaseType": "draft"
+      }
+    ]
   },
   "dependencies": {
     "better-sqlite3": "^12.10.0",

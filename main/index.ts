@@ -13,6 +13,7 @@ import { registerIpcHandlers } from './ipc';
 import { buildAppMenu } from './menu';
 import { createDbBackup } from '../database/repositories/backups';
 import { getMeta, setMeta } from '../database/repositories/meta';
+import { initUpdater, checkForUpdates } from './updater';
 
 let mainWindow: BrowserWindow | null = null;
 let didCloseTasks = false;
@@ -52,6 +53,11 @@ app.whenReady().then(() => {
   registerIpcHandlers();
   buildAppMenu();
   createWindow();
+  // Auto-update: wire the events now, but hold the first check back so it
+  // never competes with DB init and first paint. checkForUpdates swallows its
+  // own failures, so an offline start is a no-op.
+  initUpdater();
+  setTimeout(() => { void checkForUpdates(); }, 5_000);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

@@ -13,6 +13,7 @@ import { registerAccountIpc } from './accounts';
 import { registerSettingsIpc } from './settings';
 import { registerBackupIpc } from './backup';
 import { registerDataIpc } from './data';
+import { registerUpdaterIpc } from './updater';
 
 export function registerIpcHandlers(): void {
   registerReadIpc();
@@ -26,4 +27,5 @@ export function registerIpcHandlers(): void {
   registerSettingsIpc();
   registerBackupIpc();
   registerDataIpc();
+  registerUpdaterIpc();
 }

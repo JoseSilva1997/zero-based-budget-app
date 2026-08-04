@@ -5,6 +5,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Avatar, ConfirmDialog, Icons, Modal, TextInline } from './components.jsx';
 import { BUDGET_THEMES } from './lib/index.js';
 import { ACCT_ICON, ACCT_TYPE_LABEL, hexToSoft } from './Accounts.jsx';
+import { UpdateSettings } from './UpdateBanner.jsx';
 
 function fileSize(n) {
   if (!n) return "";
@@ -277,9 +278,12 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
           }}><Icons.folder size={15} /> Open data folder</button>
         </Setting>
       </div>
+      <div className="section-head"><h2>Updates</h2></div>
+      <div className="card"><UpdateSettings /></div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center", margin: "26px 0 10px", color: "var(--faint)", fontSize: 12 }}>
         <Icons.coins size={14} /> House Budget · local-first · v1.0
       </div>
+
 
       {restoring && <RestoreDialog onClose={() => setRestoring(false)} onRestored={onRestored} />}
 

@@ -28,6 +28,7 @@ import type {
   AutoBackupMode,
   BackupInfo,
   RestorePreview,
+  UpdateStatus,
 } from '../shared/types';
 
 type Ok = { ok: true };
@@ -136,6 +137,19 @@ const api = {
     const listener = (_e: unknown, command: string) => handler(command);
     ipcRenderer.on('menu:command', listener);
     return () => { ipcRenderer.off('menu:command', listener); };
+  },
+  
+  /* ---------- updates ----------
+      Status is pushed from the main process as it changes. The renderer also
+      pulls the current one on mount, because the first check can settle before
+      React has subscribed. */
+  updateStatus: () => invoke<UpdateStatus>('updater:status:get'),
+  updateCheck: () => invoke<UpdateStatus>('updater:check'),
+  updateInstall: () => invoke<Ok>('updater:install'),
+  onUpdateStatus: (handler: (status: UpdateStatus) => void): (() => void) => {
+    const listener = (_e: unknown, status: UpdateStatus) => handler(status);
+    ipcRenderer.on('updater:status', listener);
+    return () => { ipcRenderer.off('updater:status', listener); };
   },
 
   // Not an IPC channel - resolves a picked File's absolute path (replaces the

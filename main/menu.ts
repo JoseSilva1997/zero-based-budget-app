@@ -20,7 +20,8 @@ export type MenuCommand =
   | 'goDashboard'
   | 'goBudget'
   | 'goHistory'
-  | 'goSettings';
+  | 'goSettings'
+  | 'checkUpdates';
 
 function send(command: MenuCommand): void {
   BrowserWindow.getFocusedWindow()?.webContents.send('menu:command', command);
@@ -83,6 +84,16 @@ export function buildAppMenu(): void {
         { role: 'zoomOut' },
         { type: 'separator' },
         { role: 'togglefullscreen' },
+      ],
+    },
+    {
+      label: '&Help',
+      submenu: [
+        // Disabled label, not an action: the first thing anyone needs when
+        // reporting a problem is the version they are actually running.
+        { label: `Version ${app.getVersion()}`, enabled: false },
+        { type: 'separator' },
+        { label: 'Check for Updates…', click: () => send('checkUpdates') },
       ],
     },
   ];

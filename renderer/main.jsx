@@ -14,6 +14,7 @@ import { QuickEntrySection } from './QuickEntry.jsx';
 import { HistoryScreen } from './History.jsx';
 import { DashboardScreen } from './Dashboard.jsx';
 import { SettingsScreen } from './Settings.jsx';
+import { UpdateBanner } from './UpdateBanner.jsx';
 
 function MonthBudgetScreen({ state, dispatch, currency }) {
   const mid = state.activeMonth;
@@ -231,6 +232,16 @@ function App() {
           if (i >= 0 && i < s.order.length) { dispatch({ type: "setActive", id: s.order[i] }); setTab("budget"); }
           break;
         }
+        case "checkUpdates":
+          window.api.updateCheck().then((s) => {
+            if (s.state === "none") toast("You're on the latest version.");
+            else if (s.state === "available" || s.state === "downloading") toast(`Downloading version ${s.version}…`);
+            else if (s.state === "downloaded") toast(`Version ${s.version} is ready. Restart to install.`);
+            else if (s.state === "error") toast(`Couldn't check for updates: ${s.message}`, "error");
+            else if (s.state === "checking") toast("Already checking for updates…");
+            else toast("Updates aren't available in this build.");
+          }).catch((e) => toast(e.message, "error"));
+          break;
         default: break;
       }
     });
@@ -279,6 +290,7 @@ function App() {
       </main>
 
       {newMonth && <NewMonthModal dispatch={dispatch} onClose={() => setNewMonth(false)} />}
+      <UpdateBanner />  
       <Toast msg={toastMsg} onDismiss={() => setToastMsg(null)} />
     </div>
   );
