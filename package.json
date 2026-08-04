@@ -15,7 +15,10 @@
     "start": "electron .",
     "dev": "node scripts/dev.mjs",
     "pack": "npm run build && npm run build:renderer && node scripts/make-icon.mjs && node scripts/fix-node-gyp.mjs && electron-builder --dir",
-    "dist": "npm run build && npm run build:renderer && node scripts/make-icon.mjs && node scripts/fix-node-gyp.mjs && electron-builder"
+    "dist": "npm run build && npm run build:renderer && node scripts/make-icon.mjs && node scripts/fix-node-gyp.mjs && electron-builder",
+    "pretest": "npm run build",
+    "test": "electron tests/smoke-electron.cjs && electron tests/repo-electron.cjs && electron tests/migration-electron.cjs",
+    "check:version": "node scripts/check-version.mjs"
   },
   "build": {
     "appId": "com.housebudget.app",
