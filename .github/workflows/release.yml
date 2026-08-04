@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ inputs.tag || github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -36,7 +36,7 @@ jobs:
 
       - name: Verify tag matches package.json
         run: npm run check:version -- ${{ inputs.tag || github.ref_name }}
-      
+
       - name: Cache Electron binaries
         uses: actions/cache@v4
         with:
@@ -61,10 +61,32 @@ jobs:
       - name: Run tests
         run: npm test
 
-      - name: Package and publish draft release
-        run: npm run dist -- --publish always
+      - name: Ensure a single draft release exists
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Draft already exists for $TAG"
+          else
+            gh release create "$TAG" --draft --title "$TAG" --generate-notes
+          fi
+
+      - name: Package installer
+        run: npm run dist -- --publish never
+
+      - name: Upload assets to the draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          # nullglob: an unmatched pattern expands to nothing rather than being
+          # passed through literally, which would fail the upload on a file
+          # that was never generated (the blockmap is not always emitted).
+          shopt -s nullglob
+          gh release upload "$TAG" release/*.exe release/*.blockmap release/latest.yml --clobber
 
       - name: Upload installer as workflow artifact
         if: always()
@@ -73,5 +95,6 @@ jobs:
           name: house-budget-installer
           path: |
             release/*.exe
+            release/*.blockmap
             release/latest.yml
           if-no-files-found: warn
