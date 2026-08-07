@@ -2,9 +2,22 @@
    House Budget - sleek dark system
    Deep slate / charcoal base · 12 swappable accent themes
    ============================================================ */
+
+/* Bundled, not fetched. The sidebar strapline says "local", and until now
+   the one outbound request at startup was for these two typefaces. Offline
+   they fell back to system-ui at different metrics inside a pixel-fixed
+   layout. Licensed under the SIL OFL: see assets/fonts/OFL.txt. */
+@font-face { font-family: "IBM Plex Sans"; font-weight: 400; font-style: normal; font-display: block; src: url("fonts/IBMPlexSans-Regular.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-weight: 500; font-style: normal; font-display: block; src: url("fonts/IBMPlexSans-Medium.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-weight: 600; font-style: normal; font-display: block; src: url("fonts/IBMPlexSans-SemiBold.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-weight: 400; font-style: normal; font-display: block; src: url("fonts/IBMPlexMono-Regular.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-weight: 500; font-style: normal; font-display: block; src: url("fonts/IBMPlexMono-Medium.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-weight: 600; font-style: normal; font-display: block; src: url("fonts/IBMPlexMono-SemiBold.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-weight: 700; font-style: normal; font-display: block; src: url("fonts/IBMPlexMono-Bold.woff2") format("woff2"); }
+
 :root {
-  --font-sans: "Geist", system-ui, -apple-system, sans-serif;
-  --font-mono: "Geist Mono", ui-monospace, "SF Mono", monospace;
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
 
   /* Semantic colour, re-cut to the domain. In zero-based budgeting an
      envelope spent exactly to plan IS the success, so "settled" gets no
