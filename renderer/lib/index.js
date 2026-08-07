@@ -13,3 +13,4 @@ export {
   accountTotals, walletSummary, normalizeItemName,
 } from "./selectors.js";
 export { buildEmpty } from "./reducer.js";
+export * from "./bar.js";

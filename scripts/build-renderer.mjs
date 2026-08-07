@@ -4,7 +4,13 @@
    The renderer is plain React written as ES modules. esbuild bundles it,
    starting from renderer/main.jsx and following the import graph, into a
    single self-contained renderer/dist/app.js (production React, no in-browser
-   Babel, no CDN, works offline). It also emits dist/index.html and dist/app.css.
+   Babel, no CDN, works offline). It also emits dist/index.html and dist/app.css,
+   and copies the bundled IBM Plex fonts, plus their OFL.txt licence, into
+   dist/fonts. The licence has to travel with the binaries (SIL OFL 1.1
+   section 2), and build.files in package.json only ships renderer/dist/**,
+   so it has to actually land there rather than stay behind in assets/fonts.
+   No CDN, works offline: now true of the whole renderer, not just the JS
+   bundle.
 
    Usage:
      node scripts/build-renderer.mjs            one-off production build (minified)
@@ -15,7 +21,7 @@
    the watch build in-process alongside Electron.
    ============================================================ */
 import esbuild from 'esbuild';
-import { mkdirSync, copyFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, copyFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -29,9 +35,6 @@ const HTML = `<!DOCTYPE html>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>House Budget</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="app.css" />
 </head>
 <body>
@@ -41,10 +44,16 @@ const HTML = `<!DOCTYPE html>
 </html>
 `;
 
-/** Copy the static assets (CSS + HTML shell) into dist. */
+/** Copy the static assets (CSS + HTML shell + bundled fonts) into dist. */
 function writeStatics() {
   copyFileSync(join(rendererDir, 'app.css'), join(outDir, 'app.css'));
   writeFileSync(join(outDir, 'index.html'), HTML, 'utf8');
+  const fontSrc = join(root, 'assets', 'fonts');
+  const fontOut = join(outDir, 'fonts');
+  mkdirSync(fontOut, { recursive: true });
+  for (const f of readdirSync(fontSrc).filter((n) => n.endsWith('.woff2') || n === 'OFL.txt')) {
+    copyFileSync(join(fontSrc, f), join(fontOut, f));
+  }
 }
 
 /**

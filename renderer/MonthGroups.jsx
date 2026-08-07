@@ -191,7 +191,9 @@ function MoveMenu({ anchorRef, groups, itemName, onPick, onClose }) {
         <button key={g.id} type="button" className="move-menu-item" autoFocus={i === 0}
           onClick={() => { onPick(g.id); closeRestoringFocus(); }}>
           <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.name}</span>
-          {g.isSavings && <Icons.plant size={13} style={{ flex: "none", color: "var(--pos)" }} />}
+          {/* Savings is not a success state, so the marker is quiet rather than
+              green. Matches the neutral Savings badge on the group row. */}
+          {g.isSavings && <Icons.plant size={13} style={{ flex: "none", color: "var(--muted)" }} />}
         </button>
       ))}
     </div>,
@@ -234,11 +236,11 @@ function EntriesDrawer({ item, group, currency, dispatch, month }) {
   };
   const amtPreview = isExpr(amt) ? evalMoney(amt) : null;
   return (
-    <div className="fade-in" style={{ padding: "16px", background: "var(--surface-2)", borderTop: "1px solid var(--hairline)" }}>
+    <div className="fade-in" style={{ padding: "16px", background: "var(--board)", borderTop: "1px solid var(--rule-faint)" }}>
       {item.actuals.length > 0 && (
         <div style={{ marginBottom: 16 }}>
           {item.actuals.map(a => (
-            <div key={a.id} style={{ display: "grid", gridTemplateColumns: "var(--budget-cols)", alignItems: "center", gap: 10, padding: "5px 0", borderBottom: "1px solid var(--hairline)" }}>
+            <div key={a.id} style={{ display: "grid", gridTemplateColumns: "var(--budget-cols)", alignItems: "center", gap: 10, padding: "5px 0", borderBottom: "1px solid var(--rule-faint)" }}>
               <div style={{ gridColumn: "span 2", display: "flex", alignItems: "center", gap: 10, paddingLeft: 30, minWidth: 0 }}>
                 <DayField day={actualDay(a, month)} monthId={month} title="Day of month (when it was spent)"
                   onCommit={(d) => dispatch({ type: "updateActual", month, groupId: group.id, itemId: item.id, id: a.id, patch: { date: makeActualDate(month, d) } })} />
@@ -264,7 +266,7 @@ function EntriesDrawer({ item, group, currency, dispatch, month }) {
         <div style={{ position: "relative", height: 32 }}>
           <input ref={amtRef} className="minput" aria-label="Amount spent" style={{ paddingLeft: 8, height: 32, fontSize: 13 }} inputMode="text" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder={`${currency}0.00`} onKeyDown={(e) => e.key === "Enter" && add()} />
           {amtPreview !== null && (
-            <span className="mono" style={{ position: "absolute", right: 4, bottom: "100%", marginBottom: 3, background: "var(--ink)", color: "var(--surface)", fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 6, whiteSpace: "nowrap", zIndex: 4 }}>= {fmt(currency, amtPreview)}</span>
+            <span className="mono" style={{ position: "absolute", right: 4, bottom: "100%", marginBottom: 3, background: "var(--ink)", color: "var(--on-ink)", fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 6, whiteSpace: "nowrap", zIndex: 4 }}>= {fmt(currency, amtPreview)}</span>
           )}
         </div>
         {/* Add sits in the actions column, under the entries' remove buttons:
@@ -308,7 +310,7 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
         onDrop();
       }}
       onDragEnd={() => { setGrabbed(false); onDragEnd(); }}
-      style={{ borderTop: isDropTarget ? "2px solid var(--accent)" : "1px solid var(--border)", opacity: isDragging ? .4 : 1, background: isDropTarget ? "var(--accent-soft)" : undefined, transition: "background .12s" }}>
+      style={{ borderTop: isDropTarget ? "2px solid var(--accent)" : "1px solid var(--rule)", opacity: isDragging ? .4 : 1, background: isDropTarget ? "var(--accent-soft)" : undefined, transition: "background .12s" }}>
       <div style={{ display: "flex", alignItems: "stretch", minHeight: "var(--row-h)" }}>
       <DragHandle label={`Reorder ${item.name}, item ${index + 1} of ${count} in ${group.name}`}
         onGrab={() => setGrabbed(true)} onRelease={() => setGrabbed(false)} onMove={onMove} />
@@ -333,9 +335,9 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
             "$120.00 3, button", which says nothing about which item it opens. */}
         <button onClick={onToggle} title="View / add spending entries" aria-expanded={open}
           aria-label={`${fmt(currency, actual)} spent on ${item.name} in ${item.actuals.length} ${item.actuals.length === 1 ? "entry" : "entries"}`}
-          style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 7, background: open ? "var(--surface-sunken)" : "transparent", border: "1px solid transparent", borderRadius: 7, padding: "5px 9px", color: "var(--ink)", transition: ".12s" }}>
+          style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 7, background: open ? "var(--well)" : "transparent", border: "1px solid transparent", borderRadius: 7, padding: "5px 9px", color: "var(--ink)", transition: ".12s" }}>
           <span className="mono" style={{ fontSize: 14 }}>{fmt(currency, actual)}</span>
-          <span style={{ fontSize: 10.5, color: "var(--faint)", background: "var(--surface-sunken)", borderRadius: 5, padding: "1px 5px", minWidth: 16, textAlign: "center" }}>{item.actuals.length}</span>
+          <span style={{ fontSize: 10.5, color: "var(--faint)", background: "var(--well)", borderRadius: 5, padding: "1px 5px", minWidth: 16, textAlign: "center" }}>{item.actuals.length}</span>
         </button>
         <div className="col-diff" style={{ display: "flex", flexDirection: "column", gap: 5, alignItems: "flex-end" }}>
           <DiffPill diff={diff} currency={currency} />
@@ -441,7 +443,7 @@ function AddItemSearch({ month, groupId, currency, dispatch, onClose, itemCount 
   };
   const shown = candidates.slice(0, 7);
   return (
-    <div ref={rootRef} style={{ padding: "10px 16px", borderTop: "1px solid var(--hairline)", background: "var(--surface-2)" }}>
+    <div ref={rootRef} style={{ padding: "10px 16px", borderTop: "1px solid var(--rule-faint)", background: "var(--board)" }}>
       <div style={{ display: "flex", gap: 8 }}>
         <input autoFocus ref={inputRef} className="tinput" value={query} aria-label="Search previous items, or type a new item name" onChange={(e) => setQuery(e.target.value)} placeholder="Search previous items or type new..." style={{ maxWidth: 340 }}
           onKeyDown={(e) => {
@@ -452,12 +454,12 @@ function AddItemSearch({ month, groupId, currency, dispatch, onClose, itemCount 
           {saving ? "Adding…" : exact ? "Add existing" : "Create item"}
         </button>
       </div>
-      <div style={{ marginTop: 8, border: "1px solid var(--hairline)", borderRadius: 8, overflow: "hidden", background: "var(--surface)" }}>
+      <div style={{ marginTop: 8, border: "1px solid var(--rule-faint)", borderRadius: 8, overflow: "hidden", background: "var(--well)" }}>
         {shown.length > 0 ? shown.map((candidate, idx) => (
           <button key={`${candidate.month}:${candidate.name}`} type="button" disabled={saving}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => selectCandidate(candidate)}
-            style={{ width: "100%", minHeight: 40, display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "center", textAlign: "left", padding: "7px 10px", border: 0, borderTop: idx ? "1px solid var(--hairline)" : "none", background: "transparent", color: "var(--ink)", cursor: "pointer", font: "inherit" }}>
+            style={{ width: "100%", minHeight: 40, display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "center", textAlign: "left", padding: "7px 10px", border: 0, borderTop: idx ? "1px solid var(--rule-faint)" : "none", background: "transparent", color: "var(--ink)", cursor: "pointer", font: "inherit" }}>
             <span style={{ minWidth: 0 }}>
               <span style={{ display: "block", fontSize: 13.5, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{candidate.name}</span>
               <span style={{ display: "block", fontSize: 11.5, color: "var(--muted)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{candidate.groupName} - {candidate.monthLabel}</span>
@@ -561,7 +563,7 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, dragItem
     announce(`${group.name} moved to position ${groupIndex + dir + 1} of ${groups.length}.`);
   };
   return (
-    <div ref={cardRef} id={groupCardId(group.id)} className="card fade-in" draggable={grabbed}
+    <div ref={cardRef} id={groupCardId(group.id)} className="raised fade-in" draggable={grabbed}
       onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; onDragStart(); }}
       onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; const r = e.currentTarget.getBoundingClientRect(); onDragOverGroup(e.clientY > r.top + r.height / 2); }}
       onDrop={(e) => { e.preventDefault(); onDrop(); }}
@@ -570,20 +572,20 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, dragItem
       <div style={{ display: "flex", alignItems: "stretch" }}>
       <DragHandle label={`Reorder group ${group.name}, ${groupIndex + 1} of ${groups.length}`}
         onGrab={() => setGrabbed(true)} onRelease={() => setGrabbed(false)} onMove={moveGroup}
-        style={{ background: "var(--surface-2)", borderBottom: group.collapsed ? "none" : "1px solid var(--border-strong)" }} />
-      <div {...appendTargetProps} style={{ flex: 1, minWidth: 0, display: "grid", gridTemplateColumns: "var(--budget-cols)", alignItems: "center", gap: 10, padding: "16px 8px", background: appendHere ? "var(--accent-soft)" : "var(--surface-2)", borderBottom: group.collapsed ? "none" : "1px solid var(--border-strong)", transition: "background .12s" }} className="budget-row">
+        style={{ background: "var(--board)", borderBottom: group.collapsed ? "none" : "1px solid var(--rule-strong)" }} />
+      <div {...appendTargetProps} style={{ flex: 1, minWidth: 0, display: "grid", gridTemplateColumns: "var(--budget-cols)", alignItems: "center", gap: 10, padding: "16px 8px", background: appendHere ? "var(--accent-soft)" : "var(--board)", borderBottom: group.collapsed ? "none" : "1px solid var(--rule-strong)", transition: "background .12s" }} className="budget-row">
         <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
           <button className="icon-btn" aria-expanded={!group.collapsed} aria-label={group.collapsed ? `Expand ${group.name}` : `Collapse ${group.name}`} onClick={() => dispatch({ type: "toggleCollapse", month, groupId: group.id })} style={{ flex: "none", transform: group.collapsed ? "rotate(-90deg)" : "none", transition: "transform .18s" }}><Icons.down size={16} /></button>
           <span title={group.name} style={{ display: "flex", flex: "1 1 auto", minWidth: 0 }}>
             <TextInline value={group.name} col="groupName" label="Group name" onCommit={(v) => dispatch({ type: "renameGroup", month, groupId: group.id, name: v })} style={{ fontWeight: 600, fontSize: 15, minWidth: 0 }} />
           </span>
-          {group.isSavings && <span className="pill pill-pos" style={{ flex: "none" }}><Icons.plant size={12} /> Savings</span>}
+          {group.isSavings && <span className="pill pill-neutral" style={{ flex: "none" }}><Icons.plant size={12} /> Savings</span>}
         </div>
         <div className="mono" style={{ textAlign: "right", fontSize: 13.5, fontWeight: 600, paddingRight: 8 }}>{fmt(currency, alloc, { cents: false })}</div>
         <div className="mono" style={{ textAlign: "right", fontSize: 13.5, color: "var(--ink-2)", paddingRight: 9 }}>{fmt(currency, actual, { cents: false })}</div>
         <div className="col-diff" style={{ textAlign: "right" }}><DiffPill diff={diff} currency={currency} /></div>
         <div className="row-actions" style={{ justifyContent: "flex-end" }}>
-          <button className="icon-btn" aria-label={group.isSavings ? `Unmark ${group.name} as a savings group` : `Mark ${group.name} as a savings group`} title={group.isSavings ? "Unmark as savings" : "Mark as savings group"} onClick={() => dispatch({ type: "setSavings", month, groupId: group.id, value: !group.isSavings })} style={{ color: group.isSavings ? "var(--pos)" : undefined }}><Icons.plant size={15} /></button>
+          <button className="icon-btn" aria-label={group.isSavings ? `Unmark ${group.name} as a savings group` : `Mark ${group.name} as a savings group`} title={group.isSavings ? "Unmark as savings" : "Mark as savings group"} onClick={() => dispatch({ type: "setSavings", month, groupId: group.id, value: !group.isSavings })}><Icons.plant size={15} /></button>
           <button className="icon-btn" aria-label={`Delete group ${group.name} from this month`} title="Delete group (this month only)" onClick={() => setConfirmDelete(true)}><Icons.trash size={15} /></button>
         </div>
       </div>
@@ -591,7 +593,7 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, dragItem
       {!group.collapsed && (
         <div>
           {group.items.length === 0 && !addingItem && (
-            <div {...appendTargetProps} style={{ padding: "16px", textAlign: "center", color: appendHere ? "var(--ink-2)" : "var(--faint)", fontSize: 13, borderTop: "1px solid var(--hairline)", background: appendHere ? "var(--accent-soft)" : undefined, transition: "background .12s" }}>No items yet.</div>
+            <div {...appendTargetProps} style={{ padding: "16px", textAlign: "center", color: appendHere ? "var(--ink-2)" : "var(--faint)", fontSize: 13, borderTop: "1px solid var(--rule-faint)", background: appendHere ? "var(--accent-soft)" : undefined, transition: "background .12s" }}>No items yet.</div>
           )}
           {group.items.map((it, itemIndex) => (
             <ItemRow key={it.id} item={it} group={group} currency={currency} dispatch={dispatch} month={month} accounts={accounts}
@@ -617,7 +619,7 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, dragItem
           {addingItem ? (
             <AddItemSearch month={month} groupId={group.id} currency={currency} dispatch={dispatch} itemCount={itemCount} onClose={() => setAddingItem(false)} />
           ) : (
-            <div {...appendTargetProps} style={{ background: appendHere ? "var(--accent-soft)" : "var(--surface-2)", borderTop: "1px solid var(--hairline)", padding: "4px 0", transition: "background .12s" }}>
+            <div {...appendTargetProps} style={{ background: appendHere ? "var(--accent-soft)" : "var(--board)", borderTop: "1px solid var(--rule-faint)", padding: "4px 0", transition: "background .12s" }}>
               <button className="btn btn-ghost btn-sm" style={{ margin: "8px 10px", color: "var(--muted)" }} onClick={() => setAddingItem(true)}><Icons.plus size={14} /> Add item</button>
             </div>
           )}
@@ -716,13 +718,13 @@ function NewMonthModal({ onClose, dispatch }) {
 function optStyle(active) {
   return {
     position: "relative", display: "flex", gap: 12, padding: "13px 14px", borderRadius: 11,
-    border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
-    background: active ? "var(--accent-soft)" : "var(--surface)", cursor: "pointer", transition: ".14s",
+    border: `1px solid ${active ? "var(--accent)" : "var(--rule)"}`,
+    background: active ? "var(--accent-soft)" : "var(--raised)", cursor: "pointer", transition: ".14s",
   };
 }
 /* The tick sits on --accent, so it has to use the ink that theme picked for it:
    plain white measures 1.46:1 on lime and 1.67:1 on cyan, i.e. invisible. */
-function radioStyle(active) { return { width: 20, height: 20, borderRadius: 99, flex: "none", marginTop: 1, display: "grid", placeItems: "center", color: "var(--on-accent)", background: active ? "var(--accent)" : "transparent", border: `1.5px solid ${active ? "var(--accent)" : "var(--border-strong)"}` }; }
+function radioStyle(active) { return { width: 20, height: 20, borderRadius: 99, flex: "none", marginTop: 1, display: "grid", placeItems: "center", color: "var(--on-accent)", background: active ? "var(--accent)" : "transparent", border: `1.5px solid ${active ? "var(--accent)" : "var(--rule-strong)"}` }; }
 /* Focusable but not seen: the drawn radio above is the visible one. Not
    display:none or visibility:hidden, which would take it out of the tab order
    (and out of Modal's focus trap) all over again. */

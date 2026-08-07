@@ -37,10 +37,10 @@ function SuggestionRow({ s, active, currency, onPick, id }) {
     <button type="button" id={id} role="option" aria-selected={active}
       onMouseDown={(e) => e.preventDefault()}
       onClick={() => onPick(s)}
-      style={{ width: "100%", display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "center", textAlign: "left", padding: "7px 10px", border: 0, background: active ? "var(--surface-sunken)" : "transparent", color: "var(--ink)", cursor: "pointer", font: "inherit" }}>
+      style={{ width: "100%", display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "center", textAlign: "left", padding: "7px 10px", border: 0, background: active ? "var(--well)" : "transparent", color: "var(--ink)", cursor: "pointer", font: "inherit" }}>
       <span style={{ minWidth: 0 }}>
         <span style={{ display: "block", fontSize: 13.5, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
-        <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, marginTop: 2, color: s.itemId == null ? "var(--neg-ink)" : "var(--muted)", overflow: "hidden", whiteSpace: "nowrap" }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, marginTop: 2, color: s.itemId == null ? "var(--breach-ink)" : "var(--muted)", overflow: "hidden", whiteSpace: "nowrap" }}>
           {s.itemId == null ? <Icons.alert size={12} /> : <Icons.right size={12} />}
           {s.itemId == null ? `"${s.itemName}" is not in this month - pick an item` : `${s.groupName} · ${s.itemName}`}
         </span>
@@ -228,7 +228,7 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
     return (
       <>
         <div className="section-head"><h2>Quick entry</h2></div>
-        <div className="card empty" style={{ padding: "30px" }}>
+        <div className="panel empty" style={{ padding: "30px" }}>
           <div className="empty-icon"><Icons.coins size={20} /></div>
           <div style={{ fontSize: 14 }}>Add a group and some items below, then log your spending from here.</div>
         </div>
@@ -245,7 +245,7 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
         </div>
       </div>
 
-      <div ref={rootRef} className="card" style={{ overflow: "visible" }}>
+      <div ref={rootRef} className="panel" style={{ overflow: "visible" }}>
         {/* Six fields cannot hold their widths in a narrow window, and a Log
             button pushed outside the card is a button you cannot press. They
             wrap as two halves rather than one at a time, so a break always
@@ -269,9 +269,9 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
               onKeyDown={onNameKeyDown} />
             {open && shown.length > 0 && (
               <div id={listId} role="listbox" aria-label="Previously logged entries"
-                style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, minWidth: 280, zIndex: 30, border: "1px solid var(--border-strong)", borderRadius: 10, overflow: "hidden", background: "var(--surface)", boxShadow: "var(--shadow-lg)" }}>
+                style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, minWidth: 280, zIndex: 30, border: "1px solid var(--rule-strong)", borderRadius: 10, overflow: "hidden", background: "var(--raised)", boxShadow: "var(--shadow-lg)" }}>
                 {shown.map((s, idx) => (
-                  <div key={`${s.name}|${s.itemName}`} style={{ borderTop: idx ? "1px solid var(--hairline)" : "none" }}>
+                  <div key={`${s.name}|${s.itemName}`} style={{ borderTop: idx ? "1px solid var(--rule-faint)" : "none" }}>
                     <SuggestionRow s={s} id={`${listId}-${idx}`} active={idx === hi} currency={currency} onPick={pick} />
                   </div>
                 ))}
@@ -284,7 +284,7 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
             aria-label="Which budget item this spending goes under"
             onChange={(e) => { setItemId(e.target.value === "" ? null : Number(e.target.value)); }}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); amtRef.current && amtRef.current.focus(); } }}
-            style={{ height: 32, fontSize: 13, cursor: "pointer", fontFamily: "inherit", flex: "1 1 140px", minWidth: 0, color: itemId == null ? "var(--muted)" : "var(--ink)", border: `1px solid ${orphaned ? "var(--neg)" : itemId == null ? "var(--border)" : "transparent"}`, background: itemId == null ? "var(--surface-2)" : "transparent" }}>
+            style={{ height: 32, fontSize: 13, cursor: "pointer", fontFamily: "inherit", flex: "1 1 140px", minWidth: 0, color: itemId == null ? "var(--muted)" : "var(--ink)", border: `1px solid ${orphaned ? "var(--breach)" : itemId == null ? "var(--rule)" : "transparent"}`, background: itemId == null ? "var(--board)" : "transparent" }}>
             <option value="">Goes under…</option>
             {mo.groups.filter((g) => g.items.length > 0).map((g) => (
               <optgroup key={g.id} label={g.name}>
@@ -306,7 +306,7 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
               value={amt} onChange={(e) => setAmt(e.target.value)} placeholder={`${currency}0.00`}
               onKeyDown={(e) => e.key === "Enter" && add()} />
             {amtPreview !== null && (
-              <span className="mono" style={{ position: "absolute", right: 4, bottom: "100%", marginBottom: 3, background: "var(--ink)", color: "var(--surface)", fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 6, whiteSpace: "nowrap", zIndex: 4 }}>= {fmt(currency, amtPreview)}</span>
+              <span className="mono" style={{ position: "absolute", right: 4, bottom: "100%", marginBottom: 3, background: "var(--ink)", color: "var(--on-ink)", fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 6, whiteSpace: "nowrap", zIndex: 4 }}>= {fmt(currency, amtPreview)}</span>
             )}
           </div>
 
@@ -318,8 +318,8 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
 
         {/* Where the chosen name is going, or why it cannot go anywhere yet. */}
         {(target || orphaned) && (
-          <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "7px 16px", borderTop: "1px solid var(--hairline)", fontSize: 12.5, color: orphaned ? "var(--neg-ink)" : "var(--muted)", background: orphaned ? "var(--neg-soft)" : "var(--surface-2)" }}>
-            {orphaned ? <Icons.alert size={14} /> : <Icons.check size={14} style={{ color: "var(--pos)" }} />}
+          <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "7px 16px", borderTop: "1px solid var(--rule-faint)", fontSize: 12.5, color: orphaned ? "var(--breach-ink)" : "var(--muted)", background: orphaned ? "var(--breach-soft)" : "var(--board)" }}>
+            {orphaned ? <Icons.alert size={14} /> : <Icons.check size={14} style={{ color: "var(--accent)" }} />}
             {orphaned
               ? <span>"{picked.name}" used to go under "{picked.itemName}", which this month does not have. Choose the item it belongs to now.</span>
               : <span>Goes under <strong style={{ fontWeight: 600, color: "var(--ink-2)" }}>{target.groupName} · {target.name}</strong>{picked && picked.itemId != null ? ", matched from a past entry" : ""}.</span>}
@@ -327,7 +327,7 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
         )}
 
         {recent.length > 0 && (
-          <div style={{ borderTop: "1px solid var(--border-strong)", background: "var(--surface-2)" }}>
+          <div style={{ borderTop: "1px solid var(--rule-strong)", background: "var(--board)" }}>
             <div style={{ padding: "8px 16px 4px", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--faint)", fontWeight: 600 }}>Just logged</div>
             {recent.map(({ a, it, g }) => (
               <div key={a.id} className="income-row" style={{ display: "grid", gridTemplateColumns: "44px minmax(0, 1fr) minmax(0, auto) 120px 34px", alignItems: "center", gap: 10, padding: "5px 16px" }}>

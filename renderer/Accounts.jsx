@@ -74,7 +74,7 @@ function AccountPanel({ mo, accounts, members, currency }) {
       <div style={{ fontSize: 11, color: "var(--ink-2)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 10 }}>Who moves what</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 22 }}>
         {perPerson.map(p => (
-          <div key={p.member.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 16px", borderRadius: 11, background: "var(--surface-sunken)", border: "1px solid var(--border-strong)", boxShadow: `inset 4px 0 0 0 ${p.member.color || "var(--accent)"}` }}>
+          <div key={p.member.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 16px", borderRadius: 11, background: "var(--well)", border: "1px solid var(--rule-strong)", boxShadow: `inset 4px 0 0 0 ${p.member.color || "var(--accent)"}` }}>
             <Avatar member={p.member} size={30} />
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontSize: 13.5, fontWeight: 600 }}>{p.member.name} total</div>
@@ -84,7 +84,7 @@ function AccountPanel({ mo, accounts, members, currency }) {
           </div>
         ))}
         {shared.length > 0 && (
-          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 16px", borderRadius: 11, background: "var(--surface-sunken)", border: "1px solid var(--border-strong)", boxShadow: "inset 4px 0 0 0 var(--info)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 16px", borderRadius: 11, background: "var(--well)", border: "1px solid var(--rule-strong)", boxShadow: "inset 4px 0 0 0 var(--info)" }}>
             <span style={{ width: 30, height: 30, borderRadius: 8, background: "var(--info-soft)", color: "var(--info)", display: "grid", placeItems: "center", flex: "none" }}><Icons.user size={16} /></span>
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{ fontSize: 13.5, fontWeight: 600 }}>Shared total</div>
@@ -97,7 +97,7 @@ function AccountPanel({ mo, accounts, members, currency }) {
 
       {/* per-account breakdown */}
       <div style={{ fontSize: 11, color: "var(--ink-2)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 10 }}>By account</div>
-      <div className="card" style={{ overflow: "hidden", background: "var(--surface-2)" }}>
+      <div className="panel" style={{ overflow: "hidden" }}>
         {byAccount.map((t, i) => {
           const owner = members.find(m => m.id === t.account.owner);
           const pct = totalToFund > 0 ? t.allocated / totalToFund : 0;
@@ -105,9 +105,9 @@ function AccountPanel({ mo, accounts, members, currency }) {
           const canOpen = t.items.length > 0;
           const open = openAccts.has(t.account.id);
           const listId = `acct-items-${t.account.id}`;
-          const tint = owner ? `color-mix(in srgb, ${owner.color} 3%, var(--surface-2))` : `color-mix(in srgb, var(--info) 3%, var(--surface-2))`;
+          const tint = owner ? `color-mix(in srgb, ${owner.color} 3%, var(--board))` : `color-mix(in srgb, var(--info) 3%, var(--board))`;
           return (
-            <div key={t.account.id} style={{ borderTop: i ? "1px solid var(--border)" : "none" }}>
+            <div key={t.account.id} style={{ borderTop: i ? "1px solid var(--rule)" : "none" }}>
               <button className="acct-row" onClick={canOpen ? () => toggleAcct(t.account.id) : undefined} disabled={!canOpen}
                 aria-expanded={canOpen ? open : undefined} aria-controls={canOpen ? listId : undefined}
                 title={canOpen ? (open ? "Hide allocations" : "Show allocations") : undefined}
@@ -134,9 +134,9 @@ function AccountPanel({ mo, accounts, members, currency }) {
                 </div>
               </button>
               {canOpen && open && (
-                <div id={listId} className="fade-in" style={{ background: "var(--surface-sunken)", borderTop: "1px solid var(--border)", boxShadow: `inset 3px 0 0 0 ${t.account.color}` }}>
+                <div id={listId} className="fade-in" style={{ background: "var(--well)", borderTop: "1px solid var(--rule)", boxShadow: `inset 3px 0 0 0 ${t.account.color}` }}>
                   {t.items.map((it, j) => (
-                    <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "9px 15px 9px 26px", borderTop: j ? "1px solid var(--border)" : "none" }}>
+                    <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "9px 15px 9px 26px", borderTop: j ? "1px solid var(--rule)" : "none" }}>
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={{ fontSize: 12.5, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.name}</div>
                         <div style={{ fontSize: 11, color: "var(--faint)", marginTop: 3, display: "flex", alignItems: "center", gap: 8 }}>
@@ -162,12 +162,21 @@ function AccountPanel({ mo, accounts, members, currency }) {
             <span>{savingsAccount ? savingsAccount.name : "Savings"} wallets</span>
             <span className="mono" style={{ color: "var(--faint)", letterSpacing: 0 }}>{fmt(currency, savingsTotal)}</span>
           </div>
-          <div className="card" style={{ overflow: "hidden" }}>
+          <div className="panel" style={{ overflow: "hidden" }}>
             {savingsItems.map((it, i) => {
-              const color = savingsAccount ? savingsAccount.color : "var(--pos)";
+              // A savings icon in the app's default green used to be a small
+              // "you're doing well" nudge; the same reasoning that retired the
+              // old positive token elsewhere applies here, so an account with
+              // no colour of its own falls back to the neutral avatar tint.
+              const color = savingsAccount ? savingsAccount.color : "var(--muted)";
               return (
-                <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 15px", borderTop: i ? "1px solid var(--border)" : "none" }}>
-                  <span style={{ width: 34, height: 34, borderRadius: 9, flex: "none", background: hexToSoft(savingsAccount ? savingsAccount.color : "#2dd4a8"), color, display: "grid", placeItems: "center" }}><Icons.plant size={17} /></span>
+                <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 15px", borderTop: i ? "1px solid var(--rule)" : "none" }}>
+                  {/* Neutral pairing to match the icon colour above: #96a1b4 is
+                      --muted resolved to a literal hex (hexToSoft only takes one,
+                      it can't read a CSS var), so a savings wallet with no account
+                      colour of its own gets a grey tint under a grey icon rather
+                      than the old green tint under a now-grey icon. */}
+                  <span style={{ width: 34, height: 34, borderRadius: 9, flex: "none", background: hexToSoft(savingsAccount ? savingsAccount.color : "#96a1b4"), color, display: "grid", placeItems: "center" }}><Icons.plant size={17} /></span>
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontWeight: 600, fontSize: 13.5 }}>{it.name}</div>
                     <div style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
@@ -185,7 +194,7 @@ function AccountPanel({ mo, accounts, members, currency }) {
       )}
 
       {unassigned && (
-        <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "12px 15px", borderRadius: 11, marginTop: 14, background: "var(--neg-soft)", color: "var(--neg-ink)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "12px 15px", borderRadius: 11, marginTop: 14, background: "var(--breach-soft)", color: "var(--breach-ink)" }}>
           <Icons.alert size={16} />
           <span style={{ fontSize: 13, fontWeight: 500 }}>{fmt(currency, unassigned.allocated, { cents: false })} across {unassigned.count} item{unassigned.count !== 1 ? "s" : ""} isn't assigned to an account yet.</span>
         </div>
@@ -246,7 +255,7 @@ function WalletDrawer({ mo, accounts, members, currency, month, onClose }) {
           </div>
           <button className="icon-btn" onClick={onClose} aria-label="Close the Wallet" title="Close"><Icons.x size={18} /></button>
         </div>
-        <div style={{ padding: "16px 22px 18px", borderBottom: "1px solid var(--border)", background: "color-mix(in srgb, var(--accent) 8%, var(--surface-2))" }}>
+        <div style={{ padding: "16px 22px 18px", borderBottom: "1px solid var(--rule)", background: "color-mix(in srgb, var(--accent) 8%, var(--board))" }}>
           <div style={{ fontSize: 11.5, color: "var(--muted)", fontWeight: 500, marginBottom: 6 }}>Total to move this month</div>
           <span className="mono" style={{ fontSize: 30, fontWeight: 600, letterSpacing: "-0.025em", color: "var(--ink)" }}>{fmt(currency, toFund)}</span>
         </div>

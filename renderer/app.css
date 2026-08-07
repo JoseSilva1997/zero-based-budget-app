@@ -2,18 +2,39 @@
    House Budget - sleek dark system
    Deep slate / charcoal base · 12 swappable accent themes
    ============================================================ */
-:root {
-  --font-sans: "Geist", system-ui, -apple-system, sans-serif;
-  --font-mono: "Geist Mono", ui-monospace, "SF Mono", monospace;
 
-  /* universal status colors (tuned for dark) */
-  --pos: oklch(0.76 0.15 152);
-  --pos-soft: oklch(0.30 0.06 152);
-  --pos-ink: oklch(0.84 0.14 152);
-  --neg: oklch(0.66 0.19 25);
-  --neg-soft: oklch(0.31 0.10 25);
-  --neg-ink: oklch(0.80 0.15 25);
-  --warn: oklch(0.82 0.13 78);
+/* Bundled, not fetched. The sidebar strapline says "local", and until now
+   the one outbound request at startup was for these two typefaces. Offline
+   they fell back to system-ui at different metrics inside a pixel-fixed
+   layout. Licensed under the SIL OFL: see fonts/OFL.txt, shipped alongside
+   these woff2 files in every build (renderer/dist here, installed app there). */
+@font-face { font-family: "IBM Plex Sans"; font-weight: 400; font-style: normal; font-display: block; src: url("fonts/IBMPlexSans-Regular.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-weight: 500; font-style: normal; font-display: block; src: url("fonts/IBMPlexSans-Medium.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-weight: 600; font-style: normal; font-display: block; src: url("fonts/IBMPlexSans-SemiBold.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-weight: 400; font-style: normal; font-display: block; src: url("fonts/IBMPlexMono-Regular.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-weight: 500; font-style: normal; font-display: block; src: url("fonts/IBMPlexMono-Medium.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-weight: 600; font-style: normal; font-display: block; src: url("fonts/IBMPlexMono-SemiBold.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-weight: 700; font-style: normal; font-display: block; src: url("fonts/IBMPlexMono-Bold.woff2") format("woff2"); }
+
+:root {
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+
+  /* Semantic colour, re-cut to the domain. In zero-based budgeting an
+     envelope spent exactly to plan IS the success, so "settled" gets no
+     colour at all: it is the resting state. Only two states earn a hue.
+     --unsettled is the default nag, money that has no job yet. --breach
+     carries two roles: the budget meaning "over budget", and the ordinary
+     red of an error affordance (invalid input, a failed load, a destructive
+     action) that has nothing to do with a budget state. One red for both is
+     deliberate: a second red would look identical and just be confusing.
+     What --breach may never mean again is under-spending or any other
+     settled state painted red or green, the mistake this token was cut to
+     undo. */
+  --unsettled: oklch(0.80 0.15 85);
+  --breach: oklch(0.63 0.20 27);
+  --breach-soft: oklch(0.31 0.10 27);
+  --breach-ink: oklch(0.80 0.15 27);
   --info: oklch(0.72 0.13 240);
   --info-soft: oklch(0.31 0.08 240);
 
@@ -49,47 +70,74 @@
 
   /* Focus ring. The solid 2px core is what carries the indicator: raw --accent
      clears 3:1 against every surface in all twelve themes (worst 3.96:1, indigo
-     on --surface). The soft outer band is decoration on top of that, not the
+     on --raised). The soft outer band is decoration on top of that, not the
      indicator itself, which is why it is no longer a lone 32% wash at 1.5:1. */
   --ring: 0 0 0 2px var(--accent), 0 0 0 5px color-mix(in srgb, var(--accent) 26%, transparent);
   --glow-sm: 0 4px 18px -6px color-mix(in srgb, var(--accent) 55%, transparent);
   --glow-md: 0 8px 28px -8px color-mix(in srgb, var(--accent) 60%, transparent);
+
+  /* The bar's two intensities. Derived from the accent so the theme finally
+     paints the largest object on the screen rather than 0.07% of it.
+
+     Only one floor binds here: --bar-faded against --well must clear 3:1 in
+     all 12 themes, because that boundary (how far the fill extends against
+     its track) is the one WCAG 1.4.11 actually governs. --accent against
+     --bar-faded is NOT held to 3:1: the two fills are a redundant encoding,
+     not the sole carrier of the amounts they represent (MonthBar prints
+     "spent" and "allocated" as text beneath the bar), so 1.4.11's
+     "information not otherwise available" test does not apply to it. See
+     tests/tokens-electron.cjs for the derived (not chosen) floor that check
+     is held to instead.
+
+     The percentage itself is the smallest whole number that clears the
+     outer floor in every theme: raising it lightens --bar-faded, which
+     raises the outer ratio and lowers the inner one, so the smallest
+     value that still clears the outer floor everywhere is also the value
+     that maximises the inner separation. 73 fails (worst case 2.96:1,
+     indigo); 74 is the first whole percent that passes (worst case
+     3.01:1, indigo). See the task report for the full per-theme table. */
+  --bar-faded: color-mix(in srgb, var(--accent) 74%, var(--well));
 }
 
 /* ============================================================
    Theme palettes - cool-slate / true-black / charcoal / navy / warm
-   Each sets surface ramp, ink ramp, borders, and the accent family.
+   Each sets the board/raised/well ramp, ink ramp, rule weights, and the
+   accent family.
 
    The ink ramp is measured, not eyeballed. --faint and --muted are stated in
    oklch and their lightness is solved so that both clear 4.5:1 against
-   --surface, which is the worst of the four backdrops and the one most of this
+   --raised, which is the worst of the four backdrops and the one most of this
    text actually sits on. Hue and chroma are carried over from the old hex, so
    each family keeps its tint: the slate ramp stays blue, the warm ramp stays
    warm. The ramp itself is preserved by construction, faint < muted < ink-2 <
    ink, with a real step between each rung rather than three near-identical
-   greys. Measured on --surface, per family:
+   greys. Measured on --raised, per family:
        faint 4.61-4.62 · muted 6.29-6.31 · ink-2 8.12-9.85 · ink 13.75-16.74
 
-   Borders are graded by what they carry. --border-strong is the boundary or the
+   Rules are graded by what they carry. --rule-strong is the boundary or the
    state of something interactive (buttons, the month steppers, the active nav
    item, the "Assign account" chip, keycaps, the sidebar and drawer edges), so
-   it is solved to 3:1 against --surface per WCAG 1.4.11. --border is structure
-   (card outlines, dividers, the progress track) and --hairline is a row rule
-   between rows that are already self-identifying; both are decorative, but at
-   1.03-1.38:1 they were invisible rather than subtle, so they are lifted to
-   2.30:1 and 1.90:1 where they can at least be seen.
+   it is solved to 3:1 against --raised per WCAG 1.4.11. --rule is structure
+   (card outlines, dividers, the progress track) and --rule-faint is a row
+   rule between rows that are already self-identifying; both are decorative,
+   but at 1.03-1.38:1 they were invisible rather than subtle, so they are
+   lifted to 2.30:1 and 1.90:1 where they can at least be seen.
    ============================================================ */
 
 /* ---- cool slate family (Linear / Vercel) -------------------------------- */
 [data-theme="indigo"], [data-theme="violet"], [data-theme="cyan"], [data-theme="emerald"] {
-  --bg: #0d1016;       --bg-grad-1: #12151c; --bg-grad-2: #090b10;
-  --surface: #1a1f2a;  --surface-2: #151b24; --surface-sunken: #0e1118;
+  --board: #0d1016;
+  --raised: #1a1f2a;  --well: #0e1118;
+  /* Foreground for anything filled with --ink (toast, tooltip, arithmetic
+     preview). Split from --raised so it can move without silently turning
+     these chips dark-on-dark. */
+  --on-ink: #1a1f2a;
   --ink: #e8ecf4;      --ink-2: #b2bccc;
-  --muted: oklch(0.706 0.031 263.3);   /* 6.31:1 on --surface */
-  --faint: oklch(0.625 0.029 259.8);   /* 4.62:1 on --surface */
-  --border: oklch(0.459 0.033 260.9);        /* 2.30:1 */
-  --border-strong: oklch(0.524 0.035 250.2); /* 3.06:1 */
-  --hairline: oklch(0.414 0.026 255.7);      /* 1.90:1 */
+  --muted: oklch(0.706 0.031 263.3);   /* 6.31:1 on --raised */
+  --faint: oklch(0.625 0.029 259.8);   /* 4.62:1 on --raised */
+  --rule: oklch(0.459 0.033 260.9);          /* 2.30:1 */
+  --rule-strong: oklch(0.524 0.035 250.2);   /* 3.06:1 */
+  --rule-faint: oklch(0.414 0.026 255.7);    /* 1.90:1 */
 }
 [data-theme="indigo"] {
   --accent: oklch(0.60 0.19 276);
@@ -114,14 +162,18 @@
 
 /* ---- true-black OLED family -------------------------------------------- */
 [data-theme="mono"], [data-theme="lime"], [data-theme="amber"] {
-  --bg: #000000;       --bg-grad-1: #0a0a0c; --bg-grad-2: #000000;
-  --surface: #141418;  --surface-2: #0e0e12; --surface-sunken: #060607;
+  --board: #000000;
+  --raised: #141418;  --well: #060607;
+  /* Foreground for anything filled with --ink (toast, tooltip, arithmetic
+     preview). Split from --raised so it can move without silently turning
+     these chips dark-on-dark. */
+  --on-ink: #141418;
   --ink: #f4f4f7;      --ink-2: #bdbdc6;
-  --muted: oklch(0.678 0.016 285.9);   /* 6.31:1 on --surface */
-  --faint: oklch(0.599 0.015 285.8);   /* 4.62:1 on --surface */
-  --border: oklch(0.434 0.016 285.3);        /* 2.30:1 */
-  --border-strong: oklch(0.500 0.019 285.3); /* 3.05:1 */
-  --hairline: oklch(0.389 0.010 285.6);      /* 1.90:1 */
+  --muted: oklch(0.678 0.016 285.9);   /* 6.31:1 on --raised */
+  --faint: oklch(0.599 0.015 285.8);   /* 4.62:1 on --raised */
+  --rule: oklch(0.434 0.016 285.3);          /* 2.30:1 */
+  --rule-strong: oklch(0.500 0.019 285.3);   /* 3.05:1 */
+  --rule-faint: oklch(0.389 0.010 285.6);    /* 1.90:1 */
 }
 [data-theme="mono"] {
   --accent: oklch(0.74 0.025 258);
@@ -141,14 +193,18 @@
 
 /* ---- neutral charcoal family ------------------------------------------- */
 [data-theme="rose"], [data-theme="sky"] {
-  --bg: #131316;       --bg-grad-1: #17171b; --bg-grad-2: #0f0f12;
-  --surface: #212128;  --surface-2: #1a1a20; --surface-sunken: #121215;
+  --board: #131316;
+  --raised: #212128;  --well: #121215;
+  /* Foreground for anything filled with --ink (toast, tooltip, arithmetic
+     preview). Split from --raised so it can move without silently turning
+     these chips dark-on-dark. */
+  --on-ink: #212128;
   --ink: #eeeef1;      --ink-2: #b8b8c0;
-  --muted: oklch(0.714 0.015 286);     /* 6.29:1 on --surface */
-  --faint: oklch(0.633 0.014 285.8);   /* 4.61:1 on --surface */
-  --border: oklch(0.467 0.023 285.1);        /* 2.30:1 */
-  --border-strong: oklch(0.533 0.024 285.2); /* 3.05:1 */
-  --hairline: oklch(0.421 0.006 286);        /* 1.90:1 */
+  --muted: oklch(0.714 0.015 286);     /* 6.29:1 on --raised */
+  --faint: oklch(0.633 0.014 285.8);   /* 4.61:1 on --raised */
+  --rule: oklch(0.467 0.023 285.1);          /* 2.30:1 */
+  --rule-strong: oklch(0.533 0.024 285.2);   /* 3.05:1 */
+  --rule-faint: oklch(0.421 0.006 286);      /* 1.90:1 */
 }
 [data-theme="rose"] {
   --accent: oklch(0.66 0.20 12);
@@ -163,14 +219,18 @@
 
 /* ---- deep navy / ocean family ------------------------------------------ */
 [data-theme="ocean"], [data-theme="teal"] {
-  --bg: #0a0f1e;       --bg-grad-1: #0e1426; --bg-grad-2: #070b16;
-  --surface: #162034;  --surface-2: #111a2c; --surface-sunken: #0a0f1e;
+  --board: #0a0f1e;
+  --raised: #162034;  --well: #0a0f1e;
+  /* Foreground for anything filled with --ink (toast, tooltip, arithmetic
+     preview). Split from --raised so it can move without silently turning
+     these chips dark-on-dark. */
+  --on-ink: #162034;
   --ink: #e7ecf7;      --ink-2: #afb9d0;
-  --muted: oklch(0.709 0.044 264.9);   /* 6.29:1 on --surface */
-  --faint: oklch(0.629 0.043 264.8);   /* 4.62:1 on --surface */
-  --border: oklch(0.462 0.047 260.9);        /* 2.30:1 */
-  --border-strong: oklch(0.528 0.062 262.5); /* 3.05:1 */
-  --hairline: oklch(0.418 0.048 263.4);      /* 1.90:1 */
+  --muted: oklch(0.709 0.044 264.9);   /* 6.29:1 on --raised */
+  --faint: oklch(0.629 0.043 264.8);   /* 4.62:1 on --raised */
+  --rule: oklch(0.462 0.047 260.9);          /* 2.30:1 */
+  --rule-strong: oklch(0.528 0.062 262.5);   /* 3.05:1 */
+  --rule-faint: oklch(0.418 0.048 263.4);    /* 1.90:1 */
 }
 [data-theme="ocean"] {
   --accent: oklch(0.64 0.18 250);
@@ -185,14 +245,18 @@
 
 /* ---- warm charcoal family ---------------------------------------------- */
 [data-theme="sunset"] {
-  --bg: #15110f;       --bg-grad-1: #191411; --bg-grad-2: #100c0a;
-  --surface: #241e18;  --surface-2: #1c1712; --surface-sunken: #130f0c;
+  --board: #15110f;
+  --raised: #241e18;  --well: #130f0c;
+  /* Foreground for anything filled with --ink (toast, tooltip, arithmetic
+     preview). Split from --raised so it can move without silently turning
+     these chips dark-on-dark. */
+  --on-ink: #241e18;
   --ink: #f1ebe4;      --ink-2: #c4bab0;
-  --muted: oklch(0.706 0.022 69.8);    /* 6.29:1 on --surface */
-  --faint: oklch(0.626 0.020 70.3);    /* 4.62:1 on --surface */
-  --border: oklch(0.459 0.018 67.1);        /* 2.30:1 */
-  --border-strong: oklch(0.526 0.023 64.3); /* 3.06:1 */
-  --hairline: oklch(0.415 0.019 66.8);      /* 1.90:1 */
+  --muted: oklch(0.706 0.022 69.8);    /* 6.29:1 on --raised */
+  --faint: oklch(0.626 0.020 70.3);    /* 4.62:1 on --raised */
+  --rule: oklch(0.459 0.018 67.1);          /* 2.30:1 */
+  --rule-strong: oklch(0.526 0.023 64.3);   /* 3.06:1 */
+  --rule-faint: oklch(0.415 0.019 66.8);    /* 1.90:1 */
   --accent: oklch(0.70 0.17 38);
   --accent-btn: oklch(0.580 0.17 38); /* white ink: 4.62:1 */
   --accent-soft: oklch(0.32 0.09 38); --accent-ink: oklch(0.84 0.14 38);
@@ -203,7 +267,7 @@ html, body { height: 100%; }
 body {
   margin: 0;
   font-family: var(--font-sans);
-  background: var(--bg);
+  background: var(--board);
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -214,7 +278,6 @@ button { font-family: inherit; cursor: pointer; }
 input { font-family: inherit; }
 ::selection { background: color-mix(in srgb, var(--accent) 32%, transparent); color: var(--ink); }
 
-.tnum { font-variant-numeric: tabular-nums; }
 .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
 /* ============================================================
@@ -224,17 +287,14 @@ input { font-family: inherit; }
   height: 100%;
   display: grid;
   grid-template-columns: var(--sidebar-w) 1fr;
-  background:
-    radial-gradient(900px 520px at 80% -12%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 62%),
-    radial-gradient(1200px 700px at 78% -10%, var(--bg-grad-1), transparent 60%),
-    linear-gradient(180deg, var(--bg-grad-1), var(--bg-grad-2));
+  background: var(--board);
   overflow: hidden;
 }
 
 /* Sidebar */
 .sidebar {
-  border-right: 1px solid var(--border-strong);
-  background: linear-gradient(180deg, var(--surface-2), var(--bg));
+  border-right: 1px solid var(--rule-strong);
+  background: var(--board);
   padding: 22px 16px;
   display: flex;
   flex-direction: column;
@@ -259,8 +319,8 @@ input { font-family: inherit; }
   border: 1px solid transparent; background: none; width: 100%; text-align: left;
   transition: background .14s, color .14s, border-color .14s;
 }
-.nav-item:hover { background: var(--surface-sunken); color: var(--ink); }
-.nav-item.active { background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); border: 1px solid var(--border-strong); }
+.nav-item:hover { background: var(--well); color: var(--ink); }
+.nav-item.active { background: var(--raised); color: var(--ink); box-shadow: var(--shadow-sm); border: 1px solid var(--rule-strong); }
 .nav-item.active svg { color: var(--accent-ink); }
 .nav-item svg { color: var(--muted); flex: none; }
 
@@ -277,8 +337,8 @@ input { font-family: inherit; }
 /* Update notice, at the foot of the sidebar above the household list */
 .update-banner {
   margin-bottom: 6px; padding: 11px 12px;
-  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
-  background: var(--surface); box-shadow: var(--shadow-sm);
+  border: 1px solid var(--rule-strong); border-radius: var(--radius-sm);
+  background: var(--raised); box-shadow: var(--shadow-sm);
   animation: pop .2s ease;
 }
 .update-banner-line {
@@ -296,7 +356,7 @@ input { font-family: inherit; }
 .update-banner-track {
   position: relative; contain: layout paint;
   height: 4px; margin-top: 9px; border-radius: 999px;
-  background: var(--border); overflow: hidden;
+  background: var(--rule); overflow: hidden;
 }
 .update-banner-bar {
   position: absolute; top: 0; bottom: 0; left: 0; width: 100%;
@@ -319,11 +379,11 @@ input { font-family: inherit; }
 .month-nav { display: flex; align-items: center; gap: 14px; }
 .month-step {
   width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
-  background: var(--surface); border: 1px solid var(--border-strong); color: var(--ink-2);
+  background: var(--raised); border: 1px solid var(--rule-strong); color: var(--ink-2);
   box-shadow: var(--shadow-sm);
   transition: color .14s, border-color .14s, box-shadow .14s, transform .14s;
 }
-.month-step:hover:not(:disabled) { color: var(--ink); border-color: color-mix(in srgb, var(--accent) 45%, var(--border-strong)); transform: translateY(-1px); }
+.month-step:hover:not(:disabled) { color: var(--ink); border-color: color-mix(in srgb, var(--accent) 45%, var(--rule-strong)); transform: translateY(-1px); }
 .month-step:disabled { opacity: .4; cursor: default; }
 .month-title { display: flex; flex-direction: column; line-height: 1; }
 .month-title .yr { font-size: 12.5px; color: var(--muted); letter-spacing: 0.06em; margin-bottom: 4px; font-weight: 500; }
@@ -331,18 +391,18 @@ input { font-family: inherit; }
 .page-title { font-size: 30px; font-weight: 600; letter-spacing: -0.025em; }
 .page-sub { color: var(--muted); font-size: 14px; margin-top: 4px; }
 
-/* Buttons. The resting border is --border-strong, not --border: a secondary
+/* Buttons. The resting border is --rule-strong, not --rule: a secondary
    button's fill is only 1.17:1 against the page background, so the border is
    the whole of what says "this is a control", and 1.4.11 asks 3:1 of it.
    Hover then moves to an accent-tinted edge, matching .wallet-btn. */
 .btn {
   display: inline-flex; align-items: center; gap: 7px; justify-content: center;
   padding: 9px 15px; border-radius: var(--radius-sm); font-size: 13.5px; font-weight: 500;
-  border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink);
+  border: 1px solid var(--rule-strong); background: var(--raised); color: var(--ink);
   box-shadow: var(--shadow-sm);
   transition: color .14s, background-color .14s, border-color .14s, box-shadow .14s, transform .14s;
 }
-.btn:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border-strong)); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.btn:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--rule-strong)); transform: translateY(-1px); box-shadow: var(--shadow-md); }
 .btn:active { transform: translateY(0); }
 /* Flat, not a gradient: the light end of the old gradient dropped the label
    under AA in six of the twelve themes. Depth comes from the inset highlight
@@ -350,16 +410,16 @@ input { font-family: inherit; }
 .btn-primary { background: var(--accent-btn); color: var(--on-accent); border-color: transparent; box-shadow: var(--glow-sm), inset 0 1px 0 color-mix(in srgb, #fff 18%, transparent); font-weight: 600; }
 .btn-primary:hover { box-shadow: var(--glow-md), inset 0 1px 0 color-mix(in srgb, #fff 26%, transparent); }
 .btn-ghost { background: transparent; border-color: transparent; box-shadow: none; color: var(--ink-2); }
-.btn-ghost:hover { background: var(--surface-sunken); box-shadow: none; color: var(--ink); }
+.btn-ghost:hover { background: var(--well); box-shadow: none; color: var(--ink); }
 .btn-sm { padding: 6px 10px; font-size: 12.5px; }
-.btn-danger { color: var(--neg-ink); }
-.btn-danger:hover { background: var(--neg-soft); border-color: transparent; }
+.btn-danger { color: var(--breach-ink); }
+.btn-danger:hover { background: var(--breach-soft); border-color: transparent; }
 .icon-btn {
   width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center;
   border: 1px solid transparent; background: transparent; color: var(--muted);
   transition: background-color .14s, color .14s, border-color .14s;
 }
-.icon-btn:hover { background: var(--surface-sunken); color: var(--ink); }
+.icon-btn:hover { background: var(--well); color: var(--ink); }
 .icon-btn.subtle { color: var(--faint); }
 /* Only for the item row's stacked delete/move pair: at the default 30px the
    two buttons plus their gap (62px) out-measure the name+account column
@@ -368,15 +428,30 @@ input { font-family: inherit; }
 .icon-btn.compact { width: 26px; height: 26px; }
 
 /* Cards */
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+/* Two recipes, not one. .panel is flat furniture on the board: lists,
+   tables, forms, empty states. .raised is the single lifted object on a
+   screen, and on Month Budget that is the group envelope. If everything is
+   raised, nothing is. */
+.panel {
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+}
+.raised {
+  background: var(--raised);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow .14s;
+}
+.raised:hover { box-shadow: var(--shadow-md); }
 .section-head { display: flex; align-items: center; justify-content: space-between; margin: 30px 2px 14px; }
 .section-head h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); font-weight: 600; margin: 0; }
 
 /* Pills / tags */
-.pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.pill-pos { background: var(--pos-soft); color: var(--pos-ink); }
-.pill-neg { background: var(--neg-soft); color: var(--neg-ink); }
-.pill-neutral { background: var(--surface-sunken); color: var(--ink-2); }
+.pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
+.pill-neutral { background: var(--well); color: var(--ink-2); }
+.pill-breach { background: var(--breach-soft); color: var(--breach-ink); }
 
 /* Inline editable money and text fields. These deliberately keep :focus rather
    than :focus-visible. They are borderless and look like plain text until they
@@ -392,15 +467,15 @@ input { font-family: inherit; }
   font-size: 14px;
   transition: background-color .12s, border-color .12s, box-shadow .12s;
 }
-.minput:hover { background: var(--surface-sunken); border-color: var(--border); }
-.minput:focus { outline: none; background: var(--surface); border-color: var(--accent); box-shadow: var(--ring); }
+.minput:hover { background: var(--well); border-color: var(--rule); }
+.minput:focus { outline: none; background: var(--raised); border-color: var(--accent); box-shadow: var(--ring); }
 .tinput {
   border: 1px solid transparent; background: transparent; color: var(--ink);
   border-radius: 8px; padding: 5px 8px; font-size: 14px; width: 100%; font-weight: 500;
   transition: background-color .12s, border-color .12s, box-shadow .12s;
 }
-.tinput:hover { background: var(--surface-sunken); border-color: var(--border); }
-.tinput:focus { outline: none; background: var(--surface); border-color: var(--accent); box-shadow: var(--ring); }
+.tinput:hover { background: var(--well); border-color: var(--rule); }
+.tinput:focus { outline: none; background: var(--raised); border-color: var(--accent); box-shadow: var(--ring); }
 
 /* Keyboard focus must be visible everywhere, not only on the two input classes
    that happened to style it. Text fields keep their own ring treatment above:
@@ -420,8 +495,8 @@ input { font-family: inherit; }
    to the properties that leaves alone. The outline is inset because the handle
    sits flush against the left edge of its row. */
 .drag-handle { background: transparent; border-radius: 8px; transition: background-color .12s; }
-.drag-handle:hover { background: var(--surface-sunken); }
-.drag-handle:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; background: var(--surface-sunken); }
+.drag-handle:hover { background: var(--well); }
+.drag-handle:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; background: var(--well); }
 
 /* The copy / start-empty option cards in the new-month dialog. Their fill and
    border are inline (they carry the selected state), so hover lifts them with
@@ -436,18 +511,18 @@ input { font-family: inherit; }
 .acct-chip {
   position: relative; display: inline-flex; align-items: center; gap: 6px;
   padding: 3px 8px 3px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 500;
-  color: var(--ink-2); background: var(--surface-sunken); border: 1px solid var(--border);
+  color: var(--ink-2); background: var(--well); border: 1px solid var(--rule);
   max-width: 100%; cursor: pointer;
   transition: background-color .12s, border-color .12s, color .12s, box-shadow .12s;
 }
-.acct-chip:hover { border-color: var(--border-strong); color: var(--ink); }
+.acct-chip:hover { border-color: var(--rule-strong); color: var(--ink); }
 /* The chip's real focus target is the invisible select stretched across it, so
    the generic :focus-visible outline was being painted on an opacity: 0 box and
    every funding-account chip in the budget was keyboard-reachable with nothing
    to show for it. The ring goes on the chip instead, and the select's own
    outline is dropped so there is exactly one indicator. */
 .acct-chip:focus-within { box-shadow: var(--ring); border-color: var(--accent); color: var(--ink); }
-.acct-chip-empty { color: var(--faint); background: transparent; border: 1px dashed var(--border-strong); }
+.acct-chip-empty { color: var(--faint); background: transparent; border: 1px dashed var(--rule-strong); }
 .acct-chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px; }
 .acct-chip select {
   position: absolute; inset: 0; width: 100%; height: 100%;
@@ -460,7 +535,7 @@ input { font-family: inherit; }
 .move-menu {
   position: fixed; z-index: 65; min-width: 190px; max-width: 260px; max-height: 280px;
   overflow-y: auto; padding: 4px;
-  background: var(--surface); border: 1px solid var(--border);
+  background: var(--raised); border: 1px solid var(--rule);
   border-radius: var(--radius-sm); box-shadow: var(--shadow-md);
 }
 .move-menu-label {
@@ -474,12 +549,12 @@ input { font-family: inherit; }
 }
 /* Hover and keyboard focus look the same: this menu is walked with arrow keys
    as often as it is clicked. */
-.move-menu-item:hover, .move-menu-item:focus-visible { background: var(--surface-sunken); }
+.move-menu-item:hover, .move-menu-item:focus-visible { background: var(--well); }
 
 /* Modal */
 .modal-veil { position: fixed; inset: 0; background: rgba(0,0,0,0.62); backdrop-filter: blur(4px); display: grid; place-items: center; z-index: 60; animation: veil .18s ease; }
 @keyframes veil { from { opacity: 0; } }
-.modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); width: 460px; max-width: calc(100vw - 40px); padding: 26px; animation: pop .22s; }
+.modal { background: var(--raised); border: 1px solid var(--rule); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); width: 460px; max-width: calc(100vw - 40px); padding: 26px; animation: pop .22s; }
 /* The curve lives on the keyframe rather than on each caller, so the toast in
    main.jsx inherits it through its own inline animation: a timing function
    declared on a keyframe governs the segment starting there and overrides the
@@ -494,7 +569,7 @@ input { font-family: inherit; }
 .modal p { margin: 0 0 18px; color: var(--muted); font-size: 14px; line-height: 1.5; }
 
 /* misc */
-.divider { height: 1px; background: var(--border); border: none; margin: 0; }
+.divider { height: 1px; background: var(--rule); border: none; margin: 0; }
 /* Hidden row actions stay unreachable until the row is engaged: opacity alone
    left a delete button focusable while invisible. Focus reveals them too, so
    keyboard users can reach what the mouse reveals on hover. */
@@ -505,7 +580,7 @@ input { font-family: inherit; }
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
   padding: 44px 20px; text-align: center; color: var(--muted);
 }
-.empty-icon { width: 46px; height: 46px; border-radius: var(--radius); background: var(--surface-sunken); display: grid; place-items: center; color: var(--faint); }
+.empty-icon { width: 46px; height: 46px; border-radius: var(--radius); background: var(--well); display: grid; place-items: center; color: var(--faint); }
 
 .fade-in { animation: fade .26s ease; }
 @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -514,14 +589,14 @@ input { font-family: inherit; }
 .drawer-veil { position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(3px); z-index: 70; animation: veil .2s ease; }
 .drawer {
   position: fixed; top: 0; right: 0; height: 100%; width: 480px; max-width: calc(100vw - 40px);
-  background: var(--surface); border-left: 1px solid var(--border-strong); box-shadow: var(--shadow-lg);
+  background: var(--raised); border-left: 1px solid var(--rule-strong); box-shadow: var(--shadow-lg);
   z-index: 71; display: flex; flex-direction: column; animation: slidein .26s cubic-bezier(.2,.8,.2,1);
 }
 @keyframes slidein { from { transform: translateX(100%); } }
-.drawer-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 20px 22px 16px; border-bottom: 1px solid var(--border); }
+.drawer-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 20px 22px 16px; border-bottom: 1px solid var(--rule); }
 .drawer-body { overflow-y: auto; padding: 18px 22px 30px; flex: 1; }
 .drawer-body::-webkit-scrollbar, .scroll-list::-webkit-scrollbar { width: 10px; }
-.drawer-body::-webkit-scrollbar-thumb, .scroll-list::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 99px; border: 3px solid var(--surface); }
+.drawer-body::-webkit-scrollbar-thumb, .scroll-list::-webkit-scrollbar-thumb { background: var(--rule-strong); border-radius: 99px; border: 3px solid var(--raised); }
 .drawer-body::-webkit-scrollbar-track, .scroll-list::-webkit-scrollbar-track { background: transparent; }
 
 /* "By account" row in the Wallet drawer - expands to its allocations */
@@ -532,14 +607,14 @@ input { font-family: inherit; }
 /* wallet trigger button - accent-tinted hero action */
 .wallet-btn {
   gap: 8px; font-weight: 600;
-  background: color-mix(in srgb, var(--accent) 13%, var(--surface));
-  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  background: color-mix(in srgb, var(--accent) 13%, var(--raised));
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--rule));
   color: var(--ink);
   box-shadow: var(--shadow-sm), var(--glow-sm);
 }
 .wallet-btn:hover {
-  background: color-mix(in srgb, var(--accent) 19%, var(--surface));
-  border-color: color-mix(in srgb, var(--accent) 60%, var(--border));
+  background: color-mix(in srgb, var(--accent) 19%, var(--raised));
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--rule));
   box-shadow: var(--shadow-md), var(--glow-md);
 }
 .wallet-btn svg { color: var(--accent-ink); }
@@ -547,18 +622,18 @@ input { font-family: inherit; }
   font-family: var(--font-mono); font-weight: 700; font-variant-numeric: tabular-nums;
   color: var(--accent-ink);
   padding-left: 8px; margin-left: 2px;
-  border-left: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  border-left: 1px solid color-mix(in srgb, var(--accent) 35%, var(--rule));
 }
-.wallet-btn .wallet-warn { width: 7px; height: 7px; border-radius: 99px; background: var(--neg); flex: none; box-shadow: 0 0 0 3px var(--neg-soft); }
+.wallet-btn .wallet-warn { width: 7px; height: 7px; border-radius: 99px; background: var(--breach); flex: none; box-shadow: 0 0 0 3px var(--breach-soft); }
 
 /* new month - subtle accent edge */
 .new-month-btn {
   font-weight: 600;
-  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--rule));
 }
 .new-month-btn:hover {
-  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
-  border-color: color-mix(in srgb, var(--accent) 48%, var(--border-strong));
+  background: color-mix(in srgb, var(--accent) 9%, var(--raised));
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--rule-strong));
 }
 .new-month-btn svg { color: var(--accent-ink); }
 
@@ -620,7 +695,7 @@ input { font-family: inherit; }
 
 /* scrollbar. Height as well as width now, because .main can scroll sideways. */
 .main::-webkit-scrollbar { width: 12px; height: 12px; }
-.main::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 99px; border: 3px solid var(--bg); }
+.main::-webkit-scrollbar-thumb { background: var(--rule-strong); border-radius: 99px; border: 3px solid var(--board); }
 .main::-webkit-scrollbar-track { background: transparent; }
 
 /* keycap, for the Shortcuts section in Settings */
@@ -628,8 +703,8 @@ kbd {
   display: inline-block; min-width: 22px; text-align: center;
   font-family: var(--font-mono); font-size: 11.5px; line-height: 1.5;
   padding: 2px 7px; border-radius: 6px;
-  background: var(--surface-sunken); color: var(--ink-2);
-  border: 1px solid var(--border-strong); border-bottom-width: 2px;
+  background: var(--well); color: var(--ink-2);
+  border: 1px solid var(--rule-strong); border-bottom-width: 2px;
   white-space: nowrap;
 }
 
@@ -640,7 +715,7 @@ kbd {
   position: fixed; top: 16px; right: 30px; z-index: 90;
   display: flex; align-items: center; gap: 6px;
   padding: 7px 8px 7px 12px;
-  background: var(--surface-2); border: 1px solid var(--border-strong);
+  background: var(--board); border: 1px solid var(--rule-strong);
   border-radius: var(--radius); box-shadow: var(--shadow-lg);
   animation: pop .16s;
 }
@@ -657,7 +732,7 @@ kbd {
      resizing the whole bar as you type. 64px only covered single digits. */
   min-width: 92px; text-align: right; flex: none; white-space: nowrap;
 }
-.find-count-none { color: var(--neg-ink); }
+.find-count-none { color: var(--breach-ink); }
 
 /* Text-node matches. ::highlight() paints without touching the DOM, so React
    keeps ownership of the tree. Only a few properties are honoured here.
@@ -672,7 +747,7 @@ kbd {
    browser's own find already uses, so it reads as "here" instantly. The
    non-current wash stays accent-tinted (that is where the theme belongs) and
    goes from 34% to 40%, which lifts the tint against plain text while keeping
-   --ink on it at 5.17:1 in the worst case, cyan on --surface. */
+   --ink on it at 5.17:1 in the worst case, cyan on --raised. */
 ::highlight(find-match) { background-color: color-mix(in srgb, var(--accent) 40%, transparent); color: var(--ink); }
 ::highlight(find-current) { background-color: #ffd84d; color: #161006; }
 
@@ -680,3 +755,46 @@ kbd {
    The current one borrows the same amber so "current" means one thing. */
 .find-hit { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent) !important; }
 .find-hit-current { box-shadow: 0 0 0 2px #ffd84d, 0 0 0 5px color-mix(in srgb, #ffd84d 26%, transparent) !important; }
+
+/* ---- month bar -----------------------------------------------------------
+   Full-bleed and structural: it sits directly on the board, not inside a
+   .panel or a .raised, because it is neither flat furniture nor the one
+   lifted object on the screen. */
+.bar-wrap { position: relative; }
+.bar-track {
+  position: relative;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--well);
+  overflow: hidden;
+  /* Isolates the region transitions (left/width, see MonthBar.jsx) from the
+     rest of the page, same reasoning as .update-banner-track's transform
+     transition above. */
+  contain: layout paint;
+}
+.bar-region { position: absolute; top: 0; bottom: 0; }
+/* The income mark is two elements, not one, because .bar-track has to clip
+   (overflow: hidden keeps fills inside the rounded corners) and the mark
+   has to be visible against --board, and those two requirements cannot both
+   be met by one element inside the track.
+   .bar-mark-rule stays inside, a 1px line crossing the fills at whatever
+   contrast that fill happens to have against --rule-strong: as low as
+   1.01:1 in ocean. That is covered, not missed: it carries precision, not
+   visibility.
+   .bar-mark-tick is the sibling in .bar-wrap that carries visibility: two
+   4px ticks, one above and one below the track, landing on --board where
+   --rule-strong clears 3:1 in all 12 themes (worst measured: 3.47:1). The
+   middle of its box is left transparent so it does not paint a second,
+   redundant line over the rule already inside the track. */
+.bar-mark-rule {
+  position: absolute; top: 0; bottom: 0; width: 1px;
+  background: var(--rule-strong);
+}
+.bar-mark-tick { position: absolute; top: -4px; bottom: -4px; width: 1px; }
+.bar-mark-tick::before, .bar-mark-tick::after {
+  content: "";
+  position: absolute; left: 0; width: 1px; height: 4px;
+  background: var(--rule-strong);
+}
+.bar-mark-tick::before { top: 0; }
+.bar-mark-tick::after { bottom: 0; }

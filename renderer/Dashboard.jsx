@@ -39,7 +39,7 @@ function DashboardScreen({ currency, onOpenMonth }) {
       </div>
 
       {loadError && (
-        <div role="alert" style={{ display: "flex", gap: 9, alignItems: "flex-start", background: "var(--neg-soft)", color: "var(--neg-ink)", padding: "11px 14px", borderRadius: 10, fontSize: 13, lineHeight: 1.45, marginBottom: 16 }}>
+        <div role="alert" style={{ display: "flex", gap: 9, alignItems: "flex-start", background: "var(--breach-soft)", color: "var(--breach-ink)", padding: "11px 14px", borderRadius: 10, fontSize: 13, lineHeight: 1.45, marginBottom: 16 }}>
           <Icons.alert size={16} style={{ flex: "none", marginTop: 1 }} />
           <span>Your months couldn't be read, so this overview is empty rather than complete. {loadError}</span>
         </div>
@@ -49,7 +49,7 @@ function DashboardScreen({ currency, onOpenMonth }) {
       <HeadlineStats allSeries={allSeries} series={series} currency={currency} />
 
       {!hasAnyData ? (
-        <div className="card empty" style={{ marginTop: 16 }}>
+        <div className="panel empty" style={{ marginTop: 16 }}>
           <div className="empty-icon"><Icons.monitor size={22} /></div>
           <div style={{ fontWeight: 600, color: "var(--ink-2)" }}>Your overview will appear here</div>
           <div style={{ fontSize: 13, maxWidth: 340 }}>Enter a month's actual spending and savings, and the dashboard will start charting your trends and habits over time.</div>

@@ -17,8 +17,8 @@ function abbrMoney(v, c = "$") {
 }
 
 /* shared axis styling so every chart matches the dark theme */
-const axisProps = { stroke: "var(--hairline)", tick: { fill: "var(--faint)", fontSize: 11 }, tickLine: false };
-const gridProps = { stroke: "var(--hairline)", strokeDasharray: "0", vertical: false };
+const axisProps = { stroke: "var(--rule-faint)", tick: { fill: "var(--faint)", fontSize: 11 }, tickLine: false };
+const gridProps = { stroke: "var(--rule-faint)", strokeDasharray: "0", vertical: false };
 
 /* themed tooltip - mirrors the dark var(--ink) box from Charts.jsx.
    Recharts injects { active, payload, label }; extra props are passed by us. */
@@ -31,7 +31,7 @@ function DashTooltip(props) {
     : payload.map(p => ({ label: p.name, color: p.color || p.fill, value: fmt(currency, p.value || 0, { cents: false }) }));
   if (hideZero) list = list.filter(r => r.raw == null ? true : r.raw > 0);
   return (
-    <div style={{ background: "var(--ink)", color: "var(--surface)", padding: "7px 10px", borderRadius: 8, fontSize: 12, boxShadow: "var(--shadow-md)", whiteSpace: "nowrap", pointerEvents: "none" }}>
+    <div style={{ background: "var(--ink)", color: "var(--on-ink)", padding: "7px 10px", borderRadius: 8, fontSize: 12, boxShadow: "var(--shadow-md)", whiteSpace: "nowrap", pointerEvents: "none" }}>
       <div style={{ fontWeight: 600, marginBottom: list.length ? 4 : 0 }}>{title}</div>
       {list.map((r, i) => (
         <div key={i} style={{ display: "flex", alignItems: "center", gap: 7, opacity: 0.95, fontVariantNumeric: "tabular-nums" }}>
@@ -139,7 +139,7 @@ function HeadlineStats({ allSeries, series, currency }) {
       )}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
         {cards.map(c => (
-          <div key={c.label} style={{ padding: "14px 16px", borderRadius: 12, background: "var(--surface-2)", border: "1px solid var(--hairline)" }}>
+          <div key={c.label} style={{ padding: "14px 16px", borderRadius: 12, background: "var(--board)", border: "1px solid var(--rule-faint)" }}>
             <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>{c.label}</div>
             <div className="mono" style={{ fontSize: 22, fontWeight: 500 }}>{c.value}</div>
             <div style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 4 }}>{c.sub}</div>
@@ -171,16 +171,16 @@ function SavingsChart({ series, currency, onOpenMonth }) {
             <CartesianGrid {...gridProps} />
             <XAxis dataKey="name" {...axisFor(onOpenMonth)} />
             <YAxis {...axisProps} tickFormatter={(v) => abbrMoney(v, currency)} width={PLOT_LEFT} />
-            <Tooltip cursor={{ fill: "var(--surface-2)", opacity: 0.4 }} content={
+            <Tooltip cursor={{ fill: "var(--well)", opacity: 0.4 }} content={
               <DashTooltip currency={currency} rows={(p) => {
                 const d = p[0] && p[0].payload;
                 return [
-                  { label: "Saved", color: "var(--pos)", value: fmt(currency, d.saved, { cents: false }) },
+                  { label: "Saved", color: GROUP_PALETTE[0], value: fmt(currency, d.saved, { cents: false }) },
                   { label: "Rate", value: d.rateLabel },
                 ];
               }} />
             } />
-            <Bar dataKey="saved" name="Saved" fill="var(--pos)" radius={[4, 4, 0, 0]}>
+            <Bar dataKey="saved" name="Saved" fill={GROUP_PALETTE[0]} radius={[4, 4, 0, 0]}>
               <LabelList dataKey="rateLabel" position="top" fill="var(--faint)" fontSize={10.5} />
             </Bar>
           </BarChart>
@@ -260,9 +260,13 @@ function BudgetAccuracyChart({ series, currency, onOpenMonth }) {
                   <CartesianGrid {...gridProps} />
                   <XAxis dataKey="name" {...axisFor(onOpenMonth)} />
                   <YAxis {...axisProps} tickFormatter={(v) => abbrMoney(v, currency)} width={PLOT_LEFT} />
-                  <Tooltip cursor={{ fill: "var(--surface-2)", opacity: 0.4 }} content={<DashTooltip currency={currency} />} />
+                  <Tooltip cursor={{ fill: "var(--well)", opacity: 0.4 }} content={<DashTooltip currency={currency} />} />
+                  {/* GROUP_PALETTE[1], not [2]: the blue at index 2 sits too close to
+                      --accent in the sky and ocean themes, and this chart has no
+                      legend, so the tooltip name is the only thing telling the two
+                      bars apart. */}
                   <Bar dataKey="alloc" name="Allocated" fill="var(--accent)" radius={[3, 3, 0, 0]} />
-                  <Bar dataKey="actual" name="Actual" fill="var(--warn)" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="actual" name="Actual" fill={GROUP_PALETTE[1]} radius={[3, 3, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </ChartBody>
@@ -274,15 +278,15 @@ function BudgetAccuracyChart({ series, currency, onOpenMonth }) {
         <div style={{ fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--faint)", fontWeight: 600, marginBottom: 8 }}>Chronically over budget</div>
         {offenders.length === 0 ? (
           <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--muted)" }}>
-            <Icons.check size={14} style={{ color: "var(--pos-ink)", flex: "none" }} /> Nothing has run over budget.
+            <Icons.check size={14} style={{ color: "var(--accent)", flex: "none" }} /> Nothing has run over budget.
           </div>
         ) : offenders.map(o => (
-          <div key={o.k} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 0", borderBottom: "1px solid var(--hairline)" }}>
+          <div key={o.k} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 0", borderBottom: "1px solid var(--rule-faint)" }}>
             <div style={{ overflow: "hidden" }}>
               <div style={{ fontSize: 12.5, color: "var(--ink-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.k}</div>
               <div style={{ fontSize: 11, color: "var(--faint)" }}>over in {o.count} of {n} {n === 1 ? "month" : "months"} · avg {fmt(currency, o.avgOver, { cents: false })}</div>
             </div>
-            <span className="pill pill-neg" style={{ flex: "none" }}>{o.count}×</span>
+            <span className="pill pill-breach" style={{ flex: "none" }}>{o.count}×</span>
           </div>
         ))}
       </div>
@@ -318,9 +322,11 @@ function CategoryTrends({ series, currency }) {
       {rows.map(row => {
         const up = row.isNew ? true : row.pct > 0;
         const flat = !row.isNew && row.pct === 0;
-        const color = flat ? "var(--faint)" : up ? "var(--neg-ink)" : "var(--pos-ink)";
+        // A trend that moved is not by itself good or bad in this domain: only a
+        // genuine over-budget condition earns a hue, and this is just direction.
+        const color = flat ? "var(--faint)" : "var(--ink-2)";
         return (
-          <div key={row.g} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 0", borderBottom: "1px solid var(--hairline)" }}>
+          <div key={row.g} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 0", borderBottom: "1px solid var(--rule-faint)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}>
               <span style={{ fontSize: 13.5, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.g}</span>
               {row.isNew && <span className="pill pill-neutral" style={{ fontSize: 10, flex: "none" }}>new</span>}
@@ -377,17 +383,17 @@ function SpendingTiming({ series, currency }) {
           <CartesianGrid {...gridProps} />
           <XAxis dataKey="day" {...axisProps} interval={2} />
           <YAxis {...axisProps} tickFormatter={(v) => abbrMoney(v, currency)} width={PLOT_LEFT} />
-          <Tooltip cursor={{ fill: "var(--surface-2)", opacity: 0.4 }} content={
+          <Tooltip cursor={{ fill: "var(--well)", opacity: 0.4 }} content={
             <DashTooltip currency={currency} heading={(d) => `Day ${d}`} rows={(p) => {
               const d = p[0] && p[0].payload;
               return [
                 { label: "Avg spend", color: "var(--muted)", value: fmt(currency, d.avg, { cents: false }) },
-                { label: "Cumulative", color: "var(--pos)", value: fmt(currency, d.cum, { cents: false }) },
+                { label: "Cumulative", color: GROUP_PALETTE[6], value: fmt(currency, d.cum, { cents: false }) },
               ];
             }} />
           } />
           <Bar dataKey="avg" name="Avg spend" fill="var(--muted)" radius={[2, 2, 0, 0]} />
-          <Line type="monotone" dataKey="cum" name="Cumulative" stroke="var(--pos)" strokeWidth={2} dot={false} />
+          <Line type="monotone" dataKey="cum" name="Cumulative" stroke={GROUP_PALETTE[6]} strokeWidth={2} dot={false} />
         </ComposedChart>
       </ResponsiveContainer>
     </ChartBody>
