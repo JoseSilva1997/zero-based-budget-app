@@ -261,8 +261,12 @@ function BudgetAccuracyChart({ series, currency, onOpenMonth }) {
                   <XAxis dataKey="name" {...axisFor(onOpenMonth)} />
                   <YAxis {...axisProps} tickFormatter={(v) => abbrMoney(v, currency)} width={PLOT_LEFT} />
                   <Tooltip cursor={{ fill: "var(--well)", opacity: 0.4 }} content={<DashTooltip currency={currency} />} />
+                  {/* GROUP_PALETTE[1], not [2]: the blue at index 2 sits too close to
+                      --accent in the sky and ocean themes, and this chart has no
+                      legend, so the tooltip name is the only thing telling the two
+                      bars apart. */}
                   <Bar dataKey="alloc" name="Allocated" fill="var(--accent)" radius={[3, 3, 0, 0]} />
-                  <Bar dataKey="actual" name="Actual" fill={GROUP_PALETTE[2]} radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="actual" name="Actual" fill={GROUP_PALETTE[1]} radius={[3, 3, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </ChartBody>

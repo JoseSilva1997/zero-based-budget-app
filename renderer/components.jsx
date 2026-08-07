@@ -345,8 +345,10 @@ function MiniBar({ actual, allocated }) {
   const over = actual > allocated + 0.001;
   // Beside an item row a DiffPill says "over" in words, but in the wallet drawer
   // the bar stands alone, so it has to say it itself: a name for screen readers,
-  // and a hatch for anyone who can't tell the red fill from the green one. A bar
-  // that is over is always full, so the stripes never stretch out of shape.
+  // and a hatch for anyone who can't tell the breach red from the plain accent
+  // fill by colour alone, which matters more now that the fill is a per-theme
+  // accent rather than a fixed green. A bar that is over is always full, so the
+  // stripes never stretch out of shape.
   const share = allocated > 0 ? actual / allocated : (actual > 0 ? 1 : 0);
   const label = allocated > 0
     ? `${Math.round(share * 100)}% of the budget used${over ? ", over budget" : ""}`

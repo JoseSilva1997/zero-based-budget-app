@@ -9,8 +9,14 @@
   /* Semantic colour, re-cut to the domain. In zero-based budgeting an
      envelope spent exactly to plan IS the success, so "settled" gets no
      colour at all: it is the resting state. Only two states earn a hue.
-     --unsettled is the default nag, money that has no job yet. --breach is
-     over budget, and nothing else, ever. */
+     --unsettled is the default nag, money that has no job yet. --breach
+     carries two roles: the budget meaning "over budget", and the ordinary
+     red of an error affordance (invalid input, a failed load, a destructive
+     action) that has nothing to do with a budget state. One red for both is
+     deliberate: a second red would look identical and just be confusing.
+     What --breach may never mean again is under-spending or any other
+     settled state painted red or green, the mistake this token was cut to
+     undo. */
   --unsettled: oklch(0.80 0.15 85);
   --breach: oklch(0.63 0.20 27);
   --breach-soft: oklch(0.31 0.10 27);

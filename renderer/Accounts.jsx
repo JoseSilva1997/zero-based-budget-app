@@ -171,7 +171,12 @@ function AccountPanel({ mo, accounts, members, currency }) {
               const color = savingsAccount ? savingsAccount.color : "var(--muted)";
               return (
                 <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 15px", borderTop: i ? "1px solid var(--rule)" : "none" }}>
-                  <span style={{ width: 34, height: 34, borderRadius: 9, flex: "none", background: hexToSoft(savingsAccount ? savingsAccount.color : "#2dd4a8"), color, display: "grid", placeItems: "center" }}><Icons.plant size={17} /></span>
+                  {/* Neutral pairing to match the icon colour above: #96a1b4 is
+                      --muted resolved to a literal hex (hexToSoft only takes one,
+                      it can't read a CSS var), so a savings wallet with no account
+                      colour of its own gets a grey tint under a grey icon rather
+                      than the old green tint under a now-grey icon. */}
+                  <span style={{ width: 34, height: 34, borderRadius: 9, flex: "none", background: hexToSoft(savingsAccount ? savingsAccount.color : "#96a1b4"), color, display: "grid", placeItems: "center" }}><Icons.plant size={17} /></span>
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontWeight: 600, fontSize: 13.5 }}>{it.name}</div>
                     <div style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
