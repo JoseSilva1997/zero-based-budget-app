@@ -120,30 +120,43 @@ function MoveMenu({ anchorRef, groups, itemName, onPick, onClose }) {
     const top = below + m.height > window.innerHeight - 8 ? Math.max(8, a.top - 6 - m.height) : below;
     setPos({ top, left });
   }, [anchorRef]);
+  // Closing just unmounts the portal, and the DOM node that currently holds
+  // focus (an autoFocused or arrowed-to menu item) goes with it, dropping the
+  // keyboard/screen-reader user on <body> with no reachable position. Focus
+  // only comes back to the anchor when it was still inside the menu at the
+  // moment of closing: an outside click has, by then, usually already moved
+  // focus to whatever the user just clicked, and reclaiming it here would
+  // yank it back away from that control.
+  const closeRestoringFocus = () => {
+    if (anchorRef.current && ref.current && ref.current.contains(document.activeElement)) {
+      anchorRef.current.focus();
+    }
+    onClose();
+  };
   useEffect(() => {
     // The anchor is excluded so its own click toggles the menu shut once,
     // rather than closing here and reopening on the button's handler.
     const onPointerDown = (e) => {
       if (ref.current && ref.current.contains(e.target)) return;
       if (anchorRef.current && anchorRef.current.contains(e.target)) return;
-      onClose();
+      closeRestoringFocus();
     };
     // Fixed position cannot follow a scroll, so a scroll dismisses it.
     document.addEventListener("pointerdown", onPointerDown);
-    window.addEventListener("scroll", onClose, true);
+    window.addEventListener("scroll", closeRestoringFocus, true);
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
-      window.removeEventListener("scroll", onClose, true);
+      window.removeEventListener("scroll", closeRestoringFocus, true);
     };
   }, [anchorRef, onClose]);
   return createPortal(
     <div ref={ref} className="move-menu" role="menu" aria-label={`Move ${itemName} to another group`}
       style={{ top: pos.top, left: pos.left }}
-      onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } }}>
+      onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); closeRestoringFocus(); } }}>
       <div className="move-menu-label">Move to</div>
       {groups.map((g, i) => (
         <button key={g.id} type="button" role="menuitem" className="move-menu-item" autoFocus={i === 0}
-          onClick={() => { onPick(g.id); onClose(); }}>
+          onClick={() => { onPick(g.id); closeRestoringFocus(); }}>
           <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.name}</span>
           {g.isSavings && <Icons.plant size={13} style={{ flex: "none", color: "var(--pos)" }} />}
         </button>
