@@ -100,18 +100,10 @@ app.whenReady().then(async () => {
   check('over-allocated emits a beyond region', ro.some((x) => x.key === 'beyond'), JSON.stringify(ro));
   check('over-allocated has no gap', !ro.some((x) => x.key === 'gap'), JSON.stringify(ro));
 
-  // Critical semantic test: spending past income without allocation being past income.
-  // Allocation is still under income so overAllocated flag is false, but there is a beyond region.
-  const labelTest = barGeometry(4200, 3400, 4500);
-  check('spending past income with alloc under income: overAllocated false', labelTest.overAllocated === false);
-  check('spending past income with alloc under income: overspent true', labelTest.overspent === true);
-  const labelRegions = barRegions(labelTest);
-  check('spending past income shows a beyond region', labelRegions.some((x) => x.key === 'beyond'), JSON.stringify(labelRegions));
-
   // Zero-width regions are never emitted.
   check('no zero-width regions', barRegions(mid).every((x) => x.to - x.from > 0));
 
-  /* Test negative and NaN inputs for correctness of clamping and guard logic. */
+  /* Negative and NaN inputs: clamping and the finite guard. */
   const neg = barGeometry(-10, -5, 100);
   check('negative income is clamped to zero', near(neg.incomeX, 0));
   check('negative allocated is clamped to zero', near(neg.allocX, 0));
@@ -121,6 +113,31 @@ app.whenReady().then(async () => {
   check('NaN input treated as empty', nanTest.empty === true);
   check('NaN empty has zero scale', nanTest.scale === 0);
   check('NaN returns empty regions', barRegions(nanTest).length === 0);
+
+  /* --- The three pinned cases. Each one nails down a distinction a previous
+     round got wrong: a flag rewritten in terms of a capped region value
+     instead of the plan's own quantities. --- */
+
+  // income 4200, allocated 4500, actual 4600: both breaches are real, and
+  // overspent must read true even though the spending spills past income
+  // and gets folded into the beyond region.
+  const case1 = barGeometry(4200, 4500, 4600);
+  check('case 1: over-allocated', case1.overAllocated === true);
+  check('case 1: overspent', case1.overspent === true);
+
+  // income 4200, allocated 3400, actual 4500: the allocation never exceeded
+  // income, so overAllocated must stay false even though spending pushes a
+  // beyond region onto the track. overspent is true regardless.
+  const case2 = barGeometry(4200, 3400, 4500);
+  check('case 2: not over-allocated', case2.overAllocated === false);
+  check('case 2: overspent', case2.overspent === true);
+  check('case 2: has a beyond region', barRegions(case2).some((x) => x.key === 'beyond'), JSON.stringify(barRegions(case2)));
+
+  // income 100, allocated 100.001, actual 0: a tenth of a penny is under the
+  // half-penny tolerance, so neither the flag nor a beyond region should fire.
+  const case3 = barGeometry(100, 100.001, 0);
+  check('case 3: not over-allocated (under tolerance)', case3.overAllocated === false);
+  check('case 3: no beyond region painted', !barRegions(case3).some((x) => x.key === 'beyond'), JSON.stringify(barRegions(case3)));
 
   /* Property tests on pseudo-random triples using a seeded generator.
      These cover edge cases, epsilon boundaries, and exhaustive combinations
@@ -157,7 +174,28 @@ app.whenReady().then(async () => {
       continue;
     }
 
-    /* Check region list properties: ordered, contiguous, within bounds. */
+    /* The clamped money values the flags must answer to directly: not the
+       fractions, not the regions, just the plan's own quantities. This is
+       the property the suite was missing. The old suite only ever checked a
+       flag against a region built from the same formula as the flag, which
+       cannot catch a flag that is wrong in the first place. */
+    const inc = Math.max(income, 0);
+    const alloc = Math.max(allocated, 0);
+    const spentV = Math.max(actual, 0);
+    const expectedOverAllocated = alloc > inc + 0.005;
+    const expectedOverspent = spentV > alloc + 0.005;
+    if (g.overAllocated !== expectedOverAllocated) {
+      check(`prop ${i}: overAllocated disagrees with clamped money`, false,
+        `flag=${g.overAllocated}, expected=${expectedOverAllocated} (inc=${inc}, alloc=${alloc})`);
+      continue;
+    }
+    if (g.overspent !== expectedOverspent) {
+      check(`prop ${i}: overspent disagrees with clamped money`, false,
+        `flag=${g.overspent}, expected=${expectedOverspent} (alloc=${alloc}, spent=${spentV})`);
+      continue;
+    }
+
+    /* Check region list properties: ordered, within bounds, no zero-width. */
     let regionsPassed = true;
     for (let j = 0; j < regions.length; j++) {
       const r = regions[j];
@@ -171,7 +209,9 @@ app.whenReady().then(async () => {
         regionsPassed = false;
         break;
       }
-      if (j > 0 && !near(regions[j - 1].to, r.from)) {
+      /* Thin spans are dropped at epsX now, not at an exact zero, so
+         contiguity only needs to hold to that same tolerance. */
+      if (j > 0 && Math.abs(regions[j - 1].to - r.from) > g.epsX) {
         check(`prop ${i}: regions not contiguous between ${regions[j - 1].key} and ${r.key}`, false,
           `${regions[j - 1].to} vs ${r.from}`);
         regionsPassed = false;
@@ -180,23 +220,32 @@ app.whenReady().then(async () => {
     }
     if (!regionsPassed) continue;
 
-    /* Check that final region reaches the end of all money. */
+    /* Final coverage, likewise relaxed to epsX: a dropped sliver at the very
+       end can leave the last region short of the true maximum by up to one
+       tolerance. */
     const finalBound = Math.max(g.allocX, g.spentX, g.incomeX);
-    if (regions.length > 0 && !near(regions[regions.length - 1].to, finalBound)) {
+    if (regions.length > 0 && Math.abs(regions[regions.length - 1].to - finalBound) > g.epsX) {
       check(`prop ${i}: final region does not reach max(alloc, spent, income)`, false,
         `${regions[regions.length - 1].to} vs ${finalBound}`);
       continue;
     }
 
-    /* Check flag and region consistency. The model is:
-       - overspent flag and region must always match (both true or both false)
-       - overAllocated flag implies a beyond region, but not the converse
-         (beyond can exist from spending past income without over-allocating)
-    */
+    /* Flags and regions are related by implication, not equivalence, and
+       only in one direction. A flag can be true while its span is absent,
+       because past the income mark an overspend or an over-allocation is
+       subsumed into the beyond region.
+
+       overAllocated implies a beyond region exists, unconditionally: if the
+       allocation exceeds income, some part of it always sits past the mark.
+
+       overspent implies an overspent region exists only when the spending
+       itself stayed within income; once spending crosses the income mark
+       the excess is beyond's to paint, not overspent's, so the implication
+       is guarded by spentX <= incomeX. */
     const hasOverspent = regions.some((r) => r.key === 'overspent');
-    if (g.overspent !== hasOverspent) {
-      check(`prop ${i}: overspent flag/region mismatch`, false,
-        `flag=${g.overspent}, region=${hasOverspent}`);
+    if (g.overspent && g.spentX <= g.incomeX && !hasOverspent) {
+      check(`prop ${i}: overspent true (spending within income) but no overspent region`, false,
+        `spentX=${g.spentX}, incomeX=${g.incomeX}`);
       continue;
     }
 
