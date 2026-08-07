@@ -114,11 +114,11 @@ function EntriesDrawer({ item, group, currency, dispatch, month }) {
   };
   const amtPreview = isExpr(amt) ? evalMoney(amt) : null;
   return (
-    <div className="fade-in" style={{ padding: "16px", background: "var(--surface-2)", borderTop: "1px solid var(--hairline)" }}>
+    <div className="fade-in" style={{ padding: "16px", background: "var(--board)", borderTop: "1px solid var(--rule-faint)" }}>
       {item.actuals.length > 0 && (
         <div style={{ marginBottom: 16 }}>
           {item.actuals.map(a => (
-            <div key={a.id} style={{ display: "grid", gridTemplateColumns: "var(--budget-cols)", alignItems: "center", gap: 10, padding: "5px 0", borderBottom: "1px solid var(--hairline)" }}>
+            <div key={a.id} style={{ display: "grid", gridTemplateColumns: "var(--budget-cols)", alignItems: "center", gap: 10, padding: "5px 0", borderBottom: "1px solid var(--rule-faint)" }}>
               <div style={{ gridColumn: "span 2", display: "flex", alignItems: "center", gap: 10, paddingLeft: 30, minWidth: 0 }}>
                 <DayField day={actualDay(a, month)} monthId={month} title="Day of month (when it was spent)"
                   onCommit={(d) => dispatch({ type: "updateActual", month, groupId: group.id, itemId: item.id, id: a.id, patch: { date: makeActualDate(month, d) } })} />
@@ -173,7 +173,7 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
       onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
       onDrop={(e) => { e.preventDefault(); onDrop(); }}
       onDragEnd={() => { setGrabbed(false); onDragEnd(); }}
-      style={{ borderTop: isDropTarget ? "2px solid var(--accent)" : "1px solid var(--border)", opacity: isDragging ? .4 : 1, background: isDropTarget ? "var(--accent-soft)" : undefined, transition: "background .12s" }}>
+      style={{ borderTop: isDropTarget ? "2px solid var(--accent)" : "1px solid var(--rule)", opacity: isDragging ? .4 : 1, background: isDropTarget ? "var(--accent-soft)" : undefined, transition: "background .12s" }}>
       <div style={{ display: "flex", alignItems: "stretch", minHeight: "var(--row-h)" }}>
       <DragHandle label={`Reorder ${item.name}, item ${index + 1} of ${count} in ${group.name}`}
         onGrab={() => setGrabbed(true)} onRelease={() => setGrabbed(false)} onMove={onMove} />
@@ -198,9 +198,9 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
             "$120.00 3, button", which says nothing about which item it opens. */}
         <button onClick={onToggle} title="View / add spending entries" aria-expanded={open}
           aria-label={`${fmt(currency, actual)} spent on ${item.name} in ${item.actuals.length} ${item.actuals.length === 1 ? "entry" : "entries"}`}
-          style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 7, background: open ? "var(--surface-sunken)" : "transparent", border: "1px solid transparent", borderRadius: 7, padding: "5px 9px", color: "var(--ink)", transition: ".12s" }}>
+          style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 7, background: open ? "var(--well)" : "transparent", border: "1px solid transparent", borderRadius: 7, padding: "5px 9px", color: "var(--ink)", transition: ".12s" }}>
           <span className="mono" style={{ fontSize: 14 }}>{fmt(currency, actual)}</span>
-          <span style={{ fontSize: 10.5, color: "var(--faint)", background: "var(--surface-sunken)", borderRadius: 5, padding: "1px 5px", minWidth: 16, textAlign: "center" }}>{item.actuals.length}</span>
+          <span style={{ fontSize: 10.5, color: "var(--faint)", background: "var(--well)", borderRadius: 5, padding: "1px 5px", minWidth: 16, textAlign: "center" }}>{item.actuals.length}</span>
         </button>
         <div className="col-diff" style={{ display: "flex", flexDirection: "column", gap: 5, alignItems: "flex-end" }}>
           <DiffPill diff={diff} currency={currency} />
@@ -283,7 +283,7 @@ function AddItemSearch({ month, groupId, currency, dispatch, onClose, itemCount 
   };
   const shown = candidates.slice(0, 7);
   return (
-    <div ref={rootRef} style={{ padding: "10px 16px", borderTop: "1px solid var(--hairline)", background: "var(--surface-2)" }}>
+    <div ref={rootRef} style={{ padding: "10px 16px", borderTop: "1px solid var(--rule-faint)", background: "var(--board)" }}>
       <div style={{ display: "flex", gap: 8 }}>
         <input autoFocus ref={inputRef} className="tinput" value={query} aria-label="Search previous items, or type a new item name" onChange={(e) => setQuery(e.target.value)} placeholder="Search previous items or type new..." style={{ maxWidth: 340 }}
           onKeyDown={(e) => {
@@ -294,12 +294,12 @@ function AddItemSearch({ month, groupId, currency, dispatch, onClose, itemCount 
           {saving ? "Adding…" : exact ? "Add existing" : "Create item"}
         </button>
       </div>
-      <div style={{ marginTop: 8, border: "1px solid var(--hairline)", borderRadius: 8, overflow: "hidden", background: "var(--surface)" }}>
+      <div style={{ marginTop: 8, border: "1px solid var(--rule-faint)", borderRadius: 8, overflow: "hidden", background: "var(--raised)" }}>
         {shown.length > 0 ? shown.map((candidate, idx) => (
           <button key={`${candidate.month}:${candidate.name}`} type="button" disabled={saving}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => selectCandidate(candidate)}
-            style={{ width: "100%", minHeight: 40, display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "center", textAlign: "left", padding: "7px 10px", border: 0, borderTop: idx ? "1px solid var(--hairline)" : "none", background: "transparent", color: "var(--ink)", cursor: "pointer", font: "inherit" }}>
+            style={{ width: "100%", minHeight: 40, display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "center", textAlign: "left", padding: "7px 10px", border: 0, borderTop: idx ? "1px solid var(--rule-faint)" : "none", background: "transparent", color: "var(--ink)", cursor: "pointer", font: "inherit" }}>
             <span style={{ minWidth: 0 }}>
               <span style={{ display: "block", fontSize: 13.5, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{candidate.name}</span>
               <span style={{ display: "block", fontSize: 11.5, color: "var(--muted)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{candidate.groupName} - {candidate.monthLabel}</span>
@@ -379,8 +379,8 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, onDragSt
       <div style={{ display: "flex", alignItems: "stretch" }}>
       <DragHandle label={`Reorder group ${group.name}, ${groupIndex + 1} of ${groups.length}`}
         onGrab={() => setGrabbed(true)} onRelease={() => setGrabbed(false)} onMove={moveGroup}
-        style={{ background: "var(--surface-2)", borderBottom: group.collapsed ? "none" : "1px solid var(--border-strong)" }} />
-      <div style={{ flex: 1, minWidth: 0, display: "grid", gridTemplateColumns: "var(--budget-cols)", alignItems: "center", gap: 10, padding: "16px 8px", background: "var(--surface-2)", borderBottom: group.collapsed ? "none" : "1px solid var(--border-strong)" }} className="budget-row">
+        style={{ background: "var(--board)", borderBottom: group.collapsed ? "none" : "1px solid var(--rule-strong)" }} />
+      <div style={{ flex: 1, minWidth: 0, display: "grid", gridTemplateColumns: "var(--budget-cols)", alignItems: "center", gap: 10, padding: "16px 8px", background: "var(--board)", borderBottom: group.collapsed ? "none" : "1px solid var(--rule-strong)" }} className="budget-row">
         <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
           <button className="icon-btn" aria-expanded={!group.collapsed} aria-label={group.collapsed ? `Expand ${group.name}` : `Collapse ${group.name}`} onClick={() => dispatch({ type: "toggleCollapse", month, groupId: group.id })} style={{ flex: "none", transform: group.collapsed ? "rotate(-90deg)" : "none", transition: "transform .18s" }}><Icons.down size={16} /></button>
           <span title={group.name} style={{ display: "flex", flex: "1 1 auto", minWidth: 0 }}>
@@ -400,7 +400,7 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, onDragSt
       {!group.collapsed && (
         <div>
           {group.items.length === 0 && !addingItem && (
-            <div style={{ padding: "16px", textAlign: "center", color: "var(--faint)", fontSize: 13, borderTop: "1px solid var(--hairline)" }}>No items yet.</div>
+            <div style={{ padding: "16px", textAlign: "center", color: "var(--faint)", fontSize: 13, borderTop: "1px solid var(--rule-faint)" }}>No items yet.</div>
           )}
           {group.items.map((it, itemIndex) => (
             <ItemRow key={it.id} item={it} group={group} currency={currency} dispatch={dispatch} month={month} accounts={accounts}
@@ -419,7 +419,7 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, onDragSt
           {addingItem ? (
             <AddItemSearch month={month} groupId={group.id} currency={currency} dispatch={dispatch} itemCount={itemCount} onClose={() => setAddingItem(false)} />
           ) : (
-            <div style={{ background: "var(--surface-2)", borderTop: "1px solid var(--hairline)", padding: "4px 0" }}>
+            <div style={{ background: "var(--board)", borderTop: "1px solid var(--rule-faint)", padding: "4px 0" }}>
               <button className="btn btn-ghost btn-sm" style={{ margin: "8px 10px", color: "var(--muted)" }} onClick={() => setAddingItem(true)}><Icons.plus size={14} /> Add item</button>
             </div>
           )}
@@ -518,13 +518,13 @@ function NewMonthModal({ onClose, dispatch }) {
 function optStyle(active) {
   return {
     position: "relative", display: "flex", gap: 12, padding: "13px 14px", borderRadius: 11,
-    border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
-    background: active ? "var(--accent-soft)" : "var(--surface)", cursor: "pointer", transition: ".14s",
+    border: `1px solid ${active ? "var(--accent)" : "var(--rule)"}`,
+    background: active ? "var(--accent-soft)" : "var(--raised)", cursor: "pointer", transition: ".14s",
   };
 }
 /* The tick sits on --accent, so it has to use the ink that theme picked for it:
    plain white measures 1.46:1 on lime and 1.67:1 on cyan, i.e. invisible. */
-function radioStyle(active) { return { width: 20, height: 20, borderRadius: 99, flex: "none", marginTop: 1, display: "grid", placeItems: "center", color: "var(--on-accent)", background: active ? "var(--accent)" : "transparent", border: `1.5px solid ${active ? "var(--accent)" : "var(--border-strong)"}` }; }
+function radioStyle(active) { return { width: 20, height: 20, borderRadius: 99, flex: "none", marginTop: 1, display: "grid", placeItems: "center", color: "var(--on-accent)", background: active ? "var(--accent)" : "transparent", border: `1.5px solid ${active ? "var(--accent)" : "var(--rule-strong)"}` }; }
 /* Focusable but not seen: the drawn radio above is the visible one. Not
    display:none or visibility:hidden, which would take it out of the tab order
    (and out of Modal's focus trap) all over again. */

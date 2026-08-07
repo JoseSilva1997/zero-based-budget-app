@@ -349,11 +349,11 @@ function MiniBar({ actual, allocated }) {
     ? `${Math.round(share * 100)}% of the budget used${over ? ", over budget" : ""}`
     : (over ? "Over budget, nothing allocated" : "Nothing allocated");
   const fill = over
-    ? "repeating-linear-gradient(-45deg, var(--neg) 0 2px, color-mix(in srgb, var(--neg) 45%, var(--surface-sunken)) 2px 4px)"
+    ? "repeating-linear-gradient(-45deg, var(--neg) 0 2px, color-mix(in srgb, var(--neg) 45%, var(--well)) 2px 4px)"
     : "var(--pos)";
   // scaleX rather than width: animating width relayouts every row on each commit.
   return (
-    <div role="img" aria-label={label} style={{ height: 5, borderRadius: 99, background: "var(--surface-sunken)", overflow: "hidden", width: "100%" }}>
+    <div role="img" aria-label={label} style={{ height: 5, borderRadius: 99, background: "var(--well)", overflow: "hidden", width: "100%" }}>
       <div style={{ height: "100%", width: "100%", transformOrigin: "left", transform: `scaleX(${pct})`, background: fill, transition: "transform .3s ease" }} />
     </div>
   );

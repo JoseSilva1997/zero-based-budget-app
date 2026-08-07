@@ -61,7 +61,7 @@ function groupByTitle(rows) {
 
 function ShortcutGroup({ title, rows, first }) {
   return (
-    <div style={{ borderTop: first ? "none" : "1px solid var(--hairline)", padding: first ? "10px 22px 16px" : "14px 22px 16px" }}>
+    <div style={{ borderTop: first ? "none" : "1px solid var(--rule-faint)", padding: first ? "10px 22px 16px" : "14px 22px 16px" }}>
       <div style={{ fontSize: 11, color: "var(--ink-2)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 8 }}>{title}</div>
       {rows.map((r) => (
         <div key={r.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20, padding: "5px 0" }}>
@@ -94,13 +94,13 @@ function ShortcutsSection() {
   return (
     <div className="card">
       {failed && (
-        <div style={{ padding: "14px 22px", fontSize: 13, color: "var(--muted)", borderTop: "1px solid var(--hairline)" }}>
+        <div style={{ padding: "14px 22px", fontSize: 13, color: "var(--muted)", borderTop: "1px solid var(--rule-faint)" }}>
           The menu shortcuts couldn't be read, so only the in-app keys are listed below.
         </div>
       )}
       {sections.map((s) => (
         <div key={s.kind}>
-          <div style={{ borderTop: "1px solid var(--hairline)", padding: "16px 22px 0" }}>
+          <div style={{ borderTop: "1px solid var(--rule-faint)", padding: "16px 22px 0" }}>
             <div style={{ fontWeight: 600, fontSize: 14.5 }}>{s.title}</div>
             <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 3, lineHeight: 1.45 }}>{s.note}</div>
           </div>
@@ -189,7 +189,7 @@ function RestoreDialog({ onClose, onRestored }) {
         </div>
       )}
 
-      <div className="scroll-list" style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", maxHeight: 300, overflowY: "auto" }}>
+      <div className="scroll-list" style={{ border: "1px solid var(--rule)", borderRadius: 12, overflow: "hidden", maxHeight: 300, overflowY: "auto" }}>
         {backups === null && <div style={{ padding: "18px", color: "var(--muted)", fontSize: 13 }}>Looking for backups…</div>}
         {backups !== null && backups.length === 0 && (
           <div style={{ padding: "20px", color: "var(--muted)", fontSize: 13, lineHeight: 1.5 }}>
@@ -198,7 +198,7 @@ function RestoreDialog({ onClose, onRestored }) {
         )}
         {(backups || []).map((b, i) => (
           <button key={b.path} type="button" onClick={() => choose(b.path)}
-            style={{ width: "100%", display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 12, alignItems: "center", textAlign: "left", padding: "11px 14px", border: 0, borderTop: i ? "1px solid var(--hairline)" : "none", background: "transparent", color: "var(--ink)", cursor: "pointer", font: "inherit" }}>
+            style={{ width: "100%", display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 12, alignItems: "center", textAlign: "left", padding: "11px 14px", border: 0, borderTop: i ? "1px solid var(--rule-faint)" : "none", background: "transparent", color: "var(--ink)", cursor: "pointer", font: "inherit" }}>
             <Icons.folder size={16} style={{ color: "var(--faint)" }} />
             <span style={{ minWidth: 0 }}>
               <span style={{ display: "block", fontSize: 13.5, fontWeight: 500 }}>{b.savedAt}</span>
@@ -224,7 +224,7 @@ function RestoreDialog({ onClose, onRestored }) {
 
 function Setting({ title, sub, children }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 24, alignItems: "center", padding: "18px 22px", borderTop: "1px solid var(--hairline)" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 24, alignItems: "center", padding: "18px 22px", borderTop: "1px solid var(--rule-faint)" }}>
       <div>
         <div style={{ fontWeight: 600, fontSize: 14.5 }}>{title}</div>
         {sub && <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 3, lineHeight: 1.45, maxWidth: 460 }}>{sub}</div>}
@@ -292,7 +292,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
               return (
                 <button key={c} role="radio" aria-checked={on} aria-label={`Use ${c} as the currency symbol`}
                   onClick={() => dispatch({ type: "updateSettings", patch: { currency: c } })}
-                  className="mono" style={{ position: "relative", width: 38, height: 36, borderRadius: 8, border: `1px solid ${on ? "var(--accent)" : "var(--border)"}`, background: on ? "var(--accent-soft)" : "var(--surface)", color: on ? "var(--accent-ink)" : "var(--ink-2)", fontWeight: on ? 700 : 600 }}>
+                  className="mono" style={{ position: "relative", width: 38, height: 36, borderRadius: 8, border: `1px solid ${on ? "var(--accent)" : "var(--rule)"}`, background: on ? "var(--accent-soft)" : "var(--raised)", color: on ? "var(--accent-ink)" : "var(--ink-2)", fontWeight: on ? 700 : 600 }}>
                   {c}
                   {on && (
                     <span style={{ position: "absolute", top: -5, right: -5, width: 15, height: 15, borderRadius: 99, background: "var(--accent)", color: "var(--on-accent)", display: "grid", placeItems: "center" }}>
@@ -340,7 +340,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
       <div className="section-head"><h2>Household members</h2></div>
       <div className="card">
         {s.members.map(m => (
-          <div key={m.id} style={{ display: "grid", gridTemplateColumns: "auto 1fr auto auto", gap: 12, alignItems: "center", padding: "12px 22px", borderTop: "1px solid var(--hairline)" }}>
+          <div key={m.id} style={{ display: "grid", gridTemplateColumns: "auto 1fr auto auto", gap: 12, alignItems: "center", padding: "12px 22px", borderTop: "1px solid var(--rule-faint)" }}>
             <Avatar member={m} size={32} />
             <TextInline value={m.name} col="memberName" label="Member name" onCommit={(v) => dispatch({ type: "updateMember", id: m.id, patch: { name: v } })} style={{ fontWeight: 500, fontSize: 14 }} />
             <div role="radiogroup" aria-label={`Colour for ${m.name}`} style={{ display: "flex", gap: 5 }}>
@@ -361,20 +361,20 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
             <button className="icon-btn" title={`Remove ${m.name}`} aria-label={`Remove ${m.name}`} disabled={s.members.length <= 1} style={{ opacity: s.members.length <= 1 ? .3 : 1 }} onClick={() => setRemoveMember(m)}><Icons.trash size={16} /></button>
           </div>
         ))}
-        <div style={{ padding: "12px 18px", borderTop: "1px solid var(--hairline)" }}>
+        <div style={{ padding: "12px 18px", borderTop: "1px solid var(--rule-faint)" }}>
           <button className="btn btn-sm btn-ghost" style={{ color: "var(--muted)" }} onClick={() => dispatch({ type: "addMember", name: "New member", color: MEMBER_COLORS[s.members.length % MEMBER_COLORS.length] })}><Icons.plus size={14} /> Add member</button>
         </div>
       </div>
 
       <div className="section-head"><h2>Funding accounts</h2></div>
       <div className="card">
-        <div style={{ padding: "12px 22px", fontSize: 12.5, color: "var(--muted)", borderTop: "1px solid var(--hairline)", lineHeight: 1.5 }}>
+        <div style={{ padding: "12px 22px", fontSize: 12.5, color: "var(--muted)", borderTop: "1px solid var(--rule-faint)", lineHeight: 1.5 }}>
           Accounts are <em>where</em> money lives - main accounts, shared/joint, wallets like Revolut, or savings. Assign each budget item to one account, and the Month Budget funding plan shows who moves what.
         </div>
         {(s.accounts || []).map(a => {
           const owner = s.members.find(m => m.id === a.owner);
           return (
-            <div key={a.id} style={{ display: "grid", gridTemplateColumns: "auto 1fr 150px 130px auto", gap: 12, alignItems: "center", padding: "12px 22px", borderTop: "1px solid var(--hairline)" }}>
+            <div key={a.id} style={{ display: "grid", gridTemplateColumns: "auto 1fr 150px 130px auto", gap: 12, alignItems: "center", padding: "12px 22px", borderTop: "1px solid var(--rule-faint)" }}>
               <span style={{ width: 30, height: 30, borderRadius: 8, flex: "none", background: hexToSoft(a.color), color: a.color, display: "grid", placeItems: "center" }}>{React.createElement(Icons[ACCT_ICON[a.type] || "coins"], { size: 16 })}</span>
               <TextInline value={a.name} col="accountName" label="Account name" onCommit={(v) => dispatch({ type: "updateAccount", id: a.id, patch: { name: v } })} style={{ fontWeight: 500, fontSize: 14 }} />
               <select value={a.type} aria-label={`Account type for ${a.name}`} onChange={(e) => dispatch({ type: "updateAccount", id: a.id, patch: { type: e.target.value } })} className="btn btn-sm" style={{ paddingRight: 8 }}>
@@ -388,7 +388,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
             </div>
           );
         })}
-        <div style={{ padding: "12px 18px", borderTop: "1px solid var(--hairline)" }}>
+        <div style={{ padding: "12px 18px", borderTop: "1px solid var(--rule-faint)" }}>
           <button className="btn btn-sm btn-ghost" style={{ color: "var(--muted)" }} onClick={() => dispatch({ type: "addAccount", name: "New account", color: MEMBER_COLORS[(s.accounts || []).length % MEMBER_COLORS.length], accType: "main" })}><Icons.plus size={14} /> Add account</button>
         </div>
       </div>
@@ -399,12 +399,12 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
           <button className="btn btn-primary" onClick={doBackup}><Icons.download size={15} /> Back up now</button>
         </Setting>
         <Setting title="Automatic backups" sub="When the app should quietly save a snapshot for you.">
-          <div role="radiogroup" aria-label="Automatic backups" style={{ display: "flex", gap: 4, background: "var(--surface-sunken)", padding: 4, borderRadius: 10 }}>
+          <div role="radiogroup" aria-label="Automatic backups" style={{ display: "flex", gap: 4, background: "var(--well)", padding: 4, borderRadius: 10 }}>
             {AUTO.map(([val, label]) => {
               const on = s.autoBackup === val;
               return (
                 <button key={val} role="radio" aria-checked={on} onClick={() => dispatch({ type: "updateSettings", patch: { autoBackup: val } })}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 7, border: "none", fontSize: 13, fontWeight: on ? 600 : 500, background: on ? "var(--surface)" : "transparent", color: on ? "var(--ink)" : "var(--muted)", boxShadow: on ? "var(--shadow-sm)" : "none" }}>
+                  style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 7, border: "none", fontSize: 13, fontWeight: on ? 600 : 500, background: on ? "var(--raised)" : "transparent", color: on ? "var(--ink)" : "var(--muted)", boxShadow: on ? "var(--shadow-sm)" : "none" }}>
                   {/* the tick keeps its space when hidden, so choosing an option
                       does not shuffle the other two sideways */}
                   <Icons.check size={12} style={{ flex: "none", visibility: on ? "visible" : "hidden" }} />

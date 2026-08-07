@@ -24,7 +24,7 @@ const THEMES = ['indigo', 'violet', 'cyan', 'emerald', 'mono', 'lime',
 
 // [label, foreground token, background token, minimum ratio]
 const CHECKS = [
-  ['border-strong on surface', '--border-strong', '--surface', 3.0],
+  ['rule-strong on raised', '--rule-strong', '--raised', 3.0],
 ];
 
 function assert(cond, msg) { if (!cond) throw new Error(msg); }

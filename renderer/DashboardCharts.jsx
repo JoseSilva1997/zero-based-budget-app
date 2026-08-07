@@ -17,8 +17,8 @@ function abbrMoney(v, c = "$") {
 }
 
 /* shared axis styling so every chart matches the dark theme */
-const axisProps = { stroke: "var(--hairline)", tick: { fill: "var(--faint)", fontSize: 11 }, tickLine: false };
-const gridProps = { stroke: "var(--hairline)", strokeDasharray: "0", vertical: false };
+const axisProps = { stroke: "var(--rule-faint)", tick: { fill: "var(--faint)", fontSize: 11 }, tickLine: false };
+const gridProps = { stroke: "var(--rule-faint)", strokeDasharray: "0", vertical: false };
 
 /* themed tooltip - mirrors the dark var(--ink) box from Charts.jsx.
    Recharts injects { active, payload, label }; extra props are passed by us. */
@@ -139,7 +139,7 @@ function HeadlineStats({ allSeries, series, currency }) {
       )}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
         {cards.map(c => (
-          <div key={c.label} style={{ padding: "14px 16px", borderRadius: 12, background: "var(--surface-2)", border: "1px solid var(--hairline)" }}>
+          <div key={c.label} style={{ padding: "14px 16px", borderRadius: 12, background: "var(--board)", border: "1px solid var(--rule-faint)" }}>
             <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>{c.label}</div>
             <div className="mono" style={{ fontSize: 22, fontWeight: 500 }}>{c.value}</div>
             <div style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 4 }}>{c.sub}</div>
@@ -171,7 +171,7 @@ function SavingsChart({ series, currency, onOpenMonth }) {
             <CartesianGrid {...gridProps} />
             <XAxis dataKey="name" {...axisFor(onOpenMonth)} />
             <YAxis {...axisProps} tickFormatter={(v) => abbrMoney(v, currency)} width={PLOT_LEFT} />
-            <Tooltip cursor={{ fill: "var(--surface-2)", opacity: 0.4 }} content={
+            <Tooltip cursor={{ fill: "var(--well)", opacity: 0.4 }} content={
               <DashTooltip currency={currency} rows={(p) => {
                 const d = p[0] && p[0].payload;
                 return [
@@ -260,7 +260,7 @@ function BudgetAccuracyChart({ series, currency, onOpenMonth }) {
                   <CartesianGrid {...gridProps} />
                   <XAxis dataKey="name" {...axisFor(onOpenMonth)} />
                   <YAxis {...axisProps} tickFormatter={(v) => abbrMoney(v, currency)} width={PLOT_LEFT} />
-                  <Tooltip cursor={{ fill: "var(--surface-2)", opacity: 0.4 }} content={<DashTooltip currency={currency} />} />
+                  <Tooltip cursor={{ fill: "var(--well)", opacity: 0.4 }} content={<DashTooltip currency={currency} />} />
                   <Bar dataKey="alloc" name="Allocated" fill="var(--accent)" radius={[3, 3, 0, 0]} />
                   <Bar dataKey="actual" name="Actual" fill="var(--warn)" radius={[3, 3, 0, 0]} />
                 </BarChart>
@@ -277,7 +277,7 @@ function BudgetAccuracyChart({ series, currency, onOpenMonth }) {
             <Icons.check size={14} style={{ color: "var(--pos-ink)", flex: "none" }} /> Nothing has run over budget.
           </div>
         ) : offenders.map(o => (
-          <div key={o.k} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 0", borderBottom: "1px solid var(--hairline)" }}>
+          <div key={o.k} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 0", borderBottom: "1px solid var(--rule-faint)" }}>
             <div style={{ overflow: "hidden" }}>
               <div style={{ fontSize: 12.5, color: "var(--ink-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.k}</div>
               <div style={{ fontSize: 11, color: "var(--faint)" }}>over in {o.count} of {n} {n === 1 ? "month" : "months"} · avg {fmt(currency, o.avgOver, { cents: false })}</div>
@@ -320,7 +320,7 @@ function CategoryTrends({ series, currency }) {
         const flat = !row.isNew && row.pct === 0;
         const color = flat ? "var(--faint)" : up ? "var(--neg-ink)" : "var(--pos-ink)";
         return (
-          <div key={row.g} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 0", borderBottom: "1px solid var(--hairline)" }}>
+          <div key={row.g} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 0", borderBottom: "1px solid var(--rule-faint)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}>
               <span style={{ fontSize: 13.5, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.g}</span>
               {row.isNew && <span className="pill pill-neutral" style={{ fontSize: 10, flex: "none" }}>new</span>}
@@ -377,7 +377,7 @@ function SpendingTiming({ series, currency }) {
           <CartesianGrid {...gridProps} />
           <XAxis dataKey="day" {...axisProps} interval={2} />
           <YAxis {...axisProps} tickFormatter={(v) => abbrMoney(v, currency)} width={PLOT_LEFT} />
-          <Tooltip cursor={{ fill: "var(--surface-2)", opacity: 0.4 }} content={
+          <Tooltip cursor={{ fill: "var(--well)", opacity: 0.4 }} content={
             <DashTooltip currency={currency} heading={(d) => `Day ${d}`} rows={(p) => {
               const d = p[0] && p[0].payload;
               return [
