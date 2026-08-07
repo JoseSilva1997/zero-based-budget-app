@@ -246,7 +246,7 @@ function EntriesDrawer({ item, group, currency, dispatch, month }) {
   );
 }
 
-function ItemRow({ item, group, currency, dispatch, month, accounts, open, onToggle, onMove, index, count, groups, onMoveToGroup, onDragStart, onDragOverItem, onDrop, onDragEnd, isDragging, isDropTarget }) {
+function ItemRow({ item, group, currency, dispatch, month, accounts, open, onToggle, onMove, index, count, groups, onMoveToGroup, onDragStart, onDragOverItem, onDrop, onDragEnd, isDragging, isDropTarget, itemDragActive }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [grabbed, setGrabbed] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
@@ -261,8 +261,15 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
       onDragStart={(e) => { e.stopPropagation(); e.dataTransfer.effectAllowed = "move"; onDragStart(); }}
       onDragEnter={(e) => { e.preventDefault(); onDragOverItem(); }}
       onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
-      /* Stops the ancestor group's append handler reading the same drop. */
-      onDrop={(e) => { e.preventDefault(); e.stopPropagation(); onDrop(); }}
+      /* Only claim the drop when an item is actually being dragged: otherwise
+         this is a group drop landing on a row, and it must bubble up to the
+         card's own onDrop, which performs the group reorder. */
+      onDrop={(e) => {
+        if (!itemDragActive) return;
+        e.preventDefault();
+        e.stopPropagation();
+        onDrop();
+      }}
       onDragEnd={() => { setGrabbed(false); onDragEnd(); }}
       style={{ borderTop: isDropTarget ? "2px solid var(--accent)" : "1px solid var(--border)", opacity: isDragging ? .4 : 1, background: isDropTarget ? "var(--accent-soft)" : undefined, transition: "background .12s" }}>
       <div style={{ display: "flex", alignItems: "stretch", minHeight: "var(--row-h)" }}>
@@ -553,6 +560,7 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, dragItem
               onMoveToGroup={(toGroupId) => moveItemToGroup(it.id, toGroupId, null)}
               isDragging={!!dragItem && dragItem.id === it.id}
               isDropTarget={!!overItem && overItem.groupId === group.id && overItem.targetId === it.id && !(dragItem && dragItem.id === it.id)}
+              itemDragActive={!!dragItem}
               onDragStart={() => onItemDragStart(group.id, it.id)}
               onDragOverItem={() => { if (dragItem) onItemDragOver(group.id, it.id); }}
               onDrop={() => dropOnItem(it.id)}
