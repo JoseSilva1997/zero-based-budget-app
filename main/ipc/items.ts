@@ -13,6 +13,7 @@ import {
   reorderItems,
   getItemById,
   nextItemSort,
+  moveItem,
 } from '../../database/repositories/months';
 
 interface ItemPatch {
@@ -61,5 +62,16 @@ export function registerItemIpc(): void {
       reorderItems(getDb(), p.groupId, p.id, p.targetId);
       return { ok: true };
     })
+  );
+
+  /* Its own channel rather than a field on 'item:update': the reparent and the
+     sort_order rewrite in BOTH groups have to land together or not at all. */
+  ipcMain.handle(
+    'item:move',
+    (_e, p: { id: number; toGroupId: number; targetId?: number | null }) =>
+      guardAsync(async () => {
+        moveItem(getDb(), p.id, p.toGroupId, p.targetId ?? null);
+        return { ok: true };
+      })
   );
 }

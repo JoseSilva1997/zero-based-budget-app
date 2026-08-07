@@ -326,6 +326,13 @@ export function StoreProvider({ children }) {
           case "reorderItem":
             await api.itemReorder(Number(A.groupId), Number(A.itemId), Number(A.targetId));
             return refreshMonth(mk);
+          case "moveItem":
+            await api.itemMove(
+              Number(A.itemId),
+              Number(A.toGroupId),
+              A.targetId == null ? null : Number(A.targetId)
+            );
+            return refreshMonth(mk);
 
           case "createMonth":
             await api.monthCreate({
