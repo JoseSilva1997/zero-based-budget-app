@@ -24,7 +24,7 @@ const THEMES = ['indigo', 'violet', 'cyan', 'emerald', 'mono', 'lime',
 
 // [label, foreground token, background token, minimum ratio]
 const CHECKS = [
-  ['rule-strong on raised', '--border-strong', '--surface', 3.0],
+  ['border-strong on surface', '--border-strong', '--surface', 3.0],
 ];
 
 function assert(cond, msg) { if (!cond) throw new Error(msg); }
@@ -63,9 +63,33 @@ const PAGE = (css, themes, checks) => `
     // checking the resolved .color would miss a genuinely missing token.
     const declared = getComputedStyle(document.documentElement).getPropertyValue(token).trim();
     if (!declared) throw new Error('undefined token: ' + token);
+
+    // A token that exists but is not a colour (--shadow-sm, --ring, a later
+    // CHECKS typo) is also invalid at computed-value time for the colour
+    // property, and falls back to the same inherited value an undefined
+    // token would. Read that inherited value with no override first, then
+    // require the token to actually move .color away from it: this is a
+    // second, independent check on the same failure mode as the
+    // getPropertyValue guard above, not a substitute for it.
+    probe.style.color = '';
+    const inherited = getComputedStyle(probe).color;
     probe.style.color = 'var(' + token + ')';
     const raw = getComputedStyle(probe).color;
+    if (raw === inherited) throw new Error('token did not resolve to a colour: ' + token);
+
+    // ctx.fillStyle silently ignores a string it cannot parse and leaves
+    // whatever colour was set before it, which would otherwise read back as
+    // the previous token's pixel instead of failing. Seed a sentinel first
+    // and require fillStyle to actually change away from it.
+    ctx.fillStyle = '#010203';
+    const sentinel = ctx.fillStyle;
     ctx.fillStyle = raw;
+    if (ctx.fillStyle === sentinel) throw new Error('unparseable colour for ' + token + ': ' + raw);
+
+    // clearRect before painting: a shared canvas with the default
+    // source-over compositing would let a translucent token pick up colour
+    // from whatever pixel the previous resolve() call left behind.
+    ctx.clearRect(0, 0, 1, 1);
     ctx.fillRect(0, 0, 1, 1);
     const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
     return [r, g, b];
