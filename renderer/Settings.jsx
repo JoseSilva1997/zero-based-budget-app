@@ -92,7 +92,7 @@ function ShortcutsSection() {
   ].filter((s) => s.groups.length);
 
   return (
-    <div className="card">
+    <div className="panel">
       {failed && (
         <div style={{ padding: "14px 22px", fontSize: 13, color: "var(--muted)", borderTop: "1px solid var(--rule-faint)" }}>
           The menu shortcuts couldn't be read, so only the in-app keys are listed below.
@@ -282,7 +282,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
       <div className="topbar"><div><div className="page-title">Settings</div><div className="page-sub">Preferences for this household. Everything stays on this device.</div></div></div>
 
       <div className="section-head"><h2>General</h2></div>
-      <div className="card">
+      <div className="panel">
         <Setting title="Currency symbol" sub="Shown before every amount across the app.">
           {/* A radiogroup, not seven buttons: the choice is one of a set, and the
               tick says which without asking anyone to read a border colour. */}
@@ -307,7 +307,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
       </div>
 
       <div className="section-head"><h2>Appearance</h2></div>
-      <div className="card" style={{ padding: "18px 22px" }}>
+      <div className="panel" style={{ padding: "18px 22px" }}>
         <div style={{ fontWeight: 600, fontSize: 14.5 }}>Theme</div>
         <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 3, marginBottom: 16, lineHeight: 1.45 }}>Twelve dark palettes. Switch any time; amounts keep their meaning in every one.</div>
         {/* The "Active" caption under the chosen palette is what carries the
@@ -338,7 +338,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
       </div>
 
       <div className="section-head"><h2>Household members</h2></div>
-      <div className="card">
+      <div className="panel">
         {s.members.map(m => (
           <div key={m.id} style={{ display: "grid", gridTemplateColumns: "auto 1fr auto auto", gap: 12, alignItems: "center", padding: "12px 22px", borderTop: "1px solid var(--rule-faint)" }}>
             <Avatar member={m} size={32} />
@@ -367,7 +367,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
       </div>
 
       <div className="section-head"><h2>Funding accounts</h2></div>
-      <div className="card">
+      <div className="panel">
         <div style={{ padding: "12px 22px", fontSize: 12.5, color: "var(--muted)", borderTop: "1px solid var(--rule-faint)", lineHeight: 1.5 }}>
           Accounts are <em>where</em> money lives - main accounts, shared/joint, wallets like Revolut, or savings. Assign each budget item to one account, and the Month Budget funding plan shows who moves what.
         </div>
@@ -394,7 +394,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
       </div>
 
       <div className="section-head"><h2>Data &amp; backup</h2></div>
-      <div className="card">
+      <div className="panel">
         <Setting title="Manual backup" sub={`Save a snapshot of all your budget data to a file. Last backup: ${s.lastBackup || "never"}.`}>
           <button className="btn btn-primary" onClick={doBackup}><Icons.download size={15} /> Back up now</button>
         </Setting>
@@ -433,7 +433,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
       <ShortcutsSection />
 
       <div className="section-head"><h2>Updates</h2></div>
-      <div className="card"><UpdateSettings /></div>
+      <div className="panel"><UpdateSettings /></div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center", margin: "26px 0 10px", color: "var(--faint)", fontSize: 12 }}>
         <Icons.coins size={14} /> House Budget · local-first{version ? ` · v${version}` : ""}
       </div>

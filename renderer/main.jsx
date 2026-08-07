@@ -104,7 +104,7 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
       })}
 
       {mo.groups.length === 0 && (
-        <div className="card empty" style={{ marginBottom: 14 }}>
+        <div className="panel empty" style={{ marginBottom: 14 }}>
           <div className="empty-icon"><Icons.budget size={22} /></div>
           <div style={{ fontWeight: 600, color: "var(--ink-2)" }}>No groups yet</div>
           <div style={{ fontSize: 13, maxWidth: 300 }}>Add a group like House, Food, or Savings, then give it items to allocate toward.</div>
@@ -112,7 +112,7 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
       )}
 
       {addingGroup ? (
-        <div className="card" style={{ display: "flex", gap: 8, padding: "12px 16px", alignItems: "center" }}>
+        <div className="panel" style={{ display: "flex", gap: 8, padding: "12px 16px", alignItems: "center" }}>
           <input autoFocus className="tinput" value={newGroup} aria-label="New group name" onChange={(e) => setNewGroup(e.target.value)} placeholder="Group name (e.g. Healthcare)…" style={{ maxWidth: 320, fontWeight: 600 }}
             onKeyDown={(e) => { if (e.key === "Enter") commitGroup(); if (e.key === "Escape") { setAddingGroup(false); setNewGroup(""); } }} onBlur={commitGroup} />
           <button className="btn btn-sm btn-primary" onMouseDown={(e) => e.preventDefault()} onClick={commitGroup}>Add group</button>
@@ -204,7 +204,7 @@ function StartupErrorScreen({ error, onRetry }) {
   };
   return (
     <div style={{ position: "fixed", inset: 0, display: "grid", placeItems: "center", padding: 30 }}>
-      <div className="card" style={{ maxWidth: 480, padding: "30px 32px" }}>
+      <div className="panel" style={{ maxWidth: 480, padding: "30px 32px" }}>
         <div style={{ width: 44, height: 44, borderRadius: 13, background: "var(--neg-soft)", color: "var(--neg-ink)", display: "grid", placeItems: "center", marginBottom: 18 }}>
           <Icons.alert size={22} />
         </div>

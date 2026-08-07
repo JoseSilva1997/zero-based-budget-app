@@ -55,7 +55,7 @@ function HistoryScreen({ currency, onOpenMonth }) {
 
       {/* month list */}
       <div className="section-head"><h2>All months</h2></div>
-      <div className="card" style={{ overflow: "hidden" }}>
+      <div className="panel" style={{ overflow: "hidden" }}>
         {/* Not a table: every row is one button that opens a month, and a row
             cannot be both a control and a set of cells. The strip below is a
             visual key for the columns; the reading of it lives on each row. */}
@@ -109,7 +109,7 @@ function Comparison({ series, cmpA, cmpB, setCmpA, setCmpB, currency, groupNames
   // against itself with an arrow between two identical labels.
   if (series.length < 2) {
     return (
-      <div className="card" style={{ padding: "18px 20px", fontSize: 13.5, color: "var(--muted)", lineHeight: 1.5 }}>
+      <div className="panel" style={{ padding: "18px 20px", fontSize: 13.5, color: "var(--muted)", lineHeight: 1.5 }}>
         Comparing needs a second month. Once you've tracked another one, {series[0] ? series[0].label : "this month"} can be set against it here.
       </div>
     );
@@ -129,7 +129,7 @@ function Comparison({ series, cmpA, cmpB, setCmpA, setCmpB, currency, groupNames
     { label: "Saved", a: a.savings, b: b.savings, good: "up" },
   ];
   return (
-    <div className="card" style={{ padding: "18px 20px" }}>
+    <div className="panel" style={{ padding: "18px 20px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
         <Sel value={cmpA} onChange={setCmpA} label="Compare from" />
         <Icons.right size={16} style={{ color: "var(--faint)" }} />

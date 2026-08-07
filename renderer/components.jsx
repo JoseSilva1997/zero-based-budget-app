@@ -437,7 +437,7 @@ function ConfirmDialog({ title, children, confirmLabel, onConfirm, onClose, busy
 /* ---- chart card wrapper (shared by History + Dashboard) ----------------- */
 function ChartCard({ title, sub, children, wide }) {
   return (
-    <div className="card fade-in" style={{ padding: "18px 20px 16px", gridColumn: wide ? "span 2" : "auto" }}>
+    <div className="panel fade-in" style={{ padding: "18px 20px 16px", gridColumn: wide ? "span 2" : "auto" }}>
       <div style={{ marginBottom: 14 }}>
         <div style={{ fontWeight: 600, fontSize: 15 }}>{title}</div>
         {sub && <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 2 }}>{sub}</div>}

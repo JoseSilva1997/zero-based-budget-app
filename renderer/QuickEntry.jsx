@@ -228,7 +228,7 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
     return (
       <>
         <div className="section-head"><h2>Quick entry</h2></div>
-        <div className="card empty" style={{ padding: "30px" }}>
+        <div className="panel empty" style={{ padding: "30px" }}>
           <div className="empty-icon"><Icons.coins size={20} /></div>
           <div style={{ fontSize: 14 }}>Add a group and some items below, then log your spending from here.</div>
         </div>
@@ -245,7 +245,7 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
         </div>
       </div>
 
-      <div ref={rootRef} className="card" style={{ overflow: "visible" }}>
+      <div ref={rootRef} className="panel" style={{ overflow: "visible" }}>
         {/* Six fields cannot hold their widths in a narrow window, and a Log
             button pushed outside the card is a button you cannot press. They
             wrap as two halves rather than one at a time, so a break always

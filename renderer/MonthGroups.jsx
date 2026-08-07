@@ -370,7 +370,7 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, onDragSt
     announce(`${group.name} moved to position ${groupIndex + dir + 1} of ${groups.length}.`);
   };
   return (
-    <div ref={cardRef} id={groupCardId(group.id)} className="card fade-in" draggable={grabbed}
+    <div ref={cardRef} id={groupCardId(group.id)} className="raised fade-in" draggable={grabbed}
       onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; onDragStart(); }}
       onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; const r = e.currentTarget.getBoundingClientRect(); onDragOverGroup(e.clientY > r.top + r.height / 2); }}
       onDrop={(e) => { e.preventDefault(); onDrop(); }}

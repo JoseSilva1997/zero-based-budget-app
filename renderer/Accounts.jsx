@@ -97,7 +97,7 @@ function AccountPanel({ mo, accounts, members, currency }) {
 
       {/* per-account breakdown */}
       <div style={{ fontSize: 11, color: "var(--ink-2)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 10 }}>By account</div>
-      <div className="card" style={{ overflow: "hidden", background: "var(--raised)" }}>
+      <div className="panel" style={{ overflow: "hidden", background: "var(--raised)" }}>
         {byAccount.map((t, i) => {
           const owner = members.find(m => m.id === t.account.owner);
           const pct = totalToFund > 0 ? t.allocated / totalToFund : 0;
@@ -162,7 +162,7 @@ function AccountPanel({ mo, accounts, members, currency }) {
             <span>{savingsAccount ? savingsAccount.name : "Savings"} wallets</span>
             <span className="mono" style={{ color: "var(--faint)", letterSpacing: 0 }}>{fmt(currency, savingsTotal)}</span>
           </div>
-          <div className="card" style={{ overflow: "hidden" }}>
+          <div className="panel" style={{ overflow: "hidden" }}>
             {savingsItems.map((it, i) => {
               const color = savingsAccount ? savingsAccount.color : "var(--pos)";
               return (

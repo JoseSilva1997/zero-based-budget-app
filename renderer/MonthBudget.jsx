@@ -28,7 +28,7 @@ function SummaryHero({ mo, currency }) {
   const pctAlloc = income > 0 ? Math.min(alloc / income, 1) : 0;
 
   return (
-    <div className="card fade-in" style={{ padding: 0, overflow: "hidden" }}>
+    <div className="panel fade-in" style={{ padding: 0, overflow: "hidden" }}>
       <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 1fr) 1.25fr" }}>
         {/* hero unallocated */}
         <div style={{ padding: "26px 28px", borderRight: "1px solid var(--rule)", display: "flex", flexDirection: "column", justifyContent: "space-between", background: state === "zero" ? "linear-gradient(160deg, var(--pos-soft), transparent)" : state === "over" ? "linear-gradient(160deg, var(--neg-soft), transparent)" : "transparent" }}>
@@ -156,7 +156,7 @@ function IncomeSection({ mo, currency, members, dispatch, month }) {
           <span className="mono" style={{ fontSize: 15, fontWeight: 600 }}>{fmt(currency, total)}</span>
         </div>
       </div>
-      <div className="card" style={{ overflow: "hidden" }}>
+      <div className="panel" style={{ overflow: "hidden" }}>
         {mo.incomes.length === 0 && (
           <div className="empty" style={{ padding: "30px" }}>
             <div className="empty-icon"><Icons.coins size={20} /></div>

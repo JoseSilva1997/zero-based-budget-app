@@ -49,7 +49,7 @@ function DashboardScreen({ currency, onOpenMonth }) {
       <HeadlineStats allSeries={allSeries} series={series} currency={currency} />
 
       {!hasAnyData ? (
-        <div className="card empty" style={{ marginTop: 16 }}>
+        <div className="panel empty" style={{ marginTop: 16 }}>
           <div className="empty-icon"><Icons.monitor size={22} /></div>
           <div style={{ fontWeight: 600, color: "var(--ink-2)" }}>Your overview will appear here</div>
           <div style={{ fontSize: 13, maxWidth: 340 }}>Enter a month's actual spending and savings, and the dashboard will start charting your trends and habits over time.</div>

@@ -381,7 +381,23 @@ input { font-family: inherit; }
 .icon-btn.subtle { color: var(--faint); }
 
 /* Cards */
-.card { background: var(--raised); border: 1px solid var(--rule); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+/* Two recipes, not one. .panel is flat furniture on the board: lists,
+   tables, forms, empty states. .raised is the single lifted object on a
+   screen, and on Month Budget that is the group envelope. If everything is
+   raised, nothing is. */
+.panel {
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+}
+.raised {
+  background: var(--raised);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow .14s;
+}
+.raised:hover { box-shadow: var(--shadow-md); }
 .section-head { display: flex; align-items: center; justify-content: space-between; margin: 30px 2px 14px; }
 .section-head h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); font-weight: 600; margin: 0; }
 
