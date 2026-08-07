@@ -349,8 +349,14 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
             "fix" this back to plain .icon-btn. */}
         <div className="row-actions" style={{ flexDirection: "column", alignItems: "flex-end", justifyContent: "center", gap: 0, ...(moveOpen ? { opacity: 1, pointerEvents: "auto" } : null) }}>
           <button className="icon-btn compact" aria-label={`Delete item ${item.name} from this month`} title="Delete item (this month only)" onClick={() => setConfirmDelete(true)}><Icons.trash size={15} /></button>
+          {/* No aria-haspopup: its non-false values are all synonyms for menu,
+              listbox, tree, grid or dialog (WAI-ARIA), and this disclosure
+              reveals a labelled group of buttons, none of those. The APG
+              disclosure pattern is aria-expanded alone; carrying the
+              attribute anyway would make the trigger claim what finding 3
+              deliberately stopped the popup itself from claiming. */}
           <button ref={moveBtnRef} className="icon-btn compact" disabled={otherGroups.length === 0}
-            aria-haspopup="true" aria-expanded={moveOpen}
+            aria-expanded={moveOpen}
             aria-label={otherGroups.length === 0
               ? `Move ${item.name} to another group. Unavailable: no other group in this month.`
               : `Move ${item.name} to another group`}
