@@ -296,6 +296,16 @@ app.whenReady().then(() => {
     months.moveItem(db, a3 + 9999, gB, null);
     eq(JSON.stringify(namesIn(gB)), JSON.stringify(['A1', 'B1', 'A2', 'B2']), 'unknown item is a no-op');
 
+    // A targetId that exists but sits in a DIFFERENT group from the one being
+    // moved into (deleted from the destination, or moved again, mid-drag) is
+    // the case the "falls back to the end" comment at months.ts:297-300 is
+    // actually about, not just an outright-unknown id. A4 stays behind in A,
+    // so its id is real but absent from destIds when A3 moves into B.
+    const a4 = months.insertItem(db, { budget_group_id: gA, name: 'A4', planned_cents: 350, bank_account_id: null, sort_order: 3 });
+    months.moveItem(db, a3, gB, a4);
+    eq(JSON.stringify(namesIn(gB)), JSON.stringify(['A1', 'B1', 'A2', 'B2', 'A3']), 'target outside destination group falls back to append');
+    eq(JSON.stringify(namesIn(gA)), JSON.stringify(['A4']), 'moved item left source; unrelated target item untouched');
+
     /* ---- referential integrity clean throughout ---- */
     const violations = db.pragma('foreign_key_check');
     assert(violations.length === 0, `foreign-key violations: ${JSON.stringify(violations)}`);

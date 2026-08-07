@@ -100,13 +100,17 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
             {showLine && !overGroupAfter && <GroupDropLine />}
             <GroupCard group={g} currency={currency} dispatch={dispatch} month={mid} accounts={state.settings.accounts} state={state}
               isDragging={dragGroupId === g.id}
-              onDragStart={() => setDragGroupId(g.id)}
+              // A row that unmounts mid-drag (rare, but the drag ends outside
+              // any listener that could clear it) never fires its own dragend,
+              // which would leave the other kind of drag state stuck set and a
+              // later drop of this kind misread as the wrong one.
+              onDragStart={() => { setDragItem(null); setDragGroupId(g.id); }}
               onDragOverGroup={(after) => { if (dragGroupId) { setOverGroupId(g.id); setOverGroupAfter(after); } }}
               onDrop={() => dropGroup(g.id)}
               onDragEnd={endGroupDrag}
               dragItem={dragItem}
               overItem={overItem}
-              onItemDragStart={(groupId, itemId) => setDragItem({ id: itemId, groupId })}
+              onItemDragStart={(groupId, itemId) => { setDragGroupId(null); setDragItem({ id: itemId, groupId }); }}
               onItemDragOver={(groupId, targetId) => { if (dragItem) setOverItem({ groupId, targetId }); }}
               onItemDragEnd={endItemDrag} />
             {showLine && overGroupAfter && <GroupDropLine />}

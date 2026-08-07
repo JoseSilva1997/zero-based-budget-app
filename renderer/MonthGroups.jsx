@@ -2,7 +2,7 @@
    Groups & Items - collapsible groups, inline edit, quick-add,
    reorder, delete-this-month-only, and the New Month flow.
    ============================================================ */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ConfirmDialog, DayField, DiffPill, Icons, MiniBar, Modal, MoneyInput, TextInline, evalMoney, isExpr } from './components.jsx';
 import { actualDay, fmt, groupActual, groupAllocated, itemActual, makeActualDate, monthLabel, nextMonthId, normalizeItemName, round2 } from './lib/index.js';
@@ -88,7 +88,24 @@ function DragHandle({ label, onGrab, onRelease, onMove, style }) {
 function useMoveItem(month, dispatch) {
   const { state, toast } = useStore();
   const groups = (state && state.months[month] && state.months[month].groups) || [];
-  return (itemId, toGroupId, targetId = null) => {
+  // Keyboard focus after a menu-driven move (opts.restoreFocus): 'dispatch' is
+  // fire-and-forget, and the row that held focus unmounts here and remounts
+  // under the destination card, so there is no node to hand focus back to
+  // until the refetch actually lands it there. This mirrors IncomeSection's
+  // pending-ref-plus-effect (MonthBudget.jsx:120-130): wait for the item to
+  // show up under its new group in the refreshed tree, then send focus in,
+  // rather than guessing at a timeout. Drag drops never set this, so a mouse
+  // drag never yanks focus somewhere the pointer didn't ask it to go.
+  const pendingFocus = useRef(null);
+  useEffect(() => {
+    const pending = pendingFocus.current;
+    if (!pending) return;
+    const landed = groups.some((g) => g.id === pending.toGroupId && g.items.some((it) => it.id === pending.itemId));
+    if (!landed) return;
+    pendingFocus.current = null;
+    focusAllocated(pending.itemId, pending.toGroupId);
+  }, [groups]);
+  return (itemId, toGroupId, targetId = null, opts = {}) => {
     const from = groups.find((g) => g.items.some((it) => it.id === itemId));
     const to = groups.find((g) => g.id === toGroupId);
     if (!from || !to || from.id === toGroupId) return;
@@ -96,6 +113,7 @@ function useMoveItem(month, dispatch) {
     const name = from.items[idx].name;
     const backTo = from.id;
     const backBefore = idx + 1 < from.items.length ? from.items[idx + 1].id : null;
+    if (opts.restoreFocus) pendingFocus.current = { itemId, toGroupId };
     dispatch({ type: "moveItem", month, itemId, toGroupId, targetId });
     toast(`Moved "${name}" to ${to.name}.`, "success", {
       label: "Undo",
@@ -127,12 +145,12 @@ function MoveMenu({ anchorRef, groups, itemName, onPick, onClose }) {
   // moment of closing: an outside click has, by then, usually already moved
   // focus to whatever the user just clicked, and reclaiming it here would
   // yank it back away from that control.
-  const closeRestoringFocus = () => {
+  const closeRestoringFocus = useCallback(() => {
     if (anchorRef.current && ref.current && ref.current.contains(document.activeElement)) {
       anchorRef.current.focus();
     }
     onClose();
-  };
+  }, [anchorRef, onClose]);
   useEffect(() => {
     // The anchor is excluded so its own click toggles the menu shut once,
     // rather than closing here and reopening on the button's handler.
@@ -141,21 +159,36 @@ function MoveMenu({ anchorRef, groups, itemName, onPick, onClose }) {
       if (anchorRef.current && anchorRef.current.contains(e.target)) return;
       closeRestoringFocus();
     };
-    // Fixed position cannot follow a scroll, so a scroll dismisses it.
+    // Fixed position cannot follow a scroll or a resize, so either dismisses
+    // it, EXCEPT a scroll that originates inside the menu's own list
+    // (.move-menu is 'overflow-y: auto' past nine or so groups): 'e.target' is
+    // the scrolled element for that case and 'document' for a page scroll, so
+    // a contains() check tells the two apart. Without it, a long group list
+    // could never be scrolled to reach the groups past the fold.
+    const onScroll = (e) => {
+      if (ref.current && ref.current.contains(e.target)) return;
+      closeRestoringFocus();
+    };
     document.addEventListener("pointerdown", onPointerDown);
-    window.addEventListener("scroll", closeRestoringFocus, true);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", closeRestoringFocus);
     return () => {
       document.removeEventListener("pointerdown", onPointerDown);
-      window.removeEventListener("scroll", closeRestoringFocus, true);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", closeRestoringFocus);
     };
-  }, [anchorRef, onClose]);
+  }, [anchorRef, closeRestoringFocus]);
   return createPortal(
-    <div ref={ref} className="move-menu" role="menu" aria-label={`Move ${itemName} to another group`}
+    // A plain labelled group of buttons, not role="menu": the list is walked
+    // with Tab like any other button group, and none of the arrow-key/Home/End
+    // roving-tabindex contract a real menu role promises is implemented here.
+    // Claiming the role without the behaviour is worse than not claiming it.
+    <div ref={ref} className="move-menu" role="group" aria-label={`Move ${itemName} to another group`}
       style={{ top: pos.top, left: pos.left }}
       onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); closeRestoringFocus(); } }}>
       <div className="move-menu-label">Move to</div>
       {groups.map((g, i) => (
-        <button key={g.id} type="button" role="menuitem" className="move-menu-item" autoFocus={i === 0}
+        <button key={g.id} type="button" className="move-menu-item" autoFocus={i === 0}
           onClick={() => { onPick(g.id); closeRestoringFocus(); }}>
           <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.name}</span>
           {g.isSavings && <Icons.plant size={13} style={{ flex: "none", color: "var(--pos)" }} />}
@@ -250,6 +283,10 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [grabbed, setGrabbed] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
+  // Stable identity, not a fresh arrow every render: MoveMenu's own dismiss
+  // effect depends on this, and an unstable onClose tore its listeners down
+  // and rebuilt them on every keystroke elsewhere on the page.
+  const closeMoveMenu = useCallback(() => setMoveOpen(false), []);
   const moveBtnRef = useRef(null);
   const otherGroups = (groups || []).filter((g) => g.id !== group.id);
   const actual = itemActual(item);
@@ -313,14 +350,16 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
         <div className="row-actions" style={{ flexDirection: "column", alignItems: "flex-end", justifyContent: "center", gap: 0, ...(moveOpen ? { opacity: 1, pointerEvents: "auto" } : null) }}>
           <button className="icon-btn compact" aria-label={`Delete item ${item.name} from this month`} title="Delete item (this month only)" onClick={() => setConfirmDelete(true)}><Icons.trash size={15} /></button>
           <button ref={moveBtnRef} className="icon-btn compact" disabled={otherGroups.length === 0}
-            aria-haspopup="menu" aria-expanded={moveOpen}
-            aria-label={`Move ${item.name} to another group`}
+            aria-haspopup="true" aria-expanded={moveOpen}
+            aria-label={otherGroups.length === 0
+              ? `Move ${item.name} to another group. Unavailable: no other group in this month.`
+              : `Move ${item.name} to another group`}
             title={otherGroups.length === 0 ? "No other group to move this item to" : "Move to another group"}
             onClick={() => setMoveOpen((o) => !o)}><Icons.move size={15} /></button>
           {moveOpen && (
             <MoveMenu anchorRef={moveBtnRef} groups={otherGroups} itemName={item.name}
               onPick={(toGroupId) => onMoveToGroup(toGroupId)}
-              onClose={() => setMoveOpen(false)} />
+              onClose={closeMoveMenu} />
           )}
         </div>
       </div>
@@ -557,7 +596,11 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, dragItem
               count={group.items.length}
               onMove={(dir) => moveItem(it.id, dir)}
               groups={groups}
-              onMoveToGroup={(toGroupId) => moveItemToGroup(it.id, toGroupId, null)}
+              // 'restoreFocus' only fires for this, the keyboard/Move-menu path;
+              // drag drops (dropOnItem/dropOnGroup below) never set it, so a
+              // mouse drag never yanks focus somewhere the pointer didn't ask
+              // it to go.
+              onMoveToGroup={(toGroupId) => moveItemToGroup(it.id, toGroupId, null, { restoreFocus: true })}
               isDragging={!!dragItem && dragItem.id === it.id}
               isDropTarget={!!overItem && overItem.groupId === group.id && overItem.targetId === it.id && !(dragItem && dragItem.id === it.id)}
               itemDragActive={!!dragItem}
