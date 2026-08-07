@@ -184,7 +184,7 @@ function RestoreDialog({ onClose, onRestored }) {
       <p>Pick a snapshot to go back to. Nothing changes until you confirm on the next screen.</p>
 
       {err && (
-        <div style={{ display: "flex", gap: 9, alignItems: "flex-start", background: "var(--neg-soft)", color: "var(--neg-ink)", padding: "10px 12px", borderRadius: 10, fontSize: 13, marginBottom: 14, lineHeight: 1.45 }}>
+        <div style={{ display: "flex", gap: 9, alignItems: "flex-start", background: "var(--breach-soft)", color: "var(--breach-ink)", padding: "10px 12px", borderRadius: 10, fontSize: 13, marginBottom: 14, lineHeight: 1.45 }}>
           <Icons.alert size={16} style={{ flex: "none", marginTop: 1 }} /> {err}
         </div>
       )}

@@ -39,7 +39,7 @@ function DashboardScreen({ currency, onOpenMonth }) {
       </div>
 
       {loadError && (
-        <div role="alert" style={{ display: "flex", gap: 9, alignItems: "flex-start", background: "var(--neg-soft)", color: "var(--neg-ink)", padding: "11px 14px", borderRadius: 10, fontSize: 13, lineHeight: 1.45, marginBottom: 16 }}>
+        <div role="alert" style={{ display: "flex", gap: 9, alignItems: "flex-start", background: "var(--breach-soft)", color: "var(--breach-ink)", padding: "11px 14px", borderRadius: 10, fontSize: 13, lineHeight: 1.45, marginBottom: 16 }}>
           <Icons.alert size={16} style={{ flex: "none", marginTop: 1 }} />
           <span>Your months couldn't be read, so this overview is empty rather than complete. {loadError}</span>
         </div>

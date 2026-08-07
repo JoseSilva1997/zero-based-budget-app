@@ -20,7 +20,7 @@ import { Icons } from './components.jsx';
 /** What went wrong with the last click, said in the banner that offered it. */
 function BannerFailure({ text }) {
   return (
-    <div className="update-banner-line" style={{ color: 'var(--neg-ink)' }}>
+    <div className="update-banner-line" style={{ color: 'var(--breach-ink)' }}>
       <Icons.alert size={15} style={{ flex: 'none', marginTop: 1 }} />
       <span>{text}</span>
     </div>
@@ -105,7 +105,7 @@ export function UpdateBanner() {
       ) : (
         <>
           <div className="update-banner-line">
-            <Icons.check size={15} style={{ color: 'var(--pos)', flex: 'none', marginTop: 1 }} />
+            <Icons.check size={15} style={{ color: 'var(--accent)', flex: 'none', marginTop: 1 }} />
             <span><strong>Version {status.version}</strong> is ready to install.</span>
           </div>
           {failure && <BannerFailure text={failure} />}
@@ -162,7 +162,7 @@ export function UpdateSettings() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   gap: 16, padding: '14px 18px' }}>
-      <div style={{ fontSize: 13.5, color: (failure || status.state === 'error') ? 'var(--neg-ink)' : 'var(--ink)' }}>
+      <div style={{ fontSize: 13.5, color: (failure || status.state === 'error') ? 'var(--breach-ink)' : 'var(--ink)' }}>
         {failure || line}
       </div>
       {status.state === 'available' ? (

@@ -164,7 +164,11 @@ function AccountPanel({ mo, accounts, members, currency }) {
           </div>
           <div className="panel" style={{ overflow: "hidden" }}>
             {savingsItems.map((it, i) => {
-              const color = savingsAccount ? savingsAccount.color : "var(--pos)";
+              // A savings icon in the app's default green used to be a small
+              // "you're doing well" nudge; the same reasoning that retired the
+              // old positive token elsewhere applies here, so an account with
+              // no colour of its own falls back to the neutral avatar tint.
+              const color = savingsAccount ? savingsAccount.color : "var(--muted)";
               return (
                 <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 15px", borderTop: i ? "1px solid var(--rule)" : "none" }}>
                   <span style={{ width: 34, height: 34, borderRadius: 9, flex: "none", background: hexToSoft(savingsAccount ? savingsAccount.color : "#2dd4a8"), color, display: "grid", placeItems: "center" }}><Icons.plant size={17} /></span>
@@ -185,7 +189,7 @@ function AccountPanel({ mo, accounts, members, currency }) {
       )}
 
       {unassigned && (
-        <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "12px 15px", borderRadius: 11, marginTop: 14, background: "var(--neg-soft)", color: "var(--neg-ink)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "12px 15px", borderRadius: 11, marginTop: 14, background: "var(--breach-soft)", color: "var(--breach-ink)" }}>
           <Icons.alert size={16} />
           <span style={{ fontSize: 13, fontWeight: 500 }}>{fmt(currency, unassigned.allocated, { cents: false })} across {unassigned.count} item{unassigned.count !== 1 ? "s" : ""} isn't assigned to an account yet.</span>
         </div>

@@ -47,7 +47,7 @@ function HistoryScreen({ currency, onOpenMonth }) {
       </div>
 
       {loadError && (
-        <div role="alert" style={{ display: "flex", gap: 9, alignItems: "flex-start", background: "var(--neg-soft)", color: "var(--neg-ink)", padding: "11px 14px", borderRadius: 10, fontSize: 13, lineHeight: 1.45, marginBottom: 16 }}>
+        <div role="alert" style={{ display: "flex", gap: 9, alignItems: "flex-start", background: "var(--breach-soft)", color: "var(--breach-ink)", padding: "11px 14px", borderRadius: 10, fontSize: 13, lineHeight: 1.45, marginBottom: 16 }}>
           <Icons.alert size={16} style={{ flex: "none", marginTop: 1 }} />
           <span>Your month history couldn't be read, so this screen may be empty or out of date. {loadError}</span>
         </div>
@@ -82,8 +82,8 @@ function HistoryScreen({ currency, onOpenMonth }) {
               <span className="mono" style={{ textAlign: "right", fontSize: 13.5 }}>{fmt(currency, s.income, { cents: false })}</span>
               <span className="mono" style={{ textAlign: "right", fontSize: 13.5 }}>{fmt(currency, s.alloc, { cents: false })}</span>
               <span className="mono" style={{ textAlign: "right", fontSize: 13.5, color: "var(--ink-2)" }}>{fmt(currency, s.actual, { cents: false })}</span>
-              <span className="mono" style={{ textAlign: "right", fontSize: 13.5, color: "var(--pos-ink)", fontWeight: 600 }}>{fmt(currency, s.savings, { cents: false })}</span>
-              <span style={{ textAlign: "right" }}>{s.overCount > 0 ? <span className="pill pill-neg">{s.overCount} over</span> : <span className="pill pill-pos">clean</span>}</span>
+              <span className="mono" style={{ textAlign: "right", fontSize: 13.5, color: "var(--ink)", fontWeight: 600 }}>{fmt(currency, s.savings, { cents: false })}</span>
+              <span style={{ textAlign: "right" }}>{s.overCount > 0 ? <span className="pill pill-breach">{s.overCount} over</span> : <span className="pill pill-neutral">clean</span>}</span>
             </button>
           );
         })}
@@ -123,10 +123,10 @@ function Comparison({ series, cmpA, cmpB, setCmpA, setCmpB, currency, groupNames
   );
   const same = a.id === b.id;
   const rows = [
-    { label: "Income", a: a.income, b: b.income, good: "up" },
-    { label: "Allocated", a: a.alloc, b: b.alloc, good: "flat" },
-    { label: "Actual spent", a: a.actual, b: b.actual, good: "down" },
-    { label: "Saved", a: a.savings, b: b.savings, good: "up" },
+    { label: "Income", a: a.income, b: b.income },
+    { label: "Allocated", a: a.alloc, b: b.alloc },
+    { label: "Actual spent", a: a.actual, b: b.actual },
+    { label: "Saved", a: a.savings, b: b.savings },
   ];
   return (
     <div className="panel" style={{ padding: "18px 20px" }}>
@@ -145,13 +145,15 @@ function Comparison({ series, cmpA, cmpB, setCmpA, setCmpB, currency, groupNames
           const delta = round2(r.b - r.a);
           const pct = r.a !== 0 ? Math.round((delta / r.a) * 100) : null;
           const positive = delta > 0;
-          const goodDir = r.good === "up" ? positive : r.good === "down" ? !positive : Math.abs(delta) < 0.005;
           const neutral = Math.abs(delta) < 0.005;
           return (
             <div key={r.label} style={{ padding: "14px 16px", borderRadius: 12, background: "var(--board)", border: "1px solid var(--rule-faint)" }}>
               <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>{r.label}</div>
               <div className="mono" style={{ fontSize: 19, fontWeight: 500, marginBottom: 6 }}>{fmt(currency, r.b, { cents: false })}</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: neutral ? "var(--faint)" : goodDir ? "var(--pos-ink)" : "var(--neg-ink)" }}>
+              {/* A month-over-month move is not itself good or bad in this domain
+                  (spending less isn't a win, income up isn't either), so no
+                  colour codes the direction: only a genuine breach earns one. */}
+              <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: neutral ? "var(--faint)" : "var(--ink-2)" }}>
                 {!neutral && (positive ? <Icons.up size={13} /> : <Icons.down size={13} />)}
                 <span className="mono" style={{ fontWeight: 600 }}>{neutral ? "no change" : `${fmt(currency, Math.abs(delta), { cents: false })}${pct !== null ? ` · ${Math.abs(pct)}%` : ""}`}</span>
               </div>
@@ -197,7 +199,7 @@ function MonthDetail({ series, getMonth, currency, onClose, onOpen, isCurrent })
       <div style={{ maxHeight: 320, overflowY: "auto", margin: "0 -4px", paddingRight: 4 }}>
         {!mo && !err && <div style={{ padding: "12px 8px", color: "var(--muted)", fontSize: 13 }}>Loading…</div>}
         {err && (
-          <div role="alert" style={{ display: "flex", gap: 9, alignItems: "flex-start", padding: "12px 8px", color: "var(--neg-ink)", fontSize: 13, lineHeight: 1.45 }}>
+          <div role="alert" style={{ display: "flex", gap: 9, alignItems: "flex-start", padding: "12px 8px", color: "var(--breach-ink)", fontSize: 13, lineHeight: 1.45 }}>
             <Icons.alert size={16} style={{ flex: "none", marginTop: 1 }} />
             <span>This month's breakdown couldn't be read. {err}</span>
           </div>
@@ -212,7 +214,7 @@ function MonthDetail({ series, getMonth, currency, onClose, onOpen, isCurrent })
               <div key={it.id} style={{ display: "grid", gridTemplateColumns: "1fr 90px 90px", gap: 8, padding: "5px 8px", fontSize: 13, borderBottom: "1px solid var(--rule-faint)" }}>
                 <span style={{ color: "var(--ink-2)" }}>{it.name}</span>
                 <span className="mono" style={{ textAlign: "right", color: "var(--faint)" }}>{fmt(currency, it.allocated, { cents: false })}</span>
-                <span className="mono" style={{ textAlign: "right", color: over ? "var(--neg-ink)" : "var(--ink)", fontWeight: over ? 600 : 400 }}>{fmt(currency, act, { cents: false })}</span>
+                <span className="mono" style={{ textAlign: "right", color: over ? "var(--breach-ink)" : "var(--ink)", fontWeight: over ? 600 : 400 }}>{fmt(currency, act, { cents: false })}</span>
               </div>
             ); })}
           </div>

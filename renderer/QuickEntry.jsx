@@ -40,7 +40,7 @@ function SuggestionRow({ s, active, currency, onPick, id }) {
       style={{ width: "100%", display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "center", textAlign: "left", padding: "7px 10px", border: 0, background: active ? "var(--well)" : "transparent", color: "var(--ink)", cursor: "pointer", font: "inherit" }}>
       <span style={{ minWidth: 0 }}>
         <span style={{ display: "block", fontSize: 13.5, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
-        <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, marginTop: 2, color: s.itemId == null ? "var(--neg-ink)" : "var(--muted)", overflow: "hidden", whiteSpace: "nowrap" }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, marginTop: 2, color: s.itemId == null ? "var(--breach-ink)" : "var(--muted)", overflow: "hidden", whiteSpace: "nowrap" }}>
           {s.itemId == null ? <Icons.alert size={12} /> : <Icons.right size={12} />}
           {s.itemId == null ? `"${s.itemName}" is not in this month - pick an item` : `${s.groupName} · ${s.itemName}`}
         </span>
@@ -284,7 +284,7 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
             aria-label="Which budget item this spending goes under"
             onChange={(e) => { setItemId(e.target.value === "" ? null : Number(e.target.value)); }}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); amtRef.current && amtRef.current.focus(); } }}
-            style={{ height: 32, fontSize: 13, cursor: "pointer", fontFamily: "inherit", flex: "1 1 140px", minWidth: 0, color: itemId == null ? "var(--muted)" : "var(--ink)", border: `1px solid ${orphaned ? "var(--neg)" : itemId == null ? "var(--rule)" : "transparent"}`, background: itemId == null ? "var(--board)" : "transparent" }}>
+            style={{ height: 32, fontSize: 13, cursor: "pointer", fontFamily: "inherit", flex: "1 1 140px", minWidth: 0, color: itemId == null ? "var(--muted)" : "var(--ink)", border: `1px solid ${orphaned ? "var(--breach)" : itemId == null ? "var(--rule)" : "transparent"}`, background: itemId == null ? "var(--board)" : "transparent" }}>
             <option value="">Goes under…</option>
             {mo.groups.filter((g) => g.items.length > 0).map((g) => (
               <optgroup key={g.id} label={g.name}>
@@ -318,8 +318,8 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
 
         {/* Where the chosen name is going, or why it cannot go anywhere yet. */}
         {(target || orphaned) && (
-          <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "7px 16px", borderTop: "1px solid var(--rule-faint)", fontSize: 12.5, color: orphaned ? "var(--neg-ink)" : "var(--muted)", background: orphaned ? "var(--neg-soft)" : "var(--board)" }}>
-            {orphaned ? <Icons.alert size={14} /> : <Icons.check size={14} style={{ color: "var(--pos)" }} />}
+          <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "7px 16px", borderTop: "1px solid var(--rule-faint)", fontSize: 12.5, color: orphaned ? "var(--breach-ink)" : "var(--muted)", background: orphaned ? "var(--breach-soft)" : "var(--board)" }}>
+            {orphaned ? <Icons.alert size={14} /> : <Icons.check size={14} style={{ color: "var(--accent)" }} />}
             {orphaned
               ? <span>"{picked.name}" used to go under "{picked.itemName}", which this month does not have. Choose the item it belongs to now.</span>
               : <span>Goes under <strong style={{ fontWeight: 600, color: "var(--ink-2)" }}>{target.groupName} · {target.name}</strong>{picked && picked.itemId != null ? ", matched from a past entry" : ""}.</span>}

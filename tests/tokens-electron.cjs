@@ -25,6 +25,9 @@ const THEMES = ['indigo', 'violet', 'cyan', 'emerald', 'mono', 'lime',
 // [label, foreground token, background token, minimum ratio]
 const CHECKS = [
   ['rule-strong on raised', '--rule-strong', '--raised', 3.0],
+  ['unsettled on board', '--unsettled', '--board', 3.0],
+  ['breach on board',    '--breach',    '--board', 3.0],
+  ['breach-ink on breach-soft', '--breach-ink', '--breach-soft', 4.5],
 ];
 
 function assert(cond, msg) { if (!cond) throw new Error(msg); }

@@ -232,7 +232,7 @@ function MoneyInput({ value, onCommit, currency = "$", className = "", placehold
     <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
       <span aria-hidden="true" style={{ position: "absolute", left: 9, color: "var(--faint)", fontSize: 13, pointerEvents: "none", fontFamily: "var(--font-mono)" }}>{currency}</span>
       <input ref={ref} className={`minput ${className}`} inputMode="text"
-        style={invalid ? { paddingLeft: 20, borderColor: "var(--neg)", boxShadow: "none" } : { paddingLeft: 20 }}
+        style={invalid ? { paddingLeft: 20, borderColor: "var(--breach)", boxShadow: "none" } : { paddingLeft: 20 }}
         data-col={col} aria-label={label}
         aria-invalid={invalid ? true : undefined} aria-describedby={invalid ? noteId : undefined}
         value={display} placeholder={placeholder}
@@ -252,7 +252,7 @@ function MoneyInput({ value, onCommit, currency = "$", className = "", placehold
       {/* One chip above the field, carrying either the arithmetic preview or the
           reason the value was refused. */}
       {invalid ? (
-        <span id={noteId} role="alert" style={{ position: "absolute", right: 6, bottom: "100%", marginBottom: 3, background: "var(--neg-soft)", color: "var(--neg-ink)", border: "1px solid var(--neg)", fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 6, maxWidth: 230, lineHeight: 1.35, textAlign: "right", boxShadow: "var(--shadow-sm)", zIndex: 4 }}>{invalid}</span>
+        <span id={noteId} role="alert" style={{ position: "absolute", right: 6, bottom: "100%", marginBottom: 3, background: "var(--breach-soft)", color: "var(--breach-ink)", border: "1px solid var(--breach)", fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 6, maxWidth: 230, lineHeight: 1.35, textAlign: "right", boxShadow: "var(--shadow-sm)", zIndex: 4 }}>{invalid}</span>
       ) : preview !== null && (
         <span className="mono" style={{ position: "absolute", right: 6, bottom: "100%", marginBottom: 3, background: "var(--ink)", color: "var(--on-ink)", fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 6, whiteSpace: "nowrap", boxShadow: "var(--shadow-sm)", zIndex: 4 }}>= {fmt(currency, preview)}</span>
       )}
@@ -330,10 +330,13 @@ function Avatar({ member, size = 26 }) {
 }
 
 /* ---- difference pill ---------------------------------------------------- */
+/* Under-spending is not a win in zero-based budgeting, it is an unfinished
+   allocation, so "left" is as neutral as "on track". Only a breach is
+   coloured. */
 function DiffPill({ diff, currency }) {
-  if (Math.abs(diff) < 0.005) return <span className="pill pill-pos">on track</span>;
-  if (diff > 0) return <span className="pill pill-pos">{fmt(currency, diff, { cents: false })} left</span>;
-  return <span className="pill pill-neg">{fmt(currency, Math.abs(diff), { cents: false })} over</span>;
+  if (Math.abs(diff) < 0.005) return <span className="pill pill-neutral">on track</span>;
+  if (diff > 0) return <span className="pill pill-neutral">{fmt(currency, diff, { cents: false })} left</span>;
+  return <span className="pill pill-breach">{fmt(currency, Math.abs(diff), { cents: false })} over</span>;
 }
 
 /* ---- mini progress bar -------------------------------------------------- */
@@ -349,8 +352,8 @@ function MiniBar({ actual, allocated }) {
     ? `${Math.round(share * 100)}% of the budget used${over ? ", over budget" : ""}`
     : (over ? "Over budget, nothing allocated" : "Nothing allocated");
   const fill = over
-    ? "repeating-linear-gradient(-45deg, var(--neg) 0 2px, color-mix(in srgb, var(--neg) 45%, var(--well)) 2px 4px)"
-    : "var(--pos)";
+    ? "repeating-linear-gradient(-45deg, var(--breach) 0 2px, color-mix(in srgb, var(--breach) 45%, var(--well)) 2px 4px)"
+    : "var(--accent)";
   // scaleX rather than width: animating width relayouts every row on each commit.
   return (
     <div role="img" aria-label={label} style={{ height: 5, borderRadius: 99, background: "var(--well)", overflow: "hidden", width: "100%" }}>

@@ -31,19 +31,22 @@ function SummaryHero({ mo, currency }) {
     <div className="panel fade-in" style={{ padding: 0, overflow: "hidden" }}>
       <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 1fr) 1.25fr" }}>
         {/* hero unallocated */}
-        <div style={{ padding: "26px 28px", borderRight: "1px solid var(--rule)", display: "flex", flexDirection: "column", justifyContent: "space-between", background: state === "zero" ? "linear-gradient(160deg, var(--pos-soft), transparent)" : state === "over" ? "linear-gradient(160deg, var(--neg-soft), transparent)" : "transparent" }}>
+        {/* Zero (fully allocated) is the resting state and earns no colour, the
+            same re-cut DiffPill and MiniBar get elsewhere: only over-allocated
+            is a breach. */}
+        <div style={{ padding: "26px 28px", borderRight: "1px solid var(--rule)", display: "flex", flexDirection: "column", justifyContent: "space-between", background: state === "over" ? "linear-gradient(160deg, var(--breach-soft), transparent)" : "transparent" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", fontWeight: 600 }}>
-            {state === "zero" ? <Icons.check size={15} style={{ color: "var(--pos)" }} /> : <Icons.coins size={15} />}
+            {state === "zero" ? <Icons.check size={15} /> : <Icons.coins size={15} />}
             {state === "over" ? "Over-allocated" : "Left to allocate"}
           </div>
           <div>
-            <div className="mono tnum" style={{ fontSize: 50, fontWeight: 500, lineHeight: 1, letterSpacing: "-0.03em", margin: "14px 0 8px", color: state === "zero" ? "var(--pos-ink)" : state === "over" ? "var(--neg-ink)" : "var(--ink)" }}>
+            <div className="mono tnum" style={{ fontSize: 50, fontWeight: 500, lineHeight: 1, letterSpacing: "-0.03em", margin: "14px 0 8px", color: state === "over" ? "var(--breach-ink)" : "var(--ink)" }}>
               {fmt(currency, Math.abs(unalloc))}
             </div>
             <div style={{ fontSize: 13.5, color: "var(--ink-2)", lineHeight: 1.4 }}>
-              {state === "zero" && <span style={{ color: "var(--pos-ink)", fontWeight: 500 }}>Every {currency} has a job, this month is fully allocated.</span>}
+              {state === "zero" && <span style={{ fontWeight: 500 }}>Every {currency} has a job, this month is fully allocated.</span>}
               {state === "left" && <>Assign this to a group or to savings to reach zero.</>}
-              {state === "over" && <span style={{ color: "var(--neg-ink)", fontWeight: 500 }}>You've allocated more than you earn. Trim {fmt(currency, Math.abs(unalloc), { cents: false })}.</span>}
+              {state === "over" && <span style={{ color: "var(--breach-ink)", fontWeight: 500 }}>You've allocated more than you earn. Trim {fmt(currency, Math.abs(unalloc), { cents: false })}.</span>}
             </div>
           </div>
           <div style={{ marginTop: 18 }}>
@@ -52,7 +55,7 @@ function SummaryHero({ mo, currency }) {
               <span>{Math.round(pctAlloc * 100)}% of income</span>
             </div>
             <div style={{ height: 8, borderRadius: 99, background: "var(--well)", overflow: "hidden" }}>
-              <div style={{ height: "100%", width: "100%", transformOrigin: "left", transform: `scaleX(${pctAlloc})`, background: state === "over" ? "var(--neg)" : "var(--pos)", transition: "transform .35s ease" }} />
+              <div style={{ height: "100%", width: "100%", transformOrigin: "left", transform: `scaleX(${pctAlloc})`, background: state === "over" ? "var(--breach)" : "var(--accent)", transition: "transform .35s ease" }} />
             </div>
           </div>
         </div>
@@ -61,7 +64,7 @@ function SummaryHero({ mo, currency }) {
           <Stat label="Total income" value={fmt(currency, income)} tone="ink" />
           <Stat label="Total allocated" value={fmt(currency, alloc)} tone="ink" border />
           <Stat label="Total actual" value={fmt(currency, actual)} sub={`${income>0?Math.round(actual/income*100):0}% of income spent`} top />
-          <Stat label="Savings allocated" value={fmt(currency, savings)} tone="pos" icon={<Icons.plant size={15} />} border top />
+          <Stat label="Savings allocated" value={fmt(currency, savings)} icon={<Icons.plant size={15} />} border top />
         </div>
       </div>
       {over.length > 0 && (
@@ -70,7 +73,7 @@ function SummaryHero({ mo, currency }) {
            this the worst moment on the screen. Nothing here may push the total
            out of the card either, so the names are the only part that gives
            way. */
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 22px", borderTop: "1px solid var(--rule)", background: "var(--neg-soft)", color: "var(--neg-ink)", fontSize: 13 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 22px", borderTop: "1px solid var(--rule)", background: "var(--breach-soft)", color: "var(--breach-ink)", fontSize: 13 }}>
           <Icons.alert size={16} style={{ flex: "none" }} />
           <strong style={{ fontWeight: 600, flex: "none" }}>{over.length} item{over.length > 1 ? "s" : ""} over budget</strong>
           <span style={{ opacity: 0.9, flex: "1 1 auto", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -100,7 +103,7 @@ function Stat({ label, value, sub, tone, icon, border, top }) {
   return (
     <div style={{ padding: "18px 22px", borderLeft: border ? "1px solid var(--rule)" : "none", borderTop: top ? "1px solid var(--rule)" : "none", display: "flex", flexDirection: "column", justifyContent: "center" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--muted)", fontWeight: 500, marginBottom: 8 }}>{icon}{label}</div>
-      <div className="mono" style={{ fontSize: 23, fontWeight: 500, letterSpacing: "-0.01em", color: tone === "pos" ? "var(--pos-ink)" : "var(--ink)" }}>{value}</div>
+      <div className="mono" style={{ fontSize: 23, fontWeight: 500, letterSpacing: "-0.01em", color: "var(--ink)" }}>{value}</div>
       {sub && <div style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 4 }}>{sub}</div>}
     </div>
   );

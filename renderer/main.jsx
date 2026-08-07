@@ -150,9 +150,9 @@ function Toast({ msg, onDismiss }) {
       style={{
         position: "fixed", bottom: 26, left: "50%", transform: "translateX(-50%)",
         maxWidth: "min(560px, calc(100vw - 60px))",
-        background: isError ? "var(--neg-soft)" : "var(--ink)",
-        color: isError ? "var(--neg-ink)" : "var(--on-ink)",
-        border: isError ? "1px solid var(--neg)" : "1px solid transparent",
+        background: isError ? "var(--breach-soft)" : "var(--ink)",
+        color: isError ? "var(--breach-ink)" : "var(--on-ink)",
+        border: isError ? "1px solid var(--breach)" : "1px solid transparent",
         padding: isError ? "11px 12px 11px 16px" : "11px 18px",
         borderRadius: 10, fontSize: 13.5, fontWeight: 500, lineHeight: 1.45,
         boxShadow: "var(--shadow-lg)", zIndex: 80,
@@ -160,7 +160,7 @@ function Toast({ msg, onDismiss }) {
       }}>
       {isError
         ? <Icons.alert size={16} style={{ flex: "none", marginTop: 1 }} />
-        : <Icons.check size={16} style={{ color: "var(--pos)", flex: "none", marginTop: 1 }} />}
+        : <Icons.check size={16} style={{ color: "var(--accent)", flex: "none", marginTop: 1 }} />}
       <span style={{ minWidth: 0 }}>{msg.message}</span>
       {msg.action && (
         // Inherits the toast's own text colour, so it reads at the same
@@ -205,7 +205,7 @@ function StartupErrorScreen({ error, onRetry }) {
   return (
     <div style={{ position: "fixed", inset: 0, display: "grid", placeItems: "center", padding: 30 }}>
       <div className="panel" style={{ maxWidth: 480, padding: "30px 32px" }}>
-        <div style={{ width: 44, height: 44, borderRadius: 13, background: "var(--neg-soft)", color: "var(--neg-ink)", display: "grid", placeItems: "center", marginBottom: 18 }}>
+        <div style={{ width: 44, height: 44, borderRadius: 13, background: "var(--breach-soft)", color: "var(--breach-ink)", display: "grid", placeItems: "center", marginBottom: 18 }}>
           <Icons.alert size={22} />
         </div>
         <h3 style={{ margin: "0 0 8px", fontSize: 21, fontWeight: 600, letterSpacing: "-0.02em" }}>House Budget couldn't open your data</h3>
