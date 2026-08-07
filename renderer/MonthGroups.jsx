@@ -351,10 +351,9 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
           <button className="icon-btn compact" aria-label={`Delete item ${item.name} from this month`} title="Delete item (this month only)" onClick={() => setConfirmDelete(true)}><Icons.trash size={15} /></button>
           {/* No aria-haspopup: its non-false values are all synonyms for menu,
               listbox, tree, grid or dialog (WAI-ARIA), and this disclosure
-              reveals a labelled group of buttons, none of those. The APG
-              disclosure pattern is aria-expanded alone; carrying the
-              attribute anyway would make the trigger claim what finding 3
-              deliberately stopped the popup itself from claiming. */}
+              reveals a labelled group of buttons, none of those. "true" is not
+              the neutral option it looks like, it is the legacy synonym for
+              "menu". The APG disclosure pattern is aria-expanded alone. */}
           <button ref={moveBtnRef} className="icon-btn compact" disabled={otherGroups.length === 0}
             aria-expanded={moveOpen}
             aria-label={otherGroups.length === 0
