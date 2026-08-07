@@ -13,34 +13,64 @@
 const EPS = 0.005;
 
 export function barGeometry(income, allocated, actual) {
-  const scale = Math.max(income, allocated, actual, 0);
+  /* Guard against NaN: if any input is not finite, treat as empty. */
+  if (!Number.isFinite(income) || !Number.isFinite(allocated) || !Number.isFinite(actual)) {
+    return { empty: true, scale: 0, incomeX: 0, allocX: 0, spentX: 0, overAllocated: false, overspent: false };
+  }
+
+  /* Clamp inputs to zero at the top so flags derive from clamped values, not raw inputs. */
+  const inc = Math.max(income, 0);
+  const alloc = Math.max(allocated, 0);
+  const spent = Math.max(actual, 0);
+
+  const scale = Math.max(inc, alloc, spent);
   if (scale <= 0) {
     return { empty: true, scale: 0, incomeX: 0, allocX: 0, spentX: 0, overAllocated: false, overspent: false };
   }
+
+  const incomeX = inc / scale;
+  const allocX = alloc / scale;
+  const spentX = spent / scale;
+
+  /* Flags must match the regions that will be emitted, so they depend on the
+     fractions, not the original comparison. */
+  const lim = Math.min(allocX, incomeX);
+  const spentCap = Math.min(spentX, incomeX);
+
   return {
     empty: false,
     scale,
-    incomeX: Math.max(income, 0) / scale,
-    allocX: Math.max(allocated, 0) / scale,
-    spentX: Math.max(actual, 0) / scale,
-    overAllocated: allocated > income + EPS,
-    overspent: actual > allocated + EPS,
+    incomeX,
+    allocX,
+    spentX,
+    overAllocated: Math.max(allocX, spentX) > incomeX,
+    overspent: spentCap > lim,
   };
 }
 
-/* Left-to-right spans for the renderer. Zero-width spans are dropped so the
-   component never paints a region it cannot see. */
+/* Left-to-right spans for the renderer, and they must be a partition: no gaps,
+   no overlaps, in that order. Two rules make it one. The allocation is capped
+   at the income mark, so the stretch beyond the mark belongs to the breach
+   region rather than being claimed twice. And the gap starts wherever money
+   actually ran out, which is past the overspend when there is one, because
+   overspending eats into money that had no job yet. Zero-width spans are
+   dropped so the component never paints a region it cannot see. */
 export function barRegions(g) {
   if (g.empty) return [];
   const out = [];
   const push = (key, from, to) => { if (to - from > 1e-9) out.push({ key, from, to }); };
 
-  const solidTo = Math.min(g.spentX, g.allocX);
-  push("spent", 0, solidTo);
-  push("allocated", solidTo, g.allocX);
-  if (g.overspent) push("overspent", g.allocX, g.spentX);
-  if (g.allocX < g.incomeX) push("gap", g.allocX, g.incomeX);
-  if (g.overAllocated) push("overAllocated", g.incomeX, g.allocX);
+  const lim = Math.min(g.allocX, g.incomeX);        /* allocation, capped at the mark */
+  const solidTo = Math.min(g.spentX, lim);          /* spending inside the plan */
+  const spentCap = Math.min(g.spentX, g.incomeX);   /* spending, capped at the mark */
 
-  return out.sort((a, b) => a.from - b.from);
+  push("spent", 0, solidTo);
+  push("allocated", solidTo, lim);
+  push("overspent", lim, spentCap);
+  push("gap", Math.max(lim, spentCap), g.incomeX);
+  push("overAllocated", g.incomeX, Math.max(g.allocX, g.spentX));
+
+  return out;
+
+  return out;
 }
