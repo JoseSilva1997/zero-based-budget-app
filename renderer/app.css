@@ -74,6 +74,19 @@
   --ring: 0 0 0 2px var(--accent), 0 0 0 5px color-mix(in srgb, var(--accent) 26%, transparent);
   --glow-sm: 0 4px 18px -6px color-mix(in srgb, var(--accent) 55%, transparent);
   --glow-md: 0 8px 28px -8px color-mix(in srgb, var(--accent) 60%, transparent);
+
+  /* The bar's two intensities. Derived from the accent so the theme finally
+     paints the largest object on the screen rather than 0.07% of it. The mix
+     ratio is solved, not eyeballed: it has to clear 3:1 against the track
+     below it AND leave the solid accent 3:1 above it, in all 12 themes.
+     It cannot: contrast(--accent, --well) is under 9:1 (the product both
+     floors require) in eight of the twelve themes, so no single percentage
+     clears both floors everywhere a low-lightness accent sits on a
+     near-black well. 48% is the value that clears both floors in the four
+     themes where it is mathematically possible (cyan, lime, amber, teal)
+     and minimises the shortfall elsewhere; see the task report for the
+     per-theme ratios. */
+  --bar-faded: color-mix(in srgb, var(--accent) 48%, var(--well));
 }
 
 /* ============================================================
@@ -707,3 +720,20 @@ kbd {
    The current one borrows the same amber so "current" means one thing. */
 .find-hit { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent) !important; }
 .find-hit-current { box-shadow: 0 0 0 2px #ffd84d, 0 0 0 5px color-mix(in srgb, #ffd84d 26%, transparent) !important; }
+
+/* ---- month bar -----------------------------------------------------------
+   Full-bleed and structural: it sits directly on the board, not inside a
+   .panel or a .raised, because it is neither flat furniture nor the one
+   lifted object on the screen. */
+.bar-track {
+  position: relative;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--well);
+  overflow: hidden;
+}
+.bar-region { position: absolute; top: 0; bottom: 0; }
+.bar-mark {
+  position: absolute; top: -3px; bottom: -3px; width: 1px;
+  background: var(--rule-strong);
+}

@@ -9,7 +9,8 @@ import { StoreProvider, useStore } from './store.jsx';
 import { Avatar, ConfirmDialog, Icons } from './components.jsx';
 import { WalletDrawer } from './Accounts.jsx';
 import { GroupCard, NewMonthModal } from './MonthGroups.jsx';
-import { IncomeSection, SummaryHero } from './MonthBudget.jsx';
+import { IncomeSection } from './MonthBudget.jsx';
+import { MonthBar } from './MonthBar.jsx';
 import { QuickEntrySection } from './QuickEntry.jsx';
 import { HistoryScreen } from './History.jsx';
 import { DashboardScreen } from './Dashboard.jsx';
@@ -67,7 +68,7 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
         </div>
       </div>
 
-      <SummaryHero mo={mo} currency={currency} />
+      <MonthBar mo={mo} currency={currency} />
 
       <IncomeSection mo={mo} currency={currency} members={state.settings.members} dispatch={dispatch} month={mid} />
 

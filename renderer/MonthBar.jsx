@@ -1,0 +1,133 @@
+/* ============================================================
+   The month bar. One object for the whole month's money.
+
+   The filled part is money with a job; the gap is money without one. Solid
+   sits inside faded, faded sits inside the track, so both failure states
+   are the same visual event at two scales: something sticking out past
+   what should contain it. That is why nothing here is green. Finishing is
+   marked by the amber going away, not by a colour arriving.
+   ============================================================ */
+import { Icons } from './components.jsx';
+import { barGeometry, barRegions, fmt, monthActual, monthAllocated, monthIncome, monthSavings, monthUnallocated, overBudgetItems, round2 } from './lib/index.js';
+import { focusAllocated } from './MonthGroups.jsx';
+
+/* overBudgetItems reports names; routing to the row that fixes one needs its
+   id, so the reported rows are paired back to the tree by group and item name.
+   Two items with the same name in one group route to the first of them, which
+   is the right kind of wrong. Moved here verbatim from SummaryHero. */
+function withRowIds(mo, over) {
+  const byName = new Map();
+  mo.groups.forEach((g) => g.items.forEach((it) => {
+    const key = `${g.name}::${it.name}`;
+    if (!byName.has(key)) byName.set(key, { id: it.id, groupId: g.id });
+  }));
+  return over.map((o) => ({ ...o, ...(byName.get(`${o.group}::${o.item}`) || {}) }));
+}
+function sumOver(over) { return round2(over.reduce((a, o) => a + o.over, 0)); }
+
+/* Hatch rather than a flat fill for both breaches, so colour is never the
+   only signal. Same reasoning as MiniBar. */
+const hatch = (c) => `repeating-linear-gradient(-45deg, var(${c}) 0 3px, color-mix(in srgb, var(${c}) 45%, var(--well)) 3px 6px)`;
+
+/* barRegions emits 'spent', 'allocated', 'overspent', 'gap' and 'beyond'.
+   There is no 'overAllocated' region: over-allocation is a plan fact (see
+   below), not a region key, and paints through 'beyond' like an overspend
+   does. */
+const PAINT = {
+  spent: "var(--accent)",
+  allocated: "var(--bar-faded)",
+  gap: "var(--unsettled)",
+  overspent: hatch("--breach"),
+  beyond: hatch("--breach"),
+};
+
+function MonthBar({ mo, currency }) {
+  const income = monthIncome(mo), alloc = monthAllocated(mo), actual = monthActual(mo);
+  const savings = monthSavings(mo), unalloc = monthUnallocated(mo);
+  const over = withRowIds(mo, overBudgetItems(mo));
+  const g = barGeometry(income, alloc, actual);
+
+  if (g.empty) {
+    return (
+      <div style={{ margin: "4px 0 26px" }}>
+        <div className="bar-track" />
+        <div style={{ marginTop: 10, fontSize: 13, color: "var(--muted)" }}>
+          Add this month's income to start allocating.
+        </div>
+      </div>
+    );
+  }
+
+  const regions = barRegions(g);
+  /* g.overAllocated is a plan fact (the allocation exceeds income): it drives
+     the label and the figure's colour. The 'beyond' region is a rendering
+     fact (something extends past the income mark, from allocation or
+     spending or both): it drives the mark. A month can still have money to
+     allocate while having overspent past its income, so these two must never
+     be conflated: that month shows the mark and still says "left to
+     allocate". */
+  const hasBeyond = regions.some((r) => r.key === "beyond");
+
+  /* The figures beside the bar say everything the bar says, so announcing
+     the bar as well would just duplicate. MiniBar is role="img" because it
+     stands alone; this one does not. */
+  return (
+    <div style={{ margin: "4px 0 26px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+        <span style={{ fontSize: 12, color: "var(--muted)" }}>
+          {fmt(currency, income)} income
+        </span>
+        <span className="mono" style={{ fontSize: 19, fontWeight: 500, color: g.overAllocated ? "var(--breach-ink)" : "var(--ink)" }}>
+          {fmt(currency, Math.abs(unalloc))}{" "}
+          <span style={{ fontSize: 12, fontWeight: 400, color: "var(--muted)" }}>
+            {g.overAllocated ? "over-allocated" : "left to allocate"}
+          </span>
+        </span>
+      </div>
+
+      <div className="bar-track" aria-hidden="true">
+        {regions.map((r) => (
+          <div key={r.key} className="bar-region"
+            style={{ left: `${r.from * 100}%`, width: `${(r.to - r.from) * 100}%`, background: PAINT[r.key], transition: "left .35s ease, width .35s ease" }} />
+        ))}
+        {hasBeyond && <div className="bar-mark" style={{ left: `${g.incomeX * 100}%` }} />}
+      </div>
+
+      <div style={{ display: "flex", gap: 18, marginTop: 8, fontSize: 12, color: "var(--muted)" }}>
+        <span><span className="mono" style={{ color: "var(--ink-2)" }}>{fmt(currency, actual)}</span> spent</span>
+        <span><span className="mono" style={{ color: "var(--ink-2)" }}>{fmt(currency, alloc)}</span> allocated</span>
+        {savings > 0 && <span><span className="mono" style={{ color: "var(--ink-2)" }}>{fmt(currency, savings)}</span> of that to savings</span>}
+      </div>
+
+      {over.length > 0 && (
+        /* The named items are links, not a read-out: being told which three
+           items are over and then having to go hunting for them is what makes
+           this the worst moment on the screen. Once the gap closes this strip
+           is the only coloured thing left, which is the point: for the 29 days
+           after payday it is the only part that wants action. */
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14, padding: "11px 14px", borderRadius: 8, background: "var(--breach-soft)", color: "var(--breach-ink)", fontSize: 13 }}>
+          <Icons.alert size={16} style={{ flex: "none" }} />
+          <strong style={{ fontWeight: 600, flex: "none" }}>{over.length} item{over.length > 1 ? "s" : ""} over budget</strong>
+          <span style={{ opacity: 0.9, flex: "1 1 auto", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            ·{" "}
+            {over.slice(0, 3).map((o, i) => (
+              <span key={`${o.id != null ? o.id : o.item}-${i}`}>
+                {i > 0 ? ", " : ""}
+                <button type="button" onClick={() => focusAllocated(o.id, o.groupId)}
+                  title={`Go to ${o.item} in ${o.group}`}
+                  aria-label={`Go to ${o.item} in ${o.group}, ${fmt(currency, o.over)} over`}
+                  style={{ background: "transparent", border: 0, padding: 0, font: "inherit", color: "inherit", textDecoration: "underline", textUnderlineOffset: 2, cursor: "pointer" }}>
+                  {o.item}
+                </button>
+              </span>
+            ))}
+            {over.length > 3 ? "…" : ""}
+          </span>
+          <span className="mono" style={{ marginLeft: "auto", fontWeight: 600, flex: "none" }}>{fmt(currency, sumOver(over))} over total</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export { MonthBar };

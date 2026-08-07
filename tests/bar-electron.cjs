@@ -7,12 +7,15 @@
 
    Run with:  npx electron tests/bar-electron.cjs
    ============================================================ */
-const { app } = require('electron');
+const { app, BrowserWindow } = require('electron');
 const esbuild = require('esbuild');
+const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 app.disableHardwareAcceleration();
 const root = path.join(__dirname, '..');
+const outDir = path.join(os.tmpdir(), 'house-budget-bar-test');
 
 const results = [];
 function check(name, cond, msg) { results.push({ name, ok: !!cond, msg: cond ? '' : (msg || '') }); }
@@ -25,6 +28,125 @@ function seededRandom(seed) {
     state = (state * 1103515245 + 12345) & 0x7fffffff;
     return state / 0x7fffffff;
   };
+}
+
+/* ---- the mounted-component suite ----------------------------------------
+   Bundled and run inside a hidden window, same pattern as
+   tests/update-banner-electron.cjs: esbuild compiles the real JSX, React
+   mounts it in a real DOM, and the page hands its results back as an array.
+   This suite asserts on the painted region strings, not on computed layout,
+   so it does not need app.css loaded; colour itself is tests/tokens-electron.cjs's
+   job. -------------------------------------------------------------------- */
+const PAGE_SUITE = /* js */ `
+import { createElement } from 'react';
+import { createRoot } from 'react-dom/client';
+import { MonthBar } from './renderer/MonthBar.jsx';
+
+const out = [];
+const check = (name, cond, msg) => out.push({ name, ok: !!cond, msg: cond ? '' : (msg || '') });
+
+// One group, one item, so allocated and actual are whatever we say they are.
+const month = (allocated, actual, income) => ({
+  id: '2026-08',
+  incomes: income ? [{ id: 'i1', memberId: 'm1', amount: income, label: 'Pay' }] : [],
+  groups: [{ id: 'g1', name: 'House', isSavings: false, collapsed: false,
+             items: [{ id: 'it1', name: 'Rent', allocated, account: null,
+                       actuals: actual ? [{ id: 'a1', amount: actual, name: '', note: '', date: '2026-08-03' }] : [] }] }],
+});
+
+const mount = (mo) => {
+  const host = document.createElement('div');
+  document.body.appendChild(host);
+  createRoot(host).render(createElement(MonthBar, { mo, currency: '£' }));
+  return host;
+};
+const tick = () => new Promise((r) => setTimeout(r, 0));
+
+// Each region is painted by an inline background, so read them off the DOM.
+const paints = (host) => [...host.querySelectorAll('.bar-region')].map((n) => n.style.background);
+
+window.__runTests = async () => {
+  // Partly allocated: there is a gap, and it carries the nag colour.
+  const partial = mount(month(3400, 2150, 4200));
+  await tick();
+  check('partial paints a gap', paints(partial).some((p) => p.includes('--unsettled')), paints(partial).join(' | '));
+  check('partial draws no income mark', partial.querySelectorAll('.bar-mark').length === 0);
+
+  // Settled: the gap is gone, so the nag colour must be absent entirely.
+  const settled = mount(month(4200, 0, 4200));
+  await tick();
+  check('settled paints no gap', !paints(settled).some((p) => p.includes('--unsettled')), paints(settled).join(' | '));
+
+  // Over-allocated: the income mark becomes an interior rule.
+  const over = mount(month(4510, 0, 4200));
+  await tick();
+  check('over-allocated draws the income mark', over.querySelectorAll('.bar-mark').length === 1);
+  check('over-allocated paints a breach', paints(over).some((p) => p.includes('--breach')), paints(over).join(' | '));
+
+  // The case three fix rounds were spent getting right: income 4200,
+  // allocated 3400, actual 4500. The allocation never exceeded income, so
+  // g.overAllocated stays false and the label must still read "left to
+  // allocate" - but spending alone pushes a beyond region (and therefore
+  // the income mark) onto the track. Deciding the mark from g.overAllocated,
+  // or the label from hasBeyond, is exactly the bug this case pins.
+  const beyond = mount(month(3400, 4500, 4200));
+  await tick();
+  check('beyond-but-not-over-allocated draws the income mark', beyond.querySelectorAll('.bar-mark').length === 1);
+  check('beyond-but-not-over-allocated still says left to allocate',
+    beyond.textContent.includes('left to allocate') && !beyond.textContent.includes('over-allocated'),
+    beyond.textContent);
+
+  // Nothing at all: the invitation, and no regions to paint.
+  const empty = mount(month(0, 0, 0));
+  await tick();
+  check('empty paints no regions', paints(empty).length === 0);
+  check('empty invites income', empty.textContent.includes("Add this month's income"), empty.textContent);
+
+  // The bar itself must not be announced: every figure it encodes is text beside it.
+  check('track is hidden from the a11y tree',
+    partial.querySelector('.bar-track').getAttribute('aria-hidden') === 'true');
+
+  return out;
+};
+`;
+
+async function runComponentSuite() {
+  fs.mkdirSync(outDir, { recursive: true });
+  await esbuild.build({
+    stdin: { contents: PAGE_SUITE, resolveDir: root, loader: 'jsx', sourcefile: 'suite.jsx' },
+    bundle: true,
+    format: 'iife',
+    platform: 'browser',
+    target: 'chrome120',
+    jsx: 'automatic',
+    define: { 'process.env.NODE_ENV': '"development"' },
+    outfile: path.join(outDir, 'suite.js'),
+  });
+  fs.writeFileSync(
+    path.join(outDir, 'index.html'),
+    '<!DOCTYPE html><html><body><div id="root"></div><script src="suite.js"></script></body></html>',
+    'utf8'
+  );
+  let win = null;
+  try {
+    win = new BrowserWindow({ show: false, webPreferences: { contextIsolation: false, sandbox: false } });
+    const pageErrors = [];
+    win.webContents.on('console-message', (...args) => {
+      const e = args[0];
+      const level = typeof e === 'object' && e ? e.level : args[1];
+      const message = typeof e === 'object' && e ? e.message : args[2];
+      if (level === 'error' || level === 3) pageErrors.push(message);
+    });
+    await win.loadFile(path.join(outDir, 'index.html'));
+    const compResults = await win.webContents.executeJavaScript('window.__runTests()');
+    if (pageErrors.length) {
+      compResults.push({ name: 'no console errors in the renderer', ok: false, msg: pageErrors.join(' | ') });
+    }
+    return compResults;
+  } finally {
+    if (win && !win.isDestroyed()) win.destroy();
+    fs.rmSync(outDir, { recursive: true, force: true });
+  }
 }
 
 app.whenReady().then(async () => {
@@ -264,5 +386,18 @@ app.whenReady().then(async () => {
   const failed = results.filter((x) => !x.ok);
   for (const f of failed) console.error(`FAIL  ${f.name}${f.msg ? ': ' + f.msg : ''}`);
   console.log(`${results.length - failed.length}/${results.length} bar geometry checks passed`);
-  app.exit(failed.length === 0 ? 0 : 1);
+
+  let compResults = [];
+  let compError = null;
+  try {
+    compResults = await runComponentSuite();
+  } catch (e) {
+    compError = e;
+  }
+  const compFailed = compResults.filter((x) => !x.ok);
+  for (const f of compFailed) console.error(`FAIL  ${f.name}${f.msg ? ': ' + f.msg : ''}`);
+  if (compError) console.error(`FAIL  component suite threw: ${compError.message}`);
+  console.log(`${compResults.length - compFailed.length}/${compResults.length} bar component checks passed`);
+
+  app.exit(failed.length === 0 && compFailed.length === 0 && !compError ? 0 : 1);
 });

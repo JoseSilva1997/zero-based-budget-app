@@ -28,6 +28,8 @@ const CHECKS = [
   ['unsettled on board', '--unsettled', '--board', 3.0],
   ['breach on board',    '--breach',    '--board', 3.0],
   ['breach-ink on breach-soft', '--breach-ink', '--breach-soft', 4.5],
+  ['bar fill faded on track', '--bar-faded', '--well', 3.0],
+  ['bar fill solid on faded', '--accent',    '--bar-faded', 3.0],
 ];
 
 function assert(cond, msg) { if (!cond) throw new Error(msg); }
