@@ -76,17 +76,26 @@
   --glow-md: 0 8px 28px -8px color-mix(in srgb, var(--accent) 60%, transparent);
 
   /* The bar's two intensities. Derived from the accent so the theme finally
-     paints the largest object on the screen rather than 0.07% of it. The mix
-     ratio is solved, not eyeballed: it has to clear 3:1 against the track
-     below it AND leave the solid accent 3:1 above it, in all 12 themes.
-     It cannot: contrast(--accent, --well) is under 9:1 (the product both
-     floors require) in eight of the twelve themes, so no single percentage
-     clears both floors everywhere a low-lightness accent sits on a
-     near-black well. 48% is the value that clears both floors in the four
-     themes where it is mathematically possible (cyan, lime, amber, teal)
-     and minimises the shortfall elsewhere; see the task report for the
-     per-theme ratios. */
-  --bar-faded: color-mix(in srgb, var(--accent) 48%, var(--well));
+     paints the largest object on the screen rather than 0.07% of it.
+
+     Only one floor binds here: --bar-faded against --well must clear 3:1 in
+     all 12 themes, because that boundary (how far the fill extends against
+     its track) is the one WCAG 1.4.11 actually governs. --accent against
+     --bar-faded is NOT held to 3:1: the two fills are a redundant encoding,
+     not the sole carrier of the amounts they represent (MonthBar prints
+     "spent" and "allocated" as text beneath the bar), so 1.4.11's
+     "information not otherwise available" test does not apply to it. See
+     tests/tokens-electron.cjs for the derived (not chosen) floor that check
+     is held to instead.
+
+     The percentage itself is the smallest whole number that clears the
+     outer floor in every theme: raising it lightens --bar-faded, which
+     raises the outer ratio and lowers the inner one, so the smallest
+     value that still clears the outer floor everywhere is also the value
+     that maximises the inner separation. 73 fails (worst case 2.96:1,
+     indigo); 74 is the first whole percent that passes (worst case
+     3.01:1, indigo). See the task report for the full per-theme table. */
+  --bar-faded: color-mix(in srgb, var(--accent) 74%, var(--well));
 }
 
 /* ============================================================
