@@ -21,7 +21,7 @@
     "pack": "npm run build && npm run build:renderer && node scripts/make-icon.mjs && node scripts/fix-node-gyp.mjs && electron-builder --dir",
     "dist": "npm run build && npm run build:renderer && node scripts/make-icon.mjs && node scripts/fix-node-gyp.mjs && electron-builder",
     "pretest": "npm run build",
-    "test": "electron tests/smoke-electron.cjs && electron tests/repo-electron.cjs && electron tests/migration-electron.cjs && electron tests/updater-electron.cjs && electron tests/update-banner-electron.cjs && electron tests/menu-electron.cjs",
+    "test": "electron tests/smoke-electron.cjs && electron tests/repo-electron.cjs && electron tests/migration-electron.cjs && electron tests/updater-electron.cjs && electron tests/update-banner-electron.cjs && electron tests/menu-electron.cjs && electron tests/tokens-electron.cjs",
     "check:version": "node scripts/check-version.mjs"
   },
   "build": {
