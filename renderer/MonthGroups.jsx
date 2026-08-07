@@ -261,7 +261,8 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
       onDragStart={(e) => { e.stopPropagation(); e.dataTransfer.effectAllowed = "move"; onDragStart(); }}
       onDragEnter={(e) => { e.preventDefault(); onDragOverItem(); }}
       onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
-      onDrop={(e) => { e.preventDefault(); onDrop(); }}
+      /* Stops the ancestor group's append handler reading the same drop. */
+      onDrop={(e) => { e.preventDefault(); e.stopPropagation(); onDrop(); }}
       onDragEnd={() => { setGrabbed(false); onDragEnd(); }}
       style={{ borderTop: isDropTarget ? "2px solid var(--accent)" : "1px solid var(--border)", opacity: isDragging ? .4 : 1, background: isDropTarget ? "var(--accent-soft)" : undefined, transition: "background .12s" }}>
       <div style={{ display: "flex", alignItems: "stretch", minHeight: "var(--row-h)" }}>
@@ -422,13 +423,11 @@ function AddItemSearch({ month, groupId, currency, dispatch, onClose, itemCount 
   );
 }
 
-function GroupCard({ group, currency, dispatch, month, accounts, state, onDragStart, onDragOverGroup, onDrop, onDragEnd, isDragging }) {
+function GroupCard({ group, currency, dispatch, month, accounts, state, dragItem, overItem, onItemDragStart, onItemDragOver, onItemDragEnd, onDragStart, onDragOverGroup, onDrop, onDragEnd, isDragging }) {
   const alloc = groupAllocated(group), actual = groupActual(group);
   const diff = round2(alloc - actual);
   const [addingItem, setAddingItem] = useState(false);
   const [grabbed, setGrabbed] = useState(false);
-  const [dragId, setDragId] = useState(null);
-  const [overId, setOverId] = useState(null);
   const [openItems, setOpenItems] = useState(() => new Set());
   const [confirmDelete, setConfirmDelete] = useState(false);
   const cardRef = useRef(null);
@@ -450,10 +449,44 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, onDragSt
     document.addEventListener("pointerdown", handlePointerDown);
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [openItems]);
-  const endDrag = () => { setDragId(null); setOverId(null); };
-  const dropItem = (targetId) => {
-    if (dragId && targetId && dragId !== targetId) dispatch({ type: "reorderItem", month, groupId: group.id, itemId: dragId, targetId });
-    endDrag();
+  /* A drop on a row: within this group it is the reorder it always was, and
+     from another group it is a move that lands exactly where the drop-line
+     was drawn. */
+  const dropOnItem = (targetId) => {
+    if (dragItem) {
+      if (dragItem.groupId === group.id) {
+        if (dragItem.id !== targetId) dispatch({ type: "reorderItem", month, groupId: group.id, itemId: dragItem.id, targetId });
+      } else {
+        moveItemToGroup(dragItem.id, group.id, targetId);
+      }
+    }
+    onItemDragEnd();
+  };
+  /* A drop on the header or the footer appends. The header is what makes a
+     COLLAPSED group droppable, since it is all such a group renders. */
+  const dropOnGroup = () => {
+    if (dragItem && dragItem.groupId !== group.id) moveItemToGroup(dragItem.id, group.id, null);
+    onItemDragEnd();
+  };
+  const appendHere = !!(dragItem && dragItem.groupId !== group.id && overItem
+    && overItem.groupId === group.id && overItem.targetId === null);
+  /* Attached to the header and footer specifically, never to the whole card: a
+     card-level dragover fires on every mouse move over a row and would wipe out
+     the targetId that row's own dragenter has just set. */
+  const appendTargetProps = {
+    onDragOver: (e) => {
+      if (!dragItem) return;
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = "move";
+      onItemDragOver(group.id, null);
+    },
+    onDrop: (e) => {
+      if (!dragItem) return;
+      e.preventDefault();
+      e.stopPropagation();
+      dropOnGroup();
+    },
   };
   /* Keyboard reordering. The row keeps its React key, so the browser moves the
      same node and the handle keeps focus across the write. */
@@ -487,7 +520,7 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, onDragSt
       <DragHandle label={`Reorder group ${group.name}, ${groupIndex + 1} of ${groups.length}`}
         onGrab={() => setGrabbed(true)} onRelease={() => setGrabbed(false)} onMove={moveGroup}
         style={{ background: "var(--surface-2)", borderBottom: group.collapsed ? "none" : "1px solid var(--border-strong)" }} />
-      <div style={{ flex: 1, minWidth: 0, display: "grid", gridTemplateColumns: "var(--budget-cols)", alignItems: "center", gap: 10, padding: "16px 8px", background: "var(--surface-2)", borderBottom: group.collapsed ? "none" : "1px solid var(--border-strong)" }} className="budget-row">
+      <div {...appendTargetProps} style={{ flex: 1, minWidth: 0, display: "grid", gridTemplateColumns: "var(--budget-cols)", alignItems: "center", gap: 10, padding: "16px 8px", background: appendHere ? "var(--accent-soft)" : "var(--surface-2)", borderBottom: group.collapsed ? "none" : "1px solid var(--border-strong)", transition: "background .12s" }} className="budget-row">
         <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
           <button className="icon-btn" aria-expanded={!group.collapsed} aria-label={group.collapsed ? `Expand ${group.name}` : `Collapse ${group.name}`} onClick={() => dispatch({ type: "toggleCollapse", month, groupId: group.id })} style={{ flex: "none", transform: group.collapsed ? "rotate(-90deg)" : "none", transition: "transform .18s" }}><Icons.down size={16} /></button>
           <span title={group.name} style={{ display: "flex", flex: "1 1 auto", minWidth: 0 }}>
@@ -507,7 +540,7 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, onDragSt
       {!group.collapsed && (
         <div>
           {group.items.length === 0 && !addingItem && (
-            <div style={{ padding: "16px", textAlign: "center", color: "var(--faint)", fontSize: 13, borderTop: "1px solid var(--hairline)" }}>No items yet.</div>
+            <div {...appendTargetProps} style={{ padding: "16px", textAlign: "center", color: appendHere ? "var(--ink-2)" : "var(--faint)", fontSize: 13, borderTop: "1px solid var(--hairline)", background: appendHere ? "var(--accent-soft)" : undefined, transition: "background .12s" }}>No items yet.</div>
           )}
           {group.items.map((it, itemIndex) => (
             <ItemRow key={it.id} item={it} group={group} currency={currency} dispatch={dispatch} month={month} accounts={accounts}
@@ -518,17 +551,17 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, onDragSt
               onMove={(dir) => moveItem(it.id, dir)}
               groups={groups}
               onMoveToGroup={(toGroupId) => moveItemToGroup(it.id, toGroupId, null)}
-              isDragging={dragId === it.id}
-              isDropTarget={overId === it.id && dragId !== it.id}
-              onDragStart={() => setDragId(it.id)}
-              onDragOverItem={() => { if (dragId) setOverId(it.id); }}
-              onDrop={() => dropItem(it.id)}
-              onDragEnd={endDrag} />
+              isDragging={!!dragItem && dragItem.id === it.id}
+              isDropTarget={!!overItem && overItem.groupId === group.id && overItem.targetId === it.id && !(dragItem && dragItem.id === it.id)}
+              onDragStart={() => onItemDragStart(group.id, it.id)}
+              onDragOverItem={() => { if (dragItem) onItemDragOver(group.id, it.id); }}
+              onDrop={() => dropOnItem(it.id)}
+              onDragEnd={onItemDragEnd} />
           ))}
           {addingItem ? (
             <AddItemSearch month={month} groupId={group.id} currency={currency} dispatch={dispatch} itemCount={itemCount} onClose={() => setAddingItem(false)} />
           ) : (
-            <div style={{ background: "var(--surface-2)", borderTop: "1px solid var(--hairline)", padding: "4px 0" }}>
+            <div {...appendTargetProps} style={{ background: appendHere ? "var(--accent-soft)" : "var(--surface-2)", borderTop: "1px solid var(--hairline)", padding: "4px 0", transition: "background .12s" }}>
               <button className="btn btn-ghost btn-sm" style={{ margin: "8px 10px", color: "var(--muted)" }} onClick={() => setAddingItem(true)}><Icons.plus size={14} /> Add item</button>
             </div>
           )}
