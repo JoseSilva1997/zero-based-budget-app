@@ -361,6 +361,11 @@ input { font-family: inherit; }
 }
 .icon-btn:hover { background: var(--surface-sunken); color: var(--ink); }
 .icon-btn.subtle { color: var(--faint); }
+/* Only for the item row's stacked delete/move pair: at the default 30px the
+   two buttons plus their gap (62px) out-measure the name+account column
+   (57px) and add 5px to every item row. 26px with no gap brings the stack
+   back to 73px, level with the row's other columns. */
+.icon-btn.compact { width: 26px; height: 26px; }
 
 /* Cards */
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
@@ -449,6 +454,27 @@ input { font-family: inherit; }
   opacity: 0; cursor: pointer; border: none; -webkit-appearance: none; appearance: none;
 }
 .acct-chip select:focus-visible { outline: none; }
+
+/* Move-to-group menu. Fixed and portalled to the body, because the group card
+   clips its own children to keep its rounded corners. */
+.move-menu {
+  position: fixed; z-index: 65; min-width: 190px; max-width: 260px; max-height: 280px;
+  overflow-y: auto; padding: 4px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); box-shadow: var(--shadow-md);
+}
+.move-menu-label {
+  padding: 6px 9px 5px; font-size: 11px; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--faint); font-weight: 600;
+}
+.move-menu-item {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  text-align: left; padding: 7px 9px; border: 0; border-radius: 7px;
+  background: transparent; color: var(--ink); font: inherit; font-size: 13.5px; cursor: pointer;
+}
+/* Hover and keyboard focus look the same: this menu is walked with arrow keys
+   as often as it is clicked. */
+.move-menu-item:hover, .move-menu-item:focus-visible { background: var(--surface-sunken); }
 
 /* Modal */
 .modal-veil { position: fixed; inset: 0; background: rgba(0,0,0,0.62); backdrop-filter: blur(4px); display: grid; place-items: center; z-index: 60; animation: veil .18s ease; }

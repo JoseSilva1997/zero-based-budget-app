@@ -89,6 +89,8 @@ const api = {
   itemDelete: (id: number) => invoke<Ok>('item:delete', { id }),
   itemReorder: (groupId: number, id: number, targetId: number) =>
     invoke<Ok>('item:reorder', { groupId, id, targetId }),
+  itemMove: (id: number, toGroupId: number, targetId: number | null) =>
+    invoke<Ok>('item:move', { id, toGroupId, targetId }),
 
   /* ---------- actuals ---------- */
   actualAdd: (

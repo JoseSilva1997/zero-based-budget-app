@@ -41,6 +41,12 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
     endGroupDrag();
   };
   const GroupDropLine = () => <div style={{ height: 3, borderRadius: 999, background: "var(--accent)", margin: "-9px 2px 8px" }} />;
+  /* Item drag lives here, not inside a group card, because an item that can
+     only be dragged within the card that owns its drag state is an item that
+     can never leave its group. */
+  const [dragItem, setDragItem] = useState(null);   // { id, groupId }
+  const [overItem, setOverItem] = useState(null);   // { groupId, targetId }; null targetId = append
+  const endItemDrag = () => { setDragItem(null); setOverItem(null); };
 
   return (
     <div className="fade-in">
@@ -94,10 +100,19 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
             {showLine && !overGroupAfter && <GroupDropLine />}
             <GroupCard group={g} currency={currency} dispatch={dispatch} month={mid} accounts={state.settings.accounts} state={state}
               isDragging={dragGroupId === g.id}
-              onDragStart={() => setDragGroupId(g.id)}
+              // A row that unmounts mid-drag (rare, but the drag ends outside
+              // any listener that could clear it) never fires its own dragend,
+              // which would leave the other kind of drag state stuck set and a
+              // later drop of this kind misread as the wrong one.
+              onDragStart={() => { setDragItem(null); setDragGroupId(g.id); }}
               onDragOverGroup={(after) => { if (dragGroupId) { setOverGroupId(g.id); setOverGroupAfter(after); } }}
               onDrop={() => dropGroup(g.id)}
-              onDragEnd={endGroupDrag} />
+              onDragEnd={endGroupDrag}
+              dragItem={dragItem}
+              overItem={overItem}
+              onItemDragStart={(groupId, itemId) => { setDragGroupId(null); setDragItem({ id: itemId, groupId }); }}
+              onItemDragOver={(groupId, targetId) => { if (dragItem) setOverItem({ groupId, targetId }); }}
+              onItemDragEnd={endItemDrag} />
             {showLine && overGroupAfter && <GroupDropLine />}
           </React.Fragment>
         );

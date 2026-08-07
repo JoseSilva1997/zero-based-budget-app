@@ -245,6 +245,67 @@ app.whenReady().then(() => {
     eq(months.deleteMonth(db, octId), '2026-08', 'inactive delete keeps the pointer');
     eq(meta.getMeta(db, 'activeMonth'), '2026-08', 'pointer untouched');
 
+    /* ---- moveItem: an item changes group, keeping its spending ---- */
+    // Its own month, so the aggregate assertions further up are not disturbed.
+    const movId = months.insertMonth(db, '2026-11');
+    const gA = months.insertGroup(db, { budget_month_id: movId, name: 'A', kind: 'spend', sort_order: 0, collapsed: 0 });
+    const gB = months.insertGroup(db, { budget_month_id: movId, name: 'B', kind: 'spend', sort_order: 1, collapsed: 0 });
+    const a1 = months.insertItem(db, { budget_group_id: gA, name: 'A1', planned_cents: 100, bank_account_id: null, sort_order: 0 });
+    const a2 = months.insertItem(db, { budget_group_id: gA, name: 'A2', planned_cents: 200, bank_account_id: null, sort_order: 1 });
+    const a3 = months.insertItem(db, { budget_group_id: gA, name: 'A3', planned_cents: 300, bank_account_id: null, sort_order: 2 });
+    const b1 = months.insertItem(db, { budget_group_id: gB, name: 'B1', planned_cents: 400, bank_account_id: null, sort_order: 0 });
+    const b2 = months.insertItem(db, { budget_group_id: gB, name: 'B2', planned_cents: 500, bank_account_id: null, sort_order: 1 });
+    months.insertActualEntry(db, { budget_item_id: a2, spent_on: '2026-11-03', amount_cents: 1500, name: 'kept', note: null });
+
+    const namesIn = (gid) => months.listItems(db, gid).map((i) => i.name);
+    const ordersIn = (gid) => months.listItems(db, gid).map((i) => i.sort_order);
+
+    // Positional: A2 lands immediately BEFORE B2, which is what the drop-line
+    // on the target row's top border promises.
+    months.moveItem(db, a2, gB, b2);
+    eq(JSON.stringify(namesIn(gB)), JSON.stringify(['B1', 'A2', 'B2']), 'move lands before target');
+    eq(JSON.stringify(namesIn(gA)), JSON.stringify(['A1', 'A3']), 'moved item left its group');
+    // The source is compacted, so a later insert cannot collide with a stale gap.
+    eq(JSON.stringify(ordersIn(gA)), JSON.stringify([0, 1]), 'source sort_order compacted');
+    eq(JSON.stringify(ordersIn(gB)), JSON.stringify([0, 1, 2]), 'destination sort_order dense');
+    // The spending travels with the item: entries hang off budget_item_id.
+    const movedRead = months.getItemById(db, a2);
+    eq(movedRead.actuals.length, 1, 'moved item keeps its entries');
+    eq(movedRead.actuals[0].name, 'kept', 'moved entry intact');
+
+    // A null target appends.
+    months.moveItem(db, a1, gB, null);
+    eq(JSON.stringify(namesIn(gB)), JSON.stringify(['B1', 'A2', 'B2', 'A1']), 'null target appends');
+
+    // Same group with no target changes nothing; same group WITH a target is a
+    // reorder, and keeps reorderItems' own direction rules rather than a second
+    // copy of them.
+    months.moveItem(db, b1, gB, null);
+    eq(JSON.stringify(namesIn(gB)), JSON.stringify(['B1', 'A2', 'B2', 'A1']), 'same-group null target is a no-op');
+    months.moveItem(db, a1, gB, b1);
+    eq(JSON.stringify(namesIn(gB)), JSON.stringify(['A1', 'B1', 'A2', 'B2']), 'same-group move reorders');
+
+    // A group in another month is refused rather than silently corrupting the tree.
+    throws(() => months.moveItem(db, a3, gSpend, null), 'same month', 'cross-month move refused');
+    eq(JSON.stringify(namesIn(gA)), JSON.stringify(['A3']), 'refused move left the item alone');
+
+    // A destination that is gone is refused; an item that is gone is not. A drop
+    // can land after its own row was deleted in another window, and that is not
+    // worth an error toast.
+    throws(() => months.moveItem(db, a3, gB + 9999, null), 'no longer in your budget', 'unknown destination refused');
+    months.moveItem(db, a3 + 9999, gB, null);
+    eq(JSON.stringify(namesIn(gB)), JSON.stringify(['A1', 'B1', 'A2', 'B2']), 'unknown item is a no-op');
+
+    // A targetId that exists but sits in a DIFFERENT group from the one being
+    // moved into (deleted from the destination, or moved again, mid-drag) is
+    // the case the "falls back to the end" comment at months.ts:297-300 is
+    // actually about, not just an outright-unknown id. A4 stays behind in A,
+    // so its id is real but absent from destIds when A3 moves into B.
+    const a4 = months.insertItem(db, { budget_group_id: gA, name: 'A4', planned_cents: 350, bank_account_id: null, sort_order: 3 });
+    months.moveItem(db, a3, gB, a4);
+    eq(JSON.stringify(namesIn(gB)), JSON.stringify(['A1', 'B1', 'A2', 'B2', 'A3']), 'target outside destination group falls back to append');
+    eq(JSON.stringify(namesIn(gA)), JSON.stringify(['A4']), 'moved item left source; unrelated target item untouched');
+
     /* ---- referential integrity clean throughout ---- */
     const violations = db.pragma('foreign_key_check');
     assert(violations.length === 0, `foreign-key violations: ${JSON.stringify(violations)}`);

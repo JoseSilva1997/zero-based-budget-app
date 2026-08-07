@@ -2,7 +2,8 @@
    Groups & Items - collapsible groups, inline edit, quick-add,
    reorder, delete-this-month-only, and the New Month flow.
    ============================================================ */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ConfirmDialog, DayField, DiffPill, Icons, MiniBar, Modal, MoneyInput, TextInline, evalMoney, isExpr } from './components.jsx';
 import { actualDay, fmt, groupActual, groupAllocated, itemActual, makeActualDate, monthLabel, nextMonthId, normalizeItemName, round2 } from './lib/index.js';
 import { useStore } from './store.jsx';
@@ -76,6 +77,125 @@ function DragHandle({ label, onGrab, onRelease, onMove, style }) {
       style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, flex: "none", cursor: "grab", color: "var(--faint)", border: 0, padding: 0, ...style }}>
       <Icons.drag size={25} />
     </button>
+  );
+}
+
+/* ---- moving an item to another group ------------------------------------
+   Both ways in, the row's Move menu and a cross-group drag, come through here
+   so they cannot report differently or lose the way back. Undo needs the item
+   that FOLLOWED the moved one, because that is what restores its old slot
+   rather than merely its old group. */
+function useMoveItem(month, dispatch) {
+  const { state, toast } = useStore();
+  const groups = (state && state.months[month] && state.months[month].groups) || [];
+  // Keyboard focus after a menu-driven move (opts.restoreFocus): 'dispatch' is
+  // fire-and-forget, and the row that held focus unmounts here and remounts
+  // under the destination card, so there is no node to hand focus back to
+  // until the refetch actually lands it there. This mirrors IncomeSection's
+  // pending-ref-plus-effect (MonthBudget.jsx:120-130): wait for the item to
+  // show up under its new group in the refreshed tree, then send focus in,
+  // rather than guessing at a timeout. Drag drops never set this, so a mouse
+  // drag never yanks focus somewhere the pointer didn't ask it to go.
+  const pendingFocus = useRef(null);
+  useEffect(() => {
+    const pending = pendingFocus.current;
+    if (!pending) return;
+    const landed = groups.some((g) => g.id === pending.toGroupId && g.items.some((it) => it.id === pending.itemId));
+    if (!landed) return;
+    pendingFocus.current = null;
+    focusAllocated(pending.itemId, pending.toGroupId);
+  }, [groups]);
+  return (itemId, toGroupId, targetId = null, opts = {}) => {
+    const from = groups.find((g) => g.items.some((it) => it.id === itemId));
+    const to = groups.find((g) => g.id === toGroupId);
+    if (!from || !to || from.id === toGroupId) return;
+    const idx = from.items.findIndex((it) => it.id === itemId);
+    const name = from.items[idx].name;
+    const backTo = from.id;
+    const backBefore = idx + 1 < from.items.length ? from.items[idx + 1].id : null;
+    if (opts.restoreFocus) pendingFocus.current = { itemId, toGroupId };
+    dispatch({ type: "moveItem", month, itemId, toGroupId, targetId });
+    toast(`Moved "${name}" to ${to.name}.`, "success", {
+      label: "Undo",
+      onAct: () => dispatch({ type: "moveItem", month, itemId, toGroupId: backTo, targetId: backBefore }),
+    });
+  };
+}
+
+/* The group list the Move button opens. Portalled and fixed: the group card
+   clips its children, so a popover drawn inside the row would be cut off at the
+   card's edge. It starts off-screen and is placed after measuring, so it never
+   flashes in the wrong spot. */
+function MoveMenu({ anchorRef, groups, itemName, onPick, onClose }) {
+  const ref = useRef(null);
+  const [pos, setPos] = useState({ top: -9999, left: -9999 });
+  useLayoutEffect(() => {
+    const btn = anchorRef.current, menu = ref.current;
+    if (!btn || !menu) return;
+    const a = btn.getBoundingClientRect(), m = menu.getBoundingClientRect();
+    const left = Math.max(8, Math.min(a.right - m.width, window.innerWidth - m.width - 8));
+    const below = a.bottom + 6;
+    const top = below + m.height > window.innerHeight - 8 ? Math.max(8, a.top - 6 - m.height) : below;
+    setPos({ top, left });
+  }, [anchorRef]);
+  // Closing just unmounts the portal, and the DOM node that currently holds
+  // focus (an autoFocused or arrowed-to menu item) goes with it, dropping the
+  // keyboard/screen-reader user on <body> with no reachable position. Focus
+  // only comes back to the anchor when it was still inside the menu at the
+  // moment of closing: an outside click has, by then, usually already moved
+  // focus to whatever the user just clicked, and reclaiming it here would
+  // yank it back away from that control.
+  const closeRestoringFocus = useCallback(() => {
+    if (anchorRef.current && ref.current && ref.current.contains(document.activeElement)) {
+      anchorRef.current.focus();
+    }
+    onClose();
+  }, [anchorRef, onClose]);
+  useEffect(() => {
+    // The anchor is excluded so its own click toggles the menu shut once,
+    // rather than closing here and reopening on the button's handler.
+    const onPointerDown = (e) => {
+      if (ref.current && ref.current.contains(e.target)) return;
+      if (anchorRef.current && anchorRef.current.contains(e.target)) return;
+      closeRestoringFocus();
+    };
+    // Fixed position cannot follow a scroll or a resize, so either dismisses
+    // it, EXCEPT a scroll that originates inside the menu's own list
+    // (.move-menu is 'overflow-y: auto' past nine or so groups): 'e.target' is
+    // the scrolled element for that case and 'document' for a page scroll, so
+    // a contains() check tells the two apart. Without it, a long group list
+    // could never be scrolled to reach the groups past the fold.
+    const onScroll = (e) => {
+      if (ref.current && ref.current.contains(e.target)) return;
+      closeRestoringFocus();
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", closeRestoringFocus);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", closeRestoringFocus);
+    };
+  }, [anchorRef, closeRestoringFocus]);
+  return createPortal(
+    // A plain labelled group of buttons, not role="menu": the list is walked
+    // with Tab like any other button group, and none of the arrow-key/Home/End
+    // roving-tabindex contract a real menu role promises is implemented here.
+    // Claiming the role without the behaviour is worse than not claiming it.
+    <div ref={ref} className="move-menu" role="group" aria-label={`Move ${itemName} to another group`}
+      style={{ top: pos.top, left: pos.left }}
+      onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); closeRestoringFocus(); } }}>
+      <div className="move-menu-label">Move to</div>
+      {groups.map((g, i) => (
+        <button key={g.id} type="button" className="move-menu-item" autoFocus={i === 0}
+          onClick={() => { onPick(g.id); closeRestoringFocus(); }}>
+          <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.name}</span>
+          {g.isSavings && <Icons.plant size={13} style={{ flex: "none", color: "var(--pos)" }} />}
+        </button>
+      ))}
+    </div>,
+    document.body
   );
 }
 
@@ -159,9 +279,16 @@ function EntriesDrawer({ item, group, currency, dispatch, month }) {
   );
 }
 
-function ItemRow({ item, group, currency, dispatch, month, accounts, open, onToggle, onMove, index, count, onDragStart, onDragOverItem, onDrop, onDragEnd, isDragging, isDropTarget }) {
+function ItemRow({ item, group, currency, dispatch, month, accounts, open, onToggle, onMove, index, count, groups, onMoveToGroup, onDragStart, onDragOverItem, onDrop, onDragEnd, isDragging, isDropTarget, itemDragActive }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [grabbed, setGrabbed] = useState(false);
+  const [moveOpen, setMoveOpen] = useState(false);
+  // Stable identity, not a fresh arrow every render: MoveMenu's own dismiss
+  // effect depends on this, and an unstable onClose tore its listeners down
+  // and rebuilt them on every keystroke elsewhere on the page.
+  const closeMoveMenu = useCallback(() => setMoveOpen(false), []);
+  const moveBtnRef = useRef(null);
+  const otherGroups = (groups || []).filter((g) => g.id !== group.id);
   const actual = itemActual(item);
   const diff = round2(item.allocated - actual);
   const over = diff < -0.005;
@@ -171,7 +298,15 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
       onDragStart={(e) => { e.stopPropagation(); e.dataTransfer.effectAllowed = "move"; onDragStart(); }}
       onDragEnter={(e) => { e.preventDefault(); onDragOverItem(); }}
       onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
-      onDrop={(e) => { e.preventDefault(); onDrop(); }}
+      /* Only claim the drop when an item is actually being dragged: otherwise
+         this is a group drop landing on a row, and it must bubble up to the
+         card's own onDrop, which performs the group reorder. */
+      onDrop={(e) => {
+        if (!itemDragActive) return;
+        e.preventDefault();
+        e.stopPropagation();
+        onDrop();
+      }}
       onDragEnd={() => { setGrabbed(false); onDragEnd(); }}
       style={{ borderTop: isDropTarget ? "2px solid var(--accent)" : "1px solid var(--border)", opacity: isDragging ? .4 : 1, background: isDropTarget ? "var(--accent-soft)" : undefined, transition: "background .12s" }}>
       <div style={{ display: "flex", alignItems: "stretch", minHeight: "var(--row-h)" }}>
@@ -206,8 +341,31 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
           <DiffPill diff={diff} currency={currency} />
           <MiniBar actual={actual} allocated={item.allocated} />
         </div>
-        <div className="row-actions" style={{ justifyContent: "flex-end" }}>
-          <button className="icon-btn" aria-label={`Delete item ${item.name} from this month`} title="Delete item (this month only)" onClick={() => setConfirmDelete(true)}><Icons.trash size={15} /></button>
+        {/* Stacked, not side by side: the actions column is 78px wide and drops
+            to 68px on narrow windows. The two buttons here are .compact (26px,
+            no gap) rather than the app's usual 30px .icon-btn: at 30px the
+            stack (62px) out-measures the name+account column (57px) and grows
+            every item row by 5px, which adds up over a long month. Do not
+            "fix" this back to plain .icon-btn. */}
+        <div className="row-actions" style={{ flexDirection: "column", alignItems: "flex-end", justifyContent: "center", gap: 0, ...(moveOpen ? { opacity: 1, pointerEvents: "auto" } : null) }}>
+          <button className="icon-btn compact" aria-label={`Delete item ${item.name} from this month`} title="Delete item (this month only)" onClick={() => setConfirmDelete(true)}><Icons.trash size={15} /></button>
+          {/* No aria-haspopup: its non-false values are all synonyms for menu,
+              listbox, tree, grid or dialog (WAI-ARIA), and this disclosure
+              reveals a labelled group of buttons, none of those. "true" is not
+              the neutral option it looks like, it is the legacy synonym for
+              "menu". The APG disclosure pattern is aria-expanded alone. */}
+          <button ref={moveBtnRef} className="icon-btn compact" disabled={otherGroups.length === 0}
+            aria-expanded={moveOpen}
+            aria-label={otherGroups.length === 0
+              ? `Move ${item.name} to another group. Unavailable: no other group in this month.`
+              : `Move ${item.name} to another group`}
+            title={otherGroups.length === 0 ? "No other group to move this item to" : "Move to another group"}
+            onClick={() => setMoveOpen((o) => !o)}><Icons.move size={15} /></button>
+          {moveOpen && (
+            <MoveMenu anchorRef={moveBtnRef} groups={otherGroups} itemName={item.name}
+              onPick={(toGroupId) => onMoveToGroup(toGroupId)}
+              onClose={closeMoveMenu} />
+          )}
         </div>
       </div>
       </div>
@@ -316,16 +474,15 @@ function AddItemSearch({ month, groupId, currency, dispatch, onClose, itemCount 
   );
 }
 
-function GroupCard({ group, currency, dispatch, month, accounts, state, onDragStart, onDragOverGroup, onDrop, onDragEnd, isDragging }) {
+function GroupCard({ group, currency, dispatch, month, accounts, state, dragItem, overItem, onItemDragStart, onItemDragOver, onItemDragEnd, onDragStart, onDragOverGroup, onDrop, onDragEnd, isDragging }) {
   const alloc = groupAllocated(group), actual = groupActual(group);
   const diff = round2(alloc - actual);
   const [addingItem, setAddingItem] = useState(false);
   const [grabbed, setGrabbed] = useState(false);
-  const [dragId, setDragId] = useState(null);
-  const [overId, setOverId] = useState(null);
   const [openItems, setOpenItems] = useState(() => new Set());
   const [confirmDelete, setConfirmDelete] = useState(false);
   const cardRef = useRef(null);
+  const moveItemToGroup = useMoveItem(month, dispatch);
   // A group takes its items and their spending with it - count both so the
   // confirm can say exactly what is about to go.
   const itemCount = group.items.length;
@@ -343,10 +500,44 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, onDragSt
     document.addEventListener("pointerdown", handlePointerDown);
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [openItems]);
-  const endDrag = () => { setDragId(null); setOverId(null); };
-  const dropItem = (targetId) => {
-    if (dragId && targetId && dragId !== targetId) dispatch({ type: "reorderItem", month, groupId: group.id, itemId: dragId, targetId });
-    endDrag();
+  /* A drop on a row: within this group it is the reorder it always was, and
+     from another group it is a move that lands exactly where the drop-line
+     was drawn. */
+  const dropOnItem = (targetId) => {
+    if (dragItem) {
+      if (dragItem.groupId === group.id) {
+        if (dragItem.id !== targetId) dispatch({ type: "reorderItem", month, groupId: group.id, itemId: dragItem.id, targetId });
+      } else {
+        moveItemToGroup(dragItem.id, group.id, targetId);
+      }
+    }
+    onItemDragEnd();
+  };
+  /* A drop on the header or the footer appends. The header is what makes a
+     COLLAPSED group droppable, since it is all such a group renders. */
+  const dropOnGroup = () => {
+    if (dragItem && dragItem.groupId !== group.id) moveItemToGroup(dragItem.id, group.id, null);
+    onItemDragEnd();
+  };
+  const appendHere = !!(dragItem && dragItem.groupId !== group.id && overItem
+    && overItem.groupId === group.id && overItem.targetId === null);
+  /* Attached to the header and footer specifically, never to the whole card: a
+     card-level dragover fires on every mouse move over a row and would wipe out
+     the targetId that row's own dragenter has just set. */
+  const appendTargetProps = {
+    onDragOver: (e) => {
+      if (!dragItem) return;
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = "move";
+      onItemDragOver(group.id, null);
+    },
+    onDrop: (e) => {
+      if (!dragItem) return;
+      e.preventDefault();
+      e.stopPropagation();
+      dropOnGroup();
+    },
   };
   /* Keyboard reordering. The row keeps its React key, so the browser moves the
      same node and the handle keeps focus across the write. */
@@ -380,7 +571,7 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, onDragSt
       <DragHandle label={`Reorder group ${group.name}, ${groupIndex + 1} of ${groups.length}`}
         onGrab={() => setGrabbed(true)} onRelease={() => setGrabbed(false)} onMove={moveGroup}
         style={{ background: "var(--surface-2)", borderBottom: group.collapsed ? "none" : "1px solid var(--border-strong)" }} />
-      <div style={{ flex: 1, minWidth: 0, display: "grid", gridTemplateColumns: "var(--budget-cols)", alignItems: "center", gap: 10, padding: "16px 8px", background: "var(--surface-2)", borderBottom: group.collapsed ? "none" : "1px solid var(--border-strong)" }} className="budget-row">
+      <div {...appendTargetProps} style={{ flex: 1, minWidth: 0, display: "grid", gridTemplateColumns: "var(--budget-cols)", alignItems: "center", gap: 10, padding: "16px 8px", background: appendHere ? "var(--accent-soft)" : "var(--surface-2)", borderBottom: group.collapsed ? "none" : "1px solid var(--border-strong)", transition: "background .12s" }} className="budget-row">
         <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
           <button className="icon-btn" aria-expanded={!group.collapsed} aria-label={group.collapsed ? `Expand ${group.name}` : `Collapse ${group.name}`} onClick={() => dispatch({ type: "toggleCollapse", month, groupId: group.id })} style={{ flex: "none", transform: group.collapsed ? "rotate(-90deg)" : "none", transition: "transform .18s" }}><Icons.down size={16} /></button>
           <span title={group.name} style={{ display: "flex", flex: "1 1 auto", minWidth: 0 }}>
@@ -400,7 +591,7 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, onDragSt
       {!group.collapsed && (
         <div>
           {group.items.length === 0 && !addingItem && (
-            <div style={{ padding: "16px", textAlign: "center", color: "var(--faint)", fontSize: 13, borderTop: "1px solid var(--hairline)" }}>No items yet.</div>
+            <div {...appendTargetProps} style={{ padding: "16px", textAlign: "center", color: appendHere ? "var(--ink-2)" : "var(--faint)", fontSize: 13, borderTop: "1px solid var(--hairline)", background: appendHere ? "var(--accent-soft)" : undefined, transition: "background .12s" }}>No items yet.</div>
           )}
           {group.items.map((it, itemIndex) => (
             <ItemRow key={it.id} item={it} group={group} currency={currency} dispatch={dispatch} month={month} accounts={accounts}
@@ -409,17 +600,24 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, onDragSt
               index={itemIndex}
               count={group.items.length}
               onMove={(dir) => moveItem(it.id, dir)}
-              isDragging={dragId === it.id}
-              isDropTarget={overId === it.id && dragId !== it.id}
-              onDragStart={() => setDragId(it.id)}
-              onDragOverItem={() => { if (dragId) setOverId(it.id); }}
-              onDrop={() => dropItem(it.id)}
-              onDragEnd={endDrag} />
+              groups={groups}
+              // 'restoreFocus' only fires for this, the keyboard/Move-menu path;
+              // drag drops (dropOnItem/dropOnGroup below) never set it, so a
+              // mouse drag never yanks focus somewhere the pointer didn't ask
+              // it to go.
+              onMoveToGroup={(toGroupId) => moveItemToGroup(it.id, toGroupId, null, { restoreFocus: true })}
+              isDragging={!!dragItem && dragItem.id === it.id}
+              isDropTarget={!!overItem && overItem.groupId === group.id && overItem.targetId === it.id && !(dragItem && dragItem.id === it.id)}
+              itemDragActive={!!dragItem}
+              onDragStart={() => onItemDragStart(group.id, it.id)}
+              onDragOverItem={() => { if (dragItem) onItemDragOver(group.id, it.id); }}
+              onDrop={() => dropOnItem(it.id)}
+              onDragEnd={onItemDragEnd} />
           ))}
           {addingItem ? (
             <AddItemSearch month={month} groupId={group.id} currency={currency} dispatch={dispatch} itemCount={itemCount} onClose={() => setAddingItem(false)} />
           ) : (
-            <div style={{ background: "var(--surface-2)", borderTop: "1px solid var(--hairline)", padding: "4px 0" }}>
+            <div {...appendTargetProps} style={{ background: appendHere ? "var(--accent-soft)" : "var(--surface-2)", borderTop: "1px solid var(--hairline)", padding: "4px 0", transition: "background .12s" }}>
               <button className="btn btn-ghost btn-sm" style={{ margin: "8px 10px", color: "var(--muted)" }} onClick={() => setAddingItem(true)}><Icons.plus size={14} /> Add item</button>
             </div>
           )}
