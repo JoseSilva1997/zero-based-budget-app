@@ -15,7 +15,7 @@ const EPS = 0.005;
 export function barGeometry(income, allocated, actual) {
   /* Guard against NaN: if any input is not finite, treat as empty. */
   if (!Number.isFinite(income) || !Number.isFinite(allocated) || !Number.isFinite(actual)) {
-    return { empty: true, scale: 0, incomeX: 0, allocX: 0, spentX: 0, overAllocated: false, overspent: false };
+    return { empty: true, scale: 0, incomeX: 0, allocX: 0, spentX: 0, epsX: 0, overAllocated: false, overspent: false };
   }
 
   /* Clamp inputs to zero at the top so flags derive from clamped values, not raw inputs. */
@@ -25,15 +25,20 @@ export function barGeometry(income, allocated, actual) {
 
   const scale = Math.max(inc, alloc, spent);
   if (scale <= 0) {
-    return { empty: true, scale: 0, incomeX: 0, allocX: 0, spentX: 0, overAllocated: false, overspent: false };
+    return { empty: true, scale: 0, incomeX: 0, allocX: 0, spentX: 0, epsX: 0, overAllocated: false, overspent: false };
   }
 
   const incomeX = inc / scale;
   const allocX = alloc / scale;
   const spentX = spent / scale;
 
-  /* Flags must match the regions that will be emitted, so they depend on the
-     fractions, not the original comparison. */
+  /* Compare in fraction space so the flags cannot disagree with the spans the
+     renderer paints, and scale the money epsilon into that space so a rounding
+     dust of a fraction of a penny never flips a flag or paints a hairline. */
+  const epsX = EPS / scale;
+
+  /* Flags must match the regions that will be emitted. The overspent region
+     exists when spending capped at income exceeds allocation capped at income. */
   const lim = Math.min(allocX, incomeX);
   const spentCap = Math.min(spentX, incomeX);
 
@@ -43,8 +48,9 @@ export function barGeometry(income, allocated, actual) {
     incomeX,
     allocX,
     spentX,
-    overAllocated: Math.max(allocX, spentX) > incomeX,
-    overspent: spentCap > lim,
+    epsX,
+    overAllocated: allocX > incomeX + epsX,
+    overspent: spentCap > lim + epsX,
   };
 }
 
@@ -58,7 +64,8 @@ export function barGeometry(income, allocated, actual) {
 export function barRegions(g) {
   if (g.empty) return [];
   const out = [];
-  const push = (key, from, to) => { if (to - from > 1e-9) out.push({ key, from, to }); };
+  const push = (key, from, to) => { if (to - from > g.epsX) out.push({ key, from, to }); };
+  const pushAlways = (key, from, to) => { if (to - from > 1e-9) out.push({ key, from, to }); };
 
   const lim = Math.min(g.allocX, g.incomeX);        /* allocation, capped at the mark */
   const solidTo = Math.min(g.spentX, lim);          /* spending inside the plan */
@@ -68,9 +75,7 @@ export function barRegions(g) {
   push("allocated", solidTo, lim);
   push("overspent", lim, spentCap);
   push("gap", Math.max(lim, spentCap), g.incomeX);
-  push("overAllocated", g.incomeX, Math.max(g.allocX, g.spentX));
-
-  return out;
+  pushAlways("beyond", g.incomeX, Math.max(g.allocX, g.spentX));
 
   return out;
 }

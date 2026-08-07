@@ -97,8 +97,16 @@ app.whenReady().then(async () => {
 
   // Regions, over-allocated: a breach slice past the income mark, and no gap.
   const ro = barRegions(over);
-  check('over-allocated emits an overAllocated region', ro.some((x) => x.key === 'overAllocated'), JSON.stringify(ro));
+  check('over-allocated emits a beyond region', ro.some((x) => x.key === 'beyond'), JSON.stringify(ro));
   check('over-allocated has no gap', !ro.some((x) => x.key === 'gap'), JSON.stringify(ro));
+
+  // Critical semantic test: spending past income without allocation being past income.
+  // Allocation is still under income so overAllocated flag is false, but there is a beyond region.
+  const labelTest = barGeometry(4200, 3400, 4500);
+  check('spending past income with alloc under income: overAllocated false', labelTest.overAllocated === false);
+  check('spending past income with alloc under income: overspent true', labelTest.overspent === true);
+  const labelRegions = barRegions(labelTest);
+  check('spending past income shows a beyond region', labelRegions.some((x) => x.key === 'beyond'), JSON.stringify(labelRegions));
 
   // Zero-width regions are never emitted.
   check('no zero-width regions', barRegions(mid).every((x) => x.to - x.from > 0));
@@ -180,18 +188,22 @@ app.whenReady().then(async () => {
       continue;
     }
 
-    /* Check flag and region consistency. */
-    const hasOverAllocated = regions.some((r) => r.key === 'overAllocated');
-    if (g.overAllocated !== hasOverAllocated) {
-      check(`prop ${i}: overAllocated flag/region mismatch`, false,
-        `flag=${g.overAllocated}, region=${hasOverAllocated}`);
-      continue;
-    }
-
+    /* Check flag and region consistency. The model is:
+       - overspent flag and region must always match (both true or both false)
+       - overAllocated flag implies a beyond region, but not the converse
+         (beyond can exist from spending past income without over-allocating)
+    */
     const hasOverspent = regions.some((r) => r.key === 'overspent');
     if (g.overspent !== hasOverspent) {
       check(`prop ${i}: overspent flag/region mismatch`, false,
         `flag=${g.overspent}, region=${hasOverspent}`);
+      continue;
+    }
+
+    const hasBeyond = regions.some((r) => r.key === 'beyond');
+    if (g.overAllocated && !hasBeyond) {
+      check(`prop ${i}: overAllocated flag true but no beyond region`, false,
+        `flag=${g.overAllocated}, beyond=${hasBeyond}`);
       continue;
     }
 
