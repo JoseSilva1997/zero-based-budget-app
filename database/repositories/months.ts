@@ -245,6 +245,70 @@ export function reorderItems(
   writeOrder(db, 'budget_items', ids);
 }
 
+/**
+ * Move an item into another group in the same month. 'targetId' is the item in
+ * the destination to land BEFORE; null appends. Both groups have their
+ * sort_order rewritten: the destination so the item lands where the drop-line
+ * promised, the source so it stays dense and a later insert cannot land in the
+ * gap the move left behind.
+ */
+export function moveItem(
+  db: Database.Database,
+  id: number,
+  toGroupId: number,
+  targetId: number | null
+): void {
+  const tx = db.transaction(() => {
+    const item = db.prepare(`SELECT budget_group_id FROM budget_items WHERE id = ?`).get(id) as
+      | { budget_group_id: number }
+      | undefined;
+    // A drop can land after its own row was deleted elsewhere. Nothing to move
+    // is not a failure worth reporting.
+    if (!item) return;
+    const fromGroupId = item.budget_group_id;
+
+    // Staying put is a reorder, and reorder already owns the rules for which
+    // side of the target the row lands on. Delegating keeps one copy of them.
+    if (fromGroupId === toGroupId) {
+      if (targetId != null) reorderItems(db, toGroupId, id, targetId);
+      return;
+    }
+
+    const where = db
+      .prepare(
+        `SELECT (SELECT budget_month_id FROM budget_groups WHERE id = ?) AS src,
+                (SELECT budget_month_id FROM budget_groups WHERE id = ?) AS dest`
+      )
+      .get(fromGroupId, toGroupId) as { src: number | null; dest: number | null };
+    if (where.dest == null) {
+      throw new Error('That group is no longer in your budget, so the item could not be moved.');
+    }
+    // The UI cannot produce this. A silent no-op would hide the bug that did,
+    // and a silent success would put an item in a month it does not belong to.
+    if (where.src !== where.dest) {
+      throw new Error('An item can only be moved to a group in the same month.');
+    }
+
+    db.prepare(`UPDATE budget_items SET budget_group_id = ? WHERE id = ?`).run(toGroupId, id);
+
+    const destIds = listItems(db, toGroupId)
+      .map((r) => r.id)
+      .filter((x) => x !== id);
+    // An unknown target (deleted mid-drag) falls back to the end rather than
+    // dropping the item at the front by accident.
+    const at = targetId == null ? -1 : destIds.indexOf(targetId);
+    destIds.splice(at < 0 ? destIds.length : at, 0, id);
+    writeOrder(db, 'budget_items', destIds);
+
+    writeOrder(
+      db,
+      'budget_items',
+      listItems(db, fromGroupId).map((r) => r.id)
+    );
+  });
+  tx();
+}
+
 /* ---------- month copy --------------------------------------------------- */
 
 /**
