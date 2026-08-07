@@ -254,7 +254,7 @@ function MoneyInput({ value, onCommit, currency = "$", className = "", placehold
       {invalid ? (
         <span id={noteId} role="alert" style={{ position: "absolute", right: 6, bottom: "100%", marginBottom: 3, background: "var(--neg-soft)", color: "var(--neg-ink)", border: "1px solid var(--neg)", fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 6, maxWidth: 230, lineHeight: 1.35, textAlign: "right", boxShadow: "var(--shadow-sm)", zIndex: 4 }}>{invalid}</span>
       ) : preview !== null && (
-        <span className="mono" style={{ position: "absolute", right: 6, bottom: "100%", marginBottom: 3, background: "var(--ink)", color: "var(--surface)", fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 6, whiteSpace: "nowrap", boxShadow: "var(--shadow-sm)", zIndex: 4 }}>= {fmt(currency, preview)}</span>
+        <span className="mono" style={{ position: "absolute", right: 6, bottom: "100%", marginBottom: 3, background: "var(--ink)", color: "var(--on-ink)", fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 6, whiteSpace: "nowrap", boxShadow: "var(--shadow-sm)", zIndex: 4 }}>= {fmt(currency, preview)}</span>
       )}
     </div>
   );

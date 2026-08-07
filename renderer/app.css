@@ -84,6 +84,10 @@
 [data-theme="indigo"], [data-theme="violet"], [data-theme="cyan"], [data-theme="emerald"] {
   --bg: #0d1016;       --bg-grad-1: #12151c; --bg-grad-2: #090b10;
   --surface: #1a1f2a;  --surface-2: #151b24; --surface-sunken: #0e1118;
+  /* Foreground for anything filled with --ink (toast, tooltip, arithmetic
+     preview). Split from --surface so the surface ramp can move without
+     silently turning these chips dark-on-dark. */
+  --on-ink: #1a1f2a;
   --ink: #e8ecf4;      --ink-2: #b2bccc;
   --muted: oklch(0.706 0.031 263.3);   /* 6.31:1 on --surface */
   --faint: oklch(0.625 0.029 259.8);   /* 4.62:1 on --surface */
@@ -116,6 +120,10 @@
 [data-theme="mono"], [data-theme="lime"], [data-theme="amber"] {
   --bg: #000000;       --bg-grad-1: #0a0a0c; --bg-grad-2: #000000;
   --surface: #141418;  --surface-2: #0e0e12; --surface-sunken: #060607;
+  /* Foreground for anything filled with --ink (toast, tooltip, arithmetic
+     preview). Split from --surface so the surface ramp can move without
+     silently turning these chips dark-on-dark. */
+  --on-ink: #141418;
   --ink: #f4f4f7;      --ink-2: #bdbdc6;
   --muted: oklch(0.678 0.016 285.9);   /* 6.31:1 on --surface */
   --faint: oklch(0.599 0.015 285.8);   /* 4.62:1 on --surface */
@@ -143,6 +151,10 @@
 [data-theme="rose"], [data-theme="sky"] {
   --bg: #131316;       --bg-grad-1: #17171b; --bg-grad-2: #0f0f12;
   --surface: #212128;  --surface-2: #1a1a20; --surface-sunken: #121215;
+  /* Foreground for anything filled with --ink (toast, tooltip, arithmetic
+     preview). Split from --surface so the surface ramp can move without
+     silently turning these chips dark-on-dark. */
+  --on-ink: #212128;
   --ink: #eeeef1;      --ink-2: #b8b8c0;
   --muted: oklch(0.714 0.015 286);     /* 6.29:1 on --surface */
   --faint: oklch(0.633 0.014 285.8);   /* 4.61:1 on --surface */
@@ -165,6 +177,10 @@
 [data-theme="ocean"], [data-theme="teal"] {
   --bg: #0a0f1e;       --bg-grad-1: #0e1426; --bg-grad-2: #070b16;
   --surface: #162034;  --surface-2: #111a2c; --surface-sunken: #0a0f1e;
+  /* Foreground for anything filled with --ink (toast, tooltip, arithmetic
+     preview). Split from --surface so the surface ramp can move without
+     silently turning these chips dark-on-dark. */
+  --on-ink: #162034;
   --ink: #e7ecf7;      --ink-2: #afb9d0;
   --muted: oklch(0.709 0.044 264.9);   /* 6.29:1 on --surface */
   --faint: oklch(0.629 0.043 264.8);   /* 4.62:1 on --surface */
@@ -187,6 +203,10 @@
 [data-theme="sunset"] {
   --bg: #15110f;       --bg-grad-1: #191411; --bg-grad-2: #100c0a;
   --surface: #241e18;  --surface-2: #1c1712; --surface-sunken: #130f0c;
+  /* Foreground for anything filled with --ink (toast, tooltip, arithmetic
+     preview). Split from --surface so the surface ramp can move without
+     silently turning these chips dark-on-dark. */
+  --on-ink: #241e18;
   --ink: #f1ebe4;      --ink-2: #c4bab0;
   --muted: oklch(0.706 0.022 69.8);    /* 6.29:1 on --surface */
   --faint: oklch(0.626 0.020 70.3);    /* 4.62:1 on --surface */

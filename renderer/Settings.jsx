@@ -350,7 +350,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
                   <button key={c} role="radio" aria-checked={on} aria-label={COLOR_NAME[c] || c}
                     title={COLOR_NAME[c] || c}
                     onClick={() => dispatch({ type: "updateMember", id: m.id, patch: { color: c } })}
-                    style={{ width: 20, height: 20, padding: 0, borderRadius: 99, background: c, border: on ? "2px solid var(--ink)" : "2px solid transparent", outline: on ? "1px solid var(--surface)" : "none", cursor: "pointer", display: "grid", placeItems: "center", color: "rgba(0,0,0,0.72)" }}>
+                    style={{ width: 20, height: 20, padding: 0, borderRadius: 99, background: c, border: on ? "2px solid var(--ink)" : "2px solid transparent", outline: on ? "1px solid var(--on-ink)" : "none", cursor: "pointer", display: "grid", placeItems: "center", color: "rgba(0,0,0,0.72)" }}>
                     {/* the swatches are fixed hex, not theme tokens, so a dark
                         tick reads on every one of them */}
                     {on && <Icons.check size={11} />}

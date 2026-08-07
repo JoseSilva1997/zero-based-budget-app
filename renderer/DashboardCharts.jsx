@@ -31,7 +31,7 @@ function DashTooltip(props) {
     : payload.map(p => ({ label: p.name, color: p.color || p.fill, value: fmt(currency, p.value || 0, { cents: false }) }));
   if (hideZero) list = list.filter(r => r.raw == null ? true : r.raw > 0);
   return (
-    <div style={{ background: "var(--ink)", color: "var(--surface)", padding: "7px 10px", borderRadius: 8, fontSize: 12, boxShadow: "var(--shadow-md)", whiteSpace: "nowrap", pointerEvents: "none" }}>
+    <div style={{ background: "var(--ink)", color: "var(--on-ink)", padding: "7px 10px", borderRadius: 8, fontSize: 12, boxShadow: "var(--shadow-md)", whiteSpace: "nowrap", pointerEvents: "none" }}>
       <div style={{ fontWeight: 600, marginBottom: list.length ? 4 : 0 }}>{title}</div>
       {list.map((r, i) => (
         <div key={i} style={{ display: "flex", alignItems: "center", gap: 7, opacity: 0.95, fontVariantNumeric: "tabular-nums" }}>

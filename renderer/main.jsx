@@ -151,7 +151,7 @@ function Toast({ msg, onDismiss }) {
         position: "fixed", bottom: 26, left: "50%", transform: "translateX(-50%)",
         maxWidth: "min(560px, calc(100vw - 60px))",
         background: isError ? "var(--neg-soft)" : "var(--ink)",
-        color: isError ? "var(--neg-ink)" : "var(--surface)",
+        color: isError ? "var(--neg-ink)" : "var(--on-ink)",
         border: isError ? "1px solid var(--neg)" : "1px solid transparent",
         padding: isError ? "11px 12px 11px 16px" : "11px 18px",
         borderRadius: 10, fontSize: 13.5, fontWeight: 500, lineHeight: 1.45,
