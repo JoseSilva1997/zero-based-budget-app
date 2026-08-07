@@ -294,7 +294,7 @@ function AddItemSearch({ month, groupId, currency, dispatch, onClose, itemCount 
           {saving ? "Adding…" : exact ? "Add existing" : "Create item"}
         </button>
       </div>
-      <div style={{ marginTop: 8, border: "1px solid var(--rule-faint)", borderRadius: 8, overflow: "hidden", background: "var(--raised)" }}>
+      <div style={{ marginTop: 8, border: "1px solid var(--rule-faint)", borderRadius: 8, overflow: "hidden", background: "var(--well)" }}>
         {shown.length > 0 ? shown.map((candidate, idx) => (
           <button key={`${candidate.month}:${candidate.name}`} type="button" disabled={saving}
             onMouseDown={(e) => e.preventDefault()}
