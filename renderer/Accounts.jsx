@@ -97,7 +97,7 @@ function AccountPanel({ mo, accounts, members, currency }) {
 
       {/* per-account breakdown */}
       <div style={{ fontSize: 11, color: "var(--ink-2)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 10 }}>By account</div>
-      <div className="panel" style={{ overflow: "hidden", background: "var(--raised)" }}>
+      <div className="panel" style={{ overflow: "hidden" }}>
         {byAccount.map((t, i) => {
           const owner = members.find(m => m.id === t.account.owner);
           const pct = totalToFund > 0 ? t.allocated / totalToFund : 0;
