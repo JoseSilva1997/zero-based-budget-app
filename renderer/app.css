@@ -361,6 +361,11 @@ input { font-family: inherit; }
 }
 .icon-btn:hover { background: var(--surface-sunken); color: var(--ink); }
 .icon-btn.subtle { color: var(--faint); }
+/* Only for the item row's stacked delete/move pair: at the default 30px the
+   two buttons plus their gap (62px) out-measure the name+account column
+   (57px) and add 5px to every item row. 26px with no gap brings the stack
+   back to 73px, level with the row's other columns. */
+.icon-btn.compact { width: 26px; height: 26px; }
 
 /* Cards */
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }

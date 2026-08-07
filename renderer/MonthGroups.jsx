@@ -297,13 +297,14 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
           <MiniBar actual={actual} allocated={item.allocated} />
         </div>
         {/* Stacked, not side by side: the actions column is 78px wide and drops
-            to 68px on narrow windows, and this row is already two lines tall for
-            the name and its account, so the height is free and the width is not.
-            The inline opacity keeps the row's actions (and so the menu's anchor)
-            alive once the pointer leaves the row. */}
-        <div className="row-actions" style={{ flexDirection: "column", alignItems: "flex-end", justifyContent: "center", gap: 2, ...(moveOpen ? { opacity: 1, pointerEvents: "auto" } : null) }}>
-          <button className="icon-btn" aria-label={`Delete item ${item.name} from this month`} title="Delete item (this month only)" onClick={() => setConfirmDelete(true)}><Icons.trash size={15} /></button>
-          <button ref={moveBtnRef} className="icon-btn" disabled={otherGroups.length === 0}
+            to 68px on narrow windows. The two buttons here are .compact (26px,
+            no gap) rather than the app's usual 30px .icon-btn: at 30px the
+            stack (62px) out-measures the name+account column (57px) and grows
+            every item row by 5px, which adds up over a long month. Do not
+            "fix" this back to plain .icon-btn. */}
+        <div className="row-actions" style={{ flexDirection: "column", alignItems: "flex-end", justifyContent: "center", gap: 0, ...(moveOpen ? { opacity: 1, pointerEvents: "auto" } : null) }}>
+          <button className="icon-btn compact" aria-label={`Delete item ${item.name} from this month`} title="Delete item (this month only)" onClick={() => setConfirmDelete(true)}><Icons.trash size={15} /></button>
+          <button ref={moveBtnRef} className="icon-btn compact" disabled={otherGroups.length === 0}
             aria-haspopup="menu" aria-expanded={moveOpen}
             aria-label={`Move ${item.name} to another group`}
             title={otherGroups.length === 0 ? "No other group to move this item to" : "Move to another group"}
