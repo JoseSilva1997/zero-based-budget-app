@@ -6,7 +6,8 @@
 /* Bundled, not fetched. The sidebar strapline says "local", and until now
    the one outbound request at startup was for these two typefaces. Offline
    they fell back to system-ui at different metrics inside a pixel-fixed
-   layout. Licensed under the SIL OFL: see assets/fonts/OFL.txt. */
+   layout. Licensed under the SIL OFL: see fonts/OFL.txt, shipped alongside
+   these woff2 files in every build (renderer/dist here, installed app there). */
 @font-face { font-family: "IBM Plex Sans"; font-weight: 400; font-style: normal; font-display: block; src: url("fonts/IBMPlexSans-Regular.woff2") format("woff2"); }
 @font-face { font-family: "IBM Plex Sans"; font-weight: 500; font-style: normal; font-display: block; src: url("fonts/IBMPlexSans-Medium.woff2") format("woff2"); }
 @font-face { font-family: "IBM Plex Sans"; font-weight: 600; font-style: normal; font-display: block; src: url("fonts/IBMPlexSans-SemiBold.woff2") format("woff2"); }
@@ -277,7 +278,6 @@ button { font-family: inherit; cursor: pointer; }
 input { font-family: inherit; }
 ::selection { background: color-mix(in srgb, var(--accent) 32%, transparent); color: var(--ink); }
 
-.tnum { font-variant-numeric: tabular-nums; }
 .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
 /* ============================================================
@@ -734,15 +734,41 @@ kbd {
    Full-bleed and structural: it sits directly on the board, not inside a
    .panel or a .raised, because it is neither flat furniture nor the one
    lifted object on the screen. */
+.bar-wrap { position: relative; }
 .bar-track {
   position: relative;
   height: 34px;
   border-radius: 8px;
   background: var(--well);
   overflow: hidden;
+  /* Isolates the region transitions (left/width, see MonthBar.jsx) from the
+     rest of the page, same reasoning as .update-banner-track's transform
+     transition above. */
+  contain: layout paint;
 }
 .bar-region { position: absolute; top: 0; bottom: 0; }
-.bar-mark {
-  position: absolute; top: -3px; bottom: -3px; width: 1px;
+/* The income mark is two elements, not one, because .bar-track has to clip
+   (overflow: hidden keeps fills inside the rounded corners) and the mark
+   has to be visible against --board, and those two requirements cannot both
+   be met by one element inside the track.
+   .bar-mark-rule stays inside, a 1px line crossing the fills at whatever
+   contrast that fill happens to have against --rule-strong: as low as
+   1.01:1 in ocean. That is covered, not missed: it carries precision, not
+   visibility.
+   .bar-mark-tick is the sibling in .bar-wrap that carries visibility: two
+   4px ticks, one above and one below the track, landing on --board where
+   --rule-strong clears 3:1 in all 12 themes (worst measured: 3.47:1). The
+   middle of its box is left transparent so it does not paint a second,
+   redundant line over the rule already inside the track. */
+.bar-mark-rule {
+  position: absolute; top: 0; bottom: 0; width: 1px;
   background: var(--rule-strong);
 }
+.bar-mark-tick { position: absolute; top: -4px; bottom: -4px; width: 1px; }
+.bar-mark-tick::before, .bar-mark-tick::after {
+  content: "";
+  position: absolute; left: 0; width: 1px; height: 4px;
+  background: var(--rule-strong);
+}
+.bar-mark-tick::before { top: 0; }
+.bar-mark-tick::after { bottom: 0; }

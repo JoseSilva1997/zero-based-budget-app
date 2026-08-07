@@ -70,18 +70,24 @@ window.__runTests = async () => {
   const partial = mount(month(3400, 2150, 4200));
   await tick();
   check('partial paints a gap', paints(partial).some((p) => p.includes('--unsettled')), paints(partial).join(' | '));
-  check('partial draws no income mark', partial.querySelectorAll('.bar-mark').length === 0);
+  check('partial draws no income mark', partial.querySelectorAll('.bar-mark-tick').length === 0);
 
   // Settled: the gap is gone, so the nag colour must be absent entirely.
   const settled = mount(month(4200, 0, 4200));
   await tick();
   check('settled paints no gap', !paints(settled).some((p) => p.includes('--unsettled')), paints(settled).join(' | '));
 
-  // Over-allocated: the income mark becomes an interior rule.
+  // Over-allocated: the income mark becomes an interior rule, plus the
+  // tick that carries the mark's visibility outside .bar-track's clip (see
+  // .bar-mark-tick in app.css).
   const over = mount(month(4510, 0, 4200));
   await tick();
-  check('over-allocated draws the income mark', over.querySelectorAll('.bar-mark').length === 1);
+  check('over-allocated draws the income mark', over.querySelectorAll('.bar-mark-tick').length === 1);
   check('over-allocated paints a breach', paints(over).some((p) => p.includes('--breach')), paints(over).join(' | '));
+  // The mark paints; the copy has to say why. Without this, a regression
+  // pinning "left to allocate" in every state would still pass everything
+  // else in this case.
+  check('over-allocated says over-allocated', over.textContent.includes('over-allocated'), over.textContent);
 
   // The case three fix rounds were spent getting right: income 4200,
   // allocated 3400, actual 4500. The allocation never exceeded income, so
@@ -91,7 +97,7 @@ window.__runTests = async () => {
   // or the label from hasBeyond, is exactly the bug this case pins.
   const beyond = mount(month(3400, 4500, 4200));
   await tick();
-  check('beyond-but-not-over-allocated draws the income mark', beyond.querySelectorAll('.bar-mark').length === 1);
+  check('beyond-but-not-over-allocated draws the income mark', beyond.querySelectorAll('.bar-mark-tick').length === 1);
   check('beyond-but-not-over-allocated still says left to allocate',
     beyond.textContent.includes('left to allocate') && !beyond.textContent.includes('over-allocated'),
     beyond.textContent);
@@ -102,9 +108,11 @@ window.__runTests = async () => {
   check('empty paints no regions', paints(empty).length === 0);
   check('empty invites income', empty.textContent.includes("Add this month's income"), empty.textContent);
 
-  // The bar itself must not be announced: every figure it encodes is text beside it.
-  check('track is hidden from the a11y tree',
-    partial.querySelector('.bar-track').getAttribute('aria-hidden') === 'true');
+  // The bar itself must not be announced: every figure it encodes is text
+  // beside it. aria-hidden now sits on .bar-wrap, since the mark's tick is
+  // a sibling of .bar-track rather than a descendant of it.
+  check('bar is hidden from the a11y tree',
+    partial.querySelector('.bar-wrap').getAttribute('aria-hidden') === 'true');
 
   return out;
 };

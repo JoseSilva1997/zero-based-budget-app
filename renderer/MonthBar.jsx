@@ -85,12 +85,30 @@ function MonthBar({ mo, currency }) {
         </span>
       </div>
 
-      <div className="bar-track" aria-hidden="true">
-        {regions.map((r) => (
-          <div key={r.key} className="bar-region"
-            style={{ left: `${r.from * 100}%`, width: `${(r.to - r.from) * 100}%`, background: PAINT[r.key], transition: "left .35s ease, width .35s ease" }} />
-        ))}
-        {hasBeyond && <div className="bar-mark" style={{ left: `${g.incomeX * 100}%` }} />}
+      {/* Spec calls for transform: scaleX() so the fill transition never
+          triggers layout. It is not used here: an overspend or an
+          over-allocation moves where the *next* region starts as well as
+          how wide this one is, and scaleX with a fixed transform-origin
+          cannot express a moving start point, so left and width are
+          animated instead. Deliberate deviation, not an oversight. */}
+      <div className="bar-wrap" aria-hidden="true">
+        <div className="bar-track">
+          {regions.map((r) => (
+            <div key={r.key} className="bar-region"
+              style={{ left: `${r.from * 100}%`, width: `${(r.to - r.from) * 100}%`, background: PAINT[r.key], transition: "left .35s ease, width .35s ease" }} />
+          ))}
+          {/* The rule: crosses the track at 1px, carries precision (exactly
+              where income falls against the fills), clipped by the track
+              like the fills are. Low contrast against some fills is
+              deliberate here; see .bar-mark-tick below for the part that
+              has to be seen. */}
+          {hasBeyond && <div className="bar-mark-rule" style={{ left: `${g.incomeX * 100}%` }} />}
+        </div>
+        {/* The tick: a sibling of the track, so its overhang is not clipped
+            by .bar-track's overflow: hidden. It sits on --board, where
+            --rule-strong actually has contrast, and is what makes the mark
+            legible; see the 'mark on board' check in tests/tokens-electron.cjs. */}
+        {hasBeyond && <div className="bar-mark-tick" style={{ left: `${g.incomeX * 100}%` }} />}
       </div>
 
       <div style={{ display: "flex", gap: 18, marginTop: 8, fontSize: 12, color: "var(--muted)" }}>

@@ -5,8 +5,12 @@
    starting from renderer/main.jsx and following the import graph, into a
    single self-contained renderer/dist/app.js (production React, no in-browser
    Babel, no CDN, works offline). It also emits dist/index.html and dist/app.css,
-   and copies the bundled IBM Plex fonts into dist/fonts. No CDN, works offline:
-   now true of the whole renderer, not just the JS bundle.
+   and copies the bundled IBM Plex fonts, plus their OFL.txt licence, into
+   dist/fonts. The licence has to travel with the binaries (SIL OFL 1.1
+   section 2), and build.files in package.json only ships renderer/dist/**,
+   so it has to actually land there rather than stay behind in assets/fonts.
+   No CDN, works offline: now true of the whole renderer, not just the JS
+   bundle.
 
    Usage:
      node scripts/build-renderer.mjs            one-off production build (minified)
@@ -47,7 +51,7 @@ function writeStatics() {
   const fontSrc = join(root, 'assets', 'fonts');
   const fontOut = join(outDir, 'fonts');
   mkdirSync(fontOut, { recursive: true });
-  for (const f of readdirSync(fontSrc).filter((n) => n.endsWith('.woff2'))) {
+  for (const f of readdirSync(fontSrc).filter((n) => n.endsWith('.woff2') || n === 'OFL.txt')) {
     copyFileSync(join(fontSrc, f), join(fontOut, f));
   }
 }

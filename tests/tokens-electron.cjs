@@ -52,6 +52,19 @@ const CHECKS = [
   // erodes this ratio below 1.5 is a real regression: it means the two
   // fills are collapsing toward being indistinguishable.
   ['bar fill solid on faded', '--accent',    '--bar-faded', 1.5],
+  // The income mark's tick (see .bar-mark-tick in app.css) lands on --board,
+  // outside .bar-track's clip, and is the part of the mark that has to
+  // actually be seen. This is the real WCAG floor for it, unlike the rule
+  // that crosses the track fills.
+  ['mark on board', '--rule-strong', '--board', 3.0],
+  // The bar's inner boundary between 'gap' and 'allocated' (--unsettled vs
+  // --bar-faded) is a redundant encoding, same reasoning as the derived
+  // floor above: the amounts are printed as text beneath the bar, so 1.4.11
+  // does not bind this pair to 3:1. Measured worst case is lime at
+  // 1.3988:1; 1.3 is that value rounded DOWN to one decimal place. This is
+  // a regression guard, not a WCAG floor: it exists to catch this pair
+  // collapsing further, not to certify it as accessible on its own.
+  ['unsettled on bar-faded', '--unsettled', '--bar-faded', 1.3],
 ];
 
 function assert(cond, msg) { if (!cond) throw new Error(msg); }
