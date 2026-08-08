@@ -14,3 +14,5 @@ docs/
 
 # skills
 .impeccable/
+.claude/skills/screenshot-app/.sandbox-userdata/
+.claude/skills/screenshot-app/out/
