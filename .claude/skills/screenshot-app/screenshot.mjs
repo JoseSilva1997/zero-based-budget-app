@@ -17,6 +17,7 @@ import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { captureFullPage } from './full-page-capture.mjs';
 
 const SKILL_DIR = path.dirname(fileURLToPath(import.meta.url));
 const APP_DIR = path.resolve(SKILL_DIR, '..', '..', '..');
@@ -25,6 +26,14 @@ const SANDBOX_DIR = path.join(SKILL_DIR, '.sandbox-userdata');
 // platforms run the real executable directly, where shell:true just adds an
 // unescaped-argument risk for no benefit.
 const NEEDS_SHELL = process.platform === 'win32';
+
+// The app's four sidebar tabs, in nav order - `--all-screens` walks these.
+const ALL_SCREENS = [
+  ['Dashboard', 'dashboard.png'],
+  ['Month Budget', 'month-budget.png'],
+  ['History', 'history.png'],
+  ['Settings', 'settings.png'],
+];
 
 function printHelp() {
   console.log(`
@@ -39,6 +48,10 @@ Steps run in the order given, against one Electron launch:
   --type <text>         type text at the current keyboard focus
   --press <key>         press a single key (e.g. Enter, Escape, Tab)
   --eval <js-expr>      run a JS expression in the page, print the JSON result
+  --all-screens <dir>   shorthand step: visit all 4 tabs (Dashboard, Month
+                         Budget, History, Settings) and shoot each one to
+                         <dir>/<tab-name>.png - same as writing out four
+                         --nav/--wait/--shot triples yourself
 
 Flags:
   --no-build            skip the "npm run build && build:renderer" step
@@ -61,6 +74,9 @@ Example - switch theme/colour and compare:
     --click Navy --click "Rose colour" --wait 300 \\
     --shot out/navy-rose.png \\
     --nav "Month Budget" --wait 400 --shot out/month-navy-rose.png
+
+Example - one screenshot of each of the 4 screens:
+  node .claude/skills/screenshot-app/screenshot.mjs --all-screens out
 `);
 }
 
@@ -80,6 +96,7 @@ function parseArgs(argv) {
       case '--type': steps.push({ kind: 'type', text: next() }); break;
       case '--press': steps.push({ kind: 'press', key: next() }); break;
       case '--eval': steps.push({ kind: 'eval', js: next() }); break;
+      case '--all-screens': steps.push({ kind: 'all-screens', dir: next() }); break;
       case '--no-build': opts.build = false; break;
       case '--reseed': opts.reseed = true; break;
       case '--real': opts.real = true; break;
@@ -109,17 +126,38 @@ async function clickText(page, text) {
   }, text);
 }
 
-async function runSteps(page, steps, opts) {
+async function takeShot(app, page, outPath, opts) {
+  const out = path.resolve(process.cwd(), outPath);
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  if (opts.fullpage) {
+    // Playwright's own fullPage option grows the viewport to the
+    // *document's* scroll size, but this app scrolls inside .main, not
+    // the document - see full-page-capture.mjs for why that makes
+    // fullPage:true a silent no-op here, and what this does instead.
+    const png = await captureFullPage(app, page);
+    fs.writeFileSync(out, png);
+  } else {
+    await page.screenshot({ path: out, fullPage: false });
+  }
+  console.log('screenshot ->', out);
+}
+
+async function runSteps(app, page, steps, opts) {
   for (const step of steps) {
     if (step.kind === 'click') {
       const result = await clickText(page, step.text);
       console.log('click', JSON.stringify(step.text), '->', result);
       if (result === 'NOT_FOUND') console.warn(`  (nothing on screen matched ${JSON.stringify(step.text)} - check spelling/case, or the screen it's on hasn't loaded yet)`);
     } else if (step.kind === 'shot') {
-      const out = path.resolve(process.cwd(), step.out);
-      fs.mkdirSync(path.dirname(out), { recursive: true });
-      await page.screenshot({ path: out, fullPage: opts.fullpage });
-      console.log('screenshot ->', out);
+      await takeShot(app, page, step.out, opts);
+    } else if (step.kind === 'all-screens') {
+      for (const [tab, file] of ALL_SCREENS) {
+        const result = await clickText(page, tab);
+        console.log('click', JSON.stringify(tab), '->', result);
+        if (result === 'NOT_FOUND') { console.warn(`  (skipping ${tab} - nav item not found)`); continue; }
+        await page.waitForTimeout(400);
+        await takeShot(app, page, path.join(step.dir, file), opts);
+      }
     } else if (step.kind === 'wait') {
       await page.waitForTimeout(step.ms);
     } else if (step.kind === 'type') {
@@ -183,7 +221,7 @@ async function main() {
   console.log('launched:', page.url());
 
   try {
-    await runSteps(page, steps, opts);
+    await runSteps(app, page, steps, opts);
   } finally {
     await app.close();
   }

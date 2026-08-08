@@ -55,6 +55,7 @@ Steps run in the order given, against a single app launch:
 | `--type <text>` | type at the current keyboard focus |
 | `--press <key>` | press one key, e.g. `Enter`, `Escape`, `Tab` |
 | `--eval <js>` | run a JS expression in the page, print the JSON result - for reading computed styles, text content, or anything a screenshot alone can't confirm |
+| `--all-screens <dir>` | visit all 4 tabs (Dashboard, Month Budget, History, Settings) and shoot each to `<dir>/<tab-name>.png` - shorthand for four `--nav`/`--wait`/`--shot` triples |
 
 Flags (not tied to step order):
 
@@ -65,6 +66,40 @@ Flags (not tied to step order):
 | `--real` + `--confirm-real-data` | launch against the real app data (see Safety above) - both flags required together |
 | `--no-fullpage` | screenshot only the visible viewport instead of the full scrollable page (default: full page) |
 
+### How the full-page shot actually works
+
+Playwright's own `page.screenshot({ fullPage: true })` grows the *viewport*
+to `document.documentElement`'s scroll size. That's a no-op in this app: the
+document never scrolls, `.main` does (`overflow-y: auto` in `app.css`), so
+Playwright saw no overflow and quietly returned the same image as a plain
+viewport shot - a tall screen like Settings used to come back clipped to
+860px with no error or warning.
+
+`--shot` (fullpage, the default) now goes through
+[`full-page-capture.mjs`](full-page-capture.mjs) instead: it runs inside the
+real Electron main process (via `ElectronApplication#evaluate`), measures how
+much of `.main` is hidden by its own scrollbar, grows the *actual OS window*
+by exactly that much so the whole page lays out with nothing left to scroll,
+takes one native `BrowserWindow#capturePage()`, then puts the window back.
+One real paint, no stitching, no document-scroll assumption. `--no-fullpage`
+skips all of this and just takes a plain viewport shot.
+
+`captureFullPage(app, page, selector?)` is also importable on its own if you
+want a full-page PNG `Buffer` from other tooling - `selector` defaults to
+`.main` (this app's scroll container) and rarely needs overriding:
+
+```js
+import { _electron as electron } from 'playwright-core';
+import { captureFullPage } from './full-page-capture.mjs';
+import fs from 'node:fs';
+
+const app = await electron.launch({ /* ... */ });
+const page = await app.firstWindow();
+const png = await captureFullPage(app, page);
+fs.writeFileSync('out.png', png);
+await app.close();
+```
+
 `--click` matching: exact `aria-label` match, then exact visible-text match,
 then substring matches of each, in that order. Prefer the exact visible
 label shown on screen (e.g. `Navy`, `"Rose colour"`, `Settings`) - check the
@@ -72,6 +107,12 @@ component source (`renderer/*.jsx`) for the precise `aria-label` if a click
 reports `NOT_FOUND`.
 
 ## Examples
+
+Screenshot all 4 screens in one launch:
+```bash
+node .claude/skills/screenshot-app/screenshot.mjs \
+  --all-screens .claude/skills/screenshot-app/out
+```
 
 Screenshot the Settings > Appearance panel:
 ```bash

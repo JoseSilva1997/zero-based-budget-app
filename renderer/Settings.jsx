@@ -282,12 +282,11 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
   const COLOR_NAME = { "#2fbf87": "Green", "#f0894e": "Orange", "#5b8def": "Blue", "#a87bf0": "Purple", "#e0b84a": "Gold", "#fb5e7e": "Pink" };
 
   return (
-    /* Capped, but not centred. 760px is a comfortable measure for rows that
-       are mostly a sentence and a control, and it should stay. Centring it
-       inside the 1080px column was what moved Settings' left edge 90px right
-       of every other screen's, so switching tabs slid the whole page sideways.
-       Left-aligned, the gutter now holds still across all four. */
-    <div className="fade-in" style={{ maxWidth: 760 }}>
+    /* Full width, like every other screen's .fade-in - a fixed maxWidth here
+       used to leave Settings' panels stranded short of the others' right
+       edge. Individual rows still cap their own prose (the `sub` line below
+       tops out at 460px) so a wide window doesn't stretch sentences thin. */
+    <div className="fade-in">
       <div className="topbar"><div><div className="page-title">Settings</div><div className="page-sub">Preferences for this household. Everything stays on this device.</div></div></div>
 
       <div className="section-head"><h2>General</h2></div>
