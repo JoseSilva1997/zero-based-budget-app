@@ -4,20 +4,35 @@
    ============================================================ */
 
 /* Bundled, not fetched. The sidebar strapline says "local", and until now
-   the one outbound request at startup was for these two typefaces. Offline
-   they fell back to system-ui at different metrics inside a pixel-fixed
-   layout. Licensed under the SIL OFL: see fonts/OFL.txt, shipped alongside
-   these woff2 files in every build (renderer/dist here, installed app there). */
-@font-face { font-family: "IBM Plex Sans"; font-weight: 400; font-style: normal; font-display: block; src: url("fonts/IBMPlexSans-Regular.woff2") format("woff2"); }
-@font-face { font-family: "IBM Plex Sans"; font-weight: 500; font-style: normal; font-display: block; src: url("fonts/IBMPlexSans-Medium.woff2") format("woff2"); }
-@font-face { font-family: "IBM Plex Sans"; font-weight: 600; font-style: normal; font-display: block; src: url("fonts/IBMPlexSans-SemiBold.woff2") format("woff2"); }
+   the one outbound request at startup was for these typefaces. Offline they
+   fell back to system-ui at different metrics inside a pixel-fixed layout.
+   Licensed under the SIL OFL: see fonts/OFL.txt (IBM Plex) and
+   fonts/PlusJakartaSans-OFL.txt, shipped alongside these woff2 files in
+   every build (renderer/dist here, installed app there).
+
+   Plus Jakarta Sans ships as two subsets per weight: latin covers the app's
+   own copy plus £ € ¥, and latin-ext exists for ₹ (U+20B9) in the currency
+   picker and for accented names beyond latin-1. The unicode-range values are
+   the subsets' own, from @fontsource/plus-jakarta-sans/unicode.json. */
+@font-face { font-family: "Plus Jakarta Sans"; font-weight: 400; font-style: normal; font-display: block; src: url("fonts/PlusJakartaSans-Regular.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Plus Jakarta Sans"; font-weight: 500; font-style: normal; font-display: block; src: url("fonts/PlusJakartaSans-Medium.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Plus Jakarta Sans"; font-weight: 600; font-style: normal; font-display: block; src: url("fonts/PlusJakartaSans-SemiBold.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Plus Jakarta Sans"; font-weight: 700; font-style: normal; font-display: block; src: url("fonts/PlusJakartaSans-Bold.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Plus Jakarta Sans"; font-weight: 400; font-style: normal; font-display: block; src: url("fonts/PlusJakartaSans-Regular-ext.woff2") format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Plus Jakarta Sans"; font-weight: 500; font-style: normal; font-display: block; src: url("fonts/PlusJakartaSans-Medium-ext.woff2") format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Plus Jakarta Sans"; font-weight: 600; font-style: normal; font-display: block; src: url("fonts/PlusJakartaSans-SemiBold-ext.woff2") format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Plus Jakarta Sans"; font-weight: 700; font-style: normal; font-display: block; src: url("fonts/PlusJakartaSans-Bold-ext.woff2") format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
 @font-face { font-family: "IBM Plex Mono"; font-weight: 400; font-style: normal; font-display: block; src: url("fonts/IBMPlexMono-Regular.woff2") format("woff2"); }
 @font-face { font-family: "IBM Plex Mono"; font-weight: 500; font-style: normal; font-display: block; src: url("fonts/IBMPlexMono-Medium.woff2") format("woff2"); }
 @font-face { font-family: "IBM Plex Mono"; font-weight: 600; font-style: normal; font-display: block; src: url("fonts/IBMPlexMono-SemiBold.woff2") format("woff2"); }
 @font-face { font-family: "IBM Plex Mono"; font-weight: 700; font-style: normal; font-display: block; src: url("fonts/IBMPlexMono-Bold.woff2") format("woff2"); }
 
 :root {
-  --font-sans: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --font-sans: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  /* The figure face for money columns. Kept as its own token so it can differ
+     from --font-sans if the UI face's tabular figures ever prove unusable;
+     see the .num comment below for the verification story. */
+  --font-num: var(--font-sans);
   --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
 
   /* Semantic colour, re-cut to the domain. In zero-based budgeting an
@@ -51,16 +66,19 @@
   --shadow-md: 0 8px 24px -10px rgba(0,0,0,0.6), 0 2px 8px -4px rgba(0,0,0,0.45);
   --shadow-lg: 0 30px 70px -22px rgba(0,0,0,0.75), 0 10px 28px -14px rgba(0,0,0,0.55);
 
-  --radius-sm: 9px;
-  --radius: 13px;
-  --radius-lg: 18px;
+  --radius-sm: 10px;
+  --radius: 14px;
+  --radius-lg: 20px;
 
   --row-h: 50px;
   /* The default gap between blocks. Inline JSX still hard-codes 16 in a lot of
      places; those are free to move to var(--gap) as they are touched. */
   --gap: 16px;
   --sidebar-w: 232px;
-  --maxw: 1080px;
+  /* Content spans the window rather than sitting in a 1080px well; the cap
+     only exists so an ultra-wide monitor doesn't stretch table rows to arm's
+     length. At the app's default 1280px window it never engages. */
+  --maxw: 1440px;
 
   /* The budget grid, in one place, because five call sites draw it: the column
      header and the four row shapes (item, group, entry, add-entry). Callers
@@ -69,9 +87,10 @@
   --budget-cols: 1fr 150px 158px 150px 78px;
 
   /* Focus ring. The solid 2px core is what carries the indicator: raw --accent
-     clears 3:1 against every surface in all twelve themes (worst 3.96:1, indigo
-     on --raised). The soft outer band is decoration on top of that, not the
-     indicator itself, which is why it is no longer a lone 32% wash at 1.5:1. */
+     clears 3:1 against every surface in all 24 theme/accent pairs (worst
+     4.02:1, violet on --raised). The soft outer band is decoration on top of
+     that, not the indicator itself, which is why it is no longer a lone 32%
+     wash at 1.5:1. */
   --ring: 0 0 0 2px var(--accent), 0 0 0 5px color-mix(in srgb, var(--accent) 26%, transparent);
   --glow-sm: 0 4px 18px -6px color-mix(in srgb, var(--accent) 55%, transparent);
   --glow-md: 0 8px 28px -8px color-mix(in srgb, var(--accent) 60%, transparent);
@@ -80,7 +99,7 @@
      paints the largest object on the screen rather than 0.07% of it.
 
      Only one floor binds here: --bar-faded against --well must clear 3:1 in
-     all 12 themes, because that boundary (how far the fill extends against
+     all 24 theme/accent pairs, because that boundary (how far the fill extends against
      its track) is the one WCAG 1.4.11 actually governs. --accent against
      --bar-faded is NOT held to 3:1: the two fills are a redundant encoding,
      not the sole carrier of the amounts they represent (MonthBar prints
@@ -93,10 +112,11 @@
      outer floor in every theme: raising it lightens --bar-faded, which
      raises the outer ratio and lowers the inner one, so the smallest
      value that still clears the outer floor everywhere is also the value
-     that maximises the inner separation. 73 fails (worst case 2.96:1,
-     indigo); 74 is the first whole percent that passes (worst case
-     3.01:1, indigo). See the task report for the full per-theme table. */
-  --bar-faded: color-mix(in srgb, var(--accent) 74%, var(--well));
+     that maximises the inner separation. Re-derived for the violet accent:
+     72 fails (worst case 2.99:1, violet/charcoal); 73 is the first whole
+     percent that passes (worst outer 3.04:1 and worst inner 1.55:1, both
+     violet/charcoal). */
+  --bar-faded: color-mix(in srgb, var(--accent) 73%, var(--well));
 
   /* The "planned" weight on the dashboard's allocated-vs-actual bars. It is a
      wash rather than a fill: the bar is read by its accent outline, and the
@@ -199,10 +219,17 @@
    backgrounds above: any accent pairs with any theme.
    ============================================================ */
 
+/* "indigo" is now a violet (hue 293 rather than 276), retuned toward the
+   #7C3AED of the design mockups. The id stays "indigo" because it is persisted
+   in user settings. The mockup value itself (oklch 0.54) is too dark to clear
+   the bar's outer floor on any theme; L 0.62 is the derived compromise, and it
+   also clears charcoal's --well, which the old 0.60 indigo needed a per-pair
+   override for (worst outer at 73%: 3.04:1 violet/charcoal, worst focus ring:
+   4.02:1 on --raised). */
 [data-accent="indigo"] {
-  --accent: oklch(0.60 0.19 276);
-  --accent-btn: oklch(0.575 0.19 276); /* white ink: 4.62:1 */
-  --accent-soft: oklch(0.31 0.10 276); --accent-ink: oklch(0.82 0.15 276);
+  --accent: oklch(0.62 0.21 293);
+  --accent-btn: oklch(0.585 0.21 293); /* white ink: 4.58:1 */
+  --accent-soft: oklch(0.31 0.11 293); --accent-ink: oklch(0.82 0.15 293);
 }
 [data-accent="cyan"] {
   --accent: oklch(0.82 0.13 205);
@@ -230,17 +257,10 @@
   --accent-soft: oklch(0.31 0.10 12); --accent-ink: oklch(0.83 0.16 12);
 }
 
-/* charcoal/indigo is the one pairing (of 24) where indigo's contrast against
-   charcoal's --well is too low for the bar's outer (3:1) and inner (1.5:1)
-   floors to both clear at once: every mix percentage that clears one misses
-   the other by a fraction of an sRGB step, in every interpolation space (see
-   tests/tokens-electron.cjs). A hairline lightness bump, only for this pair,
-   opens enough headroom for the shared 74% mix formula in :root to clear
-   both without perturbing --accent-btn (still tuned separately above) or any
-   other theme/accent combination. */
-[data-theme="charcoal"][data-accent="indigo"] {
-  --accent: oklch(0.62 0.19 276);
-}
+/* The charcoal/indigo per-pair override that used to live here is gone: the
+   violet retune above starts at L 0.62, which is exactly the lightness the
+   override existed to reach, so every one of the 24 theme/accent pairs now
+   clears the bar's floors from the shared formula alone. */
 
 * { box-sizing: border-box; }
 html, body { height: 100%; }
@@ -273,12 +293,14 @@ input { font-family: inherit; }
        slash lands as a line struck through the number. "$500" in the History
        table read as a cancelled figure rather than a saved one.
 
-   IBM Plex Sans carries true tabular lining figures, so a column of amounts
-   still aligns to the pixel, while the amount itself reads as money and sits
-   in the same voice as the label beside it. --font-mono is kept for the two
-   things that genuinely are code: keycaps and an error string (.code). */
+   Plus Jakarta Sans carries true tabular lining figures (verified in this
+   renderer: five 1s and five 0s both measure exactly 300px at 100px size
+   under tabular-nums, and differ by 2:1 without it), so a column of amounts
+   aligns to the pixel while the amount reads as money and sits in the same
+   voice as the label beside it. --font-mono is kept for the two things that
+   genuinely are code: keycaps and an error string (.code). */
 .num {
-  font-family: var(--font-sans);
+  font-family: var(--font-num);
   font-variant-numeric: tabular-nums lining-nums;
 }
 .code { font-family: var(--font-mono); }
@@ -315,6 +337,10 @@ input { font-family: inherit; }
   background: var(--accent-soft);
   border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
   display: grid; place-items: center; color: var(--accent-ink);
+  /* The mark is the "HB" monogram, set in the app's own face rather than
+     drawn as a glyph: the brand asset and the type carry the same voice. */
+  font-size: 12.5px; font-weight: 700; letter-spacing: 0.02em;
+  user-select: none;
 }
 .brand-name { font-weight: 600; font-size: 15px; letter-spacing: -0.015em; line-height: 1.1; }
 .brand-sub { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
@@ -328,7 +354,10 @@ input { font-family: inherit; }
   transition: background .14s, color .14s, border-color .14s;
 }
 .nav-item:hover { background: var(--well); color: var(--ink); }
-.nav-item.active { background: var(--raised); color: var(--ink); box-shadow: var(--shadow-sm); border: 1px solid var(--rule-strong); }
+/* The active item is a filled pill whose icon takes the accent; the border
+   that used to double-announce it is demoted to the hairline the card recipe
+   now uses everywhere. */
+.nav-item.active { background: var(--raised); color: var(--ink); box-shadow: var(--shadow-sm); border: 1px solid var(--rule-faint); }
 .nav-item.active svg { color: var(--accent-ink); }
 .nav-item svg { color: var(--muted); flex: none; }
 
@@ -414,8 +443,9 @@ input { font-family: inherit; }
 .btn:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--rule-strong)); transform: translateY(-1px); box-shadow: var(--shadow-md); }
 .btn:active { transform: translateY(0); }
 /* Flat, not a gradient: the light end of the old gradient dropped the label
-   under AA in six of the twelve themes. Depth comes from the inset highlight
-   and the accent glow, and hover brightens the glow rather than the fill. */
+   under AA in a quarter of the theme/accent pairs. Depth comes from the inset
+   highlight and the accent glow, and hover brightens the glow rather than the
+   fill. */
 .btn-primary { background: var(--accent-btn); color: var(--on-accent); border-color: transparent; box-shadow: var(--glow-sm), inset 0 1px 0 color-mix(in srgb, #fff 18%, transparent); font-weight: 600; }
 .btn-primary:hover { box-shadow: var(--glow-md), inset 0 1px 0 color-mix(in srgb, #fff 26%, transparent); }
 .btn-ghost { background: transparent; border-color: transparent; box-shadow: none; color: var(--ink-2); }
@@ -463,23 +493,27 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
 }
 
 /* Cards */
-/* Two recipes, not one. .panel is flat furniture on the board: lists,
-   tables, forms, empty states. .raised is the single lifted object on a
-   screen, and on Month Budget that is the group envelope. If everything is
+/* Two recipes, not one, but the difference is carried by fill and elevation
+   rather than by border weight. Both take the --raised fill so cards read as
+   surfaces sitting on the darker board (colour-driven hierarchy, per the
+   mockups); the borders are demoted to hairlines. What separates them is
+   depth: .panel is flat furniture at the board's level (lists, tables,
+   forms, empty states) with the smallest shadow, while .raised is the single
+   lifted object on a screen (on Month Budget, the group envelope) and rests
+   at --shadow-md rather than only reaching it on hover. If everything is
    raised, nothing is. */
 .panel {
-  background: transparent;
-  border: 1px solid var(--rule);
+  background: var(--raised);
+  border: 1px solid var(--rule-faint);
   border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
 }
 .raised {
   background: var(--raised);
-  border: 1px solid var(--rule-strong);
+  border: 1px solid var(--rule);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-  transition: box-shadow .14s;
+  box-shadow: var(--shadow-md);
 }
-.raised:hover { box-shadow: var(--shadow-md); }
 .section-head { display: flex; align-items: center; justify-content: space-between; margin: 30px 2px 14px; }
 .section-head h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); font-weight: 600; margin: 0; }
 
@@ -521,7 +555,7 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
    after a Tab. The hover state gains a border for the same reason: a background
    change alone was 1.1:1 and could not be seen. */
 .minput {
-  font-family: var(--font-sans); font-variant-numeric: tabular-nums lining-nums;
+  font-family: var(--font-num); font-variant-numeric: tabular-nums lining-nums;
   border: 1px solid transparent; background: transparent; color: var(--ink);
   border-radius: 8px; padding: 5px 8px; text-align: right; width: 100%;
   font-size: 14px;
@@ -819,7 +853,7 @@ kbd {
    sunset: the least legible text on screen was the thing being searched for.
    It is a fixed pair now, deliberately outside the theme system, because a
    found-match marker is a tool and not decoration, and because a pair that has
-   to hold across twelve accents cannot be derived from any of them. Amber on
+   to hold across six accents cannot be derived from any of them. Amber on
    near-black measures 13.67:1 in every theme, and it is the colour every
    browser's own find already uses, so it reads as "here" instantly. The
    non-current wash stays accent-tinted (that is where the theme belongs) and
@@ -841,7 +875,10 @@ kbd {
 .bar-track {
   position: relative;
   height: 34px;
-  border-radius: 8px;
+  /* A full pill, per the mockups: half the track height, so the ends are
+     semicircles. The fills inside are square; the track's own clip rounds
+     whichever fill reaches either end. */
+  border-radius: 17px;
   background: var(--well);
   overflow: hidden;
   /* Isolates the region transitions (left/width, see MonthBar.jsx) from the
@@ -860,7 +897,7 @@ kbd {
    visibility.
    .bar-mark-tick is the sibling in .bar-wrap that carries visibility: two
    4px ticks, one above and one below the track, landing on --board where
-   --rule-strong clears 3:1 in all 12 themes (worst measured: 3.47:1). The
+   --rule-strong clears 3:1 in all four themes (worst measured: 3.47:1). The
    middle of its box is left transparent so it does not paint a second,
    redundant line over the rule already inside the track. */
 .bar-mark-rule {

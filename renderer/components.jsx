@@ -9,15 +9,28 @@ import { daysInMonth, fmt } from './lib/index.js';
    that carries its own name. Hiding the svg keeps assistive tech from reading
    an unnamed graphic beside the name that already says the same thing. The
    attribute goes before the spread so a caller can still opt back in. */
-function Ic({ d, size = 18, fill, ...p }) {
+function Ic({ d, size = 18, fill, children, ...p }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill={fill || "none"} stroke="currentColor"
       strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...p}>
-      {Array.isArray(d) ? d.map((x, i) => <path key={i} d={x} />) : <path d={d} />}
+      {children ?? (Array.isArray(d) ? d.map((x, i) => <path key={i} d={x} />) : <path d={d} />)}
     </svg>
   );
 }
 const Icons = {
+  /* Sidebar set, matched to the mockups: a grid for Dashboard, a calendar
+     for Month Budget. Rounded rects need rx, which a stroke path cannot
+     carry, so these two pass elements through Ic rather than d strings. */
+  grid: (p) => <Ic {...p}>
+    <rect x="3" y="3" width="7.5" height="7.5" rx="1.8" />
+    <rect x="13.5" y="3" width="7.5" height="7.5" rx="1.8" />
+    <rect x="3" y="13.5" width="7.5" height="7.5" rx="1.8" />
+    <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.8" />
+  </Ic>,
+  calendar: (p) => <Ic {...p}>
+    <rect x="3.5" y="5" width="17" height="15.5" rx="2" />
+    <path d="M8 3v4" /><path d="M16 3v4" /><path d="M3.5 10.5h17" />
+  </Ic>,
   budget: (p) => <Ic {...p} d={["M3 7h18v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7Z","M3 7l2-3h14l2 3","M16 12h2"]} />,
   history: (p) => <Ic {...p} d={["M3 12a9 9 0 1 0 3-6.7L3 8","M3 4v4h4","M12 8v4l3 2"]} />,
   settings: (p) => <Ic {...p} d={["M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z","M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 6.6 19.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 4.6 14H4.5a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.1-2.7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 11 4.6V4.5a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.6 1.6 0 0 0 19.4 11h.1a2 2 0 1 1 0 4h-.1Z"]} />,

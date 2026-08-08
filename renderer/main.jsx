@@ -205,7 +205,7 @@ function LoadingScreen() {
   return (
     <div role="status" style={{ position: "fixed", inset: 0, display: "grid", placeItems: "center", color: "var(--muted)", fontSize: 14 }}>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-        <div className="brand-mark"><Icons.plant size={22} /></div>
+        <div className="brand-mark" aria-hidden="true">HB</div>
         Loading your budget…
       </div>
     </div>
@@ -317,13 +317,13 @@ function App() {
   if (loading || !state) return <LoadingScreen />;
 
   const currency = state.settings.currency;
-  const NAV = [["dashboard", "Dashboard", Icons.monitor], ["budget", "Month Budget", Icons.budget], ["history", "History", Icons.history], ["settings", "Settings", Icons.settings]];
+  const NAV = [["dashboard", "Dashboard", Icons.grid], ["budget", "Month Budget", Icons.calendar], ["history", "History", Icons.history], ["settings", "Settings", Icons.settings]];
 
   return (
     <div className={`app ${find.open ? "find-open" : ""}`}>
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-mark"><Icons.plant size={20} /></div>
+          <div className="brand-mark" aria-hidden="true">HB</div>
           {/* The app title, so the page has a level-one heading. 'margin: 0'
               only cancels the UA default; the look comes from .brand-name. */}
           <div><h1 className="brand-name" style={{ margin: 0 }}>House Budget</h1><div className="brand-sub">Zero-based · local</div></div>

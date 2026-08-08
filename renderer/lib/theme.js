@@ -15,7 +15,9 @@ export const THEME_IDS = BUDGET_THEMES.map((t) => t.id);
 /* Accent, independent of theme. Controls buttons, the focus ring, and glows;
    pairs with any of the four backgrounds above. */
 export const ACCENT_COLORS = [
-  { id: "indigo",  label: "Indigo",  accent: "#6d6ef6" },
+  /* The id stays "indigo" (persisted in user settings), but the colour is the
+     violet of the design mockups: sRGB of oklch(0.62 0.21 293) in app.css. */
+  { id: "indigo",  label: "Violet",  accent: "#8f63f6" },
   { id: "cyan",    label: "Cyan",    accent: "#3fd6ee" },
   { id: "emerald", label: "Emerald", accent: "#3ddc97" },
   { id: "lime",    label: "Lime",    accent: "#c6f24f" },

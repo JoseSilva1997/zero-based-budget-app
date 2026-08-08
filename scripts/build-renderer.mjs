@@ -51,7 +51,7 @@ function writeStatics() {
   const fontSrc = join(root, 'assets', 'fonts');
   const fontOut = join(outDir, 'fonts');
   mkdirSync(fontOut, { recursive: true });
-  for (const f of readdirSync(fontSrc).filter((n) => n.endsWith('.woff2') || n === 'OFL.txt')) {
+  for (const f of readdirSync(fontSrc).filter((n) => n.endsWith('.woff2') || n.endsWith('.txt'))) {
     copyFileSync(join(fontSrc, f), join(fontOut, f));
   }
 }
