@@ -384,7 +384,8 @@ input { font-family: inherit; }
 
 /* Topbar with month nav */
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: var(--gap); margin-bottom: 24px; }
-.month-nav { display: flex; align-items: center; gap: 14px; }
+.month-nav { display: flex; align-items: flex-end; gap: 14px; }
+.month-nav .icon-btn { align-items: flex-end; }
 .month-step {
   width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
   background: var(--raised); border: 1px solid var(--rule-strong); color: var(--ink-2);
@@ -482,6 +483,31 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
 .section-head { display: flex; align-items: center; justify-content: space-between; margin: 30px 2px 14px; }
 .section-head h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); font-weight: 600; margin: 0; }
 
+/* A row in a panel that stacks rows: Settings, mostly. The hairline goes
+   BETWEEN rows, which means the first row in a panel draws none. Every row set
+   this border inline, first row included, so six sections opened with a second
+   line one pixel inside the panel's own top edge, cutting the full width of the
+   container. Inline styles are unreachable from a :first-child rule, which is
+   why the border lives here now rather than at each call site. The second
+   selector reaches Shortcuts, whose rows sit one level further in, inside a
+   wrapper per section. */
+.set-row { border-top: 1px solid var(--rule-faint); }
+.panel > .set-row:first-child,
+.panel > :first-child > .set-row:first-child { border-top: none; }
+
+/* A panel that cannot clip its children. Quick entry is the one of these: its
+   suggestion list hangs off the name field and past the card's bottom edge, so
+   the card keeps overflow: visible and the blocks inside it have to respect its
+   corners themselves. Whichever block ends up last - "Just logged", the "goes
+   under" strip, or the field row when neither is showing - carries the bottom
+   curve, so a --board fill stops following the card's square content box out
+   past its rounded border. Radius only, no clipping: the field row holds the
+   arithmetic preview chip, which is drawn above the field and outside the row. */
+.panel-unclipped > :last-child {
+  border-bottom-left-radius: calc(var(--radius-lg) - 1px);
+  border-bottom-right-radius: calc(var(--radius-lg) - 1px);
+}
+
 /* Pills / tags */
 .pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums lining-nums; }
 .pill-neutral { background: var(--well); color: var(--ink-2); }
@@ -527,10 +553,27 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
 /* Drag handles are keyboard-operable, so they need resting, hover and focus
    states of their own. Their colour is set inline in JSX, so this rule sticks
    to the properties that leaves alone. The outline is inset because the handle
-   sits flush against the left edge of its row. */
-.drag-handle { background: transparent; border-radius: 8px; transition: background-color .12s; }
+   sits flush against the left edge of its row.
+
+   Square, because the rows are. An item row draws no radius of its own, so the
+   8px this used to carry made the hover fill the one rounded thing in a column
+   of square ones, floating inside a row it is meant to be part of. */
+.drag-handle { background: transparent; border-radius: 0; transition: background-color .12s; }
 .drag-handle:hover { background: var(--well); }
 .drag-handle:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; background: var(--well); }
+
+/* The group card's handle is a corner of that card rather than a control
+   floating inside it: it is filled with --board against the card's --raised,
+   and the card clips to --radius-lg. So it takes the card's own curve on the
+   corner it actually occupies and stays square on the three that are interior.
+   Rounded on all four, it left the card's fill showing through as a wedge at
+   each of those three and stopped short of the card's curve at the outer one.
+   The curve is 1px tighter than the card's: the border is drawn outside what
+   the card clips, so its inner edge is where the handle has to meet it.
+   A collapsed group's header IS the whole card, so its handle owns the
+   bottom-left corner too. */
+.drag-handle-group { border-radius: calc(var(--radius-lg) - 1px) 0 0 0; }
+.drag-handle-group.is-collapsed { border-bottom-left-radius: calc(var(--radius-lg) - 1px); }
 
 /* The copy / start-empty option cards in the new-month dialog. Their fill and
    border are inline (they carry the selected state), so hover lifts them with

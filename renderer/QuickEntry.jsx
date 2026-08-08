@@ -245,7 +245,10 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
         </div>
       </div>
 
-      <div ref={rootRef} className="panel" style={{ overflow: "visible" }}>
+      {/* overflow: visible so the suggestion list can hang past the card's
+          bottom edge; .panel-unclipped is what pays for that, rounding the
+          bottom of whichever block ends up last in here. */}
+      <div ref={rootRef} className="panel panel-unclipped" style={{ overflow: "visible" }}>
         {/* Six fields cannot hold their widths in a narrow window, and a Log
             button pushed outside the card is a button you cannot press. They
             wrap as two halves rather than one at a time, so a break always

@@ -94,13 +94,17 @@ function ShortcutsSection() {
   return (
     <div className="panel">
       {failed && (
-        <div style={{ padding: "14px 22px", fontSize: 13, color: "var(--muted)", borderTop: "1px solid var(--rule-faint)" }}>
+        <div className="set-row" style={{ padding: "14px 22px", fontSize: 13, color: "var(--muted)" }}>
           The menu shortcuts couldn't be read, so only the in-app keys are listed below.
         </div>
       )}
       {sections.map((s) => (
         <div key={s.kind}>
-          <div style={{ borderTop: "1px solid var(--rule-faint)", padding: "16px 22px 0" }}>
+          {/* One level deeper than the other .set-row callers, inside this
+              per-section wrapper: the stylesheet reaches it, so the first
+              section's heading loses the rule and the second one keeps it as
+              the divider between the two. */}
+          <div className="set-row" style={{ padding: "16px 22px 0" }}>
             <div style={{ fontWeight: 600, fontSize: 14.5 }}>{s.title}</div>
             <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 3, lineHeight: 1.45 }}>{s.note}</div>
           </div>
@@ -224,7 +228,7 @@ function RestoreDialog({ onClose, onRestored }) {
 
 function Setting({ title, sub, children }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 24, alignItems: "center", padding: "18px 22px", borderTop: "1px solid var(--rule-faint)" }}>
+    <div className="set-row" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 24, alignItems: "center", padding: "18px 22px" }}>
       <div>
         <div style={{ fontWeight: 600, fontSize: 14.5 }}>{title}</div>
         {sub && <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 3, lineHeight: 1.45, maxWidth: 460 }}>{sub}</div>}
@@ -372,7 +376,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
       <div className="section-head"><h2>Household members</h2></div>
       <div className="panel">
         {s.members.map(m => (
-          <div key={m.id} style={{ display: "grid", gridTemplateColumns: "auto 1fr auto auto", gap: 12, alignItems: "center", padding: "12px 22px", borderTop: "1px solid var(--rule-faint)" }}>
+          <div key={m.id} className="set-row" style={{ display: "grid", gridTemplateColumns: "auto 1fr auto auto", gap: 12, alignItems: "center", padding: "12px 22px" }}>
             <Avatar member={m} size={32} />
             <TextInline value={m.name} col="memberName" label="Member name" onCommit={(v) => dispatch({ type: "updateMember", id: m.id, patch: { name: v } })} style={{ fontWeight: 500, fontSize: 14 }} />
             <div role="radiogroup" aria-label={`Colour for ${m.name}`} style={{ display: "flex", gap: 5 }}>
@@ -393,14 +397,14 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
             <button className="icon-btn" title={`Remove ${m.name}`} aria-label={`Remove ${m.name}`} disabled={s.members.length <= 1} style={{ opacity: s.members.length <= 1 ? .3 : 1 }} onClick={() => setRemoveMember(m)}><Icons.trash size={16} /></button>
           </div>
         ))}
-        <div style={{ padding: "12px 18px", borderTop: "1px solid var(--rule-faint)" }}>
+        <div className="set-row" style={{ padding: "12px 18px" }}>
           <button className="btn btn-sm btn-ghost" style={{ color: "var(--muted)" }} onClick={() => dispatch({ type: "addMember", name: "New member", color: MEMBER_COLORS[s.members.length % MEMBER_COLORS.length] })}><Icons.plus size={14} /> Add member</button>
         </div>
       </div>
 
       <div className="section-head"><h2>Funding accounts</h2></div>
       <div className="panel">
-        <div style={{ padding: "12px 22px", fontSize: 12.5, color: "var(--muted)", borderTop: "1px solid var(--rule-faint)", lineHeight: 1.5 }}>
+        <div className="set-row" style={{ padding: "12px 22px", fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5 }}>
           {/* Two sentences, no italic. The emphasis on "where" was carrying an
               explanation the reader hadn't asked for yet, and naming Revolut
               dated the copy to one product in one country. */}
@@ -410,7 +414,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
         {(s.accounts || []).map(a => {
           const owner = s.members.find(m => m.id === a.owner);
           return (
-            <div key={a.id} style={{ display: "grid", gridTemplateColumns: "auto 1fr 150px 130px auto", gap: 12, alignItems: "center", padding: "12px 22px", borderTop: "1px solid var(--rule-faint)" }}>
+            <div key={a.id} className="set-row" style={{ display: "grid", gridTemplateColumns: "auto 1fr 150px 130px auto", gap: 12, alignItems: "center", padding: "12px 22px" }}>
               <span style={{ width: 30, height: 30, borderRadius: 8, flex: "none", background: hexToSoft(a.color), color: a.color, display: "grid", placeItems: "center" }}>{React.createElement(Icons[ACCT_ICON[a.type] || "coins"], { size: 16 })}</span>
               <TextInline value={a.name} col="accountName" label="Account name" onCommit={(v) => dispatch({ type: "updateAccount", id: a.id, patch: { name: v } })} style={{ fontWeight: 500, fontSize: 14 }} />
               <select value={a.type} aria-label={`Account type for ${a.name}`} onChange={(e) => dispatch({ type: "updateAccount", id: a.id, patch: { type: e.target.value } })} className="btn btn-sm" style={{ paddingRight: 8 }}>
@@ -424,7 +428,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
             </div>
           );
         })}
-        <div style={{ padding: "12px 18px", borderTop: "1px solid var(--rule-faint)" }}>
+        <div className="set-row" style={{ padding: "12px 18px" }}>
           <button className="btn btn-sm btn-ghost" style={{ color: "var(--muted)" }} onClick={() => dispatch({ type: "addAccount", name: "New account", color: MEMBER_COLORS[(s.accounts || []).length % MEMBER_COLORS.length], accType: "main" })}><Icons.plus size={14} /> Add account</button>
         </div>
       </div>

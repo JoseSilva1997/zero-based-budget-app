@@ -64,9 +64,9 @@ function announce(message) {
 
 /* The handle reorders by mouse (HTML5 drag on the row) or by keyboard. Both
    live here so the two paths cannot drift apart. */
-function DragHandle({ label, onGrab, onRelease, onMove, style }) {
+function DragHandle({ label, onGrab, onRelease, onMove, style, className = "" }) {
   return (
-    <button type="button" className="drag-handle" aria-label={label}
+    <button type="button" className={`drag-handle ${className}`} aria-label={label}
       title="Drag to reorder, or focus this and press the up and down arrow keys"
       onMouseDown={onGrab} onMouseUp={onRelease} onBlur={onRelease}
       onKeyDown={(e) => {
@@ -310,7 +310,12 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
         onDrop();
       }}
       onDragEnd={() => { setGrabbed(false); onDragEnd(); }}
-      style={{ borderTop: isDropTarget ? "2px solid var(--accent)" : "1px solid var(--rule)", opacity: isDragging ? .4 : 1, background: isDropTarget ? "var(--accent-soft)" : undefined, transition: "background .12s" }}>
+      /* The first row draws no rule of its own: the group header above it
+         already closes with one, in --rule-strong, and the two abutted into a
+         2px double line under every header. A drop target still gets its
+         accent edge wherever it lands - that one is a drag affordance, not a
+         divider, and has to be seen on the first row as much as any other. */
+      style={{ borderTop: isDropTarget ? "2px solid var(--accent)" : index === 0 ? "none" : "1px solid var(--rule)", opacity: isDragging ? .4 : 1, background: isDropTarget ? "var(--accent-soft)" : undefined, transition: "background .12s" }}>
       <div style={{ display: "flex", alignItems: "stretch", minHeight: "var(--row-h)" }}>
       <DragHandle label={`Reorder ${item.name}, item ${index + 1} of ${count} in ${group.name}`}
         onGrab={() => setGrabbed(true)} onRelease={() => setGrabbed(false)} onMove={onMove} />
@@ -443,7 +448,10 @@ function AddItemSearch({ month, groupId, currency, dispatch, onClose, itemCount 
   };
   const shown = candidates.slice(0, 7);
   return (
-    <div ref={rootRef} style={{ padding: "10px 16px", borderTop: "1px solid var(--rule-faint)", background: "var(--board)" }}>
+    /* Same rule as the rows: this panel separates itself from the item above
+       it, but in an empty group it opens directly under the group header,
+       which already draws that line. */
+    <div ref={rootRef} style={{ padding: "10px 16px", borderTop: itemCount === 0 ? "none" : "1px solid var(--rule-faint)", background: "var(--board)" }}>
       <div style={{ display: "flex", gap: 8 }}>
         <input autoFocus ref={inputRef} className="tinput" value={query} aria-label="Search previous items, or type a new item name" onChange={(e) => setQuery(e.target.value)} placeholder="Search previous items or type new..." style={{ maxWidth: 340 }}
           onKeyDown={(e) => {
@@ -570,7 +578,11 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, dragItem
       onDragEnd={() => { setGrabbed(false); onDragEnd(); }}
       style={{ marginBottom: 14, overflow: "hidden", opacity: isDragging ? .4 : 1, transition: "opacity .12s" }}>
       <div style={{ display: "flex", alignItems: "stretch" }}>
+      {/* 'is-collapsed' is what tells the stylesheet this handle is the card's
+          bottom-left corner as well as its top-left one: a collapsed group
+          renders nothing below its header. */}
       <DragHandle label={`Reorder group ${group.name}, ${groupIndex + 1} of ${groups.length}`}
+        className={`drag-handle-group${group.collapsed ? " is-collapsed" : ""}`}
         onGrab={() => setGrabbed(true)} onRelease={() => setGrabbed(false)} onMove={moveGroup}
         style={{ background: "var(--board)", borderBottom: group.collapsed ? "none" : "1px solid var(--rule-strong)" }} />
       <div {...appendTargetProps} style={{ flex: 1, minWidth: 0, display: "grid", gridTemplateColumns: "var(--budget-cols)", alignItems: "center", gap: 10, padding: "16px 8px", background: appendHere ? "var(--accent-soft)" : "var(--board)", borderBottom: group.collapsed ? "none" : "1px solid var(--rule-strong)", transition: "background .12s" }} className="budget-row">
@@ -593,7 +605,9 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, dragItem
       {!group.collapsed && (
         <div>
           {group.items.length === 0 && !addingItem && (
-            <div {...appendTargetProps} style={{ padding: "16px", textAlign: "center", color: appendHere ? "var(--ink-2)" : "var(--faint)", fontSize: 13, borderTop: "1px solid var(--rule-faint)", background: appendHere ? "var(--accent-soft)" : undefined, transition: "background .12s" }}>No items yet.</div>
+            /* No rule here either: this only ever sits directly under the group
+               header, which already draws one. */
+            <div {...appendTargetProps} style={{ padding: "16px", textAlign: "center", color: appendHere ? "var(--ink-2)" : "var(--faint)", fontSize: 13, background: appendHere ? "var(--accent-soft)" : undefined, transition: "background .12s" }}>No items yet.</div>
           )}
           {group.items.map((it, itemIndex) => (
             <ItemRow key={it.id} item={it} group={group} currency={currency} dispatch={dispatch} month={month} accounts={accounts}
