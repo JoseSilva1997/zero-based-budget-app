@@ -240,8 +240,12 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
     <>
       <div className="section-head">
         <h2>Quick entry</h2>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 12.5, color: "var(--muted)" }}>
-          <span>{entryCount} {entryCount === 1 ? "entry" : "entries"} logged this month</span>
+        {/* The number is the live figure, so it reads as one: full ink at 600,
+            with the label staying muted beside it - same recipe as Income's
+            "Combined" figure. */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--muted)" }}>
+          <span className="num" style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{entryCount}</span>
+          <span>{entryCount === 1 ? "entry" : "entries"} logged this month</span>
         </div>
       </div>
 
@@ -255,13 +259,13 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
             lands between "goes under" and the note - never mid-sequence. */}
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, padding: "12px 16px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flex: "1.1 1 360px", minWidth: 0 }}>
-          <DayField day={day} monthId={month} title="Day of month for this entry" onCommit={setDay} onEnter={add} inputRef={dayRef} />
+          <DayField day={day} monthId={month} title="Day of month for this entry" onCommit={setDay} onEnter={add} inputRef={dayRef} tray />
 
           {/* Name + past-entry suggestions. Focusing an EMPTY field does not
               reopen the list: it would cover the "just logged" recap the moment
               an entry lands. Typing or ArrowDown opens it. */}
           <div style={{ position: "relative", flex: "1.3 1 150px", minWidth: 0 }}>
-            <input ref={nameRef} className="tinput" value={name} role="combobox"
+            <input ref={nameRef} className="tinput tray" value={name} role="combobox"
               aria-label="What the spending was, as it appears on your statement"
               aria-expanded={open && shown.length > 0} aria-controls={listId} aria-autocomplete="list"
               aria-activedescendant={open && hi >= 0 ? `${listId}-${hi}` : undefined}
@@ -283,11 +287,11 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
           </div>
 
           {/* destination item */}
-          <select ref={itemRef} className="tinput" value={itemId == null ? "" : String(itemId)}
+          <select ref={itemRef} className="tinput tray" value={itemId == null ? "" : String(itemId)}
             aria-label="Which budget item this spending goes under"
             onChange={(e) => { setItemId(e.target.value === "" ? null : Number(e.target.value)); }}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); amtRef.current && amtRef.current.focus(); } }}
-            style={{ height: 32, fontSize: 13, cursor: "pointer", fontFamily: "inherit", flex: "1 1 140px", minWidth: 0, color: itemId == null ? "var(--muted)" : "var(--ink)", border: `1px solid ${orphaned ? "var(--breach)" : itemId == null ? "var(--rule)" : "transparent"}`, backgroundColor: itemId == null ? "var(--board)" : "transparent" }}>
+            style={{ height: 32, fontSize: 13, cursor: "pointer", fontFamily: "inherit", flex: "1 1 140px", minWidth: 0, color: itemId == null ? "var(--muted)" : "var(--ink)", ...(orphaned ? { border: "1px solid var(--breach)" } : null) }}>
             <option value="">Goes under…</option>
             {mo.groups.filter((g) => g.items.length > 0).map((g) => (
               <optgroup key={g.id} label={g.name}>
@@ -298,13 +302,13 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 10, flex: "1 1 340px", minWidth: 0 }}>
-          <input className="tinput" value={note} aria-label="Note for this spending entry (optional)"
+          <input className="tinput tray" value={note} aria-label="Note for this spending entry (optional)"
             onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)"
             style={{ height: 32, fontSize: 13, flex: "1 1 120px", minWidth: 0, color: "var(--ink-2)" }}
             onKeyDown={(e) => e.key === "Enter" && add()} />
 
           <div style={{ position: "relative", height: 32, flex: "0 0 140px" }}>
-            <input ref={amtRef} className="minput" aria-label="Amount spent" inputMode="text"
+            <input ref={amtRef} className="minput tray" aria-label="Amount spent" inputMode="text"
               style={{ paddingLeft: 8, height: 32, fontSize: 13 }}
               value={amt} onChange={(e) => setAmt(e.target.value)} placeholder={`${currency}0.00`}
               onKeyDown={(e) => e.key === "Enter" && add()} />
@@ -339,7 +343,9 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
                   {a.name || <span style={{ color: "var(--faint)" }}>Unnamed</span>}
                   {a.note && <span style={{ color: "var(--faint)", fontSize: 12 }}> · {a.note}</span>}
                 </span>
-                <span style={{ fontSize: 12, color: "var(--muted)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.name} · {it.name}</span>
+                {/* Where it filed itself, as a quiet chip aligned against the
+                    amount - the destination is metadata, not the entry. */}
+                <span style={{ justifySelf: "end", minWidth: 0, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11.5, fontWeight: 500, color: "var(--ink-2)", background: "var(--well)", border: "1px solid var(--rule-faint)", borderRadius: 999, padding: "2px 9px" }}>{g.name} · {it.name}</span>
                 <span className="num" style={{ fontSize: 13, textAlign: "right" }}>{fmt(currency, a.amount)}</span>
                 <div className="row-actions">
                   <button className="icon-btn subtle" title="Remove entry"

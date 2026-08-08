@@ -70,7 +70,7 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
             <span className="wallet-amt">{fmt(currency, wallet.toFund, { cents: false })}</span>
             {wallet.hasUnassigned && <span className="wallet-warn" role="img" aria-label="Some allocations aren't assigned to an account" title="Some allocations aren't assigned to an account" />}
           </button>
-          <button className="btn new-month-btn" onClick={onNewMonth}><Icons.plus size={16} /> New month</button>
+          <button className="btn btn-primary" onClick={onNewMonth}><Icons.plus size={16} /> New month</button>
         </div>
       </div>
 

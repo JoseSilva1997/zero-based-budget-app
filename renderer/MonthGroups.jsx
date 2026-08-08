@@ -323,9 +323,13 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
         <div style={{ minWidth: 0, paddingRight: 6, display: "flex", flexDirection: "column", gap: 4 }}>
           {/* The title is on the wrapper because the field itself is an input:
               it cannot ellipsis, so the full name has to be reachable some
-              other way (hover here, or scroll inside the field). */}
+              other way (hover here, or scroll inside the field). The accent
+              text is the mockups' sprinkle: the name is the one thing on the
+              row a person scans for, so it is the one thing that takes the
+              theme's colour - in the lighter --accent-text blend, not the
+              full-strength ink. */}
           <span title={item.name} style={{ display: "flex", minWidth: 0 }}>
-            <TextInline value={item.name} col="itemName" label="Item name" style={{ minWidth: 0 }}
+            <TextInline value={item.name} col="itemName" label="Item name" style={{ minWidth: 0, color: "var(--accent-text)" }}
               onCommit={(v) => dispatch({ type: "renameItem", month, groupId: group.id, itemId: item.id, name: v })} />
           </span>
           <div style={{ paddingLeft: 8, minWidth: 0 }}>

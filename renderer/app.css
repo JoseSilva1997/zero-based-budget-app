@@ -56,6 +56,14 @@
   /* text drawn on top of an accent fill - overridden per light-accent theme */
   --on-accent: #ffffff;
 
+  /* Accent-tinted running text (item names in the budget rows). --accent-ink
+     at full strength read too loud across a whole month, so this is a lighter,
+     quieter blend of it toward the ink ramp: still unmistakably the accent,
+     but sitting closer to the text around it. Derived, so it tracks every
+     accent without six more hand-tuned values; blending toward --ink can only
+     raise contrast above --accent-ink's own floors. */
+  --accent-text: color-mix(in srgb, var(--accent-ink) 45%, var(--ink));
+
   /* The accent is free to be any hue the user likes, but text sitting ON it is
      not. --accent-btn is the accent darkened (per theme, below) to the point
      where --on-accent clears WCAG AA at 4.5:1. Themes whose accent is already
@@ -546,6 +554,21 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
 .pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums lining-nums; }
 .pill-neutral { background: var(--well); color: var(--ink-2); }
 .pill-breach { background: var(--breach-soft); color: var(--breach-ink); }
+/* The Difference chip: an outlined caption ("ON TRACK" / "N LEFT"), per the
+   mockups, rather than a filled pill - the resting state of a budget row
+   should not carry a fill. Only a breach earns one. The border is
+   --rule-strong because it is the whole of what draws the chip. */
+.pill-diff {
+  background: transparent; border: 1px solid var(--rule-strong); color: var(--muted);
+  text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.06em; padding: 2px 8px;
+  white-space: nowrap;
+}
+.pill-diff.pill-diff-breach { background: var(--breach-soft); border-color: var(--breach); color: var(--breach-ink); }
+/* Reaching exactly on-track is the settled state, so its chip stops being an
+   outline and quietly fills: solid is fact, hollow is still-in-progress. No
+   colour arrives - the no-green rule holds - but the change of texture marks
+   the arrival. */
+.pill-diff.pill-diff-ontrack { background: var(--well); border-color: transparent; color: var(--ink-2); }
 
 /* Inline editable money and text fields. These deliberately keep :focus rather
    than :focus-visible. They are borderless and look like plain text until they
@@ -561,6 +584,11 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
   font-size: 14px;
   transition: background-color .12s, border-color .12s, box-shadow .12s;
 }
+/* Tray variant: a field that rests visibly boxed on a --well tray (quick
+   entry, per the mockups) instead of reading as plain text until hovered.
+   Declared before the :hover/:focus rules below so those still win while the
+   field is engaged - the tray only owns the resting look. */
+.minput.tray, .tinput.tray { background: var(--well); border-color: var(--rule-faint); }
 .minput:hover { background: var(--well); border-color: var(--rule); }
 .minput:focus { outline: none; background: var(--raised); border-color: var(--accent); box-shadow: var(--ring); }
 .tinput {
@@ -715,38 +743,25 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
 .acct-row:not(:disabled):hover { filter: brightness(1.06); }
 .acct-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
-/* wallet trigger button - accent-tinted hero action */
+/* wallet trigger button - the quiet half of the topbar pair. "New month" is
+   the solid primary beside it; two loud buttons side by side would shout over
+   each other, so this one is an ordinary outlined control whose accent lives
+   only in the glyph and the amount. */
 .wallet-btn {
   gap: 8px; font-weight: 600;
-  background: color-mix(in srgb, var(--accent) 13%, var(--raised));
-  border-color: color-mix(in srgb, var(--accent) 42%, var(--rule));
+  background: var(--raised);
+  border-color: var(--rule-strong);
   color: var(--ink);
-  box-shadow: var(--shadow-sm), var(--glow-sm);
-}
-.wallet-btn:hover {
-  background: color-mix(in srgb, var(--accent) 19%, var(--raised));
-  border-color: color-mix(in srgb, var(--accent) 60%, var(--rule));
-  box-shadow: var(--shadow-md), var(--glow-md);
+  box-shadow: var(--shadow-sm);
 }
 .wallet-btn svg { color: var(--accent-ink); }
 .wallet-btn .wallet-amt {
   font-weight: 600; font-variant-numeric: tabular-nums lining-nums;
   color: var(--accent-ink);
   padding-left: 8px; margin-left: 2px;
-  border-left: 1px solid color-mix(in srgb, var(--accent) 35%, var(--rule));
+  border-left: 1px solid var(--rule);
 }
 .wallet-btn .wallet-warn { width: 7px; height: 7px; border-radius: 99px; background: var(--breach); flex: none; box-shadow: 0 0 0 3px var(--breach-soft); }
-
-/* new month - subtle accent edge */
-.new-month-btn {
-  font-weight: 600;
-  border-color: color-mix(in srgb, var(--accent) 30%, var(--rule));
-}
-.new-month-btn:hover {
-  background: color-mix(in srgb, var(--accent) 9%, var(--raised));
-  border-color: color-mix(in srgb, var(--accent) 48%, var(--rule-strong));
-}
-.new-month-btn svg { color: var(--accent-ink); }
 
 /* ============================================================
    Breakpoints

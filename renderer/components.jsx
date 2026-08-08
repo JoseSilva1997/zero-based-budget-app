@@ -286,7 +286,7 @@ function MoneyInput({ value, onCommit, currency = "$", className = "", placehold
    'onEnter' makes Enter submit rather than just blur, and receives the clamped
    day directly: the commit that goes with it only lands in state after this
    keystroke. */
-function DayField({ day, monthId, onCommit, onEnter, inputRef, autoFocus = false, title = "Day of month" }) {
+function DayField({ day, monthId, onCommit, onEnter, inputRef, autoFocus = false, title = "Day of month", tray = false }) {
   const [txt, setTxt] = useState(String(day));
   useEffect(() => { setTxt(String(day)); }, [day]);
   const clampTo = (n) => Math.max(1, Math.min(daysInMonth(monthId), n));
@@ -303,7 +303,7 @@ function DayField({ day, monthId, onCommit, onEnter, inputRef, autoFocus = false
   // so holding an arrow on an existing entry is not one database write per step.
   const step = (delta) => setTxt(String(clampTo(parsed() + delta)));
   return (
-    <input ref={inputRef} autoFocus={autoFocus} className="minput num" value={txt} inputMode="numeric" title={title} aria-label={title}
+    <input ref={inputRef} autoFocus={autoFocus} className={`minput num${tray ? " tray" : ""}`} value={txt} inputMode="numeric" title={title} aria-label={title}
       onChange={(e) => setTxt(e.target.value.replace(/[^0-9]/g, "").slice(0, 2))}
       onFocus={(e) => e.target.select()}
       onBlur={() => onCommit(clamp())}
@@ -354,11 +354,12 @@ function Avatar({ member, size = 26 }) {
 /* ---- difference pill ---------------------------------------------------- */
 /* Under-spending is not a win in zero-based budgeting, it is an unfinished
    allocation, so "left" is as neutral as "on track". Only a breach is
-   coloured. */
+   coloured - and only a breach gets a fill; the resting states are outlined
+   captions (.pill-diff). */
 function DiffPill({ diff, currency }) {
-  if (Math.abs(diff) < 0.005) return <span className="pill pill-neutral">on track</span>;
-  if (diff > 0) return <span className="pill pill-neutral">{fmt(currency, diff, { cents: false })} left</span>;
-  return <span className="pill pill-breach">{fmt(currency, Math.abs(diff), { cents: false })} over</span>;
+  if (Math.abs(diff) < 0.005) return <span className="pill pill-diff pill-diff-ontrack"><Icons.check size={11} /> On track</span>;
+  if (diff > 0) return <span className="pill pill-diff num">{fmt(currency, diff, { cents: false })} left</span>;
+  return <span className="pill pill-diff pill-diff-breach num">{fmt(currency, Math.abs(diff), { cents: false })} over</span>;
 }
 
 /* ---- mini progress bar -------------------------------------------------- */
