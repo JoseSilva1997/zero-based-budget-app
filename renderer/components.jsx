@@ -462,15 +462,27 @@ function ConfirmDialog({ title, children, confirmLabel, onConfirm, onClose, busy
   );
 }
 
-/* ---- chart card wrapper (shared by History + Dashboard) ----------------- */
-function ChartCard({ title, sub, children, wide }) {
+/* ---- chart card wrapper (Dashboard) ------------------------------------- */
+/* No .panel, no box: a chart is ink on the board, not furniture in a frame.
+   What frames it instead is a pair of horizontal rules: a top hairline that
+   is strongest at the centre and dissolves toward both edges, and a flat
+   faint rule under the chart's own labels, standing in for the axis spines
+   the charts no longer draw. */
+/* `stretch` opts a card out of the grid's alignItems: start so it fills its
+   row's full height, with the bordered content area absorbing the slack -
+   used when a short list sits beside a fixed-height chart and their bottom
+   rules should land on the same line. */
+function ChartCard({ title, sub, children, wide, stretch }) {
   return (
-    <div className="panel fade-in" style={{ padding: "18px 20px 16px", gridColumn: wide ? "span 2" : "auto" }}>
+    <div className="fade-in" style={{ gridColumn: wide ? "span 2" : "auto", minWidth: 0, ...(stretch ? { alignSelf: "stretch", display: "flex", flexDirection: "column" } : null) }}>
+      <div aria-hidden="true" style={{ height: 1, background: "linear-gradient(90deg, transparent, color-mix(in srgb, var(--rule) 65%, transparent) 50%, transparent)", marginBottom: 18 }} />
       <div style={{ marginBottom: 14 }}>
-        <div style={{ fontWeight: 600, fontSize: 15 }}>{title}</div>
+        <div style={{ fontWeight: 600, fontSize: 15.5 }}>{title}</div>
         {sub && <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 2 }}>{sub}</div>}
       </div>
-      {children}
+      <div style={{ borderBottom: "1px solid color-mix(in srgb, var(--rule-faint) 55%, transparent)", paddingBottom: 12, ...(stretch ? { flex: 1 } : null) }}>
+        {children}
+      </div>
     </div>
   );
 }

@@ -60,7 +60,9 @@ function DashboardScreen({ currency, onOpenMonth }) {
            every card in a row stretched to the tallest one, and "Category
            trends" - which on a young household is a single sentence - was
            being held open to the 380px of the savings chart beside it. */
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 26, alignItems: "start" }}>
+        /* Wider gaps than the card grid used to need: with the chart boxes
+           gone, the space between charts is the only thing separating them. */
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "64px 32px", marginTop: 52, alignItems: "start" }}>
           {/* Each card's title now carries the whole of what the card is. The
               explainer line under every one of them ("What you set aside each
               month, and how much of your income that was", "Your nest egg
@@ -77,8 +79,9 @@ function DashboardScreen({ currency, onOpenMonth }) {
             <SavingsChart series={series} currency={currency} onOpenMonth={onOpenMonth} />
           </ChartCard>
 
-          {/* 6. category trends (compact, sits beside savings) */}
-          <ChartCard title="Category trends">
+          {/* 6. category trends. Stretched to the savings chart's row height
+              so the two cards' bottom rules land on the same line. */}
+          <ChartCard title="Category trends" stretch>
             <CategoryTrends series={series} currency={currency} />
           </ChartCard>
 

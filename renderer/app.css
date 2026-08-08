@@ -420,7 +420,7 @@ input { font-family: inherit; }
 .main-inner { max-width: var(--maxw); margin: 0 auto; padding: 30px 38px 80px; }
 
 /* Topbar with month nav */
-.topbar { display: flex; align-items: center; justify-content: space-between; gap: var(--gap); margin-bottom: 24px; }
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: var(--gap); margin-bottom: 30px; }
 .month-nav { display: flex; align-items: flex-end; gap: 14px; }
 .month-nav .icon-btn { align-items: flex-end; }
 .month-step {
@@ -433,8 +433,8 @@ input { font-family: inherit; }
 .month-step:disabled { opacity: .4; cursor: default; }
 .month-title { display: flex; flex-direction: column; line-height: 1; }
 .month-title .yr { font-size: 12.5px; color: var(--muted); letter-spacing: 0.06em; margin-bottom: 4px; font-weight: 500; }
-.month-title .mo { font-size: 30px; font-weight: 600; letter-spacing: -0.025em; }
-.page-title { font-size: 30px; font-weight: 600; letter-spacing: -0.025em; }
+.month-title .mo { font-size: 34px; font-weight: 600; letter-spacing: -0.025em; }
+.page-title { font-size: 34px; font-weight: 600; letter-spacing: -0.025em; }
 .page-sub { color: var(--muted); font-size: 14px; margin-top: 4px; }
 
 /* Buttons. The resting border is --rule-strong, not --rule: a secondary
@@ -803,7 +803,7 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
   .main-inner { padding: 22px 20px 64px; }
   .sidebar { padding: 18px 11px; }
   .brand { padding: 4px 6px 16px; }
-  .month-title .mo, .page-title { font-size: 25px; }
+  .month-title .mo, .page-title { font-size: 28px; }
   .find-bar { right: 20px; }
   .app.find-open .main-inner { padding-top: 76px; }
 }

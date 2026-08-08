@@ -16,9 +16,12 @@ function abbrMoney(v, c = "$") {
   return `${c}${Math.round(v)}`;
 }
 
-/* shared axis styling so every chart matches the dark theme */
-const axisProps = { stroke: "var(--rule-faint)", tick: { fill: "var(--faint)", fontSize: 11 }, tickLine: false };
-const gridProps = { stroke: "var(--rule-faint)", strokeDasharray: "0", vertical: false };
+/* shared axis styling so every chart matches the dark theme. No axis spines
+   at all - the plot hangs in space and ChartCard's own rules frame it - and
+   the gridlines are cut to a wash of the faintest rule so they sit behind
+   the data instead of beside it. */
+const axisProps = { axisLine: false, tick: { fill: "var(--faint)", fontSize: 11 }, tickLine: false };
+const gridProps = { stroke: "color-mix(in srgb, var(--rule-faint) 30%, transparent)", strokeDasharray: "0", vertical: false };
 
 /* themed tooltip - mirrors the dark var(--ink) box from Charts.jsx.
    Recharts injects { active, payload, label }; extra props are passed by us. */
@@ -148,22 +151,31 @@ function HeadlineStats({ allSeries, series, currency }) {
       {!hasActuals && (
         <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 12 }}>Track a month to see your overview build up here.</div>
       )}
-      <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-        <span className="num" style={{ fontSize: 46, fontWeight: 600, letterSpacing: "-0.03em", lineHeight: 1 }}>
-          {fmt(currency, totalSaved, { cents: false })}
-        </span>
-        <span style={{ fontSize: 14, color: "var(--muted)" }}>set aside, all time</span>
-      </div>
-      <div style={{ display: "flex", gap: 26, marginTop: 18, flexWrap: "wrap" }}>
-        {secondary.map((s, i) => (
-          <div key={s.label} style={{ paddingLeft: i ? 26 : 0, borderLeft: i ? "1px solid var(--rule-faint)" : "none" }}>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 7 }}>
-              <span style={{ fontSize: 12.5, color: "var(--faint)" }}>{s.label}</span>
-              <span className="num" style={{ fontSize: 17, fontWeight: 600 }}>{s.value}</span>
+      {/* One line, not a stack: the big figure leads and the two figures that
+          qualify it stand to its right behind hairline rules (the mockups'
+          arrangement). Wrapping still degrades it to a stack on a narrow
+          window. */}
+      <div style={{ display: "flex", alignItems: "center", columnGap: 28, rowGap: 16, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+          {/* The one figure the screen exists for wears the accent - in the
+              lighter --accent-text blend, and a step bolder than the titles
+              around it. */}
+          <span className="num" style={{ fontSize: 46, fontWeight: 700, letterSpacing: "-0.03em", lineHeight: 1, color: "var(--accent-text)" }}>
+            {fmt(currency, totalSaved, { cents: false })}
+          </span>
+          <span style={{ fontSize: 14, color: "var(--muted)" }}>set aside, all time</span>
+        </div>
+        {/* One divider only, between the headline figure and this pair; the
+            pair itself is top-aligned so both numbers sit on the same line
+            even when one caption wraps and the other doesn't. */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 28, paddingLeft: 28, borderLeft: "1px solid var(--rule-faint)" }}>
+          {secondary.map((s) => (
+            <div key={s.label}>
+              <div className="num" style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.2 }}>{s.value}</div>
+              <div style={{ fontSize: 12, color: "var(--faint)", marginTop: 2, maxWidth: 150 }}>{s.label} {s.note}</div>
             </div>
-            <div style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 3 }}>{s.note}</div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -357,11 +369,13 @@ function CategoryTrends({ series, currency }) {
       {rows.map(row => {
         const up = row.isNew ? true : row.pct > 0;
         const flat = !row.isNew && row.pct === 0;
-        // A trend that moved is not by itself good or bad in this domain: only a
-        // genuine over-budget condition earns a hue, and this is just direction.
-        const color = flat ? "var(--faint)" : "var(--ink-2)";
+        // A trend that moved is not by itself good or bad in this domain: only
+        // a genuine over-budget condition would earn red. The moving deltas
+        // take the accent's text blend - theme colour, not a verdict - and a
+        // flat 0% stays faint.
+        const color = flat ? "var(--faint)" : "var(--accent-ink)";
         return (
-          <div key={row.g} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 0", borderBottom: "1px solid var(--rule-faint)" }}>
+          <div key={row.g} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 0", borderBottom: "1px solid color-mix(in srgb, var(--rule-faint) 55%, transparent)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}>
               <span style={{ fontSize: 13.5, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.g}</span>
               {row.isNew && <span className="pill pill-neutral" style={{ fontSize: 10, flex: "none" }}>new</span>}
