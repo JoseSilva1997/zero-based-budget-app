@@ -79,10 +79,10 @@ function HistoryScreen({ currency, onOpenMonth }) {
                 <span style={{ fontWeight: 600, fontSize: 14 }}>{s.label}</span>
                 {s.id === activeMonth && <span className="pill pill-neutral" style={{ fontSize: 10 }}>current</span>}
               </span>
-              <span className="mono" style={{ textAlign: "right", fontSize: 13.5 }}>{fmt(currency, s.income, { cents: false })}</span>
-              <span className="mono" style={{ textAlign: "right", fontSize: 13.5 }}>{fmt(currency, s.alloc, { cents: false })}</span>
-              <span className="mono" style={{ textAlign: "right", fontSize: 13.5, color: "var(--ink-2)" }}>{fmt(currency, s.actual, { cents: false })}</span>
-              <span className="mono" style={{ textAlign: "right", fontSize: 13.5, color: "var(--ink)", fontWeight: 600 }}>{fmt(currency, s.savings, { cents: false })}</span>
+              <span className="num" style={{ textAlign: "right", fontSize: 13.5 }}>{fmt(currency, s.income, { cents: false })}</span>
+              <span className="num" style={{ textAlign: "right", fontSize: 13.5 }}>{fmt(currency, s.alloc, { cents: false })}</span>
+              <span className="num" style={{ textAlign: "right", fontSize: 13.5, color: "var(--ink-2)" }}>{fmt(currency, s.actual, { cents: false })}</span>
+              <span className="num" style={{ textAlign: "right", fontSize: 13.5, color: "var(--ink)", fontWeight: 600 }}>{fmt(currency, s.savings, { cents: false })}</span>
               <span style={{ textAlign: "right" }}>{s.overCount > 0 ? <span className="pill pill-breach">{s.overCount} over</span> : <span className="pill pill-neutral">clean</span>}</span>
             </button>
           );
@@ -109,7 +109,11 @@ function Comparison({ series, cmpA, cmpB, setCmpA, setCmpB, currency, groupNames
   // against itself with an arrow between two identical labels.
   if (series.length < 2) {
     return (
-      <div className="panel" style={{ padding: "18px 20px", fontSize: 13.5, color: "var(--muted)", lineHeight: 1.5 }}>
+      /* No panel around it. A full-width bordered box holding one sentence
+         draws a frame the size of the comparison that isn't there yet, and on
+         a one-month household that box was the largest object on the screen.
+         The sentence stands on its own under the section heading. */
+      <div style={{ padding: "2px 2px 8px", fontSize: 13.5, color: "var(--muted)", lineHeight: 1.5 }}>
         Comparing needs a second month. Once you've tracked another one, {series[0] ? series[0].label : "this month"} can be set against it here.
       </div>
     );
@@ -149,13 +153,13 @@ function Comparison({ series, cmpA, cmpB, setCmpA, setCmpB, currency, groupNames
           return (
             <div key={r.label} style={{ padding: "14px 16px", borderRadius: 12, background: "var(--board)", border: "1px solid var(--rule-faint)" }}>
               <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>{r.label}</div>
-              <div className="mono" style={{ fontSize: 19, fontWeight: 500, marginBottom: 6 }}>{fmt(currency, r.b, { cents: false })}</div>
+              <div className="num" style={{ fontSize: 19, fontWeight: 500, marginBottom: 6 }}>{fmt(currency, r.b, { cents: false })}</div>
               {/* A month-over-month move is not itself good or bad in this domain
                   (spending less isn't a win, income up isn't either), so no
                   colour codes the direction: only a genuine breach earns one. */}
               <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: neutral ? "var(--faint)" : "var(--ink-2)" }}>
                 {!neutral && (positive ? <Icons.up size={13} /> : <Icons.down size={13} />)}
-                <span className="mono" style={{ fontWeight: 600 }}>{neutral ? "no change" : `${fmt(currency, Math.abs(delta), { cents: false })}${pct !== null ? ` · ${Math.abs(pct)}%` : ""}`}</span>
+                <span className="num" style={{ fontWeight: 600 }}>{neutral ? "no change" : `${fmt(currency, Math.abs(delta), { cents: false })}${pct !== null ? ` · ${Math.abs(pct)}%` : ""}`}</span>
               </div>
             </div>
           );
@@ -192,7 +196,7 @@ function MonthDetail({ series, getMonth, currency, onClose, onOpen, isCurrent })
         {[["Income", series.income], ["Allocated", series.alloc], ["Actual", series.actual], ["Saved", series.savings]].map(([l, v]) => (
           <div key={l} style={{ padding: "10px 12px", borderRadius: 10, background: "var(--board)", border: "1px solid var(--rule-faint)" }}>
             <div style={{ fontSize: 11, color: "var(--muted)" }}>{l}</div>
-            <div className="mono" style={{ fontSize: 15, fontWeight: 600, marginTop: 3 }}>{fmt(currency, v, { cents: false })}</div>
+            <div className="num" style={{ fontSize: 15, fontWeight: 600, marginTop: 3 }}>{fmt(currency, v, { cents: false })}</div>
           </div>
         ))}
       </div>
@@ -208,13 +212,13 @@ function MonthDetail({ series, getMonth, currency, onClose, onOpen, isCurrent })
           <div key={g.id} style={{ marginBottom: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 600, fontSize: 13.5, padding: "6px 8px", background: "var(--board)", borderRadius: 7 }}>
               <span>{g.name}{g.isSavings ? " · savings" : ""}</span>
-              <span className="mono">{fmt(currency, groupActual(g), { cents: false })} / {fmt(currency, groupAllocated(g), { cents: false })}</span>
+              <span className="num">{fmt(currency, groupActual(g), { cents: false })} / {fmt(currency, groupAllocated(g), { cents: false })}</span>
             </div>
             {g.items.map(it => { const act = itemActual(it); const over = act > it.allocated + 0.005; return (
               <div key={it.id} style={{ display: "grid", gridTemplateColumns: "1fr 90px 90px", gap: 8, padding: "5px 8px", fontSize: 13, borderBottom: "1px solid var(--rule-faint)" }}>
                 <span style={{ color: "var(--ink-2)" }}>{it.name}</span>
-                <span className="mono" style={{ textAlign: "right", color: "var(--faint)" }}>{fmt(currency, it.allocated, { cents: false })}</span>
-                <span className="mono" style={{ textAlign: "right", color: over ? "var(--breach-ink)" : "var(--ink)", fontWeight: over ? 600 : 400 }}>{fmt(currency, act, { cents: false })}</span>
+                <span className="num" style={{ textAlign: "right", color: "var(--faint)" }}>{fmt(currency, it.allocated, { cents: false })}</span>
+                <span className="num" style={{ textAlign: "right", color: over ? "var(--breach-ink)" : "var(--ink)", fontWeight: over ? 600 : 400 }}>{fmt(currency, act, { cents: false })}</span>
               </div>
             ); })}
           </div>

@@ -203,7 +203,10 @@ function focusInColumn(el, dir) {
 }
 
 /* ---- money input -------------------------------------------------------- */
-function MoneyInput({ value, onCommit, currency = "$", className = "", placeholder = "0.00", autoFocus, col, label }) {
+/* `placeholder` defaults to null rather than "0.00" so it can pick up the
+   household's currency: an unset row now reads "$0.00" and lines up with the
+   filled rows above it instead of sitting a symbol's width to their right. */
+function MoneyInput({ value, onCommit, currency = "$", className = "", placeholder = null, autoFocus, col, label }) {
   const [txt, setTxt] = useState("");
   const [editing, setEditing] = useState(false);
   // The reason the last commit was refused, or null. Held in state rather than
@@ -215,7 +218,13 @@ function MoneyInput({ value, onCommit, currency = "$", className = "", placehold
   // latch keeps that from writing the same value twice.
   const done = useRef(false);
   useEffect(() => { if (autoFocus && ref.current) ref.current.focus(); }, [autoFocus]);
-  const display = editing ? txt : (value === 0 || value == null ? "" : Number(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+  /* The symbol used to be a separate span pinned to the left edge of the field
+     while the number stayed right-aligned, which in a 150px column left "$"
+     stranded ninety pixels from the amount it belonged to, on every row of the
+     budget. It is part of the value at rest instead, so it sits tight against
+     the first digit; while the field is being edited it drops away, because
+     what is typed there is a number (or a sum, "40+12.50") and not a price. */
+  const display = editing ? txt : (value === 0 || value == null ? "" : `${currency}${Number(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
   const preview = editing && !invalid && isExpr(txt) ? evalMoney(txt) : null;
   // Returns whether the value went in: a refused commit keeps the field open,
   // holding what was typed, so the fix is one keystroke away rather than a retype.
@@ -231,12 +240,11 @@ function MoneyInput({ value, onCommit, currency = "$", className = "", placehold
   };
   return (
     <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-      <span aria-hidden="true" style={{ position: "absolute", left: 9, color: "var(--faint)", fontSize: 13, pointerEvents: "none", fontFamily: "var(--font-mono)" }}>{currency}</span>
       <input ref={ref} className={`minput ${className}`} inputMode="text"
-        style={invalid ? { paddingLeft: 20, borderColor: "var(--breach)", boxShadow: "none" } : { paddingLeft: 20 }}
+        style={invalid ? { borderColor: "var(--breach)", boxShadow: "none" } : undefined}
         data-col={col} aria-label={label}
         aria-invalid={invalid ? true : undefined} aria-describedby={invalid ? noteId : undefined}
-        value={display} placeholder={placeholder}
+        value={display} placeholder={placeholder ?? `${currency}0.00`}
         // Coming back to a refused value must not wipe it, so only a clean field reloads from store.
         onFocus={(e) => { done.current = false; setEditing(true); if (!invalid) setTxt(value ? String(value) : ""); requestAnimationFrame(() => { const el = e.target; const end = el.value.length; el.setSelectionRange(end, end); }); }}
         onChange={(e) => { const v = e.target.value; setTxt(v); if (invalid && parseMoney(v).ok) setInvalid(null); }}
@@ -255,7 +263,7 @@ function MoneyInput({ value, onCommit, currency = "$", className = "", placehold
       {invalid ? (
         <span id={noteId} role="alert" style={{ position: "absolute", right: 6, bottom: "100%", marginBottom: 3, background: "var(--breach-soft)", color: "var(--breach-ink)", border: "1px solid var(--breach)", fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 6, maxWidth: 230, lineHeight: 1.35, textAlign: "right", boxShadow: "var(--shadow-sm)", zIndex: 4 }}>{invalid}</span>
       ) : preview !== null && (
-        <span className="mono" style={{ position: "absolute", right: 6, bottom: "100%", marginBottom: 3, background: "var(--ink)", color: "var(--on-ink)", fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 6, whiteSpace: "nowrap", boxShadow: "var(--shadow-sm)", zIndex: 4 }}>= {fmt(currency, preview)}</span>
+        <span className="num" style={{ position: "absolute", right: 6, bottom: "100%", marginBottom: 3, background: "var(--ink)", color: "var(--on-ink)", fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 6, whiteSpace: "nowrap", boxShadow: "var(--shadow-sm)", zIndex: 4 }}>= {fmt(currency, preview)}</span>
       )}
     </div>
   );
@@ -282,7 +290,7 @@ function DayField({ day, monthId, onCommit, onEnter, inputRef, autoFocus = false
   // so holding an arrow on an existing entry is not one database write per step.
   const step = (delta) => setTxt(String(clampTo(parsed() + delta)));
   return (
-    <input ref={inputRef} autoFocus={autoFocus} className="minput mono" value={txt} inputMode="numeric" title={title} aria-label={title}
+    <input ref={inputRef} autoFocus={autoFocus} className="minput num" value={txt} inputMode="numeric" title={title} aria-label={title}
       onChange={(e) => setTxt(e.target.value.replace(/[^0-9]/g, "").slice(0, 2))}
       onFocus={(e) => e.target.select()}
       onBlur={() => onCommit(clamp())}

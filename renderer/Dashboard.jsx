@@ -32,9 +32,10 @@ function DashboardScreen({ currency, onOpenMonth }) {
       <div className="topbar">
         <div>
           <div className="page-title">Dashboard</div>
-          <div className="page-sub">
-            Overview of your spending &amp; saving habits{windowLabel ? ` · ${windowLabel}` : ""}
-          </div>
+          {/* The window is the only thing here the figures below don't already
+              say. "Overview of your spending & saving habits" described the
+              screen to someone already looking at it. */}
+          <div className="page-sub">{windowLabel || "No months tracked yet"}</div>
         </div>
       </div>
 
@@ -55,31 +56,44 @@ function DashboardScreen({ currency, onOpenMonth }) {
           <div style={{ fontSize: 13, maxWidth: 340 }}>Enter a month's actual spending and savings, and the dashboard will start charting your trends and habits over time.</div>
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 16 }}>
-          {/* 2. savings over time */}
-          {/* The month labels under these charts are buttons: seeing a bad
-              month and being able to open it are the same gesture. */}
-          <ChartCard title="Savings over time" sub="What you set aside each month, and how much of your income that was. Pick a month below the chart to open it.">
+        /* `alignItems: start` so a card sizes to its own content. Without it
+           every card in a row stretched to the tallest one, and "Category
+           trends" - which on a young household is a single sentence - was
+           being held open to the 380px of the savings chart beside it. */
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 26, alignItems: "start" }}>
+          {/* Each card's title now carries the whole of what the card is. The
+              explainer line under every one of them ("What you set aside each
+              month, and how much of your income that was", "Your nest egg
+              growing over time…") was six sentences of narration on one
+              screen, describing charts that are already labelled and already
+              legible. `sub` survives on the two cards where a real convention
+              needs stating: what the second series is, and what the row of
+              months underneath does. */}
+
+          {/* 2. savings over time. The month labels under these charts are
+              buttons: seeing a bad month and being able to open it are the
+              same gesture, so that one is worth saying once. */}
+          <ChartCard title="Saved each month" sub="Month labels open that month.">
             <SavingsChart series={series} currency={currency} onOpenMonth={onOpenMonth} />
           </ChartCard>
 
           {/* 6. category trends (compact, sits beside savings) */}
-          <ChartCard title="Category trends" sub="Direction & size of change, recent months vs earlier.">
+          <ChartCard title="Category trends">
             <CategoryTrends series={series} currency={currency} />
           </ChartCard>
 
           {/* 4. cumulative savings by goal */}
-          <ChartCard title="Cumulative savings by goal" sub="Your nest egg growing over time, split by what you're saving toward." wide>
+          <ChartCard title="Savings by goal, adding up" wide>
             <CumulativeSavingsChart series={series} currency={currency} onOpenMonth={onOpenMonth} />
           </ChartCard>
 
           {/* 5. budget accuracy */}
-          <ChartCard title="Budget accuracy" sub="Allocated vs actual each month, and which categories chronically run over." wide>
+          <ChartCard title="Planned against spent" sub="Outlined bar is the plan, solid is what went out." wide>
             <BudgetAccuracyChart series={series} currency={currency} onOpenMonth={onOpenMonth} />
           </ChartCard>
 
           {/* 7. spending timing (de-emphasised) */}
-          <ChartCard title="Spending timing" sub="Average spend by day of the month - does money tend to go out early or late?" wide>
+          <ChartCard title="When money leaves in the month" wide>
             <SpendingTiming series={series} currency={currency} />
           </ChartCard>
         </div>

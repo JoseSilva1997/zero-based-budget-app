@@ -266,7 +266,7 @@ function EntriesDrawer({ item, group, currency, dispatch, month }) {
         <div style={{ position: "relative", height: 32 }}>
           <input ref={amtRef} className="minput" aria-label="Amount spent" style={{ paddingLeft: 8, height: 32, fontSize: 13 }} inputMode="text" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder={`${currency}0.00`} onKeyDown={(e) => e.key === "Enter" && add()} />
           {amtPreview !== null && (
-            <span className="mono" style={{ position: "absolute", right: 4, bottom: "100%", marginBottom: 3, background: "var(--ink)", color: "var(--on-ink)", fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 6, whiteSpace: "nowrap", zIndex: 4 }}>= {fmt(currency, amtPreview)}</span>
+            <span className="num" style={{ position: "absolute", right: 4, bottom: "100%", marginBottom: 3, background: "var(--ink)", color: "var(--on-ink)", fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 6, whiteSpace: "nowrap", zIndex: 4 }}>= {fmt(currency, amtPreview)}</span>
           )}
         </div>
         {/* Add sits in the actions column, under the entries' remove buttons:
@@ -336,7 +336,7 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
         <button onClick={onToggle} title="View / add spending entries" aria-expanded={open}
           aria-label={`${fmt(currency, actual)} spent on ${item.name} in ${item.actuals.length} ${item.actuals.length === 1 ? "entry" : "entries"}`}
           style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 7, background: open ? "var(--well)" : "transparent", border: "1px solid transparent", borderRadius: 7, padding: "5px 9px", color: "var(--ink)", transition: ".12s" }}>
-          <span className="mono" style={{ fontSize: 14 }}>{fmt(currency, actual)}</span>
+          <span className="num" style={{ fontSize: 14 }}>{fmt(currency, actual)}</span>
           <span style={{ fontSize: 10.5, color: "var(--faint)", background: "var(--well)", borderRadius: 5, padding: "1px 5px", minWidth: 16, textAlign: "center" }}>{item.actuals.length}</span>
         </button>
         <div className="col-diff" style={{ display: "flex", flexDirection: "column", gap: 5, alignItems: "flex-end" }}>
@@ -464,7 +464,7 @@ function AddItemSearch({ month, groupId, currency, dispatch, onClose, itemCount 
               <span style={{ display: "block", fontSize: 13.5, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{candidate.name}</span>
               <span style={{ display: "block", fontSize: 11.5, color: "var(--muted)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{candidate.groupName} - {candidate.monthLabel}</span>
             </span>
-            <span className="mono" style={{ fontSize: 12.5, color: "var(--ink-2)", whiteSpace: "nowrap" }}>{fmt(currency, candidate.allocated, { cents: false })}</span>
+            <span className="num" style={{ fontSize: 12.5, color: "var(--ink-2)", whiteSpace: "nowrap" }}>{fmt(currency, candidate.allocated, { cents: false })}</span>
           </button>
         )) : (
           <div style={{ padding: "9px 10px", color: "var(--muted)", fontSize: 12.5 }}>
@@ -581,8 +581,8 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, dragItem
           </span>
           {group.isSavings && <span className="pill pill-neutral" style={{ flex: "none" }}><Icons.plant size={12} /> Savings</span>}
         </div>
-        <div className="mono" style={{ textAlign: "right", fontSize: 13.5, fontWeight: 600, paddingRight: 8 }}>{fmt(currency, alloc, { cents: false })}</div>
-        <div className="mono" style={{ textAlign: "right", fontSize: 13.5, color: "var(--ink-2)", paddingRight: 9 }}>{fmt(currency, actual, { cents: false })}</div>
+        <div className="num" style={{ textAlign: "right", fontSize: 13.5, fontWeight: 600, paddingRight: 8 }}>{fmt(currency, alloc, { cents: false })}</div>
+        <div className="num" style={{ textAlign: "right", fontSize: 13.5, color: "var(--ink-2)", paddingRight: 9 }}>{fmt(currency, actual, { cents: false })}</div>
         <div className="col-diff" style={{ textAlign: "right" }}><DiffPill diff={diff} currency={currency} /></div>
         <div className="row-actions" style={{ justifyContent: "flex-end" }}>
           <button className="icon-btn" aria-label={group.isSavings ? `Unmark ${group.name} as a savings group` : `Mark ${group.name} as a savings group`} title={group.isSavings ? "Unmark as savings" : "Mark as savings group"} onClick={() => dispatch({ type: "setSavings", month, groupId: group.id, value: !group.isSavings })}><Icons.plant size={15} /></button>

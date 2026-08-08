@@ -77,7 +77,7 @@ function MonthBar({ mo, currency }) {
         <span style={{ fontSize: 12, color: "var(--muted)" }}>
           {fmt(currency, income)} income
         </span>
-        <span className="mono" style={{ fontSize: 19, fontWeight: 500, color: g.overAllocated ? "var(--breach-ink)" : "var(--ink)" }}>
+        <span className="num" style={{ fontSize: 19, fontWeight: 500, color: g.overAllocated ? "var(--breach-ink)" : "var(--ink)" }}>
           {fmt(currency, Math.abs(unalloc))}{" "}
           <span style={{ fontSize: 12, fontWeight: 400, color: "var(--muted)" }}>
             {g.overAllocated ? "over-allocated" : "left to allocate"}
@@ -112,9 +112,9 @@ function MonthBar({ mo, currency }) {
       </div>
 
       <div style={{ display: "flex", gap: 18, marginTop: 8, fontSize: 12, color: "var(--muted)" }}>
-        <span><span className="mono" style={{ color: "var(--ink-2)" }}>{fmt(currency, actual)}</span> spent</span>
-        <span><span className="mono" style={{ color: "var(--ink-2)" }}>{fmt(currency, alloc)}</span> allocated</span>
-        {savings > 0 && <span><span className="mono" style={{ color: "var(--ink-2)" }}>{fmt(currency, savings)}</span> of that to savings</span>}
+        <span><span className="num" style={{ color: "var(--ink-2)" }}>{fmt(currency, actual)}</span> spent</span>
+        <span><span className="num" style={{ color: "var(--ink-2)" }}>{fmt(currency, alloc)}</span> allocated</span>
+        {savings > 0 && <span><span className="num" style={{ color: "var(--ink-2)" }}>{fmt(currency, savings)}</span> of that to savings</span>}
       </div>
 
       {over.length > 0 && (
@@ -141,7 +141,7 @@ function MonthBar({ mo, currency }) {
             ))}
             {over.length > 3 ? "…" : ""}
           </span>
-          <span className="mono" style={{ marginLeft: "auto", fontWeight: 600, flex: "none" }}>{fmt(currency, sumOver(over))} over total</span>
+          <span className="num" style={{ marginLeft: "auto", fontWeight: 600, flex: "none" }}>{fmt(currency, sumOver(over))} over total</span>
         </div>
       )}
     </div>

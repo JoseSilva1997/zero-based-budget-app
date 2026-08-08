@@ -80,7 +80,7 @@ function AccountPanel({ mo, accounts, members, currency }) {
               <div style={{ fontSize: 13.5, fontWeight: 600 }}>{p.member.name} total</div>
               <div style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>into {p.accts.map(t => t.account.name).join(" · ")}</div>
             </div>
-            <div className="mono" style={{ fontSize: 17, fontWeight: 600, flex: "none" }}>{fmt(currency, p.amount)}</div>
+            <div className="num" style={{ fontSize: 17, fontWeight: 600, flex: "none" }}>{fmt(currency, p.amount)}</div>
           </div>
         ))}
         {shared.length > 0 && (
@@ -90,7 +90,7 @@ function AccountPanel({ mo, accounts, members, currency }) {
               <div style={{ fontSize: 13.5, fontWeight: 600 }}>Shared total</div>
               <div style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>into {shared.map(t => t.account.name).join(" · ")}</div>
             </div>
-            <div className="mono" style={{ fontSize: 17, fontWeight: 600, flex: "none" }}>{fmt(currency, sharedAmt, { cents: false })}</div>
+            <div className="num" style={{ fontSize: 17, fontWeight: 600, flex: "none" }}>{fmt(currency, sharedAmt, { cents: false })}</div>
           </div>
         )}
       </div>
@@ -123,14 +123,14 @@ function AccountPanel({ mo, accounts, members, currency }) {
                   <div style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ flex: "none" }}>{t.count} item{t.count !== 1 ? "s" : ""}</span>
                     <span style={{ flex: 1, maxWidth: 90 }}><MiniBar actual={t.actual} allocated={t.allocated} /></span>
-                    <span className="mono" style={{ flex: "none" }}>{fmt(currency, t.actual, { cents: false })} spent</span>
+                    <span className="num" style={{ flex: "none" }}>{fmt(currency, t.actual, { cents: false })} spent</span>
                     {t.actual > t.allocated + 0.001 && <DiffPill diff={round2(t.allocated - t.actual)} currency={currency} />}
                   </div>
                 </div>
                 {canOpen && <Icons.down size={16} style={{ flex: "none", color: "var(--faint)", transform: open ? "none" : "rotate(-90deg)", transition: "transform .18s" }} />}
                 <div style={{ textAlign: "right", flex: "none" }}>
-                  <div className="mono" style={{ fontSize: 15.5, fontWeight: 600 }}>{fmt(currency, t.allocated)}</div>
-                  <div className="mono" style={{ fontSize: 10.5, color: "var(--faint)", marginTop: 2 }}>{Math.round(pct * 100)}% of plan</div>
+                  <div className="num" style={{ fontSize: 15.5, fontWeight: 600 }}>{fmt(currency, t.allocated)}</div>
+                  <div className="num" style={{ fontSize: 10.5, color: "var(--faint)", marginTop: 2 }}>{Math.round(pct * 100)}% of plan</div>
                 </div>
               </button>
               {canOpen && open && (
@@ -142,10 +142,10 @@ function AccountPanel({ mo, accounts, members, currency }) {
                         <div style={{ fontSize: 11, color: "var(--faint)", marginTop: 3, display: "flex", alignItems: "center", gap: 8 }}>
                           <span style={{ flex: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 110 }}>{it.group}</span>
                           <span style={{ flex: 1, maxWidth: 70 }}><MiniBar actual={it.actual} allocated={it.allocated} /></span>
-                          <span className="mono" style={{ flex: "none" }}>{fmt(currency, it.actual, { cents: false })} spent</span>
+                          <span className="num" style={{ flex: "none" }}>{fmt(currency, it.actual, { cents: false })} spent</span>
                         </div>
                       </div>
-                      <div className="mono" style={{ fontSize: 13.5, fontWeight: 600, flex: "none" }}>{fmt(currency, it.allocated)}</div>
+                      <div className="num" style={{ fontSize: 13.5, fontWeight: 600, flex: "none" }}>{fmt(currency, it.allocated)}</div>
                     </div>
                   ))}
                 </div>
@@ -160,7 +160,7 @@ function AccountPanel({ mo, accounts, members, currency }) {
         <>
           <div style={{ fontSize: 11, color: "var(--ink-2)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 10, marginTop: 22, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <span>{savingsAccount ? savingsAccount.name : "Savings"} wallets</span>
-            <span className="mono" style={{ color: "var(--faint)", letterSpacing: 0 }}>{fmt(currency, savingsTotal)}</span>
+            <span className="num" style={{ color: "var(--faint)", letterSpacing: 0 }}>{fmt(currency, savingsTotal)}</span>
           </div>
           <div className="panel" style={{ overflow: "hidden" }}>
             {savingsItems.map((it, i) => {
@@ -181,11 +181,11 @@ function AccountPanel({ mo, accounts, members, currency }) {
                     <div style={{ fontWeight: 600, fontSize: 13.5 }}>{it.name}</div>
                     <div style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
                       <span style={{ flex: 1, maxWidth: 90 }}><MiniBar actual={it.actual} allocated={it.allocated} /></span>
-                      <span className="mono" style={{ flex: "none" }}>{fmt(currency, it.actual, { cents: false })} moved</span>
+                      <span className="num" style={{ flex: "none" }}>{fmt(currency, it.actual, { cents: false })} moved</span>
                       {it.actual > it.allocated + 0.001 && <DiffPill diff={round2(it.allocated - it.actual)} currency={currency} />}
                     </div>
                   </div>
-                  <div className="mono" style={{ textAlign: "right", flex: "none", fontSize: 15.5, fontWeight: 600 }}>{fmt(currency, it.allocated)}</div>
+                  <div className="num" style={{ textAlign: "right", flex: "none", fontSize: 15.5, fontWeight: 600 }}>{fmt(currency, it.allocated)}</div>
                 </div>
               );
             })}
@@ -257,7 +257,7 @@ function WalletDrawer({ mo, accounts, members, currency, month, onClose }) {
         </div>
         <div style={{ padding: "16px 22px 18px", borderBottom: "1px solid var(--rule)", background: "color-mix(in srgb, var(--accent) 8%, var(--board))" }}>
           <div style={{ fontSize: 11.5, color: "var(--muted)", fontWeight: 500, marginBottom: 6 }}>Total to move this month</div>
-          <span className="mono" style={{ fontSize: 30, fontWeight: 600, letterSpacing: "-0.025em", color: "var(--ink)" }}>{fmt(currency, toFund)}</span>
+          <span className="num" style={{ fontSize: 30, fontWeight: 600, letterSpacing: "-0.025em", color: "var(--ink)" }}>{fmt(currency, toFund)}</span>
         </div>
         <div className="drawer-body">
           <AccountPanel mo={mo} accounts={accounts} members={members} currency={currency} />

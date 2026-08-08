@@ -204,7 +204,7 @@ function RestoreDialog({ onClose, onRestored }) {
               <span style={{ display: "block", fontSize: 13.5, fontWeight: 500 }}>{b.savedAt}</span>
               <span style={{ display: "block", fontSize: 11.5, color: "var(--muted)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.fileName}</span>
             </span>
-            <span className="mono" style={{ fontSize: 12, color: "var(--faint)", whiteSpace: "nowrap" }}>{fileSize(b.size)}</span>
+            <span className="num" style={{ fontSize: 12, color: "var(--faint)", whiteSpace: "nowrap" }}>{fileSize(b.size)}</span>
           </button>
         ))}
       </div>
@@ -278,7 +278,12 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
   const COLOR_NAME = { "#2fbf87": "Green", "#f0894e": "Orange", "#5b8def": "Blue", "#a87bf0": "Purple", "#e0b84a": "Gold", "#fb5e7e": "Pink" };
 
   return (
-    <div className="fade-in" style={{ maxWidth: 760, margin: "0 auto" }}>
+    /* Capped, but not centred. 760px is a comfortable measure for rows that
+       are mostly a sentence and a control, and it should stay. Centring it
+       inside the 1080px column was what moved Settings' left edge 90px right
+       of every other screen's, so switching tabs slid the whole page sideways.
+       Left-aligned, the gutter now holds still across all four. */
+    <div className="fade-in" style={{ maxWidth: 760 }}>
       <div className="topbar"><div><div className="page-title">Settings</div><div className="page-sub">Preferences for this household. Everything stays on this device.</div></div></div>
 
       <div className="section-head"><h2>General</h2></div>
@@ -292,11 +297,17 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
               return (
                 <button key={c} role="radio" aria-checked={on} aria-label={`Use ${c} as the currency symbol`}
                   onClick={() => dispatch({ type: "updateSettings", patch: { currency: c } })}
-                  className="mono" style={{ position: "relative", width: 38, height: 36, borderRadius: 8, border: `1px solid ${on ? "var(--accent)" : "var(--rule)"}`, background: on ? "var(--accent-soft)" : "var(--raised)", color: on ? "var(--accent-ink)" : "var(--ink-2)", fontWeight: on ? 700 : 600 }}>
+                  className="num" style={{ position: "relative", width: 38, height: 36, borderRadius: 8, border: `1px solid ${on ? "var(--accent)" : "var(--rule)"}`, background: on ? "var(--accent-soft)" : "var(--raised)", color: on ? "var(--accent-ink)" : "var(--ink-2)", fontWeight: on ? 700 : 600 }}>
                   {c}
+                  {/* Inside the swatch, not hung off its corner. At top/right
+                      -5 the badge broke the button's own outline and ate into
+                      the 6px gap to the next one, so the selected currency was
+                      the one control on the screen that didn't sit on the grid
+                      everything else does. It still carries the selection
+                      without asking anyone to read a border colour. */}
                   {on && (
-                    <span style={{ position: "absolute", top: -5, right: -5, width: 15, height: 15, borderRadius: 99, background: "var(--accent)", color: "var(--on-accent)", display: "grid", placeItems: "center" }}>
-                      <Icons.check size={9} />
+                    <span style={{ position: "absolute", top: 2, right: 3, color: "var(--accent-ink)", display: "grid", placeItems: "center" }}>
+                      <Icons.check size={10} />
                     </span>
                   )}
                 </button>
@@ -390,7 +401,11 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
       <div className="section-head"><h2>Funding accounts</h2></div>
       <div className="panel">
         <div style={{ padding: "12px 22px", fontSize: 12.5, color: "var(--muted)", borderTop: "1px solid var(--rule-faint)", lineHeight: 1.5 }}>
-          Accounts are <em>where</em> money lives - main accounts, shared/joint, wallets like Revolut, or savings. Assign each budget item to one account, and the Month Budget funding plan shows who moves what.
+          {/* Two sentences, no italic. The emphasis on "where" was carrying an
+              explanation the reader hadn't asked for yet, and naming Revolut
+              dated the copy to one product in one country. */}
+          Where money actually sits: a current account, a joint one, a savings pot.
+          Each budget item is funded from one of these, and the Wallet then shows who moves what.
         </div>
         {(s.accounts || []).map(a => {
           const owner = s.members.find(m => m.id === a.owner);

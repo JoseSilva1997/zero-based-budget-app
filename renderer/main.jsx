@@ -134,7 +134,11 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
           <button className="btn btn-sm btn-primary" onMouseDown={(e) => e.preventDefault()} onClick={commitGroup}>Add group</button>
         </div>
       ) : (
-        <button className="btn" style={{ width: "100%", justifyContent: "center", borderStyle: "dashed", background: "transparent", color: "var(--muted)" }} onClick={() => setAddingGroup(true)}><Icons.plus size={16} /> Add group</button>
+        /* Not a full-width dashed slab. A dashed outline the width of the page
+           reads as a drop target or a missing card, and it out-weighed every
+           real group above it; this is the same quiet "+ Add item" affordance
+           each group card already ends with, one level out. */
+        <button className="btn btn-ghost" style={{ marginTop: 4, color: "var(--muted)" }} onClick={() => setAddingGroup(true)}><Icons.plus size={16} /> Add group</button>
       )}
 
       {walletOpen && <WalletDrawer mo={mo} accounts={state.settings.accounts} members={state.settings.members} currency={currency} month={mid} onClose={() => setWalletOpen(false)} />}
@@ -228,7 +232,9 @@ function StartupErrorScreen({ error, onRetry }) {
         <p style={{ margin: "0 0 6px", color: "var(--ink-2)", fontSize: 14, lineHeight: 1.55 }}>
           Your budget file is still on this device, and nothing has been changed or deleted. This usually means the app is already running in another window, or the file is being synced by another program.
         </p>
-        <p className="mono" style={{ margin: "0 0 22px", color: "var(--muted)", fontSize: 12.5, lineHeight: 1.5, wordBreak: "break-word" }}>
+        {/* A driver error string genuinely is code, so this one keeps the
+            mono face that the app's amounts have given up. */}
+        <p className="code" style={{ margin: "0 0 22px", color: "var(--muted)", fontSize: 12.5, lineHeight: 1.5, wordBreak: "break-word" }}>
           {error && error.message}
         </p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -322,7 +328,11 @@ function App() {
               only cancels the UA default; the look comes from .brand-name. */}
           <div><h1 className="brand-name" style={{ margin: 0 }}>House Budget</h1><div className="brand-sub">Zero-based · local</div></div>
         </div>
-        <div className="nav-label">Workspace</div>
+        {/* No section label over these four. "Workspace" was the word a SaaS
+            template uses for a tenant, and this is a household's own budget on
+            its own machine; four items directly under the app's name need no
+            header at all. "Household" below stays, because it labels a list of
+            people rather than the app's own sections. */}
         {/* The nav is a new box in the sidebar's column, so it repeats the
             column's own gap to leave the items spaced exactly as before. */}
         <nav aria-label="Sections" style={{ display: "flex", flexDirection: "column", gap: 6 }}>

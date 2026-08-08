@@ -46,7 +46,7 @@ function SuggestionRow({ s, active, currency, onPick, id }) {
         </span>
       </span>
       <span style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-        <span className="mono" style={{ display: "block", fontSize: 12.5, color: "var(--ink-2)" }}>{fmt(currency, s.amount)}</span>
+        <span className="num" style={{ display: "block", fontSize: 12.5, color: "var(--ink-2)" }}>{fmt(currency, s.amount)}</span>
         <span style={{ display: "block", fontSize: 11, color: "var(--faint)", marginTop: 2 }}>
           {s.monthLabel}{s.uses > 1 ? ` · ${s.uses}×` : ""}
         </span>
@@ -284,7 +284,7 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
             aria-label="Which budget item this spending goes under"
             onChange={(e) => { setItemId(e.target.value === "" ? null : Number(e.target.value)); }}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); amtRef.current && amtRef.current.focus(); } }}
-            style={{ height: 32, fontSize: 13, cursor: "pointer", fontFamily: "inherit", flex: "1 1 140px", minWidth: 0, color: itemId == null ? "var(--muted)" : "var(--ink)", border: `1px solid ${orphaned ? "var(--breach)" : itemId == null ? "var(--rule)" : "transparent"}`, background: itemId == null ? "var(--board)" : "transparent" }}>
+            style={{ height: 32, fontSize: 13, cursor: "pointer", fontFamily: "inherit", flex: "1 1 140px", minWidth: 0, color: itemId == null ? "var(--muted)" : "var(--ink)", border: `1px solid ${orphaned ? "var(--breach)" : itemId == null ? "var(--rule)" : "transparent"}`, backgroundColor: itemId == null ? "var(--board)" : "transparent" }}>
             <option value="">Goes under…</option>
             {mo.groups.filter((g) => g.items.length > 0).map((g) => (
               <optgroup key={g.id} label={g.name}>
@@ -306,7 +306,7 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
               value={amt} onChange={(e) => setAmt(e.target.value)} placeholder={`${currency}0.00`}
               onKeyDown={(e) => e.key === "Enter" && add()} />
             {amtPreview !== null && (
-              <span className="mono" style={{ position: "absolute", right: 4, bottom: "100%", marginBottom: 3, background: "var(--ink)", color: "var(--on-ink)", fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 6, whiteSpace: "nowrap", zIndex: 4 }}>= {fmt(currency, amtPreview)}</span>
+              <span className="num" style={{ position: "absolute", right: 4, bottom: "100%", marginBottom: 3, background: "var(--ink)", color: "var(--on-ink)", fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 6, whiteSpace: "nowrap", zIndex: 4 }}>= {fmt(currency, amtPreview)}</span>
             )}
           </div>
 
@@ -331,13 +331,13 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
             <div style={{ padding: "8px 16px 4px", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--faint)", fontWeight: 600 }}>Just logged</div>
             {recent.map(({ a, it, g }) => (
               <div key={a.id} className="income-row" style={{ display: "grid", gridTemplateColumns: "44px minmax(0, 1fr) minmax(0, auto) 120px 34px", alignItems: "center", gap: 10, padding: "5px 16px" }}>
-                <span className="mono" style={{ fontSize: 12, color: "var(--faint)", textAlign: "center" }}>{actualDay(a, month)}</span>
+                <span className="num" style={{ fontSize: 12, color: "var(--faint)", textAlign: "center" }}>{actualDay(a, month)}</span>
                 <span style={{ fontSize: 13, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {a.name || <span style={{ color: "var(--faint)" }}>Unnamed</span>}
                   {a.note && <span style={{ color: "var(--faint)", fontSize: 12 }}> · {a.note}</span>}
                 </span>
                 <span style={{ fontSize: 12, color: "var(--muted)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.name} · {it.name}</span>
-                <span className="mono" style={{ fontSize: 13, textAlign: "right" }}>{fmt(currency, a.amount)}</span>
+                <span className="num" style={{ fontSize: 13, textAlign: "right" }}>{fmt(currency, a.amount)}</span>
                 <div className="row-actions">
                   <button className="icon-btn subtle" title="Remove entry"
                     aria-label={`Remove ${a.name ? `"${a.name}"` : "unnamed"} entry of ${fmt(currency, a.amount)} from ${it.name}`}

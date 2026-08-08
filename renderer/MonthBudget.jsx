@@ -53,7 +53,7 @@ function IncomeSection({ mo, currency, members, dispatch, month }) {
         <h2>Income</h2>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <span style={{ fontSize: 12.5, color: "var(--muted)" }}>Combined</span>
-          <span className="mono" style={{ fontSize: 15, fontWeight: 600 }}>{fmt(currency, total)}</span>
+          <span className="num" style={{ fontSize: 15, fontWeight: 600 }}>{fmt(currency, total)}</span>
         </div>
       </div>
       <div className="panel" style={{ overflow: "hidden" }}>
@@ -70,7 +70,11 @@ function IncomeSection({ mo, currency, members, dispatch, month }) {
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <Avatar member={m} />
                 <select value={inc.memberId} aria-label="Who this income belongs to" onChange={(e) => dispatch({ type: "updateIncome", month, id: inc.id, patch: { memberId: e.target.value } })}
-                  style={{ border: "1px solid transparent", background: "transparent", fontFamily: "inherit", fontSize: 13.5, fontWeight: 500, color: "var(--ink)", borderRadius: 6, padding: "3px 4px", cursor: "pointer" }}>
+                  className="sel"
+                  /* No padding shorthand: it would set padding-right too, and
+                     the .sel rule needs that side to hold the chevron it
+                     paints there. */
+                  style={{ border: "1px solid transparent", backgroundColor: "transparent", fontFamily: "inherit", fontSize: 13.5, fontWeight: 500, color: "var(--ink)", borderRadius: 6, paddingTop: 3, paddingBottom: 3, paddingLeft: 4, cursor: "pointer" }}>
                   {members.map(mm => <option key={mm.id} value={mm.id}>{mm.name}</option>)}
                 </select>
               </div>

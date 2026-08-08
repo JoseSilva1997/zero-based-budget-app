@@ -97,6 +97,11 @@
      indigo); 74 is the first whole percent that passes (worst case
      3.01:1, indigo). See the task report for the full per-theme table. */
   --bar-faded: color-mix(in srgb, var(--accent) 74%, var(--well));
+
+  /* The "planned" weight on the dashboard's allocated-vs-actual bars. It is a
+     wash rather than a fill: the bar is read by its accent outline, and the
+     solid accent beside it is the money that actually moved. */
+  --bar-plan: color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 /* ============================================================
@@ -246,14 +251,37 @@ body {
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  font-feature-settings: "ss01", "cv01", "tnum";
+  /* "tnum" used to be here too, which forced tabular figures on every word of
+     running prose ("1 month tracked", "over in 1 of 12 months") and left gaps
+     around every digit in a sentence. Tabular figures are for columns that
+     have to line up, so they now live on .num and nowhere else. */
+  font-feature-settings: "ss01", "cv01";
 }
 #root { height: 100%; }
 button { font-family: inherit; cursor: pointer; }
 input { font-family: inherit; }
 ::selection { background: color-mix(in srgb, var(--accent) 32%, transparent); color: var(--ink); }
 
-.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+/* ---- the figure face ----------------------------------------------------
+   Every amount in this app. It is NOT the mono face, which is what it used to
+   be, because IBM Plex Mono is a code face and money is not code:
+
+     - it gives the comma and the full stop a full character cell, so
+       "$1,500.00" sets as "$1 , 500 . 00" and the separators read as spaces
+       rather than as marks binding the digits together;
+     - its zero is slashed, and at the 12-14px this app sets amounts in, that
+       slash lands as a line struck through the number. "$500" in the History
+       table read as a cancelled figure rather than a saved one.
+
+   IBM Plex Sans carries true tabular lining figures, so a column of amounts
+   still aligns to the pixel, while the amount itself reads as money and sits
+   in the same voice as the label beside it. --font-mono is kept for the two
+   things that genuinely are code: keycaps and an error string (.code). */
+.num {
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+.code { font-family: var(--font-mono); }
 
 /* ============================================================
    App shell
@@ -276,12 +304,17 @@ input { font-family: inherit; }
   gap: 6px;
   min-width: 0;
 }
-.brand { display: flex; align-items: center; gap: 11px; padding: 6px 8px 22px; }
+.brand { display: flex; align-items: center; gap: 11px; padding: 6px 8px 20px; }
+/* Flat, and quiet. This was a gradient tile with an inset white highlight and
+   a coloured glow under it: three effects stacked on a 34px square, and the
+   single most template-looking object in the app. The mark now states the
+   accent once, at low saturation, and lets the glyph carry it - the same
+   restraint the rest of the sidebar already keeps. */
 .brand-mark {
-  width: 34px; height: 34px; border-radius: 10px; flex: none;
-  background: linear-gradient(150deg, var(--accent-btn), var(--accent));
-  display: grid; place-items: center; color: var(--on-accent);
-  box-shadow: var(--glow-sm), inset 0 1px 0 color-mix(in srgb, #fff 22%, transparent);
+  width: 32px; height: 32px; border-radius: 9px; flex: none;
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  display: grid; place-items: center; color: var(--accent-ink);
 }
 .brand-name { font-weight: 600; font-size: 15px; letter-spacing: -0.015em; line-height: 1.1; }
 .brand-sub { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
@@ -402,6 +435,32 @@ input { font-family: inherit; }
    back to 73px, level with the row's other columns. */
 .icon-btn.compact { width: 26px; height: 26px; }
 
+/* Native <select> chrome was the one surface in this app the OS still drew
+   itself: a square-cornered box with its own border, its own arrow and its own
+   font, sitting inside a screen where every other control is drawn here. These
+   opt out of it and take the app's edge plus a chevron that matches Icons.down.
+   The stroke is a fixed mid-grey rather than currentColor, which a data URI
+   cannot read; it clears every one of the four backgrounds, all of which are
+   dark. The hover selectors are spelled out because .tinput:hover sets
+   `background` as a shorthand and would otherwise wipe the chevron off.
+   The funding-account chip's select is excluded on purpose: it is stretched
+   invisible across the chip and has to stay that way. */
+select.btn, select.tinput, select.sel,
+select.btn:hover, select.tinput:hover, select.sel:hover {
+  -webkit-appearance: none; appearance: none;
+  padding-right: 26px;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2394949f' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 7px center;
+  background-size: 13px;
+}
+/* An <option> list is painted by the OS, not by this stylesheet, so on a dark
+   theme it would otherwise open as white-on-white. */
+select.btn option, select.tinput option, select.sel option,
+select.btn optgroup, select.tinput optgroup, select.sel optgroup {
+  background: var(--raised); color: var(--ink);
+}
+
 /* Cards */
 /* Two recipes, not one. .panel is flat furniture on the board: lists,
    tables, forms, empty states. .raised is the single lifted object on a
@@ -424,7 +483,7 @@ input { font-family: inherit; }
 .section-head h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); font-weight: 600; margin: 0; }
 
 /* Pills / tags */
-.pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
+.pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums lining-nums; }
 .pill-neutral { background: var(--well); color: var(--ink-2); }
 .pill-breach { background: var(--breach-soft); color: var(--breach-ink); }
 
@@ -436,7 +495,7 @@ input { font-family: inherit; }
    after a Tab. The hover state gains a border for the same reason: a background
    change alone was 1.1:1 and could not be seen. */
 .minput {
-  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-family: var(--font-sans); font-variant-numeric: tabular-nums lining-nums;
   border: 1px solid transparent; background: transparent; color: var(--ink);
   border-radius: 8px; padding: 5px 8px; text-align: right; width: 100%;
   font-size: 14px;
@@ -594,7 +653,7 @@ input { font-family: inherit; }
 }
 .wallet-btn svg { color: var(--accent-ink); }
 .wallet-btn .wallet-amt {
-  font-family: var(--font-mono); font-weight: 700; font-variant-numeric: tabular-nums;
+  font-weight: 600; font-variant-numeric: tabular-nums lining-nums;
   color: var(--accent-ink);
   padding-left: 8px; margin-left: 2px;
   border-left: 1px solid color-mix(in srgb, var(--accent) 35%, var(--rule));
@@ -702,7 +761,7 @@ kbd {
 }
 .find-input::placeholder { color: var(--faint); }
 .find-count {
-  font-family: var(--font-mono); font-size: 11.5px; color: var(--muted);
+  font-variant-numeric: tabular-nums lining-nums; font-size: 11.5px; color: var(--muted);
   /* Wide enough to hold "1000 of 1000" at 11.5px mono, so the count stops
      resizing the whole bar as you type. 64px only covered single digits. */
   min-width: 92px; text-align: right; flex: none; white-space: nowrap;

@@ -37,16 +37,20 @@ function DashTooltip(props) {
         <div key={i} style={{ display: "flex", alignItems: "center", gap: 7, opacity: 0.95, fontVariantNumeric: "tabular-nums" }}>
           {r.color && <span style={{ width: 8, height: 8, borderRadius: 2, background: r.color }} />}
           <span style={{ opacity: 0.75 }}>{r.label}</span>
-          <span style={{ marginLeft: "auto", fontFamily: "var(--font-mono)" }}>{r.value}</span>
+          <span style={{ marginLeft: "auto", fontVariantNumeric: "tabular-nums lining-nums", fontWeight: 600 }}>{r.value}</span>
         </div>
       ))}
     </div>
   );
 }
 
-/* small muted placeholder used inside a ChartCard when data is too thin */
+/* Placeholder for a card whose data is too thin to draw. Left-aligned and
+   short, not centred in a 120px well: a sentence floating in the middle of an
+   empty box reads as a chart that failed to load, and next to a card that IS
+   drawing something it left a large hole on the screen. It sits where the
+   chart's first row of ink would have been instead. */
 function ChartEmpty({ note }) {
-  return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 120, fontSize: 13, color: "var(--muted)", textAlign: "center", padding: "0 20px" }}>{note}</div>;
+  return <div style={{ fontSize: 13, color: "var(--muted)", padding: "2px 0 6px", lineHeight: 1.5 }}>{note}</div>;
 }
 
 const colorOf = (names, name) => GROUP_PALETTE[Math.max(0, names.indexOf(name)) % GROUP_PALETTE.length];
@@ -116,33 +120,48 @@ const span = (series) => (series.length > 1
   ? `${series[0].label} to ${series[series.length - 1].label}`
   : series[0] ? series[0].label : "");
 
-/* ---- 1. headline stats row --------------------------------------------- */
+/* ---- 1. headline figures -----------------------------------------------
+   Not four equal tiles in a row. That layout says every number here matters
+   the same amount, which is never true, and it is the one arrangement every
+   generated dashboard reaches for first. There is a single number a household
+   actually opens this screen to see - what it has put aside - so that one is
+   set large and unboxed, and the figures that qualify it run beneath it in a
+   line, separated by rules rather than each sealed in its own card.
+
+   "Months tracked" is gone entirely. It counted the app's own rows rather
+   than the household's money, and the window it describes is already spelled
+   out in the page subtitle. */
 function HeadlineStats({ allSeries, series, currency }) {
   const totalSaved = round2(allSeries.reduce((a, s) => a + s.savings, 0));
   const withIncome = allSeries.filter(s => s.income > 0);
   const avgRate = withIncome.length ? Math.round(withIncome.reduce((a, s) => a + s.savings / s.income, 0) / withIncome.length * 100) : null;
   const avgSpend = series.length ? round2(series.reduce((a, s) => a + s.actual, 0) / series.length) : 0;
-  const monthsTracked = allSeries.length;
   const hasActuals = allSeries.some(s => s.actual > 0);
 
-  const cards = [
-    { label: "Total saved", value: fmt(currency, totalSaved, { cents: false }), sub: "all time" },
-    { label: "Avg savings rate", value: avgRate == null ? "n/a" : `${avgRate}%`, sub: "of income" },
-    { label: "Avg monthly spend", value: fmt(currency, avgSpend, { cents: false }), sub: "last 12 mo" },
-    { label: "Months tracked", value: String(monthsTracked), sub: monthsTracked === 1 ? "month" : "months" },
+  const secondary = [
+    { label: "Kept back", value: avgRate == null ? "—" : `${avgRate}%`, note: "of income, on average" },
+    { label: "Spent", value: fmt(currency, avgSpend, { cents: false }), note: "in a typical month" },
   ];
 
   return (
-    <div>
+    <div style={{ marginBottom: 6 }}>
       {!hasActuals && (
         <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 12 }}>Track a month to see your overview build up here.</div>
       )}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
-        {cards.map(c => (
-          <div key={c.label} style={{ padding: "14px 16px", borderRadius: 12, background: "var(--board)", border: "1px solid var(--rule-faint)" }}>
-            <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>{c.label}</div>
-            <div className="mono" style={{ fontSize: 22, fontWeight: 500 }}>{c.value}</div>
-            <div style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 4 }}>{c.sub}</div>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+        <span className="num" style={{ fontSize: 46, fontWeight: 600, letterSpacing: "-0.03em", lineHeight: 1 }}>
+          {fmt(currency, totalSaved, { cents: false })}
+        </span>
+        <span style={{ fontSize: 14, color: "var(--muted)" }}>set aside, all time</span>
+      </div>
+      <div style={{ display: "flex", gap: 26, marginTop: 18, flexWrap: "wrap" }}>
+        {secondary.map((s, i) => (
+          <div key={s.label} style={{ paddingLeft: i ? 26 : 0, borderLeft: i ? "1px solid var(--rule-faint)" : "none" }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 7 }}>
+              <span style={{ fontSize: 12.5, color: "var(--faint)" }}>{s.label}</span>
+              <span className="num" style={{ fontSize: 17, fontWeight: 600 }}>{s.value}</span>
+            </div>
+            <div style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 3 }}>{s.note}</div>
           </div>
         ))}
       </div>
@@ -175,12 +194,16 @@ function SavingsChart({ series, currency, onOpenMonth }) {
               <DashTooltip currency={currency} rows={(p) => {
                 const d = p[0] && p[0].payload;
                 return [
-                  { label: "Saved", color: GROUP_PALETTE[0], value: fmt(currency, d.saved, { cents: false }) },
+                  { label: "Saved", color: "var(--accent)", value: fmt(currency, d.saved, { cents: false }) },
                   { label: "Rate", value: d.rateLabel },
                 ];
               }} />
             } />
-            <Bar dataKey="saved" name="Saved" fill={GROUP_PALETTE[0]} radius={[4, 4, 0, 0]}>
+            {/* The accent, not a fixed green from the categorical palette. This
+                is one series with no categories in it, so borrowing a slot from
+                an eight-hue palette meant for group names only introduced a
+                colour the household never chose. */}
+            <Bar dataKey="saved" name="Saved" fill="var(--accent)" radius={[4, 4, 0, 0]} maxBarSize={56}>
               <LabelList dataKey="rateLabel" position="top" fill="var(--faint)" fontSize={10.5} />
             </Bar>
           </BarChart>
@@ -196,6 +219,10 @@ function CumulativeSavingsChart({ series, currency, onOpenMonth }) {
   const cats = [];
   series.forEach(s => Object.keys(s.savingsByCat).forEach(n => { if (!cats.includes(n)) cats.push(n); }));
   if (!cats.length) return <ChartEmpty note="Mark a group as savings to track your goals here." />;
+  /* An area needs two points to be an area. With one month recharts drew an
+     empty 280px grid with a single dot floating in it, which reads as a chart
+     that failed rather than one that has nothing to draw yet. */
+  if (series.length < 2) return <ChartEmpty note="A second tracked month will start the line." />;
   const running = {};
   const data = series.map(m => {
     const row = { name: shortMo(m.label) };
@@ -261,12 +288,17 @@ function BudgetAccuracyChart({ series, currency, onOpenMonth }) {
                   <XAxis dataKey="name" {...axisFor(onOpenMonth)} />
                   <YAxis {...axisProps} tickFormatter={(v) => abbrMoney(v, currency)} width={PLOT_LEFT} />
                   <Tooltip cursor={{ fill: "var(--well)", opacity: 0.4 }} content={<DashTooltip currency={currency} />} />
-                  {/* GROUP_PALETTE[1], not [2]: the blue at index 2 sits too close to
-                      --accent in the sky and ocean themes, and this chart has no
-                      legend, so the tooltip name is the only thing telling the two
-                      bars apart. */}
-                  <Bar dataKey="alloc" name="Allocated" fill="var(--accent)" radius={[3, 3, 0, 0]} />
-                  <Bar dataKey="actual" name="Actual" fill={GROUP_PALETTE[1]} radius={[3, 3, 0, 0]} />
+                  {/* One hue, two weights, rather than two unrelated hues. This
+                      used to be the accent against GROUP_PALETTE[1], a fixed
+                      orange, so the pair read as two arbitrary colours from two
+                      different systems sitting next to each other - the accent
+                      the household had chosen, and an orange nothing else on the
+                      screen used. Allocated is the plan and is drawn as an
+                      outline; actual is the money that moved and is drawn solid.
+                      That is the same "plan vs actual" encoding the item rows
+                      already use, and it costs no second hue. */}
+                  <Bar dataKey="alloc" name="Allocated" fill="var(--bar-plan)" stroke="var(--accent)" strokeWidth={1} radius={[3, 3, 0, 0]} maxBarSize={44} />
+                  <Bar dataKey="actual" name="Actual" fill="var(--accent)" radius={[3, 3, 0, 0]} maxBarSize={44} />
                 </BarChart>
               </ResponsiveContainer>
             </ChartBody>
@@ -275,7 +307,10 @@ function BudgetAccuracyChart({ series, currency, onOpenMonth }) {
         ) : <ChartEmpty note="No months tracked yet." />}
       </div>
       <div>
-        <div style={{ fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--faint)", fontWeight: 600, marginBottom: 8 }}>Chronically over budget</div>
+        {/* "Chronically over budget" was a diagnosis, and the thing being
+            diagnosed is the household reading it. This says the same thing
+            about the same rows without the verdict attached. */}
+        <div style={{ fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--faint)", fontWeight: 600, marginBottom: 8 }}>Runs over most often</div>
         {offenders.length === 0 ? (
           <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--muted)" }}>
             <Icons.check size={14} style={{ color: "var(--accent)", flex: "none" }} /> Nothing has run over budget.
@@ -332,12 +367,12 @@ function CategoryTrends({ series, currency }) {
               {row.isNew && <span className="pill pill-neutral" style={{ fontSize: 10, flex: "none" }}>new</span>}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <span className="mono" style={{ fontSize: 12, color: "var(--faint)" }}>{fmt(currency, row.r, { cents: false })}/mo</span>
+              <span className="num" style={{ fontSize: 12, color: "var(--faint)" }}>{fmt(currency, row.r, { cents: false })}/mo</span>
               <span style={{ display: "flex", alignItems: "center", gap: 3, color, fontSize: 13, fontWeight: 600, minWidth: 58, justifyContent: "flex-end" }}>
                 {row.isNew ? "new" : (
                   <>
                     {!flat && (up ? <Icons.up size={14} /> : <Icons.down size={14} />)}
-                    <span className="mono">{flat ? "0%" : `${Math.abs(row.pct)}%`}</span>
+                    <span className="num">{flat ? "0%" : `${Math.abs(row.pct)}%`}</span>
                   </>
                 )}
               </span>
@@ -388,12 +423,12 @@ function SpendingTiming({ series, currency }) {
               const d = p[0] && p[0].payload;
               return [
                 { label: "Avg spend", color: "var(--muted)", value: fmt(currency, d.avg, { cents: false }) },
-                { label: "Cumulative", color: GROUP_PALETTE[6], value: fmt(currency, d.cum, { cents: false }) },
+                { label: "Cumulative", color: "var(--accent)", value: fmt(currency, d.cum, { cents: false }) },
               ];
             }} />
           } />
           <Bar dataKey="avg" name="Avg spend" fill="var(--muted)" radius={[2, 2, 0, 0]} />
-          <Line type="monotone" dataKey="cum" name="Cumulative" stroke={GROUP_PALETTE[6]} strokeWidth={2} dot={false} />
+          <Line type="monotone" dataKey="cum" name="Cumulative" stroke="var(--accent)" strokeWidth={2} dot={false} />
         </ComposedChart>
       </ResponsiveContainer>
     </ChartBody>
