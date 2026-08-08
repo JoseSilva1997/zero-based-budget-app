@@ -228,9 +228,9 @@ function RestoreDialog({ onClose, onRestored }) {
 
 function Setting({ title, sub, children }) {
   return (
-    <div className="set-row" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 24, alignItems: "center", padding: "18px 22px" }}>
+    <div className="set-row" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 24, alignItems: "center", padding: "20px 24px" }}>
       <div>
-        <div style={{ fontWeight: 600, fontSize: 14.5 }}>{title}</div>
+        <div style={{ fontWeight: 600, fontSize: 15.5 }}>{title}</div>
         {sub && <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 3, lineHeight: 1.45, maxWidth: 460 }}>{sub}</div>}
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>{children}</div>
@@ -291,26 +291,23 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
       <div className="topbar"><div><div className="page-title">Settings</div><div className="page-sub">Preferences for this household. Everything stays on this device.</div></div></div>
 
       <div className="section-head"><h2>General</h2></div>
-      <div className="panel">
+      <div className="panel panel-feature">
         <Setting title="Currency symbol" sub="Shown before every amount across the app.">
-          {/* A radiogroup, not seven buttons: the choice is one of a set, and the
-              tick says which without asking anyone to read a border colour. */}
-          <div role="radiogroup" aria-label="Currency symbol" style={{ display: "flex", gap: 6 }}>
+          {/* A radiogroup in a segmented tray: the chips share one bordered
+              --well strip and the chosen one is the solid accent square. */}
+          <div role="radiogroup" aria-label="Currency symbol" style={{ display: "flex", gap: 6, background: "var(--well)", border: "1px solid var(--rule-faint)", borderRadius: 8, padding: 4 }}>
             {CURRENCIES.map(c => {
               const on = s.currency === c;
               return (
                 <button key={c} role="radio" aria-checked={on} aria-label={`Use ${c} as the currency symbol`}
                   onClick={() => dispatch({ type: "updateSettings", patch: { currency: c } })}
-                  className="num" style={{ position: "relative", width: 38, height: 36, borderRadius: 8, border: `1px solid ${on ? "var(--accent)" : "var(--rule)"}`, background: on ? "var(--accent-soft)" : "var(--raised)", color: on ? "var(--accent-ink)" : "var(--ink-2)", fontWeight: on ? 700 : 600 }}>
+                  className="num chip-radio" style={{ position: "relative", width: 40, height: 40, fontSize: 14, fontWeight: on ? 700 : 500 }}>
                   {c}
-                  {/* Inside the swatch, not hung off its corner. At top/right
-                      -5 the badge broke the button's own outline and ate into
-                      the 6px gap to the next one, so the selected currency was
-                      the one control on the screen that didn't sit on the grid
-                      everything else does. It still carries the selection
-                      without asking anyone to read a border colour. */}
+                  {/* The tick rides inside the filled square, in the same ink
+                      as the symbol, so the selection reads without asking
+                      anyone to compare fills. */}
                   {on && (
-                    <span style={{ position: "absolute", top: 2, right: 3, color: "var(--accent-ink)", display: "grid", placeItems: "center" }}>
+                    <span style={{ position: "absolute", top: 3, right: 5, color: "inherit", display: "grid", placeItems: "center" }}>
                       <Icons.check size={10} />
                     </span>
                   )}
@@ -322,35 +319,40 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
       </div>
 
       <div className="section-head"><h2>Appearance</h2></div>
-      <div className="panel" style={{ padding: "18px 22px" }}>
-        <div style={{ fontWeight: 600, fontSize: 14.5, marginBottom: 8 }}>Theme</div>
-        {/* The "Active" caption under the chosen palette is what carries the
-            selection: the glow around the card is a colour cue on its own. */}
-        <div role="radiogroup" aria-label="Theme" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
+      <div className="panel panel-feature" style={{ padding: "22px 24px" }}>
+        <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 14 }}>Theme</div>
+        {/* Each card is painted with the theme it previews, so the fixed
+            rgba() borders are deliberate: they have to read on all four
+            backgrounds, not on the active theme's. Selection is the accent
+            ring plus the ACTIVE caption in the corner - the accent is the one
+            colour that is the user's own across every theme. */}
+        <div role="radiogroup" aria-label="Theme" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 16 }}>
           {BUDGET_THEMES.map((th) => {
             const on = s.theme === th.id;
             return (
               <button key={th.id} role="radio" aria-checked={on} aria-label={`${th.label} theme`}
                 onClick={() => dispatch({ type: "updateSettings", patch: { theme: th.id } })}
                 style={{
-                  position: "relative", display: "flex", alignItems: "center", gap: 11,
-                  padding: "12px 14px", borderRadius: 12, cursor: "pointer", textAlign: "left",
+                  position: "relative", display: "flex", alignItems: "flex-end",
+                  minHeight: 96, padding: "12px 14px", borderRadius: "var(--radius-sm)", cursor: "pointer", textAlign: "left",
                   background: th.bg,
-                  border: on ? "1px solid rgba(255,255,255,0.55)" : "1px solid rgba(255,255,255,0.12)",
-                  boxShadow: on ? "0 0 0 2px rgba(255,255,255,0.16), 0 8px 20px -8px rgba(0,0,0,0.7)" : "none",
-                  transition: "box-shadow .15s, border-color .15s, transform .12s",
+                  border: on ? "2px solid var(--accent)" : "1px solid rgba(255,255,255,0.12)",
+                  boxShadow: on ? "0 0 16px color-mix(in srgb, var(--accent) 25%, transparent)" : "none",
+                  transition: "box-shadow .15s, border-color .15s",
                 }}>
-                <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.92)" }}>{th.label}</span>
-                  <span style={{ fontSize: 10.5, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase", color: "rgba(255,255,255,0.4)" }}>{on ? "Active" : "\u00a0"}</span>
-                </span>
+                {/* The active card's name is the bright one; the others dim
+                    with their whole card, so the eye lands where the ring is. */}
+                <span style={{ fontSize: on ? 14.5 : 13.5, fontWeight: on ? 600 : 500, color: on ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.55)" }}>{th.label}</span>
+                {on && (
+                  <span style={{ position: "absolute", top: 11, right: 14, fontSize: 9.5, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--accent-ink)" }}>Active</span>
+                )}
               </button>
             );
           })}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 22 }}>
-          <div style={{ fontWeight: 600, fontSize: 14.5}}>Accents</div>
-          <div role="radiogroup" aria-label="Colour" style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 20, marginTop: 24 }}>
+          <div style={{ fontWeight: 600, fontSize: 15 }}>Accents</div>
+          <div role="radiogroup" aria-label="Colour" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             {ACCENT_COLORS.map((c) => {
               const on = s.accentColor === c.id;
               return (
@@ -358,12 +360,14 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
                   title={c.label}
                   onClick={() => dispatch({ type: "updateSettings", patch: { accentColor: c.id } })}
                   style={{
-                    position: "relative", width: 20, height: 20, padding: 0, borderRadius: 99,
+                    position: "relative", width: 24, height: 24, padding: 0, borderRadius: 99,
                     background: c.accent, cursor: "pointer", display: "grid", placeItems: "center",
-                    color: "rgba(0,0,0,0.72)",
-                    border: on ? "2px solid rgba(255,255,255,0.85)" : "2px solid transparent",
-                    boxShadow: on ? `0 0 0 2px rgba(0,0,0,0.35), 0 0 14px ${c.accent}aa` : "none",
-                    transition: "box-shadow .15s, border-color .15s",
+                    color: "rgba(0,0,0,0.72)", border: "none",
+                    /* A ring with a gap, not a ring flush against the swatch:
+                       the moat is the panel's own fill, so the selection reads
+                       as a halo around the colour rather than a border on it. */
+                    boxShadow: on ? "0 0 0 2px var(--raised), 0 0 0 4px var(--accent)" : "none",
+                    transition: "box-shadow .15s",
                   }}>
                   {on && <Icons.check size={14} />}
                 </button>
@@ -376,25 +380,31 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
       <div className="section-head"><h2>Household members</h2></div>
       <div className="panel">
         {s.members.map(m => (
-          <div key={m.id} className="set-row" style={{ display: "grid", gridTemplateColumns: "auto 1fr auto auto", gap: 12, alignItems: "center", padding: "12px 22px" }}>
+          <div key={m.id} className="set-row" style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 12, alignItems: "center", padding: "12px 22px", minHeight: 56 }}>
             <Avatar member={m} size={32} />
             <TextInline value={m.name} col="memberName" label="Member name" onCommit={(v) => dispatch({ type: "updateMember", id: m.id, patch: { name: v } })} style={{ fontWeight: 500, fontSize: 14 }} />
-            <div role="radiogroup" aria-label={`Colour for ${m.name}`} style={{ display: "flex", gap: 5 }}>
-              {MEMBER_COLORS.map(c => {
-                const on = m.color === c;
-                return (
-                  <button key={c} role="radio" aria-checked={on} aria-label={COLOR_NAME[c] || c}
-                    title={COLOR_NAME[c] || c}
-                    onClick={() => dispatch({ type: "updateMember", id: m.id, patch: { color: c } })}
-                    style={{ width: 20, height: 20, padding: 0, borderRadius: 99, background: c, border: on ? "2px solid var(--ink)" : "2px solid transparent", outline: on ? "1px solid var(--on-ink)" : "none", cursor: "pointer", display: "grid", placeItems: "center", color: "rgba(0,0,0,0.72)" }}>
-                    {/* the swatches are fixed hex, not theme tokens, so a dark
-                        tick reads on every one of them */}
-                    {on && <Icons.check size={11} />}
-                  </button>
-                );
-              })}
+            {/* Hover-revealed (.row-actions now also answers inside .set-row):
+                six colour dots per member on every resting row was the
+                noisiest thing on the screen, and picking a colour is a
+                once-a-year act. Keyboard focus reveals them the same way. */}
+            <div className="row-actions" style={{ gap: 8 }}>
+              <div role="radiogroup" aria-label={`Colour for ${m.name}`} style={{ display: "flex", gap: 5 }}>
+                {MEMBER_COLORS.map(c => {
+                  const on = m.color === c;
+                  return (
+                    <button key={c} role="radio" aria-checked={on} aria-label={COLOR_NAME[c] || c}
+                      title={COLOR_NAME[c] || c}
+                      onClick={() => dispatch({ type: "updateMember", id: m.id, patch: { color: c } })}
+                      style={{ width: 20, height: 20, padding: 0, borderRadius: 99, background: c, border: on ? "2px solid var(--ink)" : "2px solid transparent", outline: on ? "1px solid var(--on-ink)" : "none", cursor: "pointer", display: "grid", placeItems: "center", color: "rgba(0,0,0,0.72)" }}>
+                      {/* the swatches are fixed hex, not theme tokens, so a dark
+                          tick reads on every one of them */}
+                      {on && <Icons.check size={11} />}
+                    </button>
+                  );
+                })}
+              </div>
+              <button className="icon-btn" title={`Remove ${m.name}`} aria-label={`Remove ${m.name}`} disabled={s.members.length <= 1} style={{ opacity: s.members.length <= 1 ? .3 : 1 }} onClick={() => setRemoveMember(m)}><Icons.trash size={16} /></button>
             </div>
-            <button className="icon-btn" title={`Remove ${m.name}`} aria-label={`Remove ${m.name}`} disabled={s.members.length <= 1} style={{ opacity: s.members.length <= 1 ? .3 : 1 }} onClick={() => setRemoveMember(m)}><Icons.trash size={16} /></button>
           </div>
         ))}
         <div className="set-row" style={{ padding: "12px 18px" }}>
@@ -424,7 +434,9 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
                 <option value="">Shared</option>
                 {s.members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
               </select>
-              <button className="icon-btn" title={`Remove ${a.name}`} aria-label={`Remove account ${a.name}`} onClick={() => setRemoveAccount(a)}><Icons.trash size={16} /></button>
+              <div className="row-actions">
+                <button className="icon-btn" title={`Remove ${a.name}`} aria-label={`Remove account ${a.name}`} onClick={() => setRemoveAccount(a)}><Icons.trash size={16} /></button>
+              </div>
             </div>
           );
         })}

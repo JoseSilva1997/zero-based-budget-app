@@ -522,6 +522,15 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
 }
+/* A .panel with a bit more definition: the General and Appearance cards on
+   Settings, which sit alone at the top of the page rather than in a stack of
+   rows, read as flat furniture at --shadow-sm's faint border. This is
+   .panel plus a visible border and a soft top highlight, not a global bump -
+   the rest of Settings stays at the quieter chrome the rows share. */
+.panel-feature {
+  border-color: var(--rule);
+  box-shadow: var(--shadow-md), inset 0 1px 0 color-mix(in srgb, #fff 6%, transparent);
+}
 .section-head { display: flex; align-items: center; justify-content: space-between; margin: 30px 2px 14px; }
 .section-head h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); font-weight: 600; margin: 0; }
 
@@ -713,8 +722,24 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
    left a delete button focusable while invisible. Focus reveals them too, so
    keyboard users can reach what the mouse reveals on hover. */
 .row-actions { display: flex; align-items: center; gap: 2px; opacity: 0; pointer-events: none; transition: opacity .14s; }
-.budget-row:hover .row-actions, .income-row:hover .row-actions,
-.budget-row:focus-within .row-actions, .income-row:focus-within .row-actions { opacity: 1; pointer-events: auto; }
+.budget-row:hover .row-actions, .income-row:hover .row-actions, .set-row:hover .row-actions,
+.budget-row:focus-within .row-actions, .income-row:focus-within .row-actions, .set-row:focus-within .row-actions { opacity: 1; pointer-events: auto; }
+
+/* A chip inside a segmented radiogroup tray (the currency picker): the tray
+   is a bordered --well strip, the chips rest as quiet symbols on it, and the
+   chosen one is a solid accent square with its ink on top - the selection is
+   the single filled object in the group, per the mockups. */
+.chip-radio {
+  background: transparent; border: none; color: var(--muted);
+  border-radius: 6px; transition: background-color .12s, color .12s;
+}
+.chip-radio:hover { background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink); }
+.chip-radio[aria-checked="true"], .chip-radio[aria-checked="true"]:hover {
+  background: var(--accent-btn);
+  /* --on-accent is pure white; softened a touch toward the fill so the
+     selected glyph and its check badge don't outshine the rest of the tray. */
+  color: color-mix(in srgb, var(--on-accent) 88%, var(--accent-btn) 12%); border: 1px solid var(--faint);
+}
 .empty {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
   padding: 44px 20px; text-align: center; color: var(--muted);
