@@ -8,7 +8,7 @@ export function buildEmpty() {
   const d = new Date();
   const mid = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   return {
-    settings: { currency: "$", theme: "indigo", members: [], accounts: [], autoBackup: "onclose", lastBackup: null },
+    settings: { currency: "$", theme: "slate", accentColor: "indigo", members: [], accounts: [], autoBackup: "onclose", lastBackup: null },
     months: { [mid]: { id: mid, incomes: [], groups: [] } },
     order: [mid],
     activeMonth: mid,

@@ -11,6 +11,7 @@ import type { AutoBackupMode } from '../../shared/types';
 interface SettingsPatch {
   currency?: string;
   theme?: string;
+  accentColor?: string;
   autoBackup?: AutoBackupMode;
 }
 
@@ -20,6 +21,7 @@ export function registerSettingsIpc(): void {
       const db = getDb();
       if (p.patch.currency !== undefined) setMeta(db, 'currency', p.patch.currency);
       if (p.patch.theme !== undefined) setMeta(db, 'theme', p.patch.theme);
+      if (p.patch.accentColor !== undefined) setMeta(db, 'accentColor', p.patch.accentColor);
       if (p.patch.autoBackup !== undefined) setMeta(db, 'autoBackup', p.patch.autoBackup);
       return { ok: true };
     })

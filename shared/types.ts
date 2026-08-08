@@ -111,6 +111,7 @@ export type AutoBackupMode = 'off' | 'onclose' | 'daily';
 export interface BlobSettings {
   currency: string;
   theme: string;
+  accentColor: string;
   members: BlobMember[];
   accounts: BlobAccount[];
   autoBackup: AutoBackupMode;
@@ -268,6 +269,7 @@ export interface EntrySuggestion {
 export interface BootstrapSettings {
   currency: string;
   theme: string;
+  accentColor: string;
   autoBackup: AutoBackupMode;
   lastBackup: string | null;
   members: HouseholdMember[];

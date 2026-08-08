@@ -1,6 +1,6 @@
 /* ============================================================
    House Budget - sleek dark system
-   Deep slate / charcoal base · 12 swappable accent themes
+   4 swappable backgrounds (data-theme) x 6 swappable accents (data-accent)
    ============================================================ */
 
 /* Bundled, not fetched. The sidebar strapline says "local", and until now
@@ -100,18 +100,18 @@
 }
 
 /* ============================================================
-   Theme palettes - cool-slate / true-black / charcoal / navy / warm
-   Each sets the board/raised/well ramp, ink ramp, rule weights, and the
-   accent family.
+   Theme palettes (backgrounds) - slate / obsidian / charcoal / navy
+   Each sets only the board/raised/well ramp, ink ramp, and rule weights.
+   Independent of the accent palettes below: any theme pairs with any accent.
 
    The ink ramp is measured, not eyeballed. --faint and --muted are stated in
    oklch and their lightness is solved so that both clear 4.5:1 against
    --raised, which is the worst of the four backdrops and the one most of this
    text actually sits on. Hue and chroma are carried over from the old hex, so
-   each family keeps its tint: the slate ramp stays blue, the warm ramp stays
-   warm. The ramp itself is preserved by construction, faint < muted < ink-2 <
-   ink, with a real step between each rung rather than three near-identical
-   greys. Measured on --raised, per family:
+   each family keeps its tint: the slate ramp stays blue. The ramp itself is
+   preserved by construction, faint < muted < ink-2 < ink, with a real step
+   between each rung rather than three near-identical greys. Measured on
+   --raised, per family:
        faint 4.61-4.62 · muted 6.29-6.31 · ink-2 8.12-9.85 · ink 13.75-16.74
 
    Rules are graded by what they carry. --rule-strong is the boundary or the
@@ -124,8 +124,8 @@
    lifted to 2.30:1 and 1.90:1 where they can at least be seen.
    ============================================================ */
 
-/* ---- cool slate family (Linear / Vercel) -------------------------------- */
-[data-theme="indigo"], [data-theme="violet"], [data-theme="cyan"], [data-theme="emerald"] {
+/* ---- slate (Linear / Vercel) -------------------------------------------- */
+[data-theme="slate"] {
   --board: #0d1016;
   --raised: #1a1f2a;  --well: #0e1118;
   /* Foreground for anything filled with --ink (toast, tooltip, arithmetic
@@ -139,29 +139,9 @@
   --rule-strong: oklch(0.524 0.035 250.2);   /* 3.06:1 */
   --rule-faint: oklch(0.414 0.026 255.7);    /* 1.90:1 */
 }
-[data-theme="indigo"] {
-  --accent: oklch(0.60 0.19 276);
-  --accent-btn: oklch(0.575 0.19 276); /* white ink: 4.62:1 */
-  --accent-soft: oklch(0.31 0.10 276); --accent-ink: oklch(0.82 0.15 276);
-}
-[data-theme="violet"] {
-  --accent: oklch(0.62 0.21 305);
-  --accent-btn: oklch(0.585 0.21 305); /* white ink: 4.65:1 */
-  --accent-soft: oklch(0.31 0.11 305); --accent-ink: oklch(0.84 0.16 305);
-}
-[data-theme="cyan"] {
-  --accent: oklch(0.82 0.13 205);
-  --accent-soft: oklch(0.31 0.06 205); --accent-ink: oklch(0.87 0.11 205);
-  --on-accent: #04161c;
-}
-[data-theme="emerald"] {
-  --accent: oklch(0.74 0.16 162);
-  --accent-soft: oklch(0.31 0.08 162); --accent-ink: oklch(0.85 0.14 162);
-  --on-accent: #04170f;
-}
 
-/* ---- true-black OLED family -------------------------------------------- */
-[data-theme="mono"], [data-theme="lime"], [data-theme="amber"] {
+/* ---- obsidian (true-black OLED) ----------------------------------------- */
+[data-theme="obsidian"] {
   --board: #000000;
   --raised: #141418;  --well: #060607;
   /* Foreground for anything filled with --ink (toast, tooltip, arithmetic
@@ -175,24 +155,9 @@
   --rule-strong: oklch(0.500 0.019 285.3);   /* 3.05:1 */
   --rule-faint: oklch(0.389 0.010 285.6);    /* 1.90:1 */
 }
-[data-theme="mono"] {
-  --accent: oklch(0.74 0.025 258);
-  --accent-soft: oklch(0.27 0.012 258); --accent-ink: oklch(0.90 0.02 258);
-  --on-accent: #0a0a0c;
-}
-[data-theme="lime"] {
-  --accent: oklch(0.86 0.19 128);
-  --accent-soft: oklch(0.31 0.09 128); --accent-ink: oklch(0.88 0.17 128);
-  --on-accent: #0c1604;
-}
-[data-theme="amber"] {
-  --accent: oklch(0.83 0.15 76);
-  --accent-soft: oklch(0.32 0.07 76); --accent-ink: oklch(0.87 0.13 76);
-  --on-accent: #1a1203;
-}
 
-/* ---- neutral charcoal family ------------------------------------------- */
-[data-theme="rose"], [data-theme="sky"] {
+/* ---- charcoal (neutral) -------------------------------------------------- */
+[data-theme="charcoal"] {
   --board: #131316;
   --raised: #212128;  --well: #121215;
   /* Foreground for anything filled with --ink (toast, tooltip, arithmetic
@@ -206,19 +171,9 @@
   --rule-strong: oklch(0.533 0.024 285.2);   /* 3.05:1 */
   --rule-faint: oklch(0.421 0.006 286);      /* 1.90:1 */
 }
-[data-theme="rose"] {
-  --accent: oklch(0.66 0.20 12);
-  --accent-btn: oklch(0.585 0.20 12); /* white ink: 4.67:1 */
-  --accent-soft: oklch(0.31 0.10 12); --accent-ink: oklch(0.83 0.16 12);
-}
-[data-theme="sky"] {
-  --accent: oklch(0.68 0.16 242);
-  --accent-btn: oklch(0.550 0.16 242); /* white ink: 4.66:1 */
-  --accent-soft: oklch(0.31 0.09 242); --accent-ink: oklch(0.85 0.13 242);
-}
 
-/* ---- deep navy / ocean family ------------------------------------------ */
-[data-theme="ocean"], [data-theme="teal"] {
+/* ---- navy (deep navy / ocean) -------------------------------------------- */
+[data-theme="navy"] {
   --board: #0a0f1e;
   --raised: #162034;  --well: #0a0f1e;
   /* Foreground for anything filled with --ink (toast, tooltip, arithmetic
@@ -232,34 +187,54 @@
   --rule-strong: oklch(0.528 0.062 262.5);   /* 3.05:1 */
   --rule-faint: oklch(0.418 0.048 263.4);    /* 1.90:1 */
 }
-[data-theme="ocean"] {
-  --accent: oklch(0.64 0.18 250);
-  --accent-btn: oklch(0.555 0.18 250); /* white ink: 4.69:1 */
-  --accent-soft: oklch(0.31 0.10 250); --accent-ink: oklch(0.83 0.14 250);
+
+/* ============================================================
+   Accent palettes (colours) - indigo / cyan / emerald / lime / amber / rose
+   Each sets only --accent and its derived tokens. Independent of the theme
+   backgrounds above: any accent pairs with any theme.
+   ============================================================ */
+
+[data-accent="indigo"] {
+  --accent: oklch(0.60 0.19 276);
+  --accent-btn: oklch(0.575 0.19 276); /* white ink: 4.62:1 */
+  --accent-soft: oklch(0.31 0.10 276); --accent-ink: oklch(0.82 0.15 276);
 }
-[data-theme="teal"] {
-  --accent: oklch(0.78 0.13 188);
-  --accent-soft: oklch(0.31 0.07 188); --accent-ink: oklch(0.86 0.11 188);
-  --on-accent: #041613;
+[data-accent="cyan"] {
+  --accent: oklch(0.82 0.13 205);
+  --accent-soft: oklch(0.31 0.06 205); --accent-ink: oklch(0.87 0.11 205);
+  --on-accent: #04161c;
+}
+[data-accent="emerald"] {
+  --accent: oklch(0.74 0.16 162);
+  --accent-soft: oklch(0.31 0.08 162); --accent-ink: oklch(0.85 0.14 162);
+  --on-accent: #04170f;
+}
+[data-accent="lime"] {
+  --accent: oklch(0.86 0.19 128);
+  --accent-soft: oklch(0.31 0.09 128); --accent-ink: oklch(0.88 0.17 128);
+  --on-accent: #0c1604;
+}
+[data-accent="amber"] {
+  --accent: oklch(0.83 0.15 76);
+  --accent-soft: oklch(0.32 0.07 76); --accent-ink: oklch(0.87 0.13 76);
+  --on-accent: #1a1203;
+}
+[data-accent="rose"] {
+  --accent: oklch(0.66 0.20 12);
+  --accent-btn: oklch(0.585 0.20 12); /* white ink: 4.67:1 */
+  --accent-soft: oklch(0.31 0.10 12); --accent-ink: oklch(0.83 0.16 12);
 }
 
-/* ---- warm charcoal family ---------------------------------------------- */
-[data-theme="sunset"] {
-  --board: #15110f;
-  --raised: #241e18;  --well: #130f0c;
-  /* Foreground for anything filled with --ink (toast, tooltip, arithmetic
-     preview). Split from --raised so it can move without silently turning
-     these chips dark-on-dark. */
-  --on-ink: #241e18;
-  --ink: #f1ebe4;      --ink-2: #c4bab0;
-  --muted: oklch(0.706 0.022 69.8);    /* 6.29:1 on --raised */
-  --faint: oklch(0.626 0.020 70.3);    /* 4.62:1 on --raised */
-  --rule: oklch(0.459 0.018 67.1);          /* 2.30:1 */
-  --rule-strong: oklch(0.526 0.023 64.3);   /* 3.06:1 */
-  --rule-faint: oklch(0.415 0.019 66.8);    /* 1.90:1 */
-  --accent: oklch(0.70 0.17 38);
-  --accent-btn: oklch(0.580 0.17 38); /* white ink: 4.62:1 */
-  --accent-soft: oklch(0.32 0.09 38); --accent-ink: oklch(0.84 0.14 38);
+/* charcoal/indigo is the one pairing (of 24) where indigo's contrast against
+   charcoal's --well is too low for the bar's outer (3:1) and inner (1.5:1)
+   floors to both clear at once: every mix percentage that clears one misses
+   the other by a fraction of an sRGB step, in every interpolation space (see
+   tests/tokens-electron.cjs). A hairline lightness bump, only for this pair,
+   opens enough headroom for the shared 74% mix formula in :root to clear
+   both without perturbing --accent-btn (still tuned separately above) or any
+   other theme/accent combination. */
+[data-theme="charcoal"][data-accent="indigo"] {
+  --accent: oklch(0.62 0.19 276);
 }
 
 * { box-sizing: border-box; }

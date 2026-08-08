@@ -30,7 +30,7 @@ const rendererDir = join(root, 'renderer');
 const outDir = join(rendererDir, 'dist');
 
 const HTML = `<!DOCTYPE html>
-<html lang="en" data-theme="indigo">
+<html lang="en" data-theme="slate" data-accent="indigo">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />

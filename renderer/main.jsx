@@ -4,7 +4,7 @@
    ============================================================ */
 import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
-import { THEME_IDS, fmt, monthLabel, walletSummary } from './lib/index.js';
+import { THEME_IDS, ACCENT_IDS, fmt, monthLabel, walletSummary } from './lib/index.js';
 import { StoreProvider, useStore } from './store.jsx';
 import { Avatar, ConfirmDialog, Icons } from './components.jsx';
 import { WalletDrawer } from './Accounts.jsx';
@@ -299,11 +299,13 @@ function App() {
     });
   }, [dispatch, toast]);
 
-  // resolve theme from settings - dark-only, 12 named palettes
-  const themePref = state && THEME_IDS.includes(state.settings.theme) ? state.settings.theme : "indigo";
+  // resolve theme + accent from settings - 4 backgrounds x 6 accent colours
+  const themePref = state && THEME_IDS.includes(state.settings.theme) ? state.settings.theme : "slate";
+  const accentPref = state && ACCENT_IDS.includes(state.settings.accentColor) ? state.settings.accentColor : "indigo";
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", themePref);
-  }, [themePref]);
+    document.documentElement.setAttribute("data-accent", accentPref);
+  }, [themePref, accentPref]);
 
   if (fatal && !state) return <StartupErrorScreen error={fatal} onRetry={retry} />;
   if (loading || !state) return <LoadingScreen />;

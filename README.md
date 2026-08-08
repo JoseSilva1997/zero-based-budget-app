@@ -58,7 +58,7 @@ The app has four screens, reachable from the sidebar:
 - **Dashboard** — an at-a-glance overview with charts (powered by Recharts).
 - **Month Budget** — the core view: income by member, then allocation groups and items, with allocated / actual / difference columns. Open the **Wallet** drawer to plan funding by bank account.
 - **History** — browse and reopen previous months.
-- **Settings** — manage household members, bank accounts, currency, theme (12 dark palettes), and backups.
+- **Settings** — manage household members, bank accounts, currency, theme (4 backgrounds, 6 accent colours), and backups.
 
 A typical monthly flow:
 

@@ -3,7 +3,7 @@
    ============================================================ */
 import React, { useEffect, useRef, useState } from 'react';
 import { Avatar, ConfirmDialog, Icons, Modal, TextInline } from './components.jsx';
-import { BUDGET_THEMES } from './lib/index.js';
+import { BUDGET_THEMES, ACCENT_COLORS } from './lib/index.js';
 import { ACCT_ICON, ACCT_TYPE_LABEL, hexToSoft } from './Accounts.jsx';
 import { UpdateSettings } from './UpdateBanner.jsx';
 
@@ -308,8 +308,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
 
       <div className="section-head"><h2>Appearance</h2></div>
       <div className="panel" style={{ padding: "18px 22px" }}>
-        <div style={{ fontWeight: 600, fontSize: 14.5 }}>Theme</div>
-        <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 3, marginBottom: 16, lineHeight: 1.45 }}>Twelve dark palettes. Switch any time; amounts keep their meaning in every one.</div>
+        <div style={{ fontWeight: 600, fontSize: 14.5, marginBottom: 8 }}>Theme</div>
         {/* The "Active" caption under the chosen palette is what carries the
             selection: the glow around the card is a colour cue on its own. */}
         <div role="radiogroup" aria-label="Theme" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
@@ -322,11 +321,10 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
                   position: "relative", display: "flex", alignItems: "center", gap: 11,
                   padding: "12px 14px", borderRadius: 12, cursor: "pointer", textAlign: "left",
                   background: th.bg,
-                  border: on ? `1px solid ${th.accent}` : "1px solid rgba(255,255,255,0.12)",
-                  boxShadow: on ? `0 0 0 2px ${th.accent}55, 0 8px 20px -8px ${th.accent}77` : "none",
+                  border: on ? "1px solid rgba(255,255,255,0.55)" : "1px solid rgba(255,255,255,0.12)",
+                  boxShadow: on ? "0 0 0 2px rgba(255,255,255,0.16), 0 8px 20px -8px rgba(0,0,0,0.7)" : "none",
                   transition: "box-shadow .15s, border-color .15s, transform .12s",
                 }}>
-                <span style={{ width: 22, height: 22, borderRadius: 7, flex: "none", background: `linear-gradient(150deg, ${th.accent}, ${th.accent})`, boxShadow: `0 0 12px ${th.accent}aa` }} />
                 <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                   <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.92)" }}>{th.label}</span>
                   <span style={{ fontSize: 10.5, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase", color: "rgba(255,255,255,0.4)" }}>{on ? "Active" : "\u00a0"}</span>
@@ -334,6 +332,29 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
               </button>
             );
           })}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 22 }}>
+          <div style={{ fontWeight: 600, fontSize: 14.5}}>Accents</div>
+          <div role="radiogroup" aria-label="Colour" style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            {ACCENT_COLORS.map((c) => {
+              const on = s.accentColor === c.id;
+              return (
+                <button key={c.id} role="radio" aria-checked={on} aria-label={`${c.label} colour`}
+                  title={c.label}
+                  onClick={() => dispatch({ type: "updateSettings", patch: { accentColor: c.id } })}
+                  style={{
+                    position: "relative", width: 20, height: 20, padding: 0, borderRadius: 99,
+                    background: c.accent, cursor: "pointer", display: "grid", placeItems: "center",
+                    color: "rgba(0,0,0,0.72)",
+                    border: on ? "2px solid rgba(255,255,255,0.85)" : "2px solid transparent",
+                    boxShadow: on ? `0 0 0 2px rgba(0,0,0,0.35), 0 0 14px ${c.accent}aa` : "none",
+                    transition: "box-shadow .15s, border-color .15s",
+                  }}>
+                  {on && <Icons.check size={14} />}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 

@@ -7,6 +7,7 @@ import type Database from 'better-sqlite3';
 export type MetaKey =
   | 'currency'
   | 'theme'
+  | 'accentColor'
   | 'autoBackup'
   | 'lastBackup'
   | 'activeMonth';

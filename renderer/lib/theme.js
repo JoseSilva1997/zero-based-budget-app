@@ -2,23 +2,28 @@
    Theme registry and chart palette. Pure data, no React.
    ============================================================ */
 
-/* Shared by the Tweaks panel + Settings. Dark-only, 12 named palettes. */
+/* Shared by the Tweaks panel + Settings. Dark-only, 4 named backgrounds. */
 export const BUDGET_THEMES = [
-  { id: "indigo",  label: "Indigo",  bg: "#0d1016", accent: "#6d6ef6" },
-  { id: "violet",  label: "Violet",  bg: "#0d1016", accent: "#b06bf2" },
-  { id: "cyan",    label: "Cyan",    bg: "#0d1016", accent: "#3fd6ee" },
-  { id: "emerald", label: "Emerald", bg: "#0d1016", accent: "#3ddc97" },
-  { id: "mono",    label: "Mono",    bg: "#000000", accent: "#c4c8d4" },
-  { id: "lime",    label: "Lime",    bg: "#000000", accent: "#c6f24f" },
-  { id: "amber",   label: "Amber",   bg: "#000000", accent: "#facc4a" },
-  { id: "rose",    label: "Rose",    bg: "#131316", accent: "#fb5e7e" },
-  { id: "sky",     label: "Sky",     bg: "#131316", accent: "#5aa0ff" },
-  { id: "ocean",   label: "Ocean",   bg: "#0a0f1e", accent: "#4a8df5" },
-  { id: "teal",    label: "Teal",    bg: "#0a0f1e", accent: "#33dcc4" },
-  { id: "sunset",  label: "Sunset",  bg: "#15110f", accent: "#fb7a45" },
+  { id: "slate",    label: "Slate",    bg: "#0d1016" },
+  { id: "obsidian", label: "Obsidian", bg: "#000000" },
+  { id: "charcoal", label: "Charcoal", bg: "#131316" },
+  { id: "navy",     label: "Navy",     bg: "#0a0f1e" },
 ];
 
 export const THEME_IDS = BUDGET_THEMES.map((t) => t.id);
+
+/* Accent, independent of theme. Controls buttons, the focus ring, and glows;
+   pairs with any of the four backgrounds above. */
+export const ACCENT_COLORS = [
+  { id: "indigo",  label: "Indigo",  accent: "#6d6ef6" },
+  { id: "cyan",    label: "Cyan",    accent: "#3fd6ee" },
+  { id: "emerald", label: "Emerald", accent: "#3ddc97" },
+  { id: "lime",    label: "Lime",    accent: "#c6f24f" },
+  { id: "amber",   label: "Amber",   accent: "#facc4a" },
+  { id: "rose",    label: "Rose",    accent: "#fb5e7e" },
+];
+
+export const ACCENT_IDS = ACCENT_COLORS.map((a) => a.id);
 
 /* Shared by History + Dashboard charts. */
 export const GROUP_PALETTE = [
