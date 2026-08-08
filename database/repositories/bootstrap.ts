@@ -14,28 +14,6 @@ import { listAccounts } from './accounts';
 import { listMonths } from './months';
 
 /**
- * Themes and accent colours used to be one combined value (e.g. "sunset" was
- * a background + an accent, baked together). Pre-existing installs only ever
- * wrote 'theme'; this maps each old id to its nearest (theme, accentColor)
- * pair under the new 4-background x 6-accent split, so a legacy DB with no
- * 'accentColor' meta row still resolves to a sensible look on first load.
- */
-const LEGACY_THEME_MAP: Record<string, [string, string]> = {
-  indigo: ['slate', 'indigo'],
-  violet: ['slate', 'indigo'],
-  cyan: ['slate', 'cyan'],
-  emerald: ['slate', 'emerald'],
-  mono: ['obsidian', 'indigo'],
-  lime: ['obsidian', 'lime'],
-  amber: ['obsidian', 'amber'],
-  rose: ['charcoal', 'rose'],
-  sky: ['charcoal', 'indigo'],
-  ocean: ['navy', 'indigo'],
-  teal: ['navy', 'cyan'],
-  sunset: ['slate', 'amber'],
-};
-
-/**
  * Lightweight startup read. A DB with no months is simply an empty app, so the
  * active month resolves to null and the renderer shows its empty state.
  */
@@ -48,17 +26,15 @@ export function loadBootstrap(db: Database.Database): BootstrapData {
       ? activeMeta
       : monthKeys[monthKeys.length - 1] || null;
 
-  const storedTheme = getMeta(db, 'theme');
-  const storedAccent = getMeta(db, 'accentColor');
-  const legacyPair = !storedAccent && storedTheme ? LEGACY_THEME_MAP[storedTheme] : undefined;
-  const theme = legacyPair ? legacyPair[0] : storedTheme || 'slate';
-  const accentColor = storedAccent || (legacyPair ? legacyPair[1] : 'indigo');
-
   return {
     settings: {
       currency: getMeta(db, 'currency') || '$',
-      theme,
-      accentColor,
+      // Passed through raw. Every id this app has ever persisted is a theme
+      // that no longer ships (the pre-reset backgrounds, and the combined
+      // background+accent ids before those), so validating here would mean
+      // teaching the main process the theme registry for no gain: the renderer
+      // already falls back to DEFAULT_THEME_ID for anything it does not know.
+      theme: getMeta(db, 'theme') || '',
       autoBackup: (getMeta(db, 'autoBackup') as AutoBackupMode) || 'onclose',
       lastBackup: getMeta(db, 'lastBackup'),
       members: listMembers(db),

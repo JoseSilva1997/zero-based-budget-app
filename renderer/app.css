@@ -1,6 +1,48 @@
 /* ============================================================
    House Budget - sleek dark system
-   4 swappable backgrounds (data-theme) x 6 swappable accents (data-accent)
+
+   THEMING
+   -------
+   One theme is one complete palette: surfaces, ink, rules and accent together,
+   in a single block keyed on [data-theme="<id>"]. There is no second axis. The
+   only two places that name a theme are that block and one entry in
+   renderer/lib/theme.js, so adding a theme is those two edits plus a run of
+   tests/tokens-electron.cjs to prove the palette clears its floors.
+
+   Tokens are layered, and the order of the layers is load-bearing. :root and
+   [data-theme="x"] have identical specificity (0,1,0), so at equal specificity
+   the later declaration wins. Layers 1-3 therefore sit ABOVE the theme blocks:
+   that is precisely what lets a theme override any default it does not want.
+
+     1. PRIMITIVES   typography, geometry, layout. Do not vary by theme.
+     2. DEFAULTS     semantic colour and elevation. True of any dark theme, so
+                     themes inherit rather than restate them.
+     3. DERIVED      tokens computed from the contract with var()/color-mix, so
+                     a theme gets them free by setting --accent and its surfaces.
+     4. THEMES       the contract itself, one block per theme.
+
+   Everything below layer 4 consumes tokens and declares none, with one
+   exception: the breakpoints at the foot of this file re-declare the two
+   layout primitives that are responsive (--sidebar-w, --budget-cols).
+
+   THEME CONTRACT
+   --------------
+   A theme block must set all of the following. [data-theme="obsidian"] is the
+   reference implementation and is written to be copied as the template.
+
+     surfaces   --board       the canvas
+                --raised      cards and popovers, the busiest text backdrop
+                --well        insets: trays, progress tracks, input fills
+     sidebar    --panel       the sidebar's own surface, NOT on the board ramp
+                --nav-hover   --nav-active   --nav-active-ink
+     ink        --ink  --ink-2  --muted  --faint
+                --on-ink      foreground for anything FILLED with --ink
+     rules      --rule  --rule-strong  --rule-faint
+     accent     --accent      --accent-soft   --accent-ink
+                --on-accent   ink that sits on top of an --accent fill
+
+   And may override, from layers 2-3: --accent-btn, --canvas-wash, --bar-faded,
+   --bar-plan, the semantic colours, and the shadow ramp.
    ============================================================ */
 
 /* Bundled, not fetched. The sidebar strapline says "local", and until now
@@ -27,6 +69,11 @@
 @font-face { font-family: "IBM Plex Mono"; font-weight: 600; font-style: normal; font-display: block; src: url("fonts/IBMPlexMono-SemiBold.woff2") format("woff2"); }
 @font-face { font-family: "IBM Plex Mono"; font-weight: 700; font-style: normal; font-display: block; src: url("fonts/IBMPlexMono-Bold.woff2") format("woff2"); }
 
+/* ============================================================
+   LAYER 1 - PRIMITIVES
+   Typography, geometry and layout. None of this varies by theme, and a theme
+   block has no business declaring any of it.
+   ============================================================ */
 :root {
   --font-sans: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
   /* The figure face for money columns. Kept as its own token so it can differ
@@ -35,6 +82,34 @@
   --font-num: var(--font-sans);
   --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
 
+  --radius-sm: 10px;
+  --radius: 14px;
+  --radius-lg: 20px;
+
+  --row-h: 50px;
+  /* The default gap between blocks. Inline JSX still hard-codes 16 in a lot of
+     places; those are free to move to var(--gap) as they are touched. */
+  --gap: 16px;
+  --sidebar-w: 240px;
+  /* Content spans the window rather than sitting in a 1080px well; the cap
+     only exists so an ultra-wide monitor doesn't stretch table rows to arm's
+     length. At the app's default 1280px window it never engages. */
+  --maxw: 1440px;
+
+  /* The budget grid, in one place, because five call sites draw it: the column
+     header and the four row shapes (item, group, entry, add-entry). Callers
+     pair it with gap: 10 and padding: 7px 8px. The Difference column is the
+     fifth track; below 1200px it is dropped here and hidden with .col-diff. */
+  --budget-cols: 1fr 150px 158px 150px 78px;
+}
+
+/* ============================================================
+   LAYER 2 - DEFAULTS
+   True of any dark theme, so themes inherit these rather than restating them
+   six times. A theme that needs different values (a light one would) simply
+   declares them: its block comes later and wins.
+   ============================================================ */
+:root {
   /* Semantic colour, re-cut to the domain. In zero-based budgeting an
      envelope spent exactly to plan IS the success, so "settled" gets no
      colour at all: it is the resting state. Only two states earn a hue.
@@ -53,77 +128,71 @@
   --info: oklch(0.72 0.13 240);
   --info-soft: oklch(0.31 0.08 240);
 
-  /* text drawn on top of an accent fill - overridden per light-accent theme */
-  --on-accent: #ffffff;
+  /* Elevation. Pure-black shadows, which is what a dark canvas wants and what
+     a light theme would have to restate. */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.4), 0 1px 1px rgba(0,0,0,0.3);
+  --shadow-md: 0 8px 24px -10px rgba(0,0,0,0.6), 0 2px 8px -4px rgba(0,0,0,0.45);
+  --shadow-lg: 0 30px 70px -22px rgba(0,0,0,0.75), 0 10px 28px -14px rgba(0,0,0,0.55);
+}
+
+/* ============================================================
+   LAYER 3 - DERIVED
+   Every token here is computed from the contract, so a theme earns all of them
+   by setting --accent and its surfaces and writing none of this down. Custom
+   properties resolve at use time against the element's final computed values,
+   so declaring these before the theme blocks costs nothing and buys the
+   override (see the cascade note at the top of the file).
+   ============================================================ */
+:root {
+  /* The canvas fill. A theme with a flat board leaves this alone; one that
+     wants a wash behind the content states a gradient instead (obsidian does).
+     Consumed by .main, so it is a background shorthand value, not a colour. */
+  --canvas-wash: var(--board);
 
   /* Accent-tinted running text (item names in the budget rows). --accent-ink
      at full strength read too loud across a whole month, so this is a lighter,
      quieter blend of it toward the ink ramp: still unmistakably the accent,
-     but sitting closer to the text around it. Derived, so it tracks every
-     accent without six more hand-tuned values; blending toward --ink can only
-     raise contrast above --accent-ink's own floors. */
+     but sitting closer to the text around it. Derived rather than hand-tuned
+     per theme; blending toward --ink can only raise contrast above
+     --accent-ink's own floors. */
   --accent-text: color-mix(in srgb, var(--accent-ink) 45%, var(--ink));
 
-  /* The accent is free to be any hue the user likes, but text sitting ON it is
-     not. --accent-btn is the accent darkened (per theme, below) to the point
-     where --on-accent clears WCAG AA at 4.5:1. Themes whose accent is already
-     light enough to carry dark ink inherit the accent unchanged. */
+  /* The accent is free to be any hue a theme likes, but text sitting ON it is
+     not. --accent-btn is the accent darkened to the point where --on-accent
+     clears WCAG AA at 4.5:1. A theme whose accent is already light enough to
+     carry dark ink inherits the accent unchanged; one that is not (obsidian's
+     violet) overrides this with the darkened value and records the ratio. */
   --accent-btn: var(--accent);
 
-  --shadow-sm: 0 1px 2px rgba(0,0,0,0.4), 0 1px 1px rgba(0,0,0,0.3);
-  --shadow-md: 0 8px 24px -10px rgba(0,0,0,0.6), 0 2px 8px -4px rgba(0,0,0,0.45);
-  --shadow-lg: 0 30px 70px -22px rgba(0,0,0,0.75), 0 10px 28px -14px rgba(0,0,0,0.55);
-
-  --radius-sm: 10px;
-  --radius: 14px;
-  --radius-lg: 20px;
-
-  --row-h: 50px;
-  /* The default gap between blocks. Inline JSX still hard-codes 16 in a lot of
-     places; those are free to move to var(--gap) as they are touched. */
-  --gap: 16px;
-  --sidebar-w: 232px;
-  /* Content spans the window rather than sitting in a 1080px well; the cap
-     only exists so an ultra-wide monitor doesn't stretch table rows to arm's
-     length. At the app's default 1280px window it never engages. */
-  --maxw: 1440px;
-
-  /* The budget grid, in one place, because five call sites draw it: the column
-     header and the four row shapes (item, group, entry, add-entry). Callers
-     pair it with gap: 10 and padding: 7px 8px. The Difference column is the
-     fifth track; below 1200px it is dropped here and hidden with .col-diff. */
-  --budget-cols: 1fr 150px 158px 150px 78px;
-
   /* Focus ring. The solid 2px core is what carries the indicator: raw --accent
-     clears 3:1 against every surface in all 24 theme/accent pairs (worst
-     4.02:1, violet on --raised). The soft outer band is decoration on top of
+     must clear 3:1 against the lightest surface it can land on, which is
+     --raised (4.62:1 in obsidian). The soft outer band is decoration on top of
      that, not the indicator itself, which is why it is no longer a lone 32%
      wash at 1.5:1. */
   --ring: 0 0 0 2px var(--accent), 0 0 0 5px color-mix(in srgb, var(--accent) 26%, transparent);
   --glow-sm: 0 4px 18px -6px color-mix(in srgb, var(--accent) 55%, transparent);
   --glow-md: 0 8px 28px -8px color-mix(in srgb, var(--accent) 60%, transparent);
 
-  /* The bar's two intensities. Derived from the accent so the theme finally
-     paints the largest object on the screen rather than 0.07% of it.
+  /* The bar's two intensities, derived from the accent so the theme paints the
+     largest object on the screen rather than 0.07% of it.
 
-     Only one floor binds here: --bar-faded against --well must clear 3:1 in
-     all 24 theme/accent pairs, because that boundary (how far the fill extends against
-     its track) is the one WCAG 1.4.11 actually governs. --accent against
-     --bar-faded is NOT held to 3:1: the two fills are a redundant encoding,
-     not the sole carrier of the amounts they represent (MonthBar prints
-     "spent" and "allocated" as text beneath the bar), so 1.4.11's
-     "information not otherwise available" test does not apply to it. See
-     tests/tokens-electron.cjs for the derived (not chosen) floor that check
-     is held to instead.
+     Only one floor binds here: --bar-faded against --well must clear 3:1,
+     because that boundary (how far the fill extends against its track) is the
+     one WCAG 1.4.11 actually governs. --accent against --bar-faded is NOT held
+     to 3:1: the two fills are a redundant encoding, not the sole carrier of
+     the amounts they represent (MonthBar prints "spent" and "allocated" as
+     text beneath the bar), so 1.4.11's "information not otherwise available"
+     test does not apply to it. See tests/tokens-electron.cjs for the derived
+     (not chosen) floor that check is held to instead.
 
-     The percentage itself is the smallest whole number that clears the
-     outer floor in every theme: raising it lightens --bar-faded, which
-     raises the outer ratio and lowers the inner one, so the smallest
-     value that still clears the outer floor everywhere is also the value
-     that maximises the inner separation. Re-derived for the violet accent:
-     72 fails (worst case 2.99:1, violet/charcoal); 73 is the first whole
-     percent that passes (worst outer 3.04:1 and worst inner 1.55:1, both
-     violet/charcoal). */
+     The two floors pull in opposite directions, which is what fixes the
+     percentage: raising it lightens --bar-faded, which raises the outer ratio
+     and lowers the inner one. The smallest whole percent that clears the outer
+     floor is therefore also the one that maximises the inner separation. 73
+     was derived that way and obsidian sits comfortably inside it (outer
+     3.15:1, inner 1.62:1), since a true-black --well is the easiest track
+     there is. A theme with a lighter --well may have to raise it; the test
+     will say so. */
   --bar-faded: color-mix(in srgb, var(--accent) 73%, var(--well));
 
   /* The "planned" weight on the dashboard's allocated-vs-actual bars. It is a
@@ -133,142 +202,86 @@
 }
 
 /* ============================================================
-   Theme palettes (backgrounds) - slate / obsidian / charcoal / navy
-   Each sets only the board/raised/well ramp, ink ramp, and rule weights.
-   Independent of the accent palettes below: any theme pairs with any accent.
+   LAYER 4 - THEMES
+   One block per theme, each a complete palette. The tokens a block must set
+   are listed under THEME CONTRACT at the top of this file.
 
    The ink ramp is measured, not eyeballed. --faint and --muted are stated in
    oklch and their lightness is solved so that both clear 4.5:1 against
-   --raised, which is the worst of the four backdrops and the one most of this
-   text actually sits on. Hue and chroma are carried over from the old hex, so
-   each family keeps its tint: the slate ramp stays blue. The ramp itself is
-   preserved by construction, faint < muted < ink-2 < ink, with a real step
-   between each rung rather than three near-identical greys. Measured on
-   --raised, per family:
-       faint 4.61-4.62 · muted 6.29-6.31 · ink-2 8.12-9.85 · ink 13.75-16.74
+   --raised, which is the tightest of the three surfaces and the one most of
+   this text actually sits on. The ramp is preserved by construction,
+   faint < muted < ink-2 < ink, with a real step between each rung rather than
+   three near-identical greys. Measured on --raised in obsidian:
+       faint 4.64 · muted 6.28 · ink-2 9.85 · ink 16.74
 
    Rules are graded by what they carry. --rule-strong is the boundary or the
    state of something interactive (buttons, the month steppers, the active nav
    item, the "Assign account" chip, keycaps, the sidebar and drawer edges), so
    it is solved to 3:1 against --raised per WCAG 1.4.11. --rule is structure
-   (card outlines, dividers, the progress track) and --rule-faint is a row
-   rule between rows that are already self-identifying; both are decorative,
-   but at 1.03-1.38:1 they were invisible rather than subtle, so they are
-   lifted to 2.30:1 and 1.90:1 where they can at least be seen.
+   (card outlines, dividers, the progress track) and --rule-faint is a row rule
+   between rows that are already self-identifying; both are decorative, but at
+   1.03-1.38:1 they were invisible rather than subtle, so they are lifted to
+   2.30:1 and 1.90:1 where they can at least be seen.
+
+   The sidebar ramp (--panel and the two nav fills) is deliberately separate
+   from board/raised/well, because the sidebar is not a card on the canvas: it
+   is the surface the canvas sits beside, and the two ramps are free to move in
+   opposite directions. Obsidian's --panel is LIGHTER than --raised, since a
+   true-black canvas has nowhere to go but up. Only the relationship inside the
+   ramp is fixed: --nav-active clears --panel by the step the design was drawn
+   at, 1.39:1 in obsidian.
+
+   Adding a theme is this block copied, revalued, and run through
+   tests/tokens-electron.cjs, which enforces every floor named above. Run it
+   with --report to read the measured ratios back out.
    ============================================================ */
 
-/* ---- slate (Linear / Vercel) -------------------------------------------- */
-[data-theme="slate"] {
-  --board: #0d1016;
-  --raised: #1a1f2a;  --well: #0e1118;
-  /* Foreground for anything filled with --ink (toast, tooltip, arithmetic
-     preview). Split from --raised so it can move without silently turning
-     these chips dark-on-dark. */
-  --on-ink: #1a1f2a;
-  --ink: #e8ecf4;      --ink-2: #b2bccc;
-  --muted: oklch(0.706 0.031 263.3);   /* 6.31:1 on --raised */
-  --faint: oklch(0.625 0.029 259.8);   /* 4.62:1 on --raised */
-  --rule: oklch(0.459 0.033 260.9);          /* 2.30:1 */
-  --rule-strong: oklch(0.524 0.035 250.2);   /* 3.06:1 */
-  --rule-faint: oklch(0.414 0.026 255.7);    /* 1.90:1 */
-}
-
-/* ---- obsidian (true-black OLED) ----------------------------------------- */
+/* ---- obsidian (true-black OLED, violet accent) --------------------------- */
 [data-theme="obsidian"] {
+  /* --- surfaces --- */
   --board: #000000;
   --raised: #141418;  --well: #060607;
-  /* Foreground for anything filled with --ink (toast, tooltip, arithmetic
-     preview). Split from --raised so it can move without silently turning
-     these chips dark-on-dark. */
-  --on-ink: #141418;
+  /* A faint violet-tinted radial wash behind the canvas, lighter at the top
+     than --board's flat black. A theme whose --board already carries a tint
+     would leave --canvas-wash alone rather than layer a gradient that fights
+     it. */
+  --canvas-wash: radial-gradient(ellipse at top, #181924 0%, #0a0b0e 50%, #050508 100%);
+
+  /* --- sidebar ---
+     The literal values it was drawn at: neutral, rather than carrying
+     obsidian's faint violet cast, because the drawing is neutral. */
+  --panel: #1c1b1c;   --nav-hover: #2a2a2a;  --nav-active: #353435;
+  /* The active item's icon, and the one judgement rather than measurement in
+     this block. Obsidian was drawn with the accent living in the brand tile
+     alone, so the active icon is plain --ink. A theme that wants the accent in
+     the nav sets var(--accent-ink) here instead. */
+  --nav-active-ink: var(--ink);
+
+  /* --- ink ---
+     --on-ink is the foreground for anything FILLED with --ink (toast, tooltip,
+     arithmetic preview). Split from --raised so that surface can move without
+     silently turning these chips dark-on-dark. */
   --ink: #f4f4f7;      --ink-2: #bdbdc6;
-  --muted: oklch(0.678 0.016 285.9);   /* 6.31:1 on --raised */
-  --faint: oklch(0.599 0.015 285.8);   /* 4.62:1 on --raised */
-  --rule: oklch(0.434 0.016 285.3);          /* 2.30:1 */
-  --rule-strong: oklch(0.500 0.019 285.3);   /* 3.05:1 */
-  --rule-faint: oklch(0.389 0.010 285.6);    /* 1.90:1 */
-}
+  --muted: oklch(0.678 0.016 285.9);   /* 6.28:1 on --raised */
+  --faint: oklch(0.599 0.015 285.8);   /* 4.64:1 on --raised */
+  --on-ink: #141418;
 
-/* ---- charcoal (neutral) -------------------------------------------------- */
-[data-theme="charcoal"] {
-  --board: #131316;
-  --raised: #212128;  --well: #121215;
-  /* Foreground for anything filled with --ink (toast, tooltip, arithmetic
-     preview). Split from --raised so it can move without silently turning
-     these chips dark-on-dark. */
-  --on-ink: #212128;
-  --ink: #eeeef1;      --ink-2: #b8b8c0;
-  --muted: oklch(0.714 0.015 286);     /* 6.29:1 on --raised */
-  --faint: oklch(0.633 0.014 285.8);   /* 4.61:1 on --raised */
-  --rule: oklch(0.467 0.023 285.1);          /* 2.30:1 */
-  --rule-strong: oklch(0.533 0.024 285.2);   /* 3.05:1 */
-  --rule-faint: oklch(0.421 0.006 286);      /* 1.90:1 */
-}
+  /* --- rules --- */
+  --rule: oklch(0.434 0.016 285.3);          /* 2.30:1 on --raised */
+  --rule-strong: oklch(0.500 0.019 285.3);   /* 3.05:1 on --raised */
+  --rule-faint: oklch(0.389 0.010 285.6);    /* 1.90:1 on --raised */
 
-/* ---- navy (deep navy / ocean) -------------------------------------------- */
-[data-theme="navy"] {
-  --board: #0a0f1e;
-  --raised: #162034;  --well: #0a0f1e;
-  /* Foreground for anything filled with --ink (toast, tooltip, arithmetic
-     preview). Split from --raised so it can move without silently turning
-     these chips dark-on-dark. */
-  --on-ink: #162034;
-  --ink: #e7ecf7;      --ink-2: #afb9d0;
-  --muted: oklch(0.709 0.044 264.9);   /* 6.29:1 on --raised */
-  --faint: oklch(0.629 0.043 264.8);   /* 4.62:1 on --raised */
-  --rule: oklch(0.462 0.047 260.9);          /* 2.30:1 */
-  --rule-strong: oklch(0.528 0.062 262.5);   /* 3.05:1 */
-  --rule-faint: oklch(0.418 0.048 263.4);    /* 1.90:1 */
-}
-
-/* ============================================================
-   Accent palettes (colours) - indigo / cyan / emerald / lime / amber / rose
-   Each sets only --accent and its derived tokens. Independent of the theme
-   backgrounds above: any accent pairs with any theme.
-   ============================================================ */
-
-/* "indigo" is now a violet (hue 293 rather than 276), retuned toward the
-   #7C3AED of the design mockups. The id stays "indigo" because it is persisted
-   in user settings. The mockup value itself (oklch 0.54) is too dark to clear
-   the bar's outer floor on any theme; L 0.62 is the derived compromise, and it
-   also clears charcoal's --well, which the old 0.60 indigo needed a per-pair
-   override for (worst outer at 73%: 3.04:1 violet/charcoal, worst focus ring:
-   4.02:1 on --raised). */
-[data-accent="indigo"] {
+  /* --- accent ---
+     A violet at hue 293, tuned toward the #7C3AED of the design mockups. The
+     mockup value itself (oklch 0.54) is too dark to clear the progress bar's
+     outer floor against --well; L 0.62 is the derived compromise. */
   --accent: oklch(0.62 0.21 293);
-  --accent-btn: oklch(0.585 0.21 293); /* white ink: 4.58:1 */
   --accent-soft: oklch(0.31 0.11 293); --accent-ink: oklch(0.82 0.15 293);
+  --on-accent: #ffffff;
+  /* L 0.62 cannot carry white ink at AA, so the button fill alone is darkened
+     until it can. Overrides the layer-3 default of plain --accent. */
+  --accent-btn: oklch(0.585 0.21 293);       /* white ink: 4.58:1 */
 }
-[data-accent="cyan"] {
-  --accent: oklch(0.82 0.13 205);
-  --accent-soft: oklch(0.31 0.06 205); --accent-ink: oklch(0.87 0.11 205);
-  --on-accent: #04161c;
-}
-[data-accent="emerald"] {
-  --accent: oklch(0.74 0.16 162);
-  --accent-soft: oklch(0.31 0.08 162); --accent-ink: oklch(0.85 0.14 162);
-  --on-accent: #04170f;
-}
-[data-accent="lime"] {
-  --accent: oklch(0.86 0.19 128);
-  --accent-soft: oklch(0.31 0.09 128); --accent-ink: oklch(0.88 0.17 128);
-  --on-accent: #0c1604;
-}
-[data-accent="amber"] {
-  --accent: oklch(0.83 0.15 76);
-  --accent-soft: oklch(0.32 0.07 76); --accent-ink: oklch(0.87 0.13 76);
-  --on-accent: #1a1203;
-}
-[data-accent="rose"] {
-  --accent: oklch(0.66 0.20 12);
-  --accent-btn: oklch(0.585 0.20 12); /* white ink: 4.67:1 */
-  --accent-soft: oklch(0.31 0.10 12); --accent-ink: oklch(0.83 0.16 12);
-}
-
-/* The charcoal/indigo per-pair override that used to live here is gone: the
-   violet retune above starts at L 0.62, which is exactly the lightness the
-   override existed to reach, so every one of the 24 theme/accent pairs now
-   clears the bar's floors from the shared formula alone. */
 
 * { box-sizing: border-box; }
 html, body { height: 100%; }
@@ -324,66 +337,94 @@ input { font-family: inherit; }
   overflow: hidden;
 }
 
-/* Sidebar */
+/* Sidebar. It is a panel now rather than a stripe of the canvas: --panel sits
+   a step off --board, and that value difference is what separates the two
+   columns. The right edge is demoted from --rule-strong to --rule because it
+   no longer has to do the separating on its own. */
 .sidebar {
-  border-right: 1px solid var(--rule-strong);
-  background: var(--board);
-  padding: 22px 16px;
+  border-right: 1px solid var(--rule);
+  background: var(--panel);
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
 }
-.brand { display: flex; align-items: center; gap: 11px; padding: 6px 8px 20px; }
-/* Flat, and quiet. This was a gradient tile with an inset white highlight and
-   a coloured glow under it: three effects stacked on a 34px square, and the
-   single most template-looking object in the app. The mark now states the
-   accent once, at low saturation, and lets the glyph carry it - the same
-   restraint the rest of the sidebar already keeps. */
+.brand { display: flex; align-items: center; gap: 12px; padding: 16px 8px 40px; }
+/* One flat statement of the accent, at full strength. This was a low-saturation
+   tint inside an accent hairline: two ways of saying the same thing on a 32px
+   square. The tile is now the only place in the panel the accent appears at
+   full strength, which is what lets the nav below it stay neutral. */
 .brand-mark {
-  width: 32px; height: 32px; border-radius: 9px; flex: none;
-  background: var(--accent-soft);
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
-  display: grid; place-items: center; color: var(--accent-ink);
+  width: 34px; height: 34px; border-radius: 8px; flex: none;
+  background: var(--accent); box-shadow: var(--shadow-sm);
+  display: grid; place-items: center; color: var(--on-accent);
   /* The mark is the "HB" monogram, set in the app's own face rather than
      drawn as a glyph: the brand asset and the type carry the same voice. */
-  font-size: 12.5px; font-weight: 700; letter-spacing: 0.02em;
+  font-size: 14px; font-weight: 700; letter-spacing: 0.02em;
   user-select: none;
 }
-.brand-name { font-weight: 600; font-size: 15px; letter-spacing: -0.015em; line-height: 1.1; }
-.brand-sub { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+/* 16px, not the 20px the drawing is set at. Two reasons, and the second is the
+   binding one. Plus Jakarta Sans is a wider face than the Hanken Grotesk the
+   drawing uses, so it reads a size larger at the same size: 20px measures
+   137.5px against a 131px column and wraps the app's own name onto two lines,
+   and even 18px, which fits, sat too heavy next to the 14px nav. 16px measures
+   110px. nowrap is the guard that makes a future overrun show up as an
+   overflow rather than silently wrapping again. */
+.brand-name { font-weight: 500; font-size: 15px; line-height: 22px; white-space: nowrap; }
+.brand-sub { font-size: 11px; line-height: 16px; color: var(--muted); }
 
-.nav-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--faint); padding: 14px 10px 6px; font-weight: 600; }
+/* --muted, not --faint. This label sits on --panel rather than --raised, and
+   the drawing sets it in the same ink as the names beneath it. */
+.nav-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 600; }
 .nav-item {
-  display: flex; align-items: center; gap: 11px;
-  padding: 9px 11px; border-radius: var(--radius-sm);
-  color: var(--ink-2); font-size: 14px; font-weight: 500;
-  border: 1px solid transparent; background: none; width: 100%; text-align: left;
-  transition: background .14s, color .14s, border-color .14s;
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px; border-radius: 8px;
+  color: var(--ink-2); font-size: 12px; font-weight: 500;
+  border: none; background: none; width: 100%; text-align: left;
+  /* The active label is 700. At the narrow breakpoint that extra width is
+     enough to wrap "Month Budget" onto a second line and change the item's
+     height as you click it, so the label is held on one line. */
+  white-space: nowrap;
+  transition: background .14s, color .14s;
 }
-.nav-item:hover { background: var(--well); color: var(--ink); }
-/* The active item is a filled pill whose icon takes the accent; the border
-   that used to double-announce it is demoted to the hairline the card recipe
-   now uses everywhere. */
-.nav-item.active { background: var(--raised); color: var(--ink); box-shadow: var(--shadow-sm); border: 1px solid var(--rule-faint); }
-.nav-item.active svg { color: var(--accent-ink); }
-.nav-item svg { color: var(--muted); flex: none; }
+.nav-item:hover { background: var(--nav-hover); color: var(--ink); }
+/* A flat fill and a bolder label, nothing else. This carried a fill, a shadow
+   and a hairline border at once - three announcements of a state the weight
+   change already makes plain. */
+.nav-item.active { background: var(--nav-active); color: var(--ink); font-weight: 700; }
+/* The icons take the item's own ink rather than a colour of their own, so the
+   whole row lightens together on hover. Only the active icon breaks from that,
+   and only where the theme asks it to (see --nav-active-ink). */
+.nav-item svg { color: inherit; flex: none; }
+.nav-item.active svg { color: var(--nav-active-ink); }
 
-.sidebar-foot { margin-top: auto; padding: 10px; }
+.sidebar-foot { margin-top: auto; padding: 0 8px; }
+/* The rule belongs to the household group, not to .sidebar-foot: the update
+   banner is also a child of the foot, and it reads as a notice about the app
+   rather than part of the list of people. */
+.household {
+  padding-top: 18px; border-top: 1px solid var(--rule);
+  display: flex; flex-direction: column; gap: 12px;
+}
 .member-chip {
-  display: flex; align-items: center; gap: 9px; padding: 8px;
-  border-radius: var(--radius-sm); font-size: 13px; color: var(--ink-2);
+  display: flex; align-items: center; gap: 12px;
+  font-size: 12px; color: var(--ink-2);
 }
 .avatar {
-  width: 26px; height: 26px; border-radius: 50%; flex: none;
-  display: grid; place-items: center; font-size: 11.5px; font-weight: 600; color: #fff;
+  width: 22px; height: 22px; border-radius: 50%; flex: none;
+  display: grid; place-items: center; font-size: 11px; font-weight: 600; color: #fff;
 }
 
-/* Update notice, at the foot of the sidebar above the household list */
+/* Update notice, at the foot of the sidebar above the household list.
+   Filled with the panel's own lift rather than --raised: --raised is a step up
+   from the canvas, and against obsidian's lighter panel it would have made the
+   banner read as recessed instead of raised. --nav-hover is the same colour
+   the nav items lift to, so the notice sits at the panel's first rung. */
 .update-banner {
-  margin-bottom: 6px; padding: 11px 12px;
+  margin-bottom: 20px; padding: 11px 12px;
   border: 1px solid var(--rule-strong); border-radius: var(--radius-sm);
-  background: var(--raised); box-shadow: var(--shadow-sm);
+  background: var(--nav-hover); box-shadow: var(--shadow-sm);
   animation: pop .2s ease;
 }
 .update-banner-line {
@@ -416,7 +457,9 @@ input { font-family: inherit; }
    below mean this should almost never engage, but when content genuinely
    cannot fit (deep zoom, a very long currency string) reaching it beats
    losing it. */
-.main { min-width: 0; overflow-y: auto; overflow-x: auto; height: 100%; }
+/* The canvas. Its fill is the theme's --canvas-wash, which defaults to a flat
+   --board; obsidian states a radial gradient instead. */
+.main { min-width: 0; overflow-y: auto; overflow-x: auto; height: 100%; background: var(--canvas-wash); }
 .main-inner { max-width: var(--maxw); margin: 0 auto; padding: 30px 38px 80px; }
 
 /* Topbar with month nav */
@@ -792,7 +835,7 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
    Breakpoints
 
    Placed where this layout actually breaks, not at device sizes. Two things
-   have to give as the window narrows: the sidebar, which was a fixed 232px
+   have to give as the window narrows: the sidebar, which was a fixed 240px
    that never collapsed, and the budget grid, whose four fixed columns plus
    gaps, row padding, drag handle and card border came to 620px before the item
    name got anything at all. At the old 960px window minimum that left the name
@@ -814,7 +857,7 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
    ============================================================ */
 @media (max-width: 1199px) {
   :root {
-    --sidebar-w: 200px;
+    --sidebar-w: 208px;
     --budget-cols: 1fr 150px 158px 78px;
   }
   .main-inner { padding: 26px 28px 72px; }
@@ -822,12 +865,22 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
 }
 @media (max-width: 1023px) {
   :root {
-    --sidebar-w: 176px;
+    --sidebar-w: 184px;
     --budget-cols: 1fr 136px 144px 68px;
   }
   .main-inner { padding: 22px 20px 64px; }
-  .sidebar { padding: 18px 11px; }
-  .brand { padding: 4px 6px 16px; }
+  .sidebar { padding: 16px 12px; }
+  /* The brand shrinks with the column: at 184px the tile and the name cannot
+     both keep their full size on one line (see .brand-name above). */
+  .brand { gap: 10px; padding: 8px 4px 24px; }
+  .brand-mark { width: 32px; height: 32px; font-size: 12.5px; }
+  .brand-name { font-size: 14px; line-height: 20px; }
+  .brand-sub { font-size: 11px; line-height: 15px; }
+  /* The nav items give up their slack here so the longest label still fits on
+     the one line .nav-item holds it to: at 184px, "Month Budget" set at 14px
+     and weight 700 is wider than the room left beside a 20px icon. */
+  .nav-item { padding: 10px 12px; gap: 10px; font-size: 13px; }
+  .nav-item svg { width: 18px; height: 18px; }
   .month-title .mo, .page-title { font-size: 28px; }
   .find-bar { right: 20px; }
   .app.find-open .main-inner { padding-top: 76px; }

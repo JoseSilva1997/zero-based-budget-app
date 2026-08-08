@@ -17,10 +17,43 @@ function Ic({ d, size = 18, fill, children, ...p }) {
     </svg>
   );
 }
+/* ---- Material Symbols (sidebar nav only) --------------------------------
+   The nav was drawn with Material Symbols Outlined, and the active item with
+   the family's FILL axis turned on. Rather than load the icon font - which
+   would be a network request in an app that deliberately has none, or a
+   multi-megabyte variable font to self-host for four glyphs - the eight paths
+   are lifted from @material-symbols/svg-400, a devDependency used purely as
+   an asset source. Exactly the arrangement @fontsource/plus-jakarta-sans
+   already has: npm supplies the asset, nothing is imported at runtime.
+
+   These are filled shapes on Material's own 0 -960 960 960 canvas, not 24x24
+   stroke paths, so they cannot go through Ic above. fill="currentColor" is
+   what lets .nav-item's colour rules reach them, the same way stroke
+   ="currentColor" does for the stroke set. */
+function Ms({ d, size = 22, ...p }) {
+  return (
+    <svg width={size} height={size} viewBox="0 -960 960 960" fill="currentColor"
+      aria-hidden="true" {...p}><path d={d} /></svg>
+  );
+}
+const MsIcons = {
+  dashboard: (p) => <Ms {...p} d="M510-570v-270h330v270H510ZM120-450v-390h330v390H120Zm390 330v-390h330v390H510Zm-390 0v-270h330v270H120Zm60-390h210v-270H180v270Zm390 330h210v-270H570v270Zm0-450h210v-150H570v150ZM180-180h210v-150H180v150Zm210-330Zm180-120Zm0 180ZM390-330Z" />,
+  dashboardFill: (p) => <Ms {...p} d="M510-570v-270h330v270H510ZM120-450v-390h330v390H120Zm390 330v-390h330v390H510Zm-390 0v-270h330v270H120Z" />,
+  calendar: (p) => <Ms {...p} d="M180-80q-24 0-42-18t-18-42v-620q0-24 18-42t42-18h65v-60h65v60h340v-60h65v60h65q24 0 42 18t18 42v620q0 24-18 42t-42 18H180Zm0-60h600v-430H180v430Zm0-490h600v-130H180v130Zm0 0v-130 130Zm300 230q-17 0-28.5-11.5T440-440q0-17 11.5-28.5T480-480q17 0 28.5 11.5T520-440q0 17-11.5 28.5T480-400Zm-188.5-11.5Q280-423 280-440t11.5-28.5Q303-480 320-480t28.5 11.5Q360-457 360-440t-11.5 28.5Q337-400 320-400t-28.5-11.5ZM640-400q-17 0-28.5-11.5T600-440q0-17 11.5-28.5T640-480q17 0 28.5 11.5T680-440q0 17-11.5 28.5T640-400ZM480-240q-17 0-28.5-11.5T440-280q0-17 11.5-28.5T480-320q17 0 28.5 11.5T520-280q0 17-11.5 28.5T480-240Zm-188.5-11.5Q280-263 280-280t11.5-28.5Q303-320 320-320t28.5 11.5Q360-297 360-280t-11.5 28.5Q337-240 320-240t-28.5-11.5ZM640-240q-17 0-28.5-11.5T600-280q0-17 11.5-28.5T640-320q17 0 28.5 11.5T680-280q0 17-11.5 28.5T640-240Z" />,
+  calendarFill: (p) => <Ms {...p} d="M480-400q-17 0-28.5-11.5T440-440q0-17 11.5-28.5T480-480q17 0 28.5 11.5T520-440q0 17-11.5 28.5T480-400Zm-188.5-11.5Q280-423 280-440t11.5-28.5Q303-480 320-480t28.5 11.5Q360-457 360-440t-11.5 28.5Q337-400 320-400t-28.5-11.5ZM640-400q-17 0-28.5-11.5T600-440q0-17 11.5-28.5T640-480q17 0 28.5 11.5T680-440q0 17-11.5 28.5T640-400ZM480-240q-17 0-28.5-11.5T440-280q0-17 11.5-28.5T480-320q17 0 28.5 11.5T520-280q0 17-11.5 28.5T480-240Zm-188.5-11.5Q280-263 280-280t11.5-28.5Q303-320 320-320t28.5 11.5Q360-297 360-280t-11.5 28.5Q337-240 320-240t-28.5-11.5ZM640-240q-17 0-28.5-11.5T600-280q0-17 11.5-28.5T640-320q17 0 28.5 11.5T680-280q0 17-11.5 28.5T640-240ZM180-80q-24 0-42-18t-18-42v-620q0-24 18-42t42-18h65v-60h65v60h340v-60h65v60h65q24 0 42 18t18 42v620q0 24-18 42t-42 18H180Zm0-60h600v-430H180v430Z" />,
+  /* history has no fill variant: the two files in the package are byte for
+     byte the same glyph, so the active state carries only the ink change. */
+  history: (p) => <Ms {...p} d="M477-120q-149 0-253-105.5T120-481h60q0 125 86 213t211 88q127 0 215-89t88-216q0-124-89-209.5T477-780q-68 0-127.5 31T246-667h105v60H142v-208h60v106q52-61 123.5-96T477-840q75 0 141 28t115.5 76.5Q783-687 811.5-622T840-482q0 75-28.5 141t-78 115Q684-177 618-148.5T477-120Zm128-197L451-469v-214h60v189l137 134-43 43Z" />,
+  settings: (p) => <Ms {...p} d="m388-80-20-126q-19-7-40-19t-37-25l-118 54-93-164 108-79q-2-9-2.5-20.5T185-480q0-9 .5-20.5T188-521L80-600l93-164 118 54q16-13 37-25t40-18l20-127h184l20 126q19 7 40.5 18.5T669-710l118-54 93 164-108 77q2 10 2.5 21.5t.5 21.5q0 10-.5 21t-2.5 21l108 78-93 164-118-54q-16 13-36.5 25.5T592-206L572-80H388Zm48-60h88l14-112q33-8 62.5-25t53.5-41l106 46 40-72-94-69q4-17 6.5-33.5T715-480q0-17-2-33.5t-7-33.5l94-69-40-72-106 46q-23-26-52-43.5T538-708l-14-112h-88l-14 112q-34 7-63.5 24T306-642l-106-46-40 72 94 69q-4 17-6.5 33.5T245-480q0 17 2.5 33.5T254-413l-94 69 40 72 106-46q24 24 53.5 41t62.5 25l14 112Zm44-210q54 0 92-38t38-92q0-54-38-92t-92-38q-54 0-92 38t-38 92q0 54 38 92t92 38Zm0-130Z" />,
+  settingsFill: (p) => <Ms {...p} d="m388-80-20-126q-19-7-40-19t-37-25l-118 54-93-164 108-79q-2-9-2.5-20.5T185-480q0-9 .5-20.5T188-521L80-600l93-164 118 54q16-13 37-25t40-18l20-127h184l20 126q19 7 40.5 18.5T669-710l118-54 93 164-108 77q2 10 2.5 21.5t.5 21.5q0 10-.5 21t-2.5 21l108 78-93 164-118-54q-16 13-36.5 25.5T592-206L572-80H388Zm92-270q54 0 92-38t38-92q0-54-38-92t-92-38q-54 0-92 38t-38 92q0 54 38 92t92 38Z" />,
+};
+
 const Icons = {
-  /* Sidebar set, matched to the mockups: a grid for Dashboard, a calendar
-     for Month Budget. Rounded rects need rx, which a stroke path cannot
-     carry, so these two pass elements through Ic rather than d strings. */
+  /* grid and calendar are the sidebar's former Dashboard and Month Budget
+     icons. The nav takes its four from MsIcons above now; these stay because
+     they are the app's own stroke language and the only two rounded-rect
+     drawings in it. Rounded rects need rx, which a stroke path cannot carry,
+     so both pass elements through Ic rather than d strings. */
   grid: (p) => <Ic {...p}>
     <rect x="3" y="3" width="7.5" height="7.5" rx="1.8" />
     <rect x="13.5" y="3" width="7.5" height="7.5" rx="1.8" />
@@ -487,4 +520,4 @@ function ChartCard({ title, sub, children, wide, stretch }) {
   );
 }
 
-export { Icons, MoneyInput, TextInline, DayField, Avatar, DiffPill, MiniBar, Modal, ConfirmDialog, ChartCard, evalMoney, isExpr };
+export { Icons, MsIcons, MoneyInput, TextInline, DayField, Avatar, DiffPill, MiniBar, Modal, ConfirmDialog, ChartCard, evalMoney, isExpr };

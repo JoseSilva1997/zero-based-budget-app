@@ -110,8 +110,8 @@ export type AutoBackupMode = 'off' | 'onclose' | 'daily';
 
 export interface BlobSettings {
   currency: string;
+  /** A [data-theme] id from renderer/lib/theme.js. */
   theme: string;
-  accentColor: string;
   members: BlobMember[];
   accounts: BlobAccount[];
   autoBackup: AutoBackupMode;
@@ -268,8 +268,9 @@ export interface EntrySuggestion {
 
 export interface BootstrapSettings {
   currency: string;
+  /** As persisted: may name a theme that no longer ships. The renderer
+   *  validates it against THEME_IDS and falls back. */
   theme: string;
-  accentColor: string;
   autoBackup: AutoBackupMode;
   lastBackup: string | null;
   members: HouseholdMember[];

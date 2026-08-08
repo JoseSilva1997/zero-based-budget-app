@@ -4,10 +4,12 @@
    ============================================================ */
 import type Database from 'better-sqlite3';
 
+/* 'accentColor' was dropped when themes stopped being a background x accent
+   grid and became one complete palette each. Nothing reads or writes it any
+   more; the row an older install left behind is simply ignored. */
 export type MetaKey =
   | 'currency'
   | 'theme'
-  | 'accentColor'
   | 'autoBackup'
   | 'lastBackup'
   | 'activeMonth';

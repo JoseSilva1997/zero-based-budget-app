@@ -13,7 +13,7 @@
    ============================================================ */
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
 import { api, hasApi, spentOn, dayFromMonthDay } from "./lib/api.js";
-import { THEME_IDS, ACCENT_IDS, buildEmpty, monthLabel } from "./lib/index.js";
+import { THEME_IDS, DEFAULT_THEME_ID, buildEmpty, monthLabel } from "./lib/index.js";
 
 const DEFAULT_COLOR = "#7a7a7a";
 const StoreContext = createContext(null);
@@ -26,12 +26,12 @@ function treeToBlobMonth(tree) {
 }
 
 function settingsFromBootstrap(bs) {
-  const theme = THEME_IDS.includes(bs.settings.theme) ? bs.settings.theme : "slate";
-  const accentColor = ACCENT_IDS.includes(bs.settings.accentColor) ? bs.settings.accentColor : "indigo";
+  // A persisted id from a theme that no longer ships (every pre-reset theme,
+  // and every legacy combined id before those) simply falls back.
+  const theme = THEME_IDS.includes(bs.settings.theme) ? bs.settings.theme : DEFAULT_THEME_ID;
   return {
     currency: bs.settings.currency || "$",
     theme,
-    accentColor,
     autoBackup: bs.settings.autoBackup || "onclose",
     lastBackup: bs.settings.lastBackup || null,
     members: (bs.settings.members || []).map((m) => ({

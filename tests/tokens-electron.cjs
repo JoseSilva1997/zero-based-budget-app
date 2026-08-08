@@ -1,14 +1,20 @@
 /* ============================================================
-   Contrast floors across all 4 themes x 6 accent colours.
+   Contrast floors, for every theme the app ships.
 
-   Loads renderer/app.css into a real hidden window, sets each data-theme /
-   data-accent combination in turn, and asserts the contrast ratios the
-   design depends on. This Chromium build keeps getComputedStyle().color in
-   oklch() notation rather than converting it to rgb(), so tokens are
-   resolved by painting them onto a 1x1 canvas and reading the pixel back:
-   the browser's own colour engine has to do the real conversion, and a
-   pixel buffer only ever holds plain numbers. A failure here means a
-   palette change broke a WCAG floor in at least one theme/accent pair.
+   Loads renderer/app.css into a real hidden window, wears each data-theme in
+   turn, and asserts the contrast ratios the design depends on. This Chromium
+   build keeps getComputedStyle().color in oklch() notation rather than
+   converting it to rgb(), so tokens are resolved by painting them onto a 1x1
+   canvas and reading the pixel back: the browser's own colour engine has to do
+   the real conversion, and a pixel buffer only ever holds plain numbers. A
+   failure here means a palette change broke a floor in at least one theme.
+
+   This is the gate a new theme has to pass. THEMES below is the one list to
+   extend when you add a [data-theme] block, and it should stay in step with
+   BUDGET_THEMES in renderer/lib/theme.js.
+
+   Pass --report to print every measured ratio rather than only the failures,
+   which is how the numbers quoted in app.css's comments are obtained.
 
    Run with:  npx electron tests/tokens-electron.cjs
    ============================================================ */
@@ -19,15 +25,41 @@ const path = require('path');
 app.disableHardwareAcceleration();
 
 const root = path.join(__dirname, '..');
-const THEMES = ['slate', 'obsidian', 'charcoal', 'navy'];
-const ACCENTS = ['indigo', 'cyan', 'emerald', 'lime', 'amber', 'rose'];
+const REPORT = process.argv.includes('--report');
+const THEMES = ['obsidian'];
 
 // [label, foreground token, background token, minimum ratio]
+//
+// Every floor the THEME CONTRACT in renderer/app.css claims is enforced here,
+// so a new theme block is checked against the whole contract rather than
+// against whichever half someone remembered.
 const CHECKS = [
+  // The ink ramp, solved against --raised because that is the busiest text
+  // backdrop and the tightest of the three surfaces. AA body text at 4.5:1.
+  ['faint on raised',  '--faint',  '--raised', 4.5],
+  ['muted on raised',  '--muted',  '--raised', 4.5],
+  ['ink-2 on raised',  '--ink-2',  '--raised', 4.5],
+  ['ink on raised',    '--ink',    '--raised', 4.5],
+  // --on-ink is the foreground for anything FILLED with --ink, so the pair is
+  // read in the reverse direction from the rest of the ramp.
+  ['on-ink on ink',    '--on-ink', '--ink',    4.5],
+  // --rule-strong carries the boundary or state of something interactive, so
+  // WCAG 1.4.11 binds it at 3:1. --rule and --rule-faint are decorative, and
+  // these two are regression guards rather than floors: they exist because
+  // both were once left at 1.03-1.38:1, which is invisible rather than subtle.
   ['rule-strong on raised', '--rule-strong', '--raised', 3.0],
+  ['rule on raised',        '--rule',        '--raised', 2.0],
+  ['rule-faint on raised',  '--rule-faint',  '--raised', 1.7],
   ['unsettled on board', '--unsettled', '--board', 3.0],
   ['breach on board',    '--breach',    '--board', 3.0],
   ['breach-ink on breach-soft', '--breach-ink', '--breach-soft', 4.5],
+  // The primary button. --accent-btn exists precisely so this clears AA when
+  // the raw --accent cannot carry --on-accent; a theme that skips the override
+  // when it needed one fails here.
+  ['on-accent on accent-btn', '--on-accent', '--accent-btn', 4.5],
+  // The focus ring's solid 2px core, on the lightest surface it can land on.
+  // WCAG 2.4.11 wants 3:1 for the indicator itself.
+  ['accent ring on raised', '--accent', '--raised', 3.0],
   // The bar's outer boundary: how far the fill extends against its track.
   // This is the one WCAG 1.4.11 actually governs, so it stays at 3:1.
   ['bar fill faded on track', '--bar-faded', '--well', 3.0],
@@ -35,22 +67,21 @@ const CHECKS = [
   // redundant encoding rather than the sole carrier of the amounts it
   // represents: MonthBar prints "spent" and "allocated" as text beneath
   // the bar, so 1.4.11's "information not otherwise available" test does
-  // not bind this pair to 3:1. contrast(--accent, --well) is under the
-  // 9:1 that two stacked 3:1 floors would require in 8 of the 12 themes
-  // (ratios multiply: outer x inner = total, so a total under 9 cannot
-  // hold two 3:1 floors at once), which is why this floor is derived
-  // rather than picked.
+  // not bind this pair to 3:1. It could not hold 3:1 anyway on most
+  // palettes: ratios multiply, so outer x inner = contrast(--accent, --well),
+  // and two stacked 3:1 floors would need that product to reach 9:1. Which
+  // is why this floor is derived rather than picked.
   //
   // Derivation: --bar-faded's mix percentage is the smallest whole number
-  // that clears the outer floor above in every theme (raising it lightens
-  // --bar-faded, which raises the outer ratio and lowers this one, so the
-  // smallest percentage that clears the outer floor also maximises this
-  // one). That is 74% (see renderer/app.css). At 74%, the worst case
-  // across all 12 themes is indigo at 1.503:1. 1.5 is that value rounded
-  // DOWN to one decimal place, so it holds with the same margin the design
-  // actually has, not a hair over it. A change to --accent or --well that
-  // erodes this ratio below 1.5 is a real regression: it means the two
-  // fills are collapsing toward being indistinguishable.
+  // that clears the outer floor above (raising it lightens --bar-faded,
+  // which raises the outer ratio and lowers this one, so the smallest
+  // percentage that clears the outer floor also maximises this one). At the
+  // 73% renderer/app.css settled on, the tightest measurement the design has
+  // ever had here was 1.503:1, and 1.5 is that rounded DOWN to one decimal
+  // place, so the floor holds with the margin the design actually has rather
+  // than a hair over it. Obsidian itself measures 1.617:1. A change to
+  // --accent or --well that erodes this below 1.5 is a real regression: it
+  // means the two fills are collapsing toward indistinguishable.
   ['bar fill solid on faded', '--accent',    '--bar-faded', 1.5],
   // The income mark's tick (see .bar-mark-tick in app.css) lands on --board,
   // outside .bar-track's clip, and is the part of the mark that has to
@@ -60,16 +91,34 @@ const CHECKS = [
   // The bar's inner boundary between 'gap' and 'allocated' (--unsettled vs
   // --bar-faded) is a redundant encoding, same reasoning as the derived
   // floor above: the amounts are printed as text beneath the bar, so 1.4.11
-  // does not bind this pair to 3:1. Measured worst case is lime at
-  // 1.3988:1; 1.3 is that value rounded DOWN to one decimal place. This is
-  // a regression guard, not a WCAG floor: it exists to catch this pair
-  // collapsing further, not to certify it as accessible on its own.
+  // does not bind this pair to 3:1. The floor is 1.3 because the tightest
+  // this pair has ever measured is 1.3988:1, rounded DOWN to one decimal.
+  // Obsidian is nowhere near it at 3.413:1, and the floor is deliberately
+  // left at the historic value rather than tightened onto the one theme that
+  // ships: it is a collapse guard for whatever palette comes next, not a
+  // certificate that the pair is accessible on its own.
   ['unsettled on bar-faded', '--unsettled', '--bar-faded', 1.3],
+  // The sidebar's own ramp. --panel is a separate surface from --board and
+  // --raised (see the theme block comment in app.css), so every ink that lands
+  // on it needs its own floor: the ink ramp is solved against --raised, and in
+  // obsidian --panel is lighter than --raised, which spends contrast the ramp
+  // was never measured to have. --muted is the tightest of the two, carrying
+  // the brand subtitle and the "Household" label.
+  ['ink-2 on panel', '--ink-2', '--panel', 4.5],
+  ['muted on panel', '--muted', '--panel', 4.5],
+  // The active nav item's fill against the panel behind it. A regression guard
+  // rather than a WCAG floor, on the same reasoning as the bar's inner
+  // boundary above: the active section is also carried by aria-current, a
+  // weight-700 label and a filled icon, so 1.4.11's "information not otherwise
+  // available" test does not bind this pair to 3:1. The tightest this step has
+  // measured is 1.351:1; 1.3 is that rounded DOWN to one decimal place, so it
+  // holds with the margin the design actually has. Obsidian is at 1.385:1.
+  ['nav-active on panel', '--nav-active', '--panel', 1.3],
 ];
 
 function assert(cond, msg) { if (!cond) throw new Error(msg); }
 
-const PAGE = (css, themes, accents, checks) => `
+const PAGE = (css, themes, checks) => `
   const style = document.createElement('style');
   style.textContent = ${JSON.stringify(css)};
   document.head.appendChild(style);
@@ -91,8 +140,18 @@ const PAGE = (css, themes, accents, checks) => `
   // onto a 1x1 canvas and reading the pixel back forces the browser's own
   // colour engine to do the oklch-to-sRGB conversion; the pixel buffer only
   // ever holds concrete numbers, whatever notation produced them.
+  // When a var() is invalid at computed-value time, 'color' is an inherited
+  // property and so falls back to the PARENT's colour, and that fallback is
+  // what the definedness check below compares against. The parent therefore
+  // must not be a colour any token can hold: body carries color: var(--ink),
+  // so probing --ink directly under body would read exactly like a token that
+  // failed to resolve. The probe lives inside a host pinned to a sentinel no
+  // palette would ever land on instead.
+  const host = document.createElement('div');
+  host.style.color = 'rgb(1, 2, 3)';
+  document.body.appendChild(host);
   const probe = document.createElement('div');
-  document.body.appendChild(probe);
+  host.appendChild(probe);
   const canvas = document.createElement('canvas');
   canvas.width = 1; canvas.height = 1;
   const ctx = canvas.getContext('2d');
@@ -137,15 +196,15 @@ const PAGE = (css, themes, accents, checks) => `
 
   const results = [];
   for (const theme of ${JSON.stringify(themes)}) {
-    for (const accent of ${JSON.stringify(accents)}) {
-      document.documentElement.setAttribute('data-theme', theme);
-      document.documentElement.setAttribute('data-accent', accent);
-      for (const [label, fg, bg, min] of ${JSON.stringify(checks)}) {
-        let ok = false, got = 0, err = '';
-        try { got = ratio(resolve(fg), resolve(bg)); ok = got >= min; }
-        catch (e) { err = e.message; }
-        results.push({ theme, accent, label, min, got: Number(got.toFixed(2)), ok, err });
-      }
+    document.documentElement.setAttribute('data-theme', theme);
+    for (const [label, fg, bg, min] of ${JSON.stringify(checks)}) {
+      let ok = false, got = 0, err = '';
+      try { got = ratio(resolve(fg), resolve(bg)); ok = got >= min; }
+      catch (e) { err = e.message; }
+      // Three decimals, not two: the derived floors below are stated as the
+      // measured value rounded DOWN to one decimal, so re-deriving one needs
+      // more precision than the floor itself carries.
+      results.push({ theme, label, min, got: Number(got.toFixed(3)), ok, err });
     }
   }
   results;
@@ -157,11 +216,20 @@ app.whenReady().then(async () => {
   try {
     const css = fs.readFileSync(path.join(root, 'renderer', 'app.css'), 'utf8');
     await win.loadURL('data:text/html,<!doctype html><html><body></body></html>');
-    const results = await win.webContents.executeJavaScript(PAGE(css, THEMES, ACCENTS, CHECKS));
+    const results = await win.webContents.executeJavaScript(PAGE(css, THEMES, CHECKS));
+
+    if (REPORT) {
+      for (const r of results) {
+        console.log(
+          `${r.ok ? 'pass' : 'FAIL'}  ${r.theme.padEnd(10)} ${r.label.padEnd(28)} ` +
+          `${r.err || `${String(r.got).padStart(7)}:1  (floor ${r.min}:1)`}`
+        );
+      }
+    }
 
     const failed = results.filter((r) => !r.ok);
     for (const r of failed) {
-      console.error(`FAIL  ${(r.theme + '/' + r.accent).padEnd(18)} ${r.label}: ${r.err || `${r.got}:1 < ${r.min}:1`}`);
+      console.error(`FAIL  ${r.theme.padEnd(10)} ${r.label}: ${r.err || `${r.got}:1 < ${r.min}:1`}`);
     }
     console.log(`${results.length - failed.length}/${results.length} contrast checks passed`);
     assert(failed.length === 0, `${failed.length} contrast checks failed`);

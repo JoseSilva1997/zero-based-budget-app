@@ -102,7 +102,7 @@ await app.close();
 
 `--click` matching: exact `aria-label` match, then exact visible-text match,
 then substring matches of each, in that order. Prefer the exact visible
-label shown on screen (e.g. `Navy`, `"Rose colour"`, `Settings`) - check the
+label shown on screen (e.g. `Obsidian`, `Settings`) - check the
 component source (`renderer/*.jsx`) for the precise `aria-label` if a click
 reports `NOT_FOUND`.
 
@@ -121,14 +121,15 @@ node .claude/skills/screenshot-app/screenshot.mjs \
   --shot .claude/skills/screenshot-app/out/settings.png
 ```
 
-Switch theme + colour, then check two screens against the new combination:
+Switch theme, then check two screens against it. Obsidian is the only theme
+the app ships today, so this is mostly a template for when there are more:
 ```bash
 node .claude/skills/screenshot-app/screenshot.mjs \
   --nav Settings --wait 400 \
-  --click Navy --click "Rose colour" --wait 300 \
-  --shot .claude/skills/screenshot-app/out/settings-navy-rose.png \
+  --click Obsidian --wait 300 \
+  --shot .claude/skills/screenshot-app/out/settings-obsidian.png \
   --nav "Month Budget" --wait 400 \
-  --shot .claude/skills/screenshot-app/out/month-navy-rose.png
+  --shot .claude/skills/screenshot-app/out/month-obsidian.png
 ```
 
 Read a computed style instead of (or in addition to) a screenshot - e.g. to

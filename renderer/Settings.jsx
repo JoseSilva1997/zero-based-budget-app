@@ -3,7 +3,7 @@
    ============================================================ */
 import React, { useEffect, useRef, useState } from 'react';
 import { Avatar, ConfirmDialog, Icons, Modal, TextInline } from './components.jsx';
-import { BUDGET_THEMES, ACCENT_COLORS } from './lib/index.js';
+import { BUDGET_THEMES } from './lib/index.js';
 import { ACCT_ICON, ACCT_TYPE_LABEL, hexToSoft } from './Accounts.jsx';
 import { UpdateSettings } from './UpdateBanner.jsx';
 
@@ -320,11 +320,14 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
       <div className="section-head"><h2>Appearance</h2></div>
       <div className="panel panel-feature" style={{ padding: "22px 24px" }}>
         <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 14 }}>Theme</div>
-        {/* Each card is painted with the theme it previews, so the fixed
-            rgba() borders are deliberate: they have to read on all four
-            backgrounds, not on the active theme's. Selection is the accent
-            ring plus the ACTIVE caption in the corner - the accent is the one
-            colour that is the user's own across every theme. */}
+        {/* Driven entirely by BUDGET_THEMES: a theme added to that registry
+            appears here with no change to this file.
+
+            Each card is painted with the theme it previews rather than the one
+            the app is currently wearing, so the fixed rgba() borders are
+            deliberate: they have to read on any background a theme brings, not
+            on the active theme's. Selection is the accent ring plus the ACTIVE
+            caption in the corner. */}
         <div role="radiogroup" aria-label="Theme" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 16 }}>
           {BUDGET_THEMES.map((th) => {
             const on = s.theme === th.id;
@@ -348,31 +351,6 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
               </button>
             );
           })}
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 20, marginTop: 24 }}>
-          <div style={{ fontWeight: 600, fontSize: 15 }}>Accents</div>
-          <div role="radiogroup" aria-label="Colour" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            {ACCENT_COLORS.map((c) => {
-              const on = s.accentColor === c.id;
-              return (
-                <button key={c.id} role="radio" aria-checked={on} aria-label={`${c.label} colour`}
-                  title={c.label}
-                  onClick={() => dispatch({ type: "updateSettings", patch: { accentColor: c.id } })}
-                  style={{
-                    position: "relative", width: 24, height: 24, padding: 0, borderRadius: 99,
-                    background: c.accent, cursor: "pointer", display: "grid", placeItems: "center",
-                    color: "rgba(0,0,0,0.72)", border: "none",
-                    /* A ring with a gap, not a ring flush against the swatch:
-                       the moat is the panel's own fill, so the selection reads
-                       as a halo around the colour rather than a border on it. */
-                    boxShadow: on ? "0 0 0 2px var(--raised), 0 0 0 4px var(--accent)" : "none",
-                    transition: "box-shadow .15s",
-                  }}>
-                  {on && <Icons.check size={14} />}
-                </button>
-              );
-            })}
-          </div>
         </div>
       </div>
 

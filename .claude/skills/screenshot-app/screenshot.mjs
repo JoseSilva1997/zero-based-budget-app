@@ -68,12 +68,13 @@ Example - screenshot the Settings > Appearance panel:
   node .claude/skills/screenshot-app/screenshot.mjs \\
     --nav Settings --wait 400 --shot out/settings.png
 
-Example - switch theme/colour and compare:
+Example - switch theme and compare (Obsidian is the only theme today; use
+whatever label the card shows once there are more):
   node .claude/skills/screenshot-app/screenshot.mjs \\
     --nav Settings --wait 400 \\
-    --click Navy --click "Rose colour" --wait 300 \\
-    --shot out/navy-rose.png \\
-    --nav "Month Budget" --wait 400 --shot out/month-navy-rose.png
+    --click Obsidian --wait 300 \\
+    --shot out/settings-obsidian.png \\
+    --nav "Month Budget" --wait 400 --shot out/month-obsidian.png
 
 Example - one screenshot of each of the 4 screens:
   node .claude/skills/screenshot-app/screenshot.mjs --all-screens out

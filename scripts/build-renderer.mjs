@@ -29,8 +29,12 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const rendererDir = join(root, 'renderer');
 const outDir = join(rendererDir, 'dist');
 
+/* data-theme is set here as well as in main.jsx so the first paint, before
+   React mounts, is already the default theme rather than an unstyled board.
+   main.jsx overwrites the attribute with the persisted choice; keep this value
+   in step with DEFAULT_THEME_ID in renderer/lib/theme.js. */
 const HTML = `<!DOCTYPE html>
-<html lang="en" data-theme="slate" data-accent="indigo">
+<html lang="en" data-theme="obsidian">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />

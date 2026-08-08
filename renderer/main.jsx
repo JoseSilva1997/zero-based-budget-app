@@ -4,9 +4,9 @@
    ============================================================ */
 import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
-import { THEME_IDS, ACCENT_IDS, fmt, monthLabel, walletSummary } from './lib/index.js';
+import { THEME_IDS, DEFAULT_THEME_ID, fmt, monthLabel, walletSummary } from './lib/index.js';
 import { StoreProvider, useStore } from './store.jsx';
-import { Avatar, ConfirmDialog, Icons } from './components.jsx';
+import { Avatar, ConfirmDialog, Icons, MsIcons } from './components.jsx';
 import { WalletDrawer } from './Accounts.jsx';
 import { GroupCard, NewMonthModal } from './MonthGroups.jsx';
 import { IncomeSection } from './MonthBudget.jsx';
@@ -305,19 +305,27 @@ function App() {
     });
   }, [dispatch, toast]);
 
-  // resolve theme + accent from settings - 4 backgrounds x 6 accent colours
-  const themePref = state && THEME_IDS.includes(state.settings.theme) ? state.settings.theme : "slate";
-  const accentPref = state && ACCENT_IDS.includes(state.settings.accentColor) ? state.settings.accentColor : "indigo";
+  // The one place a theme is applied: the id from settings goes on <html>, and
+  // app.css's [data-theme] block supplies the whole palette from there.
+  const themePref = state && THEME_IDS.includes(state.settings.theme) ? state.settings.theme : DEFAULT_THEME_ID;
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", themePref);
-    document.documentElement.setAttribute("data-accent", accentPref);
-  }, [themePref, accentPref]);
+  }, [themePref]);
 
   if (fatal && !state) return <StartupErrorScreen error={fatal} onRetry={retry} />;
   if (loading || !state) return <LoadingScreen />;
 
   const currency = state.settings.currency;
-  const NAV = [["dashboard", "Dashboard", Icons.grid], ["budget", "Month Budget", Icons.calendar], ["history", "History", Icons.history], ["settings", "Settings", Icons.settings]];
+  /* [id, label, outlined icon, filled icon]. The filled variant is what the
+     active item shows: Material Symbols carry it as an axis of the same glyph,
+     so the shape does not change under the cursor, only its weight. history
+     has no filled variant in the family, hence the same component twice. */
+  const NAV = [
+    ["dashboard", "Dashboard", MsIcons.dashboard, MsIcons.dashboardFill],
+    ["budget", "Month Budget", MsIcons.calendar, MsIcons.calendarFill],
+    ["history", "History", MsIcons.history, MsIcons.history],
+    ["settings", "Settings", MsIcons.settings, MsIcons.settingsFill],
+  ];
 
   return (
     <div className={`app ${find.open ? "find-open" : ""}`}>
@@ -333,19 +341,27 @@ function App() {
             its own machine; four items directly under the app's name need no
             header at all. "Household" below stays, because it labels a list of
             people rather than the app's own sections. */}
-        {/* The nav is a new box in the sidebar's column, so it repeats the
-            column's own gap to leave the items spaced exactly as before. */}
-        <nav aria-label="Sections" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {NAV.map(([id, label, Ico]) => (
-            <button key={id} className={`nav-item ${tab === id ? "active" : ""}`} aria-current={tab === id ? "page" : undefined} onClick={() => setTab(id)}><Ico size={18} /> {label}</button>
-          ))}
+        {/* The nav is its own box in the sidebar's column, so it repeats the
+            column's gap rather than inheriting it through a fragment. */}
+        <nav aria-label="Sections" style={{ display: "flex", flexDirection: "column", gap: 8, paddingBottom: 8 }}>
+          {NAV.map(([id, label, Ico, IcoFill]) => {
+            const on = tab === id;
+            const I = on ? IcoFill : Ico;
+            return (
+              <button key={id} className={`nav-item ${on ? "active" : ""}`} aria-current={on ? "page" : undefined} onClick={() => setTab(id)}><I size={20} /> {label}</button>
+            );
+          })}
         </nav>
         <div className="sidebar-foot">
           <UpdateBanner />
-          <div className="nav-label" style={{ paddingLeft: 10 }}>Household</div>
-          {state.settings.members.map(m => (
-            <div className="member-chip" key={m.id}><Avatar member={m} size={24} /> {m.name}</div>
-          ))}
+          {/* The rule above this group is .household's, not the foot's: an
+              update notice is about the app, not about who lives here. */}
+          <div className="household">
+            <div className="nav-label">Household</div>
+            {state.settings.members.map(m => (
+              <div className="member-chip" key={m.id}><Avatar member={m} size={24} /> {m.name}</div>
+            ))}
+          </div>
         </div>
       </aside>
 

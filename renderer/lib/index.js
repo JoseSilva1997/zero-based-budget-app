@@ -6,7 +6,7 @@
    ============================================================ */
 export { fmt, round2 } from "./format.js";
 export { MONTH_NAMES, monthLabel, prevMonthId, nextMonthId, daysInMonth, actualDay, makeActualDate } from "./dates.js";
-export { BUDGET_THEMES, THEME_IDS, ACCENT_COLORS, ACCENT_IDS, GROUP_PALETTE } from "./theme.js";
+export { BUDGET_THEMES, THEME_IDS, DEFAULT_THEME_ID, GROUP_PALETTE } from "./theme.js";
 export {
   itemActual, monthIncome, monthAllocated, monthActual, monthSavings,
   groupAllocated, groupActual, monthUnallocated, overBudgetItems,

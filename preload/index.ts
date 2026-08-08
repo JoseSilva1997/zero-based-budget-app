@@ -126,7 +126,7 @@ const api = {
   accountRemove: (id: number) => invoke<Ok>('account:remove', { id }),
 
   /* ---------- settings ---------- */
-  settingsUpdate: (patch: { currency?: string; theme?: string; accentColor?: string; autoBackup?: AutoBackupMode }) =>
+  settingsUpdate: (patch: { currency?: string; theme?: string; autoBackup?: AutoBackupMode }) =>
     invoke<Ok>('settings:update', { patch }),
 
   /* ---------- backup / data ---------- */
