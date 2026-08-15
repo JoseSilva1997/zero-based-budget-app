@@ -2,6 +2,32 @@
    Full-bleed and structural: it sits directly on the board, not inside a
    .panel or a .raised, because it is neither flat furniture nor the one
    lifted object on the screen. */
+
+/* The block the whole bar occupies. Both shapes MonthBar can render share it -
+   the empty-state invitation and the full bar - so the month heading above and
+   the budget groups below do not shift when the first income arrives. */
+.bar-block { margin: var(--space-1) 0 26px; }
+
+/* The empty state. There is no track to read yet, so the only thing to say is
+   how to get one. */
+.bar-note { margin-top: var(--space-4); font-size: var(--text-13); color: var(--muted); }
+
+/* The figures above the track. Aligned on their baselines rather than their
+   boxes, because the two sides are set at 12px and 19px and it is the baseline
+   the eye reads them along. */
+.bar-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: var(--space-3);
+}
+.bar-income { font-size: var(--text-12); color: var(--muted); }
+.bar-remainder { font-size: var(--text-19); font-weight: 500; color: var(--ink); }
+/* .is-over is g.overAllocated, the plan fact: the allocation exceeds income.
+   It is NOT the same thing as a 'beyond' region being on the track, which is a
+   rendering fact and drives the income mark instead; see the comment beside
+   hasBeyond in MonthBar.jsx for why the two must never be conflated. */
+.bar-remainder.is-over { color: var(--breach-ink); }
+.bar-remainder-label { font-size: var(--text-12); font-weight: 400; color: var(--muted); }
+
 .bar-wrap { position: relative; }
 .bar-track {
   position: relative;
@@ -25,7 +51,29 @@
      transition above. */
   contain: layout paint;
 }
-.bar-region { position: absolute; top: 0; bottom: 0; }
+/* left and width are the animated pair rather than a transform; the deviation
+   from the spec's scaleX() is argued at the point it is deviated from, next to
+   the geometry in MonthBar.jsx. The duration is a constant, so it lives here
+   and not in the style prop that carries the two runtime percentages. */
+.bar-region {
+  position: absolute; top: 0; bottom: 0;
+  transition: left .35s ease, width .35s ease;
+}
+
+/* The fills, one class per region key. These were a PAINT lookup table in
+   MonthBar.jsx keyed on the same four names; the table is now a key-to-class
+   map and the colour lives here, where the rest of the bar's colour already
+   did. 'gap' has no class for exactly the reason it had no PAINT entry: it is
+   the money with no job yet, and that is now said by leaving the track bare
+   rather than by painting anything at all. */
+.bar-region.is-spent { background: var(--accent); }
+.bar-region.is-allocated { background: var(--bar-plan); }
+/* Hatch rather than a flat fill for both breaches, so colour is never the
+   only signal. Same reasoning as MiniBar. */
+.bar-region.is-overspent,
+.bar-region.is-beyond {
+  background: repeating-linear-gradient(-45deg, var(--breach) 0 3px, color-mix(in srgb, var(--breach) 45%, var(--well)) 3px 6px);
+}
 /* The plan: money allocated but not yet spent. A wash inside an --accent
    outline, so the span reads as an envelope with room left in it and the
    solid fill to its left reads as what has already gone. The outline is what
@@ -58,3 +106,29 @@
 }
 .bar-mark-tick::before { top: 0; }
 .bar-mark-tick::after { bottom: 0; }
+
+/* The read-out under the track: what the bar draws, said in words and figures
+   for the people the bar itself is hidden from (.bar-wrap is aria-hidden). */
+.bar-legend {
+  display: flex; gap: 18px; margin-top: var(--space-3);
+  font-size: var(--text-12); color: var(--muted);
+}
+/* The amounts step up out of --muted; the words around them stay in it, so the
+   line reads as figures with labels rather than as a sentence. */
+.bar-legend .num { color: var(--ink-2); }
+
+/* The over-budget strip. Once the gap closes this is the only coloured thing
+   left on the screen, which is the point; see the comment above it in
+   MonthBar.jsx. */
+.bar-over {
+  display: flex; align-items: center; gap: var(--space-4); margin-top: 14px;
+  padding: 11px 14px; border-radius: var(--radius-2xs);
+  background: var(--breach-soft); color: var(--breach-ink);
+  font-size: var(--text-13);
+}
+/* Everything in the strip holds its own width. The item list is the one part
+   that flexes, and therefore the one part that truncates. */
+.bar-over > svg, .bar-over strong, .bar-over-total { flex: none; }
+.bar-over strong { font-weight: 600; }
+.bar-over-items { opacity: 0.9; flex: 1 1 auto; }
+.bar-over-total { margin-left: auto; font-weight: 600; }

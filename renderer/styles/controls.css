@@ -152,8 +152,23 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
    Declared before the :hover/:focus rules below so those still win while the
    field is engaged - the tray only owns the resting look. */
 .minput.tray, .tinput.tray { background: var(--well); border-color: var(--rule-faint); }
+/* The day-of-month field. A .minput that is not a money column: it holds one or
+   two digits, so it is sized to its content and centred rather than stretched
+   to the column and right-aligned, and it sits a rung quieter than the amount
+   beside it. */
+.minput.day {
+  width: 44px; height: 26px; flex: none;
+  padding: 0 var(--space-1); text-align: center;
+  font-size: var(--text-12); color: var(--ink-2);
+}
 .minput:hover { background: var(--well); border-color: var(--rule); }
 .minput:focus { outline: none; background: var(--raised); border-color: var(--accent); box-shadow: var(--ring); }
+/* A money field holding a value the parser refused. Declared AFTER :focus on
+   purpose: the two have equal specificity, and the refusal has to survive the
+   field still being focused - which it always is, because a refused commit
+   keeps the field open. The ring goes with the accent border, since a red edge
+   plus a violet halo reads as two states at once. */
+.minput.is-invalid { border-color: var(--breach); box-shadow: none; }
 .tinput {
   border: 1px solid transparent; background: transparent; color: var(--ink);
   border-radius: 8px; padding: 5px 8px; font-size: 14px; width: 100%; font-weight: 500;
@@ -161,6 +176,71 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
 }
 .tinput:hover { background: var(--well); border-color: var(--rule); }
 .tinput:focus { outline: none; background: var(--raised); border-color: var(--accent); box-shadow: var(--ring); }
+
+/* The positioning context a money field's chip hangs off. It is the field's own
+   wrapper rather than the row, so the chip tracks the field it belongs to even
+   where several sit on one line. */
+.field-wrap { position: relative; display: flex; align-items: center; }
+
+/* The chip drawn above a money field, in its two skins: the resting one carries
+   the arithmetic preview ("= $52.50") on an --ink fill, and .is-error carries
+   the reason a value was refused. Same box in both cases - same corner, same
+   offset, same shadow - so the field does not appear to change shape when a sum
+   turns out to be unreadable. It is drawn ABOVE the field rather than below
+   because below is where the next row is. */
+.field-chip {
+  position: absolute; right: var(--space-2); bottom: 100%; margin-bottom: 3px;
+  background: var(--ink); color: var(--on-ink);
+  font-size: var(--text-11); font-weight: 600;
+  padding: 2px 7px; border-radius: var(--radius-3xs);
+  white-space: nowrap;
+  box-shadow: var(--shadow-sm); z-index: 4;
+}
+/* The refusal wraps where the preview does not: a preview is one short number
+   and must never be broken across lines, while a reason is a sentence, so it
+   takes a width to wrap inside and a line height to wrap comfortably at. */
+.field-chip.is-error {
+  background: var(--breach-soft); color: var(--breach-ink);
+  border: 1px solid var(--breach);
+  max-width: 230px; line-height: 1.35; text-align: right;
+  white-space: normal;
+}
+
+/* Mini progress bar (an item's actual against its allocation). The track clips,
+   so the fill can be a full-width box scaled down rather than a narrow one -
+   see the scaleX note in MiniBar. */
+.mini-bar { height: 5px; border-radius: var(--radius-pill); background: var(--well); overflow: hidden; width: 100%; }
+.mini-bar-fill {
+  height: 100%; width: 100%; transform-origin: left;
+  background: var(--accent); transition: transform .3s ease;
+}
+/* The hatch is why this is a class and not just a colour swap: it means colour
+   is never the only signal that a bar is over. See the comment in MiniBar for
+   the whole of that argument. */
+.mini-bar-fill.is-over {
+  background: repeating-linear-gradient(-45deg, var(--breach) 0 2px, color-mix(in srgb, var(--breach) 45%, var(--well)) 2px 4px);
+}
+
+/* A dialog's button row: right-aligned, because the confirming action belongs
+   under the reader's thumb at the end of the sentence they just read. */
+.dialog-actions { display: flex; gap: var(--space-3); justify-content: flex-end; margin-top: 18px; }
+
+/* Chart card (Dashboard). The framing rules are described at ChartCard in
+   components.jsx; these are the lengths that drawing needs. */
+.chart-card { grid-column: auto; min-width: 0; }
+.chart-card.is-wide { grid-column: span 2; }
+/* Opts the card out of the grid's align-items: start so it fills its row's
+   height, with .chart-body absorbing the slack. */
+.chart-card.is-stretch { align-self: stretch; display: flex; flex-direction: column; }
+.chart-rule {
+  height: 1px; margin-bottom: 18px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--rule) 65%, transparent) 50%, transparent);
+}
+.chart-head { margin-bottom: 14px; }
+.chart-title { font-weight: 600; font-size: var(--text-15-5); }
+.chart-sub { font-size: var(--text-12-5); color: var(--muted); margin-top: 2px; }
+.chart-body { border-bottom: 1px solid color-mix(in srgb, var(--rule-faint) 55%, transparent); padding-bottom: var(--space-5); }
+.chart-card.is-stretch .chart-body { flex: 1; }
 
 /* misc */
 .divider { height: 1px; background: var(--rule); border: none; margin: 0; }

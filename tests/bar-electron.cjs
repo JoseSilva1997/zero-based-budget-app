@@ -62,19 +62,29 @@ const mount = (mo) => {
 };
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
-// Each region is painted by an inline background, so read them off the DOM.
-const paints = (host) => [...host.querySelectorAll('.bar-region')].map((n) => n.style.background);
+// Each region is painted by a class now, not by an inline background: the old
+// PAINT table in MonthBar.jsx is a key-to-class map and the four fills live on
+// .bar-region.is-* in styles/bar.css. This suite still does not load the
+// stylesheet - colour is tests/tokens-electron.cjs's job - so what it reads is
+// which fill each region ASKED for, which is exactly what the table decided
+// before. is-plan rides along on 'allocated' and is checked on its own below.
+const paints = (host) => [...host.querySelectorAll('.bar-region')].map((n) => n.className);
 
 window.__runTests = async () => {
   // Partly allocated. The unallocated remainder is bare track, not a fill:
   // barRegions still emits a 'gap' span (see its own tests below), but
-  // MonthBar's PAINT table has no entry for it, so nothing is painted there.
-  // Two spans, spent and the plan, and the plan is the outlined one.
+  // MonthBar's region-class table has no entry for it, so nothing is painted
+  // there. Two spans, spent and the plan, and the plan is the outlined one.
   const partial = mount(month(3400, 2150, 4200));
   await tick();
   check('partial paints only spent and plan', paints(partial).length === 2, paints(partial).join(' | '));
+  // Named for what it proves: both fills are asked for. That they are the ONLY
+  // two is the length check above, not this one.
+  check('partial paints spent and allocated',
+    paints(partial).some((p) => p.includes('is-spent')) && paints(partial).some((p) => p.includes('is-allocated')),
+    paints(partial).join(' | '));
   check('partial leaves the gap unpainted',
-    !paints(partial).some((p) => p.includes('--unsettled')), paints(partial).join(' | '));
+    !paints(partial).some((p) => p.includes('is-gap')), paints(partial).join(' | '));
   check('partial outlines the plan', partial.querySelectorAll('.bar-region.is-plan').length === 1);
   check('partial draws no income mark', partial.querySelectorAll('.bar-mark-tick').length === 0);
 
@@ -90,7 +100,10 @@ window.__runTests = async () => {
   const over = mount(month(4510, 0, 4200));
   await tick();
   check('over-allocated draws the income mark', over.querySelectorAll('.bar-mark-tick').length === 1);
-  check('over-allocated paints a breach', paints(over).some((p) => p.includes('--breach')), paints(over).join(' | '));
+  // is-beyond and is-overspent are the two breach fills; both take the --breach
+  // hatch in bar.css, which is where that colour is now asserted.
+  check('over-allocated paints a breach',
+    paints(over).some((p) => p.includes('is-beyond') || p.includes('is-overspent')), paints(over).join(' | '));
   // The mark paints; the copy has to say why. Without this, a regression
   // pinning "left to allocate" in every state would still pass everything
   // else in this case.

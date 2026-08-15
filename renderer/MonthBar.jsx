@@ -19,7 +19,7 @@
    the breach alone.
    ============================================================ */
 import { Icons } from './components.jsx';
-import { barGeometry, barRegions, fmt, monthActual, monthAllocated, monthIncome, monthSavings, monthUnallocated, overBudgetItems, round2 } from './lib/index.js';
+import { barGeometry, barRegions, cx, fmt, monthActual, monthAllocated, monthIncome, monthSavings, monthUnallocated, overBudgetItems, round2 } from './lib/index.js';
 import { focusAllocated } from './MonthGroups.jsx';
 
 /* overBudgetItems reports names; routing to the row that fixes one needs its
@@ -36,10 +36,6 @@ function withRowIds(mo, over) {
 }
 function sumOver(over) { return round2(over.reduce((a, o) => a + o.over, 0)); }
 
-/* Hatch rather than a flat fill for both breaches, so colour is never the
-   only signal. Same reasoning as MiniBar. */
-const hatch = (c) => `repeating-linear-gradient(-45deg, var(${c}) 0 3px, color-mix(in srgb, var(${c}) 45%, var(--well)) 3px 6px)`;
-
 /* barRegions emits 'spent', 'allocated', 'overspent', 'gap' and 'beyond'.
    There is no 'overAllocated' region: over-allocation is a plan fact (see
    below), not a region key, and paints through 'beyond' like an overspend
@@ -49,12 +45,19 @@ const hatch = (c) => `repeating-linear-gradient(-45deg, var(${c}) 0 3px, color-m
    barRegions computes and returns it, and the tests still hold it to
    tiling - but it is the money with no job yet, and that is now said by
    leaving the track bare rather than by painting anything at all. A key
-   with no entry here renders nothing; see the filter in the map below. */
-const PAINT = {
-  spent: "var(--accent)",
-  allocated: "var(--bar-plan)",
-  overspent: hatch("--breach"),
-  beyond: hatch("--breach"),
+   with no entry here renders nothing; see the filter in the map below.
+
+   The entries used to be the fills themselves. They are class names now: four
+   fixed strings were four class names in disguise, and the colour they stood
+   for lives on .bar-region.is-* in bar.css. */
+const REGION_CLASS = {
+  spent: "is-spent",
+  /* 'allocated' is the plan, and the plan is drawn as a vessel: .is-plan adds
+     the --accent outline that carries how far it extends, so the wash under
+     it can stay quiet. */
+  allocated: "is-allocated is-plan",
+  overspent: "is-overspent",
+  beyond: "is-beyond",
 };
 
 function MonthBar({ mo, currency }) {
@@ -65,9 +68,9 @@ function MonthBar({ mo, currency }) {
 
   if (g.empty) {
     return (
-      <div style={{ margin: "4px 0 26px" }}>
+      <div className="bar-block">
         <div className="bar-track" />
-        <div style={{ marginTop: 10, fontSize: 13, color: "var(--muted)" }}>
+        <div className="bar-note">
           Add this month's income to start allocating.
         </div>
       </div>
@@ -88,14 +91,14 @@ function MonthBar({ mo, currency }) {
      the bar as well would just duplicate. MiniBar is role="img" because it
      stands alone; this one does not. */
   return (
-    <div style={{ margin: "4px 0 26px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
-        <span style={{ fontSize: 12, color: "var(--muted)" }}>
+    <div className="bar-block">
+      <div className="bar-head">
+        <span className="bar-income">
           {fmt(currency, income)} income
         </span>
-        <span className="num" style={{ fontSize: 19, fontWeight: 500, color: g.overAllocated ? "var(--breach-ink)" : "var(--ink)" }}>
+        <span className={cx("num", "bar-remainder", g.overAllocated && "is-over")}>
           {fmt(currency, Math.abs(unalloc))}{" "}
-          <span style={{ fontSize: 12, fontWeight: 400, color: "var(--muted)" }}>
+          <span className="bar-remainder-label">
             {g.overAllocated ? "over-allocated" : "left to allocate"}
           </span>
         </span>
@@ -109,12 +112,9 @@ function MonthBar({ mo, currency }) {
           animated instead. Deliberate deviation, not an oversight. */}
       <div className="bar-wrap" aria-hidden="true">
         <div className="bar-track">
-          {regions.filter((r) => PAINT[r.key]).map((r) => (
-            /* 'allocated' is the plan, and the plan is drawn as a vessel:
-               .is-plan adds the --accent outline that carries how far it
-               extends, so the wash under it can stay quiet. */
-            <div key={r.key} className={`bar-region${r.key === "allocated" ? " is-plan" : ""}`}
-              style={{ left: `${r.from * 100}%`, width: `${(r.to - r.from) * 100}%`, background: PAINT[r.key], transition: "left .35s ease, width .35s ease" }} />
+          {regions.filter((r) => REGION_CLASS[r.key]).map((r) => (
+            <div key={r.key} className={cx("bar-region", REGION_CLASS[r.key])}
+              style={{ left: `${r.from * 100}%`, width: `${(r.to - r.from) * 100}%` }} />
           ))}
           {/* The rule: crosses the track at 1px, carries precision (exactly
               where income falls against the fills), clipped by the track
@@ -130,10 +130,10 @@ function MonthBar({ mo, currency }) {
         {hasBeyond && <div className="bar-mark-tick" style={{ left: `${g.incomeX * 100}%` }} />}
       </div>
 
-      <div style={{ display: "flex", gap: 18, marginTop: 8, fontSize: 12, color: "var(--muted)" }}>
-        <span><span className="num" style={{ color: "var(--ink-2)" }}>{fmt(currency, actual)}</span> spent</span>
-        <span><span className="num" style={{ color: "var(--ink-2)" }}>{fmt(currency, alloc)}</span> allocated</span>
-        {savings > 0 && <span><span className="num" style={{ color: "var(--ink-2)" }}>{fmt(currency, savings)}</span> of that to savings</span>}
+      <div className="bar-legend">
+        <span><span className="num">{fmt(currency, actual)}</span> spent</span>
+        <span><span className="num">{fmt(currency, alloc)}</span> allocated</span>
+        {savings > 0 && <span><span className="num">{fmt(currency, savings)}</span> of that to savings</span>}
       </div>
 
       {over.length > 0 && (
@@ -142,25 +142,24 @@ function MonthBar({ mo, currency }) {
            this the worst moment on the screen. Once the gap closes this strip
            is the only coloured thing left, which is the point: for the 29 days
            after payday it is the only part that wants action. */
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14, padding: "11px 14px", borderRadius: 8, background: "var(--breach-soft)", color: "var(--breach-ink)", fontSize: 13 }}>
-          <Icons.alert size={16} style={{ flex: "none" }} />
-          <strong style={{ fontWeight: 600, flex: "none" }}>{over.length} item{over.length > 1 ? "s" : ""} over budget</strong>
-          <span style={{ opacity: 0.9, flex: "1 1 auto", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <div className="bar-over">
+          <Icons.alert size={16} />
+          <strong>{over.length} item{over.length > 1 ? "s" : ""} over budget</strong>
+          <span className="bar-over-items truncate">
             ·{" "}
             {over.slice(0, 3).map((o, i) => (
               <span key={`${o.id != null ? o.id : o.item}-${i}`}>
                 {i > 0 ? ", " : ""}
-                <button type="button" onClick={() => focusAllocated(o.id, o.groupId)}
+                <button type="button" className="link-btn" onClick={() => focusAllocated(o.id, o.groupId)}
                   title={`Go to ${o.item} in ${o.group}`}
-                  aria-label={`Go to ${o.item} in ${o.group}, ${fmt(currency, o.over)} over`}
-                  style={{ background: "transparent", border: 0, padding: 0, font: "inherit", color: "inherit", textDecoration: "underline", textUnderlineOffset: 2, cursor: "pointer" }}>
+                  aria-label={`Go to ${o.item} in ${o.group}, ${fmt(currency, o.over)} over`}>
                   {o.item}
                 </button>
               </span>
             ))}
             {over.length > 3 ? "…" : ""}
           </span>
-          <span className="num" style={{ marginLeft: "auto", fontWeight: 600, flex: "none" }}>{fmt(currency, sumOver(over))} over total</span>
+          <span className="num bar-over-total">{fmt(currency, sumOver(over))} over total</span>
         </div>
       )}
     </div>
