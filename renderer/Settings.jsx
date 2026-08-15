@@ -188,8 +188,8 @@ function RestoreDialog({ onClose, onRestored }) {
       <p>Pick a snapshot to go back to. Nothing changes until you confirm on the next screen.</p>
 
       {err && (
-        <div className="restore-error">
-          <Icons.alert size={16} className="restore-error-icon" /> {err}
+        <div className="alert restore-error">
+          <Icons.alert size={16} /> {err}
         </div>
       )}
 

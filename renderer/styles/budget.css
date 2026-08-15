@@ -172,17 +172,14 @@
 .entry-add-name, .entry-add-note { height: 32px; }
 .entry-amount-cell { position: relative; height: 32px; }
 .entry-amount-input { padding-left: var(--space-3); height: 32px; font-size: var(--text-13); }
-/* The arithmetic preview over the add-spend amount field. Same idea as
-   .field-chip in controls.css, which MoneyInput uses, but not the same box:
-   this one sits 2px further right and carries no shadow. They are a merge
-   candidate, not a merge. */
-.entry-amount-preview {
-  position: absolute; right: var(--space-1); bottom: 100%; margin-bottom: 3px;
-  background: var(--ink); color: var(--on-ink);
-  font-size: var(--text-11); font-weight: 600;
-  padding: 2px 7px; border-radius: var(--radius-3xs);
-  white-space: nowrap; z-index: 4;
-}
+/* The arithmetic preview over the add-spend amount field used to be written
+   out here as .entry-amount-preview: the same box as .field-chip in
+   controls.css (which MoneyInput uses) but 2px further right and without the
+   shadow, and byte for byte the same box as .qe-amt-preview in quickentry.css.
+   That merge has happened. The nine shared declarations are .field-chip and
+   the two that differ are .field-chip-tight, both in controls.css, and the
+   call site in MonthGroups.jsx now reads `num field-chip field-chip-tight`.
+   Neither difference was normalised away; see the note at .field-chip-tight. */
 .entry-add-btn { height: 32px; white-space: nowrap; }
 
 /* ---- add an item ---------------------------------------------------------
@@ -197,17 +194,21 @@
   margin-top: var(--space-3); border: 1px solid var(--rule-faint);
   border-radius: var(--radius-2xs); overflow: hidden; background: var(--well);
 }
-.add-item-option {
-  width: 100%; min-height: 40px;
-  display: grid; grid-template-columns: 1fr auto; gap: var(--space-5);
-  align-items: center; text-align: left; padding: 7px var(--space-4);
-  border: 0; background: transparent; color: var(--ink); cursor: pointer; font: inherit;
-}
+/* The candidate button is .picker-option in controls.css, which quick entry's
+   suggestion rows also take: the two were the same eleven declarations written
+   out on two screens. This min-height is the one thing that was never shared -
+   a candidate row is held open to 40px, a suggestion row is not - so it is all
+   that is left here. It is NOT pushed onto .picker-option: doing so would grow
+   quick entry's suggestion rows, which is a visual change.
+   .add-item-text and .add-item-name went the same way, into
+   .picker-option-text and .picker-option-name; .add-item-sub and
+   .add-item-amt stayed, being genuinely different from their opposite numbers
+   (see the notes at .qe-sugg-sub and .qe-sugg-amt). */
+.add-item-option { min-height: 40px; }
 /* The hairline goes BETWEEN candidates, so the first one draws none and does
-   not double up with the results box's own top edge. */
+   not double up with the results box's own top edge. It stays (0,2,0), so it
+   still outranks the `border: 0` .picker-option carries for the button reset. */
 .add-item-option + .add-item-option { border-top: 1px solid var(--rule-faint); }
-.add-item-text { min-width: 0; }
-.add-item-name { display: block; font-size: var(--text-13-5); font-weight: 500; }
 .add-item-sub { display: block; font-size: var(--text-11-5); color: var(--muted); margin-top: 2px; }
 .add-item-amt { font-size: var(--text-12-5); color: var(--ink-2); white-space: nowrap; }
 .add-item-empty { padding: 9px var(--space-4); color: var(--muted); font-size: var(--text-12-5); }

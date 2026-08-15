@@ -72,17 +72,25 @@
    not double up with the list's own top edge. Replaces an index test in the
    JSX that said the same thing one row at a time. */
 .qe-sugg-row + .qe-sugg-row { border-top: 1px solid var(--rule-faint); }
-.qe-sugg {
-  width: 100%;
-  display: grid; grid-template-columns: 1fr auto; gap: var(--space-5);
-  align-items: center; text-align: left; padding: 7px var(--space-4);
-  border: 0; background: transparent; color: var(--ink); cursor: pointer; font: inherit;
-}
+/* The suggestion button itself is .picker-option in controls.css, shared with
+   the add-item panel's candidate rows in budget.css: the two lists were built
+   independently on two screens and arrived at the same eleven declarations.
+   .qe-sugg-text and .qe-sugg-name went with it, into .picker-option-text and
+   .picker-option-name. The class stays on the element for the state rule
+   below, and because .add-item-option's 40px min-height is not wanted here -
+   a suggestion row is sized by its contents.
+
+   .qe-sugg-sub and .qe-sugg-amt below are the two near-misses. They are NOT
+   merged with .add-item-sub and .add-item-amt, which look like the same lines:
+   this sub is a flex row with a gap, an overflow and a nowrap because it holds
+   an icon beside its text, while the candidate's is a plain block; and this
+   amount is a block that wraps where the candidate's is inline and does not.
+   Each pair differs by three declarations, which is a difference, not noise. */
+
 /* The highlighted row, which is the keyboard's and only the keyboard's: the
-   list has no :hover rule, and did not have one as an inline style either. */
+   list has no :hover rule, and did not have one as an inline style either.
+   (0,2,0), so it still outranks .picker-option's transparent fill. */
 .qe-sugg.is-active { background: var(--well); }
-.qe-sugg-text { min-width: 0; }
-.qe-sugg-name { display: block; font-size: var(--text-13-5); font-weight: 500; }
 /* Deliberately NOT the .truncate stack: this line clips with no ellipsis and
    no min-width: 0, which is what it did inline. Adding either would change
    what is drawn. */
@@ -119,20 +127,16 @@
    already has. Carried across as it stood rather than dropped: it is the same
    line .entry-amount-input in budget.css carries for the same field. */
 .qe-amt-input { padding-left: var(--space-3); }
-/* The arithmetic preview over the quick-entry amount field. Byte for byte the
-   same box as .entry-amount-preview in budget.css, which draws this chip over
-   the add-spend field in an item's entry tray, and the same idea again as
-   .field-chip in controls.css, which MoneyInput uses and which sits 2px
-   further left and carries a shadow. All three are one merge, deferred: the
-   pair that IS identical cannot be collapsed from here without writing into
-   budget.css, which this task does not own. */
-.qe-amt-preview {
-  position: absolute; right: var(--space-1); bottom: 100%; margin-bottom: 3px;
-  background: var(--ink); color: var(--on-ink);
-  font-size: var(--text-11); font-weight: 600;
-  padding: 2px 7px; border-radius: var(--radius-3xs);
-  white-space: nowrap; z-index: 4;
-}
+/* The arithmetic preview over the quick-entry amount field used to be written
+   out here as .qe-amt-preview: byte for byte the same box as
+   .entry-amount-preview in budget.css, which drew this chip over the add-spend
+   field in an item's entry tray, and the same idea again as .field-chip in
+   controls.css, which MoneyInput uses and which sits 2px further left and
+   carries a shadow. That merge, deferred while no agent owned both files, has
+   happened: the nine shared declarations are .field-chip and the two that
+   differ are .field-chip-tight, both in controls.css, and the call site in
+   QuickEntry.jsx now reads `num field-chip field-chip-tight`. Neither
+   difference was normalised away; see the note at .field-chip-tight. */
 /* Level with the fields beside it rather than at .btn's own height. The
    justify-content restates what .btn already sets. */
 .qe-log-btn { height: 32px; justify-content: center; flex: 0 0 auto; }

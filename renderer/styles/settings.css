@@ -32,12 +32,9 @@
 /* The "Add member" / "Add account" row that closes a list panel. */
 .set-row.set-row-add { padding: var(--space-5) 18px; }
 
-/* A .btn-ghost that rests a rung quieter than the class's own --ink-2: the
-   three "add / choose a file" buttons are afterthoughts under a list, not
-   peers of the list. The :hover half of the selector is not redundant -
-   .btn-ghost:hover is (0,2,0) and would otherwise lift the label to --ink,
-   which the inline style this replaces never allowed it to do. */
-.btn-ghost.btn-quiet, .btn-ghost.btn-quiet:hover { color: var(--muted); }
+/* .btn-quiet moved to controls.css, beside the .btn-ghost it qualifies: the
+   shell migration had written the identical rule as .add-group-btn, so it was
+   stated twice in two files. */
 
 /* The two inline name fields (a member's name, an account's name). Both
    values match what .tinput already sets, so this class only exists to keep
@@ -160,13 +157,18 @@ select.account-select { padding-right: var(--space-3); }
 /* ---- Restore dialog ----------------------------------------------------- */
 .restore-summary { display: block; margin-bottom: var(--space-5); }
 .restore-note { display: block; color: var(--ink-2); }
+/* .alert in controls.css carries the box, its ink and its icon; these four are
+   the whole of what is different about this copy. It is NOT .alert-banner,
+   which the Dashboard and History banners take: this one pads 10px 12px
+   against their 11px 14px and closes with 14px against their 16px. Two near
+   misses, and normalising either would move pixels in the restore dialog, so
+   the difference is kept and stated rather than harmonised away.
+   The .restore-error-icon class is gone with it: `.alert > svg` reaches this
+   icon, as it does the other three. */
 .restore-error {
-  display: flex; gap: 9px; align-items: flex-start;
-  background: var(--breach-soft); color: var(--breach-ink);
-  padding: var(--space-4) var(--space-5); border-radius: var(--radius-sm);
-  font-size: var(--text-13); margin-bottom: 14px; line-height: 1.45;
+  background: var(--breach-soft); border-radius: var(--radius-sm);
+  padding: var(--space-4) var(--space-5); margin-bottom: 14px;
 }
-.restore-error-icon { flex: none; margin-top: 1px; }
 
 .backup-list {
   border: 1px solid var(--rule); border-radius: 12px;

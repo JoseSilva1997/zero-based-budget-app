@@ -357,11 +357,17 @@ function DayField({ day, monthId, onCommit, onEnter, inputRef, autoFocus = false
 /* ---- text input (inline rename) ---------------------------------------- */
 /* 'allowEmpty' is for genuinely optional text (an entry's note): without it a
    cleared field snaps back to its old value, so the field can never be emptied. */
-function TextInline({ value, onCommit, className = "", placeholder = "", style, col, label, allowEmpty = false }) {
+/* There is no `style` prop. There was one, and every caller used it to hand
+   this field a static rule that has since become a class; the last of them
+   went in Phase D, leaving a prop nobody passed and a door back to inline
+   styling standing open. MoneyInput, DayField and Avatar never had one:
+   Avatar's own inline style is computed from its size prop and its member's
+   colour, which is the runtime-value carve-out and not this. */
+function TextInline({ value, onCommit, className = "", placeholder = "", col, label, allowEmpty = false }) {
   const [txt, setTxt] = useState(value);
   useEffect(() => { setTxt(value); }, [value]);
   return (
-    <input className={`tinput ${className}`} value={txt} placeholder={placeholder} style={style}
+    <input className={`tinput ${className}`} value={txt} placeholder={placeholder}
       data-col={col} aria-label={label}
       onChange={(e) => setTxt(e.target.value)}
       onBlur={() => onCommit(allowEmpty ? txt.trim() : txt.trim() || value)}

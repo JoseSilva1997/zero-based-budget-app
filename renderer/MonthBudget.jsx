@@ -56,7 +56,7 @@ function IncomeSection({ mo, currency, members, dispatch, month }) {
           <span className="num income-total-value">{fmt(currency, total)}</span>
         </div>
       </div>
-      <div className="panel income-panel">
+      <div className="panel panel-clip">
         {mo.incomes.length === 0 && (
           <div className="empty income-empty">
             <div className="empty-icon"><Icons.coins size={20} /></div>

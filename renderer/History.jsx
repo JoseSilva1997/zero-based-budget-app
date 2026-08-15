@@ -47,7 +47,7 @@ function HistoryScreen({ currency, onOpenMonth }) {
       </div>
 
       {loadError && (
-        <div role="alert" className="hist-error">
+        <div role="alert" className="alert alert-banner">
           <Icons.alert size={16} />
           <span>Your month history couldn't be read, so this screen may be empty or out of date. {loadError}</span>
         </div>
@@ -55,7 +55,7 @@ function HistoryScreen({ currency, onOpenMonth }) {
 
       {/* month list */}
       <div className="section-head"><h2>All months</h2></div>
-      <div className="panel hist-months">
+      <div className="panel panel-clip">
         {/* Not a table: every row is one button that opens a month, and a row
             cannot be both a control and a set of cells. The strip below is a
             visual key for the columns; the reading of it lives on each row. */}
@@ -209,7 +209,7 @@ function MonthDetail({ series, getMonth, currency, onClose, onOpen, isCurrent })
       <div className="hist-detail-body">
         {!mo && !err && <div className="hist-detail-loading">Loading…</div>}
         {err && (
-          <div role="alert" className="hist-detail-error">
+          <div role="alert" className="alert hist-detail-error">
             <Icons.alert size={16} />
             <span>This month's breakdown couldn't be read. {err}</span>
           </div>

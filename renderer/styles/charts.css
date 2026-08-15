@@ -12,15 +12,13 @@
 
 /* ---- the dashboard screen ----------------------------------------------- */
 
-/* A failed read of the month series. --breach carries the ordinary red of an
-   error affordance here, not a budget state; see the token's comment. */
-.dash-error {
-  display: flex; gap: 9px; align-items: flex-start;
-  background: var(--breach-soft); color: var(--breach-ink);
-  padding: 11px 14px; border-radius: var(--radius-sm);
-  font-size: var(--text-13); line-height: 1.45; margin-bottom: var(--space-6);
-}
-.dash-error-icon { flex: none; margin-top: 1px; }
+/* A failed read of the month series used to be written out here as .dash-error
+   plus a .dash-error-icon: the box was one of four copies of the same alert on
+   four screens, and identical declaration for declaration to History's. It is
+   `alert alert-banner` in controls.css now, with the icon reached by
+   `.alert > svg` rather than by a class of its own. --breach carries the
+   ordinary red of an error affordance there, not a budget state; see the
+   token's comment. */
 
 /* The whole-screen empty state, on top of .panel .empty from controls.css. */
 .dash-empty { margin-top: var(--space-6); }

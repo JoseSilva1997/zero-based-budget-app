@@ -99,7 +99,7 @@ function AccountPanel({ mo, accounts, members, currency }) {
 
       {/* per-account breakdown */}
       <div className="eyebrow wallet-eyebrow">By account</div>
-      <div className="panel wallet-list">
+      <div className="panel panel-clip">
         {byAccount.map((t, i) => {
           const owner = members.find(m => m.id === t.account.owner);
           const pct = totalToFund > 0 ? t.allocated / totalToFund : 0;
@@ -164,7 +164,7 @@ function AccountPanel({ mo, accounts, members, currency }) {
             <span>{savingsAccount ? savingsAccount.name : "Savings"} wallets</span>
             <span className="num wallet-savings-total">{fmt(currency, savingsTotal)}</span>
           </div>
-          <div className="panel wallet-list">
+          <div className="panel panel-clip">
             {savingsItems.map((it, i) => {
               // A savings icon in the app's default green used to be a small
               // "you're doing well" nudge; the same reasoning that retired the

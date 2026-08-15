@@ -63,8 +63,10 @@
 .wallet-mover-amt { font-size: var(--text-17); font-weight: 600; flex: none; }
 
 /* ---- by account ---------------------------------------------------------
-   A .panel that clips, so the rows inside it stop at its corners. */
-.wallet-list { overflow: hidden; }
+   The card is `panel panel-clip`, so the rows inside it stop at its corners.
+   That was .wallet-list here, one of three one-declaration classes across
+   three files saying the same thing; the rule is .panel-clip in controls.css
+   now. */
 /* Rules between rows, never above the first one. */
 .wallet-acct.is-divided,
 .wallet-alloc.is-divided,

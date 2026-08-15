@@ -37,9 +37,9 @@ function SuggestionRow({ s, active, currency, onPick, id }) {
     <button type="button" id={id} role="option" aria-selected={active}
       onMouseDown={(e) => e.preventDefault()}
       onClick={() => onPick(s)}
-      className={cx("qe-sugg", active && "is-active")}>
-      <span className="qe-sugg-text">
-        <span className="qe-sugg-name truncate">{s.name}</span>
+      className={cx("picker-option qe-sugg", active && "is-active")}>
+      <span className="picker-option-text">
+        <span className="picker-option-name truncate">{s.name}</span>
         <span className={cx("qe-sugg-sub", s.itemId == null && "is-unresolved")}>
           {s.itemId == null ? <Icons.alert size={12} /> : <Icons.right size={12} />}
           {s.itemId == null ? `"${s.itemName}" is not in this month - pick an item` : `${s.groupName} · ${s.itemName}`}
@@ -299,7 +299,7 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
               value={amt} onChange={(e) => setAmt(e.target.value)} placeholder={`${currency}0.00`}
               onKeyDown={(e) => e.key === "Enter" && add()} />
             {amtPreview !== null && (
-              <span className="num qe-amt-preview">= {fmt(currency, amtPreview)}</span>
+              <span className="num field-chip field-chip-tight">= {fmt(currency, amtPreview)}</span>
             )}
           </div>
 

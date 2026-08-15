@@ -272,7 +272,7 @@ function EntriesDrawer({ item, group, currency, dispatch, month }) {
         <div className="entry-amount-cell">
           <input ref={amtRef} className="minput entry-amount-input" aria-label="Amount spent" inputMode="text" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder={`${currency}0.00`} onKeyDown={(e) => e.key === "Enter" && add()} />
           {amtPreview !== null && (
-            <span className="num entry-amount-preview">= {fmt(currency, amtPreview)}</span>
+            <span className="num field-chip field-chip-tight">= {fmt(currency, amtPreview)}</span>
           )}
         </div>
         {/* Add sits in the actions column, under the entries' remove buttons:
@@ -474,9 +474,9 @@ function AddItemSearch({ month, groupId, currency, dispatch, onClose, itemCount 
           <button key={`${candidate.month}:${candidate.name}`} type="button" disabled={saving}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => selectCandidate(candidate)}
-            className="add-item-option">
-            <span className="add-item-text">
-              <span className="add-item-name truncate">{candidate.name}</span>
+            className="picker-option add-item-option">
+            <span className="picker-option-text">
+              <span className="picker-option-name truncate">{candidate.name}</span>
               <span className="add-item-sub truncate">{candidate.groupName} - {candidate.monthLabel}</span>
             </span>
             <span className="num add-item-amt">{fmt(currency, candidate.allocated, { cents: false })}</span>

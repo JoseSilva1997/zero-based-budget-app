@@ -12,24 +12,21 @@
    A trends read that failed is shown rather than swallowed, so an error does
    not arrive looking like a household with nothing in it. The breach palette
    because it is an error affordance, which is the second of --breach's two
-   roles (see the token's comment in tokens.css). */
-.hist-error {
-  display: flex; gap: 9px; align-items: flex-start;
-  padding: 11px 14px; border-radius: var(--radius-sm);
-  background: var(--breach-soft); color: var(--breach-ink);
-  font-size: var(--text-13); line-height: 1.45;
-  margin-bottom: var(--space-6);
-}
-/* The icon keeps its size while the sentence beside it takes the width, and
-   sits 1px down so it lands on that sentence's first line rather than above
-   it. Same pair, same reason, as the detail dialog's error below. */
-.hist-error > svg { flex: none; margin-top: 1px; }
+   roles (see the token's comment in tokens.css).
+
+   Both of those reasons now live at .alert in controls.css, along with the box
+   itself: this banner and Dashboard's were identical declaration for
+   declaration, so the pair is `alert alert-banner` and the .hist-error rule
+   and its `> svg` companion are gone. The detail dialog's error below takes
+   .alert too, for its own six declarations, and keeps only the padding that
+   makes it a line inside a dialog rather than a banner across a screen. */
 
 /* ---- the all-months table ------------------------------------------------
-   A .panel that clips. Every row inside is a square-cornered button running
-   the full width of the card, so without this the first and last of them would
-   paint straight through the card's own 20px corners. */
-.hist-months { overflow: hidden; }
+   The card is `panel panel-clip`. Every row inside is a square-cornered button
+   running the full width of it, so without the clip the first and last of them
+   would paint straight through the card's own 20px corners. That was
+   .hist-months here, one of three one-declaration classes across three files
+   saying the same thing; the rule is .panel-clip in controls.css now. */
 
 /* The six tracks, stated once for the column strip and the rows that read
    against it. This is not the budget grid and must not be given .budget-row;
@@ -148,12 +145,12 @@
   margin: 0 -4px; padding-right: var(--space-1);
 }
 .hist-detail-loading { padding: var(--space-5) var(--space-3); color: var(--muted); font-size: var(--text-13); }
-.hist-detail-error {
-  display: flex; gap: 9px; align-items: flex-start;
-  padding: var(--space-5) var(--space-3);
-  color: var(--breach-ink); font-size: var(--text-13); line-height: 1.45;
-}
-.hist-detail-error > svg { flex: none; margin-top: 1px; }
+/* .alert in controls.css carries the box and the icon; this is the whole of
+   what is different about it. A line inside a dialog rather than a banner
+   across a screen, so it takes neither the fill nor the corner nor the bottom
+   margin .alert-banner adds, and it pads to the dialog's own scrolling body
+   (12px 8px) instead of the banner's 11px 14px. */
+.hist-detail-error { padding: var(--space-5) var(--space-3); }
 .hist-detail-group { margin-bottom: var(--space-5); }
 .hist-detail-group-head {
   display: flex; justify-content: space-between;
@@ -180,9 +177,9 @@
 .income-total { display: flex; align-items: center; gap: var(--space-5); }
 .income-total-label { font-size: var(--text-12-5); color: var(--muted); }
 .income-total-value { font-size: var(--text-15); font-weight: 600; }
-/* Clips for the same reason .hist-months does: full-width square rows inside a
-   20px-cornered card. */
-.income-panel { overflow: hidden; }
+/* The income card clips for the same reason the all-months table does:
+   full-width square rows inside a 20px-cornered card. That was .income-panel
+   here; both call sites take .panel-clip in controls.css now. */
 /* Square rather than .empty's own 44px/20px: this empty state sits inside a
    card that is one section of a screen, not alone on a blank one. */
 .empty.income-empty { padding: var(--space-8); }

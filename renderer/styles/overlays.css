@@ -55,6 +55,57 @@
 .drawer-body::-webkit-scrollbar-thumb, .scroll-list::-webkit-scrollbar-thumb { background: var(--rule-strong); border-radius: 99px; border: 3px solid var(--raised); }
 .drawer-body::-webkit-scrollbar-track, .scroll-list::-webkit-scrollbar-track { background: transparent; }
 
+/* ---- toast --------------------------------------------------------------
+   One message at a time, centred over the foot of the window. The reasoning
+   for the two skins lives at Toast in main.jsx: success and failure must not
+   look alike, so the error variant is the only one that takes a colour, an
+   icon of its own and a dismiss control.
+
+   z-index 80 puts it over the drawer (71) and its veil (70) and under the
+   find bar (90), which is the one thing a message must not cover, since the
+   bar is being typed into while messages arrive.
+
+   The animation is `pop`, shared with the modal and declared above: its
+   timing function is on the keyframe rather than here, so this inherits the
+   same long settle every other arriving surface has. */
+.toast {
+  position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%);
+  max-width: min(560px, calc(100vw - 60px));
+  background: var(--ink); color: var(--on-ink);
+  border: 1px solid transparent;
+  padding: 11px 18px;
+  border-radius: var(--radius-sm); font-size: var(--text-13-5); font-weight: 500; line-height: 1.45;
+  box-shadow: var(--shadow-lg); z-index: 80;
+  display: flex; align-items: flex-start; gap: var(--space-4); animation: pop .2s ease;
+}
+/* The error skin. The asymmetric padding is the dismiss button's: it needs
+   less room on the right than the message needs on the left. */
+.toast.is-error {
+  background: var(--breach-soft); color: var(--breach-ink);
+  border: 1px solid var(--breach);
+  padding: 11px var(--space-5) 11px var(--space-6);
+}
+/* The leading glyph, and only that one - the dismiss button's icon is a
+   grandchild and is not matched here. */
+.toast > svg { flex: none; margin-top: 1px; color: var(--accent); }
+/* The alert takes the toast's own --breach-ink; an accent tick on a failure
+   would say the opposite of the message. */
+.toast.is-error > svg { color: inherit; }
+.toast-msg { min-width: 0; }
+/* The undo affordance. .link-btn (base.css) is the reset; this is the box
+   drawn round it, in currentColor so it tracks whichever skin it lands in. */
+.toast-action {
+  flex: none; font-weight: 600; line-height: 1.45;
+  border: 1px solid color-mix(in srgb, currentColor 40%, transparent);
+  border-radius: 7px; padding: 0 9px;
+}
+/* Errors do not auto-dismiss, so they carry the only way to close one. */
+.toast-dismiss {
+  flex: none; margin-left: var(--space-1);
+  background: transparent; border: 0; color: inherit; opacity: .7;
+  display: grid; place-items: center; padding: 2px; border-radius: var(--radius-3xs);
+}
+
 /* ---- find (Ctrl+F) ------------------------------------------------------
    The bar floats over the content rather than covering it, and sits outside
    .main-inner so it is never part of what it searches. */
@@ -68,6 +119,9 @@
 }
 /* The bar floats, so the content it covers is pushed clear of it instead. */
 .app.find-open .main-inner { padding-top: 84px; }
+/* The leading magnifier. A direct child, so the three .icon-btn glyphs at the
+   other end of the bar keep their own colour rules. */
+.find-bar > svg { color: var(--faint); flex: none; }
 .find-input {
   width: 210px; background: transparent; border: 0; border-radius: 6px;
   color: var(--ink); font-family: inherit; font-size: 13.5px; padding: 3px 2px;

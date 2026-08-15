@@ -40,8 +40,8 @@ function DashboardScreen({ currency, onOpenMonth }) {
       </div>
 
       {loadError && (
-        <div role="alert" className="dash-error">
-          <Icons.alert size={16} className="dash-error-icon" />
+        <div role="alert" className="alert alert-banner">
+          <Icons.alert size={16} />
           <span>Your months couldn't be read, so this overview is empty rather than complete. {loadError}</span>
         </div>
       )}
