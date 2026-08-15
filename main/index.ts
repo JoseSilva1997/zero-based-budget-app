@@ -18,6 +18,41 @@ import { initUpdater, checkForUpdates } from './updater';
 let mainWindow: BrowserWindow | null = null;
 let didCloseTasks = false;
 
+/* ============================================================
+   Dev-only renderer hot reload.
+
+   `npm run dev` keeps renderer/dist rebuilt on save (esbuild watch, plus the
+   app.css copy watcher in scripts/build-renderer.mjs). electron-reload watches
+   that output and reloads the window itself, so a save lands in the app without
+   Ctrl+R. Only app.js and app.css are watched: the sourcemap, index.html and
+   the fonts are rewritten by the same builds and would each fire a second
+   reload.
+
+   This is a page reload, not state-preserving HMR: the React tree remounts and
+   the app returns to its start screen. Main/preload changes are not covered,
+   since tsc only runs once at the start of `npm run dev`.
+
+   Gated on HB_DEV, which scripts/dev.mjs sets, rather than on !isPackaged
+   alone: the test suite also runs Electron unpackaged, and it has no watcher
+   to feed and no reason to hold file handles on renderer/dist. electron-reload
+   is a devDependency and so absent from packaged builds; the require sits
+   behind the same gate and is never reached there.
+   ============================================================ */
+function enableHotReload(): void {
+  if (app.isPackaged || !process.env.HB_DEV) return;
+  const dist = path.join(app.getAppPath(), 'renderer', 'dist');
+  const electronReload = require('electron-reload') as (
+    paths: string[],
+    options?: Record<string, unknown>
+  ) => void;
+  electronReload([path.join(dist, 'app.js'), path.join(dist, 'app.css')], {
+    // The dev bundle is ~2.3MB and lands in more than one filesystem event;
+    // 200ms was not enough to coalesce them and every save reloaded twice.
+    awaitWriteFinish: { stabilityThreshold: 600, pollInterval: 100 },
+  });
+  console.log('[house-budget] hot reload: watching renderer/dist');
+}
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -45,9 +80,17 @@ function createWindow(): void {
   });
 
   mainWindow.once('ready-to-show', () => mainWindow?.show());
+  // Dev-only: confirm in the terminal that a save reached the window, so a
+  // reload that did not happen is distinguishable from one that changed
+  // nothing visible. Fires on the first load too.
+  if (process.env.HB_DEV) {
+    mainWindow.webContents.on('did-finish-load', () =>
+      console.log('[hot reload] renderer loaded', new Date().toLocaleTimeString())
+    );
+  }
   // Both dev and packaged builds load the esbuild-bundled renderer from
   // renderer/dist. In dev, `npm run dev` keeps that bundle rebuilt on save
-  // (esbuild watch); press Ctrl+R to reload after a change.
+  // (esbuild watch) and enableHotReload reloads the window for you.
   const rendererHtml = path.join(app.getAppPath(), 'renderer', 'dist', 'index.html');
   mainWindow.loadFile(rendererHtml);
 
@@ -57,6 +100,9 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  // Must run before the first window exists: electron-reload collects windows
+  // through browser-window-created and never sees one created before it.
+  enableHotReload();
   // DB and IPC must be ready before the renderer can call window.api.
   initDb();
   registerIpcHandlers();

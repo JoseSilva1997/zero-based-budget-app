@@ -273,6 +273,10 @@ export interface BootstrapSettings {
   theme: string;
   autoBackup: AutoBackupMode;
   lastBackup: string | null;
+  /** Sidebar collapsed to the icon rail. Not part of BlobSettings: a backup
+   *  carries the household's budget, not the shape of the window it was last
+   *  looked at in. */
+  sidebarCollapsed: boolean;
   members: HouseholdMember[];
   accounts: BankAccount[];
 }

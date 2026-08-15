@@ -34,6 +34,7 @@ function settingsFromBootstrap(bs) {
     theme,
     autoBackup: bs.settings.autoBackup || "onclose",
     lastBackup: bs.settings.lastBackup || null,
+    sidebarCollapsed: bs.settings.sidebarCollapsed === true,
     members: (bs.settings.members || []).map((m) => ({
       id: m.id,
       name: m.name,

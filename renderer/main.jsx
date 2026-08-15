@@ -335,14 +335,42 @@ function App() {
     ["settings", "Settings", MsIcons.settings, MsIcons.settingsFill],
   ];
 
+  /* Collapsed the sidebar is a 64px rail of icons, and everything about that
+     is CSS: the flag only puts data-panel="rail" on the shell, which overrides
+     --sidebar-w and hides the labels. The markup below is the same in both
+     states, so there is one sidebar to maintain rather than two, and the
+     toast dock (pinned at left: var(--sidebar-w)) follows for free. */
+  const railed = state.settings.sidebarCollapsed;
+  const toggleRail = () => dispatch({ type: "updateSettings", patch: { sidebarCollapsed: !railed } });
+
   return (
-    <div className={`app ${find.open ? "find-open" : ""}`}>
-      <aside className="sidebar">
+    <div className={`app ${find.open ? "find-open" : ""}`} data-panel={railed ? "rail" : undefined}>
+      <aside className="sidebar" id="sidebar-panel">
         <div className="brand">
-          <div className="brand-mark" aria-hidden="true">HB</div>
+          {/* The monogram is the collapse control: it is the one thing that
+              keeps its place in both states, so the button never moves out
+              from under the cursor that just used it. The heading stays
+              outside it - a button may only contain phrasing content, and an
+              h1 inside one is invalid. */}
+          <button
+            type="button"
+            className="brand-mark"
+            onClick={toggleRail}
+            aria-expanded={!railed}
+            aria-controls="sidebar-panel"
+            aria-label={railed ? "Expand panel" : "Collapse panel"}
+            title={railed ? "Expand panel" : "Collapse panel"}
+          >
+            <span className="brand-mark-hb" aria-hidden="true">HB</span>
+            {/* Swapped in on hover, so the tile says what it does without the
+                panel carrying a second control for it. */}
+            <span className="brand-mark-chev" aria-hidden="true">
+              {railed ? <Icons.right size={18} /> : <Icons.left size={18} />}
+            </span>
+          </button>
           {/* The app title, so the page has a level-one heading. 'margin: 0'
               only cancels the UA default; the look comes from .brand-name. */}
-          <div><h1 className="brand-name" style={{ margin: 0 }}>House Budget</h1><div className="brand-sub">Zero-based · local</div></div>
+          <div className="brand-text"><h1 className="brand-name" style={{ margin: 0 }}>House Budget</h1><div className="brand-sub">Zero-based · local</div></div>
         </div>
         {/* No section label over these four. "Workspace" was the word a SaaS
             template uses for a tenant, and this is a household's own budget on
@@ -356,7 +384,11 @@ function App() {
             const on = tab === id;
             const I = on ? IcoFill : Ico;
             return (
-              <button key={id} className={`nav-item ${on ? "active" : ""}`} aria-current={on ? "page" : undefined} onClick={() => setTab(id)}><I size={20} /> {label}</button>
+              /* aria-label is unconditional rather than only set on the rail:
+                 the visible label is hidden in CSS, so the name has to come
+                 from somewhere the collapse never touches. title is what
+                 gives the rail its hover tooltip. */
+              <button key={id} className={`nav-item ${on ? "active" : ""}`} aria-current={on ? "page" : undefined} aria-label={label} title={label} onClick={() => setTab(id)}><I size={20} /> <span className="nav-item-label">{label}</span></button>
             );
           })}
         </nav>
@@ -367,7 +399,7 @@ function App() {
           <div className="household">
             <div className="nav-label">Household</div>
             {state.settings.members.map(m => (
-              <div className="member-chip" key={m.id}><Avatar member={m} size={24} /> {m.name}</div>
+              <div className="member-chip" key={m.id} title={m.name}><Avatar member={m} size={24} /> <span className="member-chip-name">{m.name}</span></div>
             ))}
           </div>
         </div>

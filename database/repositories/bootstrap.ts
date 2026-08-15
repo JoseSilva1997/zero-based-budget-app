@@ -37,6 +37,9 @@ export function loadBootstrap(db: Database.Database): BootstrapData {
       theme: getMeta(db, 'theme') || '',
       autoBackup: (getMeta(db, 'autoBackup') as AutoBackupMode) || 'onclose',
       lastBackup: getMeta(db, 'lastBackup'),
+      // Absent means expanded: an install that has never touched the toggle
+      // opens with the panel showing its labels.
+      sidebarCollapsed: getMeta(db, 'sidebarCollapsed') === '1',
       members: listMembers(db),
       accounts: listAccounts(db),
     },
