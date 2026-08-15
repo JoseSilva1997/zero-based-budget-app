@@ -77,15 +77,15 @@
   /* The brand shrinks with the column: at 184px the tile and the name cannot
      both keep their full size on one line (see .brand-name in shell.css). */
   .brand { gap: 10px; padding: 8px 4px 24px; }
-  .brand-mark { width: 32px; height: 32px; font-size: 12.5px; }
-  .brand-name { font-size: 14px; line-height: 20px; }
-  .brand-sub { font-size: 11px; line-height: 15px; }
+  .brand-mark { width: 32px; height: 32px; font-size: var(--text-12); }
+  .brand-name { font-size: var(--text-14); line-height: 20px; }
+  .brand-sub { font-size: var(--text-11); line-height: 15px; }
   /* The nav items give up their slack here so the longest label still fits on
      the one line .nav-item holds it to: at 184px, "Month Budget" set at 14px
      and weight 700 is wider than the room left beside a 20px icon. */
-  .nav-item { padding: 10px 12px; gap: 10px; font-size: 13px; }
+  .nav-item { padding: 10px 12px; gap: 10px; font-size: var(--text-13); }
   .nav-item svg { width: 18px; height: 18px; }
-  .month-title .mo, .page-title { font-size: 28px; }
+  .month-title .mo, .page-title { font-size: var(--text-28); }
   .find-bar { right: 20px; }
   .app.find-open .main-inner { padding-top: 76px; }
 }

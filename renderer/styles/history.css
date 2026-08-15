@@ -39,7 +39,7 @@
 }
 .hist-colhead {
   padding: var(--space-4) 18px;
-  font-size: var(--text-11-5); text-transform: uppercase; letter-spacing: 0.06em;
+  font-size: var(--text-11); text-transform: uppercase; letter-spacing: 0.06em;
   color: var(--faint); font-weight: 600;
   background: var(--board);
 }
@@ -59,7 +59,7 @@
   background: transparent; color: var(--ink);
   width: 100%; text-align: left; cursor: pointer;
 }
-.hist-row .num { text-align: right; font-size: var(--text-13-5); }
+.hist-row .num { text-align: right; font-size: var(--text-13); }
 .hist-row-month { display: flex; align-items: center; gap: var(--space-4); }
 .hist-row-label { font-weight: 600; font-size: var(--text-14); }
 /* The "current" tag sits inside the month cell beside a name, not in a column
@@ -78,7 +78,7 @@
    is rendered in History.jsx. */
 .hist-cmp-none {
   padding: 2px 2px var(--space-3);
-  font-size: var(--text-13-5); color: var(--muted); line-height: 1.5;
+  font-size: var(--text-13); color: var(--muted); line-height: 1.5;
 }
 .hist-cmp { padding: 18px 20px; }
 .hist-cmp-head {
@@ -95,7 +95,7 @@
    overriding an element-plus-class rule in controls.css, and a single class
    would lose to it on weight whatever the import order says. */
 .btn.hist-cmp-sel { padding-right: var(--space-3); }
-.hist-cmp-same { font-size: var(--text-13-5); color: var(--muted); line-height: 1.5; }
+.hist-cmp-same { font-size: var(--text-13); color: var(--muted); line-height: 1.5; }
 .hist-cmp-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-5); }
 .hist-cmp-card {
   padding: 14px var(--space-6); border-radius: 12px;
@@ -154,7 +154,7 @@
 .hist-detail-group { margin-bottom: var(--space-5); }
 .hist-detail-group-head {
   display: flex; justify-content: space-between;
-  font-weight: 600; font-size: var(--text-13-5);
+  font-weight: 600; font-size: var(--text-13);
   padding: var(--space-2) var(--space-3); background: var(--board); border-radius: 7px;
 }
 .hist-detail-item {
@@ -216,7 +216,7 @@
    paints there. */
 select.income-member {
   min-width: 0; border: 1px solid transparent; background-color: transparent;
-  font-family: inherit; font-size: var(--text-13-5); font-weight: 500; color: var(--ink);
+  font-family: inherit; font-size: var(--text-13); font-weight: 500; color: var(--ink);
   border-radius: var(--radius-3xs);
   padding-top: 3px; padding-bottom: 3px; padding-left: var(--space-1);
   cursor: pointer;

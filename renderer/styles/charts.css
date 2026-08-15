@@ -164,7 +164,7 @@
    --faint, and reconciling them moves pixels. Noted for the deferred pass that
    merges the five eyebrow variants. */
 .offender-head {
-  font-size: var(--text-11-5); text-transform: uppercase; letter-spacing: 0.06em;
+  font-size: var(--text-11); text-transform: uppercase; letter-spacing: 0.06em;
   color: var(--faint); font-weight: 600; margin-bottom: var(--space-3);
 }
 .offender-none {
@@ -181,7 +181,7 @@
 /* This one DOES take .truncate: it is a block box inside .offender-text, not a
    flex item, so the utility's min-width: 0 is the value it already computes to
    and nothing moves. Contrast .trend-name below. */
-.offender-name { font-size: var(--text-12-5); color: var(--ink-2); }
+.offender-name { font-size: var(--text-12); color: var(--ink-2); }
 .offender-sub { font-size: var(--text-11); color: var(--faint); }
 .offender-count { flex: none; }
 
@@ -198,7 +198,7 @@
    which is a better layout and therefore a visual change this task may not
    make. It belongs to whoever fixes the overflow on purpose. */
 .trend-name {
-  font-size: var(--text-13-5); font-weight: 500;
+  font-size: var(--text-13); font-weight: 500;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .trend-new { font-size: var(--text-10); flex: none; }

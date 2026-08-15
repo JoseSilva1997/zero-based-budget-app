@@ -22,7 +22,7 @@
   display: grid; grid-template-columns: 1fr auto; gap: 24px;
   align-items: center; padding: 20px 24px;
 }
-.set-title { font-weight: 600; font-size: var(--text-15-5); }
+.set-title { font-weight: 600; font-size: var(--text-15); }
 .set-sub {
   font-size: var(--text-13); color: var(--muted);
   margin-top: 3px; line-height: 1.45; max-width: 460px;
@@ -86,11 +86,11 @@
 }
 /* The active card's name is the bright one; the others dim with their whole
    card, so the eye lands where the ring is. */
-.theme-card-name { font-size: var(--text-13-5); font-weight: 500; color: rgba(255,255,255,0.55); }
-.theme-card.is-on .theme-card-name { font-size: var(--text-14-5); font-weight: 600; color: rgba(255,255,255,0.95); }
+.theme-card-name { font-size: var(--text-13); font-weight: 500; color: rgba(255,255,255,0.55); }
+.theme-card.is-on .theme-card-name { font-size: var(--text-14); font-weight: 600; color: rgba(255,255,255,0.95); }
 .theme-card-active {
   position: absolute; top: 11px; right: 14px;
-  font-size: var(--text-9-5); font-weight: 600; letter-spacing: 0.08em;
+  font-size: var(--text-10); font-weight: 600; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--accent-ink);
 }
 
@@ -132,7 +132,7 @@
 /* ---- Funding accounts --------------------------------------------------- */
 .set-row.acct-note {
   padding: var(--space-5) var(--space-7);
-  font-size: var(--text-12-5); color: var(--muted); line-height: 1.5;
+  font-size: var(--text-12); color: var(--muted); line-height: 1.5;
 }
 .set-row.account-row {
   display: grid; grid-template-columns: auto 1fr 150px 130px auto;
@@ -215,8 +215,8 @@ select.account-select { padding-right: var(--space-3); }
 .backup-item.is-ruled { border-top: 1px solid var(--rule-faint); }
 .backup-item-icon { color: var(--faint); }
 .backup-item-text { min-width: 0; }
-.backup-item-date { display: block; font-size: var(--text-13-5); font-weight: 500; }
-.backup-item-file { display: block; font-size: var(--text-11-5); color: var(--muted); margin-top: 2px; }
+.backup-item-date { display: block; font-size: var(--text-13); font-weight: 500; }
+.backup-item-file { display: block; font-size: var(--text-11); color: var(--muted); margin-top: 2px; }
 .backup-item-size { font-size: var(--text-12); color: var(--faint); white-space: nowrap; }
 
 .restore-foot {
@@ -230,8 +230,8 @@ select.account-select { padding-right: var(--space-3); }
 /* ---- Shortcuts ---------------------------------------------------------- */
 .set-row.sc-failed { padding: 14px var(--space-7); font-size: var(--text-13); color: var(--muted); }
 .set-row.sc-head { padding: var(--space-6) var(--space-7) 0; }
-.sc-head-title { font-weight: 600; font-size: var(--text-14-5); }
-.sc-head-note { font-size: var(--text-12-5); color: var(--muted); margin-top: 3px; line-height: 1.45; }
+.sc-head-title { font-weight: 600; font-size: var(--text-14); }
+.sc-head-note { font-size: var(--text-12); color: var(--muted); margin-top: 3px; line-height: 1.45; }
 
 .sc-group { border-top: 1px solid var(--rule-faint); padding: 14px var(--space-7) var(--space-6); }
 .sc-group.is-first { border-top: none; padding-top: var(--space-4); }
@@ -245,7 +245,7 @@ select.account-select { padding-right: var(--space-3); }
   display: flex; align-items: center; justify-content: space-between;
   gap: 20px; padding: 5px 0;
 }
-.sc-label { font-size: var(--text-13-5); color: var(--ink-2); min-width: 0; }
+.sc-label { font-size: var(--text-13); color: var(--ink-2); min-width: 0; }
 .keys { display: inline-flex; align-items: center; gap: var(--space-1); flex: none; }
 .keys-sep { color: var(--faint); font-size: var(--text-11); }
 

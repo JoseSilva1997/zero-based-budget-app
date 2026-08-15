@@ -21,7 +21,7 @@
 /* The number is the live figure, so it reads as one: full ink at 600,
    with the label staying muted beside it - same recipe as Income's
    "Combined" figure. */
-.qe-count { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-12-5); color: var(--muted); }
+.qe-count { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-12); color: var(--muted); }
 .qe-count-num { font-size: var(--text-14); font-weight: 600; color: var(--ink); }
 
 /* ---- the empty state -----------------------------------------------------
@@ -96,7 +96,7 @@
    what is drawn. */
 .qe-sugg-sub {
   display: flex; align-items: center; gap: 5px;
-  font-size: var(--text-11-5); margin-top: 2px; color: var(--muted);
+  font-size: var(--text-11); margin-top: 2px; color: var(--muted);
   overflow: hidden; white-space: nowrap;
 }
 /* Unresolved: the suggestion's item is not in this month, so it cannot file
@@ -104,7 +104,7 @@
    says the first half. */
 .qe-sugg-sub.is-unresolved { color: var(--breach-ink); }
 .qe-sugg-meta { text-align: right; white-space: nowrap; }
-.qe-sugg-amt { display: block; font-size: var(--text-12-5); color: var(--ink-2); }
+.qe-sugg-amt { display: block; font-size: var(--text-12); color: var(--ink-2); }
 .qe-sugg-when { display: block; font-size: var(--text-11); color: var(--faint); margin-top: 2px; }
 
 /* ---- the destination select ---------------------------------------------- */
@@ -147,7 +147,7 @@
 .qe-target {
   display: flex; align-items: center; gap: 7px;
   padding: 7px var(--space-6); border-top: 1px solid var(--rule-faint);
-  font-size: var(--text-12-5); color: var(--muted); background: var(--board);
+  font-size: var(--text-12); color: var(--muted); background: var(--board);
 }
 .qe-target.is-orphaned { color: var(--breach-ink); background: var(--breach-soft); }
 .qe-target-ok { color: var(--accent); }
@@ -181,7 +181,7 @@
    amount - the destination is metadata, not the entry. */
 .qe-recent-dest {
   justify-self: end; max-width: 100%;
-  font-size: var(--text-11-5); font-weight: 500; color: var(--ink-2);
+  font-size: var(--text-11); font-weight: 500; color: var(--ink-2);
   background: var(--well); border: 1px solid var(--rule-faint);
   border-radius: var(--radius-pill); padding: 2px 9px;
 }

@@ -58,8 +58,8 @@
   background: var(--info-soft); color: var(--info);
   display: grid; place-items: center; flex: none;
 }
-.wallet-mover-name { font-size: var(--text-13-5); font-weight: 600; }
-.wallet-mover-sub { font-size: var(--text-11-5); color: var(--faint); margin-top: 2px; }
+.wallet-mover-name { font-size: var(--text-13); font-weight: 600; }
+.wallet-mover-sub { font-size: var(--text-11); color: var(--faint); margin-top: 2px; }
 .wallet-mover-amt { font-size: var(--text-17); font-weight: 600; flex: none; }
 
 /* ---- by account ---------------------------------------------------------
@@ -93,9 +93,9 @@
 /* The text column between the tile and the figures. min-width: 0 is what lets
    the truncating lines inside it actually truncate. */
 .wallet-grow { min-width: 0; flex: 1; }
-.wallet-acct-title { font-weight: 600; font-size: var(--text-13-5); display: flex; align-items: center; gap: 7px; }
+.wallet-acct-title { font-weight: 600; font-size: var(--text-13); display: flex; align-items: center; gap: 7px; }
 .wallet-owner-pill { font-size: var(--text-10); }
-.wallet-acct-meta { font-size: var(--text-11-5); color: var(--faint); margin-top: var(--space-1); display: flex; align-items: center; gap: var(--space-3); }
+.wallet-acct-meta { font-size: var(--text-11); color: var(--faint); margin-top: var(--space-1); display: flex; align-items: center; gap: var(--space-3); }
 .wallet-fixed { flex: none; }
 .wallet-meta-bar { flex: 1; max-width: 90px; }
 /* Closed is the resting state, so the caret is drawn rotated and .is-open is
@@ -103,18 +103,18 @@
 .wallet-caret { flex: none; color: var(--faint); transform: rotate(-90deg); transition: transform .18s; }
 .wallet-caret.is-open { transform: none; }
 .wallet-acct-figs { text-align: right; flex: none; }
-.wallet-figure { font-size: var(--text-15-5); font-weight: 600; }
-.wallet-acct-pct { font-size: var(--text-10-5); color: var(--faint); margin-top: 2px; }
+.wallet-figure { font-size: var(--text-15); font-weight: 600; }
+.wallet-acct-pct { font-size: var(--text-10); color: var(--faint); margin-top: 2px; }
 
 /* ---- an account's allocations, revealed by opening its row --------------
    The left-edge stripe is the account's own colour and stays inline. */
 .wallet-acct-items { background: var(--well); border-top: 1px solid var(--rule); }
 .wallet-alloc { display: flex; align-items: center; gap: var(--space-5); padding: 9px 15px 9px 26px; }
-.wallet-alloc-name { font-size: var(--text-12-5); font-weight: 500; }
+.wallet-alloc-name { font-size: var(--text-12); font-weight: 500; }
 .wallet-alloc-meta { font-size: var(--text-11); color: var(--faint); margin-top: 3px; display: flex; align-items: center; gap: var(--space-3); }
 .wallet-alloc-group { flex: none; max-width: 110px; }
 .wallet-alloc-bar { flex: 1; max-width: 70px; }
-.wallet-alloc-amt { font-size: var(--text-13-5); font-weight: 600; flex: none; }
+.wallet-alloc-amt { font-size: var(--text-13); font-weight: 600; flex: none; }
 
 /* ---- savings wallets ----------------------------------------------------
    The label carries a total on its right, so it is the one eyebrow here that
@@ -123,8 +123,8 @@
 /* The tracking is inherited from .eyebrow and unwanted on a figure. */
 .wallet-savings-total { color: var(--faint); letter-spacing: 0; }
 .wallet-savings-row { display: flex; align-items: center; gap: var(--space-5); padding: var(--space-5) 15px; }
-.wallet-savings-name { font-weight: 600; font-size: var(--text-13-5); }
-.wallet-savings-amt { text-align: right; flex: none; font-size: var(--text-15-5); font-weight: 600; }
+.wallet-savings-name { font-weight: 600; font-size: var(--text-13); }
+.wallet-savings-amt { text-align: right; flex: none; font-size: var(--text-15); font-weight: 600; }
 
 /* ---- the unassigned warning --------------------------------------------- */
 .wallet-unassigned {
@@ -152,5 +152,5 @@
   border-bottom: 1px solid var(--rule);
   background: color-mix(in srgb, var(--accent) 8%, var(--board));
 }
-.wallet-total-label { font-size: var(--text-11-5); color: var(--muted); font-weight: 500; margin-bottom: var(--space-2); }
+.wallet-total-label { font-size: var(--text-11); color: var(--muted); font-weight: 500; margin-bottom: var(--space-2); }
 .wallet-total-figure { font-size: var(--text-30); font-weight: 600; letter-spacing: -0.025em; color: var(--ink); }

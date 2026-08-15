@@ -9,7 +9,7 @@
    Hover then moves to an accent-tinted edge, matching .wallet-btn. */
 .btn {
   display: inline-flex; align-items: center; gap: 7px; justify-content: center;
-  padding: 9px 15px; border-radius: var(--radius-sm); font-size: 13.5px; font-weight: 500;
+  padding: 9px 15px; border-radius: var(--radius-sm); font-size: var(--text-13); font-weight: 500;
   border: 1px solid var(--rule-strong); background: var(--raised); color: var(--ink);
   box-shadow: var(--shadow-sm);
   transition: color .14s, background-color .14s, border-color .14s, box-shadow .14s, transform .14s;
@@ -39,7 +39,7 @@
    neither owned the other's file. It lives here now, beside the .btn-ghost it
    qualifies. */
 .btn-ghost.btn-quiet, .btn-ghost.btn-quiet:hover { color: var(--muted); }
-.btn-sm { padding: 6px 10px; font-size: 12.5px; }
+.btn-sm { padding: 6px 10px; font-size: var(--text-12); }
 .btn-danger { color: var(--breach-ink); }
 .btn-danger:hover { background: var(--breach-soft); border-color: transparent; }
 .icon-btn {
@@ -113,7 +113,7 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
   box-shadow: var(--shadow-md), inset 0 1px 0 color-mix(in srgb, #fff 6%, transparent);
 }
 .section-head { display: flex; align-items: center; justify-content: space-between; margin: 30px 2px 14px; }
-.section-head h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); font-weight: 600; margin: 0; }
+.section-head h2 { font-size: var(--text-13); text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); font-weight: 600; margin: 0; }
 
 /* A panel that cannot clip its children. Quick entry is the one of these: its
    suggestion list hangs off the name field and past the card's bottom edge, so
@@ -143,7 +143,7 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
 .panel-clip { overflow: hidden; }
 
 /* Pills / tags */
-.pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums lining-nums; }
+.pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: var(--text-12); font-weight: 600; font-variant-numeric: tabular-nums lining-nums; }
 .pill-neutral { background: var(--well); color: var(--ink-2); }
 .pill-breach { background: var(--breach-soft); color: var(--breach-ink); }
 /* The Difference chip: an outlined caption ("ON TRACK" / "N LEFT"), per the
@@ -152,7 +152,7 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
    --rule-strong because it is the whole of what draws the chip. */
 .pill-diff {
   background: transparent; border: 1px solid var(--rule-strong); color: var(--muted);
-  text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.06em; padding: 2px 8px;
+  text-transform: uppercase; font-size: var(--text-10); letter-spacing: 0.06em; padding: 2px 8px;
   white-space: nowrap;
 }
 .pill-diff.pill-diff-breach { background: var(--breach-soft); border-color: var(--breach); color: var(--breach-ink); }
@@ -173,7 +173,7 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
   font-family: var(--font-num); font-variant-numeric: tabular-nums lining-nums;
   border: 1px solid transparent; background: transparent; color: var(--ink);
   border-radius: 8px; padding: 5px 8px; text-align: right; width: 100%;
-  font-size: 14px;
+  font-size: var(--text-14);
   transition: background-color .12s, border-color .12s, box-shadow .12s;
 }
 /* Tray variant: a field that rests visibly boxed on a --well tray (quick
@@ -200,7 +200,7 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
 .minput.is-invalid { border-color: var(--breach); box-shadow: none; }
 .tinput {
   border: 1px solid transparent; background: transparent; color: var(--ink);
-  border-radius: 8px; padding: 5px 8px; font-size: 14px; width: 100%; font-weight: 500;
+  border-radius: 8px; padding: 5px 8px; font-size: var(--text-14); width: 100%; font-weight: 500;
   transition: background-color .12s, border-color .12s, box-shadow .12s;
 }
 .tinput:hover { background: var(--well); border-color: var(--rule); }
@@ -337,7 +337,7 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
 /* The text column. Its min-width: 0 is what lets the .truncate on the name
    inside it actually truncate. */
 .picker-option-text { min-width: 0; }
-.picker-option-name { display: block; font-size: var(--text-13-5); font-weight: 500; }
+.picker-option-name { display: block; font-size: var(--text-13); font-weight: 500; }
 
 /* Chart card (Dashboard). The framing rules are described at ChartCard in
    components.jsx; these are the lengths that drawing needs. */
@@ -351,8 +351,8 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
   background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--rule) 65%, transparent) 50%, transparent);
 }
 .chart-head { margin-bottom: 14px; }
-.chart-title { font-weight: 600; font-size: var(--text-15-5); }
-.chart-sub { font-size: var(--text-12-5); color: var(--muted); margin-top: 2px; }
+.chart-title { font-weight: 600; font-size: var(--text-15); }
+.chart-sub { font-size: var(--text-12); color: var(--muted); margin-top: 2px; }
 .chart-body { border-bottom: 1px solid color-mix(in srgb, var(--rule-faint) 55%, transparent); padding-bottom: var(--space-5); }
 .chart-card.is-stretch .chart-body { flex: 1; }
 
@@ -386,7 +386,7 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
 /* keycap, for the Shortcuts section in Settings */
 kbd {
   display: inline-block; min-width: 22px; text-align: center;
-  font-family: var(--font-mono); font-size: 11.5px; line-height: 1.5;
+  font-family: var(--font-mono); font-size: var(--text-11); line-height: 1.5;
   padding: 2px 7px; border-radius: 6px;
   background: var(--well); color: var(--ink-2);
   border: 1px solid var(--rule-strong); border-bottom-width: 2px;

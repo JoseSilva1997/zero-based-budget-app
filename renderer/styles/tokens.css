@@ -105,89 +105,64 @@
   --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
 
   /* ---- the type scale ----
-     Twenty-four rungs: one for every distinct size the renderer already sets,
-     with no value merged into a neighbour. Complete coverage is the point. A
-     scale that does not name a size in use forces whoever migrates that rule to
-     invent a substitute, and inventing it inside a mechanical refactor is how a
-     refactor starts changing what is on screen.
+     Seventeen rungs, all whole pixels, and every font-size in renderer/styles
+     is one of them. There is no longer a single px literal for type anywhere in
+     this directory, which is the property worth keeping: a size that cannot be
+     written without naming a rung cannot drift.
 
-     It started at twenty-three and gained --text-18 when develop's month bar
-     redesign merged in, which set a size the census below had never seen. That
-     is the scale working as intended rather than a hole in it: complete
-     coverage is a claim about a moment, and the answer to a new size arriving
-     is a new rung, never rounding it into the nearest old one. The census that
-     follows is the state at the consolidation, not a ceiling.
+     It was twenty-four, and half of those were halves. The renderer had
+     accumulated both 13 and 13.5, both 11 and 11.5, both 12 and 12.5 - each
+     pair one rendered pixel apart at most, clustering by file rather than by
+     purpose, which is what gave them away: 13 dominated QuickEntry, Settings
+     and MonthGroups, 13.5 dominated History and Accounts. Two hands recording
+     the same intent, not two intents.
 
-     The names are the pixel values, with "-" for the decimal point, so
-     --text-13-5 is 13.5px and means nothing else. That is deliberate. This is a
-     holding pen, not a designed scale, and t-shirt names (--text-sm,
-     --text-base) would claim a hierarchy nobody has decided on: they would
-     force a judgement at every call site (is 13px "sm" or "base"?) at exactly
-     the moment it is least visible and least reviewed. Numeric names also make
-     the eventual collapse a grep rather than an audit, because every consumer
-     of a doomed rung says its own pixel value out loud.
+     The pairs collapsed downward, onto the whole pixel. Three reasons, in
+     order of weight. Text can only shrink, so nothing can overflow the budget
+     grid's fixed money columns (150px, 158px, 78px) - snapping up would have
+     needed a per-screen overflow pass and could still have wrapped a figure on
+     some currency nobody tested. Whole pixels rasterise without sub-pixel
+     rounding at these sizes. And the whole value held the majority at five of
+     the six pairs (13 over 13.5 by 37 to 25, 11 over 11.5 by 20 to 17, 14 over
+     14.5 by 19 to 1), with 12/12.5 tied.
 
-     These are not new values. Every rung was read off the 187 size declarations
-     the renderer carries today: 151 inline fontSize props across renderer/*.jsx
-     and 36 font-size rules in renderer/styles/*.css. Combined count per value,
-     which is also the map of where the weight sits:
+     Against that, and recorded because it is the real argument for the other
+     direction: the halves were not simply noise. Plus Jakarta Sans is wider
+     than the face the mockups are set in and reads a size larger at the same
+     size, so parts of this design were re-tuned in .5px steps rather than
+     whole ones. Collapsing rounds every one of those decisions down by half a
+     pixel. That was the trade taken, deliberately, with the alternative
+     understood.
 
-          9.5   1      12    18      14.5   1      19   2      28   1
-         10     5      12.5  18      15     5      20   1      30   1
-         10.5   4      13    37      15.5   4      21   1      34   2
-         11    20      13.5  25      16     1      22   1      46   1
-         11.5  17      14    19      17     2
+     The names are still the pixel values, so --text-13 is 13px and means
+     nothing else. t-shirt names would force a judgement at every call site (is
+     13px "sm" or "base"?) at exactly the moment it is least visible, and the
+     numeric form is what made this collapse a grep rather than an audit -
+     every consumer of a doomed rung said its own pixel value out loud.
 
-     An earlier draft of this scale had ten rungs, all on the half-pixel values,
-     plus a rule that any other size snapped to the nearest rung as it migrated.
-     That rule is deleted and must not come back. The bare integers 10, 11, 12
-     and 13 each sit EXACTLY 0.5px from two rungs, so no nearest rung exists for
-     any of them, and those four values are 80 of the 187 declarations: 43% of
-     the codebase. Snapping would have meant a design decision taken 80 times,
-     silently, by whichever agent happened to open the file.
+     The sparse top end is deliberately NOT collapsed. 16 through 22 hold one
+     or two sites each and could fold into three rungs, but each is a heading
+     or a hero figure whose size was chosen against the thing beside it, and
+     unlike the pairs there is no evidence they are the same intent twice.
 
-     COLLAPSING THIS SCALE IS DEFERRED to its own reviewed project. Twenty-three
-     rungs is not a target, it is an honest inventory of the drift. The obvious
-     candidates are the whole/half pairs, one rendered pixel apart at most and
-     almost certainly the same intent recorded twice by two different hands:
+     A new size arriving is a new rung, never a rounding into the nearest old
+     one. --text-18 got here that way, when develop's month bar redesign set a
+     size this scale had never seen.
 
-         --text-10   /  --text-10-5      5 sites vs 4
-         --text-11   /  --text-11-5     20 sites vs 17
-         --text-12   /  --text-12-5     18 sites vs 18
-         --text-13   /  --text-13-5     37 sites vs 25
-         --text-14   /  --text-14-5     19 sites vs 1
-         --text-15   /  --text-15-5      5 sites vs 4
-
-     The first four of those pairs are the 80 declarations named above and are
-     the whole of the problem. The top end is the other candidate and is cheaper:
-     16, 17, 19, 20, 21 and 22 hold 8 sites between them, and nothing above
-     15.5px is set more than twice anywhere in the app.
-
-     The half pixels themselves are not drift and survive any collapse. Plus
-     Jakarta Sans is a wider face than the Hanken Grotesk the mockups are set in
-     and reads a size larger at the same size (the .brand-name comment in
-     shell.css measures the overrun that taught us this), so the design was
-     re-tuned downward in .5px steps rather than whole ones. A whole-pixel
-     ladder would have to round every one of those decisions in some direction.
-
-     Four fontSize sites deliberately have NO rung here and must not be given
-     one, for two different reasons. DashboardCharts.jsx:23 (axisProps) and
-     :219 (LabelList) hand fontSize to Recharts, which writes it as an SVG
+     Four fontSize sites in the JSX deliberately have NO rung and must not be
+     given one, for two different reasons. DashboardCharts.jsx's axisProps and
+     LabelList hand fontSize to Recharts, which writes it as an SVG
      presentation attribute rather than as CSS, so a var() would not resolve.
-     :91 (MonthTick) is NOT one of those - it is a plain button in an HTML flex
-     row - but its size has to stay equal to the value axisProps gives recharts
-     for its own ticks, and a number that must match another number belongs at
-     the same place as the number it matches. Two of the three are the 11px
-     sites in the census above. components.jsx:384
-     computes the Avatar's size from its size prop at runtime and stays inline
-     under the plan's inline-style rule. See
+     MonthTick is NOT one of those - it is a plain button in an HTML flex row -
+     but its size has to stay equal to the value axisProps gives recharts for
+     its own ticks, and a number that must match another number belongs at the
+     same place as the number it matches. components.jsx computes the Avatar's
+     size from its size prop at runtime and stays inline under the
+     inline-style rule. See
      docs/superpowers/plans/2026-08-15-renderer-styling-consolidation.md. */
-  --text-9-5:  9.5px;   --text-10:   10px;    --text-10-5: 10.5px;
-  --text-11:   11px;    --text-11-5: 11.5px;  --text-12:   12px;
-  --text-12-5: 12.5px;  --text-13:   13px;    --text-13-5: 13.5px;
-  --text-14:   14px;    --text-14-5: 14.5px;  --text-15:   15px;
-  --text-15-5: 15.5px;  --text-16:   16px;    --text-17:   17px;
-  --text-18:   18px;
+  --text-10:   10px;    --text-11:   11px;    --text-12:   12px;
+  --text-13:   13px;    --text-14:   14px;    --text-15:   15px;
+  --text-16:   16px;    --text-17:   17px;    --text-18:   18px;
   --text-19:   19px;    --text-20:   20px;    --text-21:   21px;
   --text-22:   22px;    --text-28:   28px;    --text-30:   30px;
   --text-34:   34px;    --text-46:   46px;

@@ -82,7 +82,7 @@
 .budget-colhead {
   flex: 1; min-width: 0;
   grid-template-columns: 26px var(--budget-cols);
-  font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em;
+  font-size: var(--text-11); text-transform: uppercase; letter-spacing: 0.05em;
   color: var(--faint); font-weight: 600;
 }
 /* "Actual" is the accent's word. In the month bar the solid accent is money
@@ -138,7 +138,7 @@
 }
 .item-spend-amt { font-size: var(--text-14); }
 .item-spend-count {
-  font-size: var(--text-10-5); color: var(--faint); background: var(--well);
+  font-size: var(--text-10); color: var(--faint); background: var(--well);
   border-radius: 5px; padding: 1px 5px; min-width: 16px; text-align: center;
 }
 .item-diff-cell { display: flex; flex-direction: column; gap: 5px; align-items: flex-end; }
@@ -209,9 +209,9 @@
    not double up with the results box's own top edge. It stays (0,2,0), so it
    still outranks the `border: 0` .picker-option carries for the button reset. */
 .add-item-option + .add-item-option { border-top: 1px solid var(--rule-faint); }
-.add-item-sub { display: block; font-size: var(--text-11-5); color: var(--muted); margin-top: 2px; }
-.add-item-amt { font-size: var(--text-12-5); color: var(--ink-2); white-space: nowrap; }
-.add-item-empty { padding: 9px var(--space-4); color: var(--muted); font-size: var(--text-12-5); }
+.add-item-sub { display: block; font-size: var(--text-11); color: var(--muted); margin-top: 2px; }
+.add-item-amt { font-size: var(--text-12); color: var(--ink-2); white-space: nowrap; }
+.add-item-empty { padding: 9px var(--space-4); color: var(--muted); font-size: var(--text-12); }
 
 /* ---- the group card ------------------------------------------------------ */
 .group-card { margin-bottom: 14px; overflow: hidden; transition: opacity .12s; }
@@ -230,7 +230,7 @@
    DIMMER of the two at --ink-2, which read as the plan mattering
    more than what actually happened. Over budget, the breach owns
    the figure instead - one hue per row, and the loudest wins. */
-.group-alloc, .group-actual { text-align: right; font-size: var(--text-13-5); font-weight: 600; }
+.group-alloc, .group-actual { text-align: right; font-size: var(--text-13); font-weight: 600; }
 .group-alloc { padding-right: var(--space-3); }
 .group-actual { color: var(--accent-text); padding-right: 9px; }
 .group-actual.is-over { color: var(--breach-ink); }
@@ -342,18 +342,18 @@
 }
 .copy-radio.is-on { background: var(--accent); border-color: var(--accent); }
 .copy-opt-title { display: block; font-weight: 600; font-size: var(--text-14); cursor: pointer; }
-.copy-opt-sub { font-size: var(--text-12-5); color: var(--muted); margin-top: 2px; }
+.copy-opt-sub { font-size: var(--text-12); color: var(--muted); margin-top: 2px; }
 .copy-opt-extra { display: flex; align-items: center; gap: var(--space-3); margin-top: var(--space-4); font-size: var(--text-13); color: var(--ink-2); }
 /* .dialog-actions in controls.css is this row plus a margin-top the dialog does
    not want here, the radiogroup above already carrying its own bottom margin.
    Merge candidate, not a merge. */
 .new-month-actions { display: flex; gap: var(--space-3); justify-content: flex-end; }
-.new-month-note { margin-top: 14px; font-size: var(--text-11-5); color: var(--faint); display: flex; align-items: center; gap: var(--space-2); }
+.new-month-note { margin-top: 14px; font-size: var(--text-11); color: var(--faint); display: flex; align-items: center; gap: var(--space-2); }
 
 /* account chip (item funding account) */
 .acct-chip {
   position: relative; display: inline-flex; align-items: center; gap: 6px;
-  padding: 3px 8px 3px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 500;
+  padding: 3px 8px 3px 8px; border-radius: 999px; font-size: var(--text-11); font-weight: 500;
   color: var(--ink-2); background: var(--well); border: 1px solid var(--rule);
   max-width: 100%; cursor: pointer;
   transition: background-color .12s, border-color .12s, color .12s, box-shadow .12s;

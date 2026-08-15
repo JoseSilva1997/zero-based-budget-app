@@ -12,13 +12,13 @@
   border-radius: var(--radius-sm); box-shadow: var(--shadow-md);
 }
 .move-menu-label {
-  padding: 6px 9px 5px; font-size: 11px; text-transform: uppercase;
+  padding: 6px 9px 5px; font-size: var(--text-11); text-transform: uppercase;
   letter-spacing: 0.05em; color: var(--faint); font-weight: 600;
 }
 .move-menu-item {
   width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px;
   text-align: left; padding: 7px 9px; border: 0; border-radius: 7px;
-  background: transparent; color: var(--ink); font: inherit; font-size: 13.5px; cursor: pointer;
+  background: transparent; color: var(--ink); font: inherit; font-size: var(--text-13); cursor: pointer;
 }
 /* Hover and keyboard focus look the same: this menu is walked with arrow keys
    as often as it is clicked. */
@@ -39,8 +39,8 @@
 @keyframes pop {
   from { opacity: 0; transform: translateY(8px) scale(.98); animation-timing-function: cubic-bezier(.16, 1, .3, 1); }
 }
-.modal h3 { margin: 0 0 6px; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
-.modal p { margin: 0 0 18px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.modal h3 { margin: 0 0 6px; font-size: var(--text-22); font-weight: 600; letter-spacing: -0.02em; }
+.modal p { margin: 0 0 18px; color: var(--muted); font-size: var(--text-14); line-height: 1.5; }
 
 /* slide-over drawer */
 .drawer-veil { position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(3px); z-index: 70; animation: veil .2s ease; }
@@ -91,7 +91,7 @@
   color: var(--ink);
   /* 13px, the app's body size. It used to be 13.5, which nothing else here
      sets, so the toast read at a size of its own. */
-  font-size: 13px; font-weight: 500; line-height: 1.45;
+  font-size: var(--text-13); font-weight: 500; line-height: 1.45;
   animation: pop .2s;
 }
 .toast.is-error { background: var(--wash-breach); border-color: var(--breach); }
@@ -148,11 +148,11 @@
 .find-bar > svg { color: var(--faint); flex: none; }
 .find-input {
   width: 210px; background: transparent; border: 0; border-radius: 6px;
-  color: var(--ink); font-family: inherit; font-size: 13.5px; padding: 3px 2px;
+  color: var(--ink); font-family: inherit; font-size: var(--text-13); padding: 3px 2px;
 }
 .find-input::placeholder { color: var(--faint); }
 .find-count {
-  font-variant-numeric: tabular-nums lining-nums; font-size: 11.5px; color: var(--muted);
+  font-variant-numeric: tabular-nums lining-nums; font-size: var(--text-11); color: var(--muted);
   /* Wide enough to hold "1000 of 1000" at 11.5px mono, so the count stops
      resizing the whole bar as you type. 64px only covered single digits. */
   min-width: 92px; text-align: right; flex: none; white-space: nowrap;
