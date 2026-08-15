@@ -107,10 +107,24 @@
    one of them */
 .swatch {
   width: 20px; height: 20px; padding: 0; border-radius: var(--radius-pill);
-  border: 2px solid transparent; outline: none; cursor: pointer;
+  border: 2px solid transparent; cursor: pointer;
   display: grid; place-items: center; color: rgba(0,0,0,0.72);
 }
-.swatch.is-on { border-color: var(--ink); outline: 1px solid var(--on-ink); }
+/* Selected: a 2px --ink ring with a 1px --on-ink hairline outside it, so the
+   chosen swatch separates from both the row behind it and its five neighbours.
+
+   That hairline is a box-shadow and not an outline, which is the whole fix
+   here. It was an outline, and the resting state carried `outline: none` to
+   clear it - between them they took the outline property away from
+   :focus-visible, so tabbing through six colour buttons showed nothing at all
+   and the picker could not be operated from the keyboard. The comment above
+   these rules has always claimed the swatches are named for screen readers;
+   they were, and then there was no way to see where you were.
+
+   box-shadow at 0 offset and 0 blur paints exactly where the outline did, so
+   the selected swatch is unchanged to the pixel, and outline is free again for
+   the global :focus-visible ring in base.css. */
+.swatch.is-on { border-color: var(--ink); box-shadow: 0 0 0 1px var(--on-ink); }
 /* The last member cannot be removed, so its button is disabled rather than
    hidden: the column keeps its width and the row does not reflow. */
 .member-remove:disabled { opacity: .3; }
@@ -148,6 +162,20 @@ select.account-select { padding-right: var(--space-3); }
 .seg-item.is-on {
   font-weight: 600; background: var(--raised); color: var(--ink);
   box-shadow: var(--shadow-sm);
+}
+/* The unchosen two answer the pointer. They had no hover at all: three
+   clickable radios sitting inert under the cursor while every other chip in
+   the app lifts, which reads as "not a control" right up until you click one
+   and it turns out to be.
+
+   Scoped to :not(.is-on) because the chosen one is already a raised card and
+   has nowhere to lift to; a wash over its fill would only muddy it. Same wash
+   and same ink as .chip-radio:hover in controls.css, which is the currency
+   picker's tray - the two trays are near-twins and this is the one difference
+   between them that was a defect rather than a decision. */
+.seg-item:not(.is-on):hover {
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  color: var(--ink);
 }
 /* the tick keeps its space when hidden, so choosing an option does not
    shuffle the other two sideways */

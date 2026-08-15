@@ -83,7 +83,7 @@ Example - one screenshot of each of the 4 screens:
 
 function parseArgs(argv) {
   const steps = [];
-  const opts = { build: true, reseed: false, real: false, confirmReal: false, fullpage: true, help: false, sandbox: null };
+  const opts = { build: true, reseed: false, real: false, confirmReal: false, fullpage: true, help: false, sandbox: null, window: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const next = () => {
@@ -101,6 +101,7 @@ function parseArgs(argv) {
       case '--no-build': opts.build = false; break;
       case '--reseed': opts.reseed = true; break;
       case '--sandbox': opts.sandbox = next(); break;
+      case '--window': opts.window = next(); break;
       case '--real': opts.real = true; break;
       case '--confirm-real-data': opts.confirmReal = true; break;
       case '--no-fullpage': opts.fullpage = false; break;
@@ -249,6 +250,23 @@ async function main() {
   const page = app.windows().find((w) => !w.url().startsWith('devtools://')) ?? await app.firstWindow();
   await page.waitForTimeout(1000);
   console.log('launched:', page.url());
+
+  /* --window resizes the real OS window, which is the only way to reach the
+     breakpoints: the app scrolls inside .main, so a CSS-side viewport trick
+     changes nothing a media query can see. Set on the BrowserWindow rather
+     than through Playwright's viewport, which has no effect on Electron.
+     The app declares a minimum size, so a width below it is clamped and the
+     tier below 1024 stays reachable only through the View menu's zoom. */
+  if (opts.window) {
+    const [w, h] = opts.window.split('x').map(Number);
+    const got = await app.evaluate(async ({ BrowserWindow }, size) => {
+      const win = BrowserWindow.getAllWindows()[0];
+      win.setSize(size.w, size.h);
+      return win.getContentSize();
+    }, { w, h });
+    await page.waitForTimeout(400);
+    console.log(`window -> asked ${w}x${h}, content ${got[0]}x${got[1]}`);
+  }
 
   try {
     await runSteps(app, page, steps, opts);

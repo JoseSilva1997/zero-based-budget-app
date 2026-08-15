@@ -25,4 +25,8 @@
 @import "styles/overlays.css";
 @import "styles/bar.css";
 @import "styles/debug.css";
+/* Last two, and in this order for the same reason: both narrow what everything
+   above them has built, so both have to come after it. breakpoints.css answers
+   the window's width, motion.css the user's setting. */
+@import "styles/breakpoints.css";
 @import "styles/motion.css";
