@@ -4,7 +4,8 @@
    The renderer is plain React written as ES modules. esbuild bundles it,
    starting from renderer/main.jsx and following the import graph, into a
    single self-contained renderer/dist/app.js (production React, no in-browser
-   Babel, no CDN, works offline). It also emits dist/index.html and dist/app.css,
+   Babel, no CDN, works offline). It also emits dist/index.html and dist/app.css
+   with the dist/styles/ folder that app.css imports,
    and copies the bundled IBM Plex fonts, plus their OFL.txt licence, into
    dist/fonts. The licence has to travel with the binaries (SIL OFL 1.1
    section 2), and build.files in package.json only ships renderer/dist/**,
@@ -50,7 +51,17 @@ const HTML = `<!DOCTYPE html>
 
 /** Copy the static assets (CSS + HTML shell + bundled fonts) into dist. */
 function writeStatics() {
+  /* app.css is a manifest of @imports now, so the folder it points at has to
+     travel with it. The browser resolves each @import against app.css's own
+     location, so dist/styles/ has to mirror renderer/styles/ exactly - and
+     tokens.css's font url()s are ../fonts/, relative to itself. */
   copyFileSync(join(rendererDir, 'app.css'), join(outDir, 'app.css'));
+  const styleSrc = join(rendererDir, 'styles');
+  const styleOut = join(outDir, 'styles');
+  mkdirSync(styleOut, { recursive: true });
+  for (const f of readdirSync(styleSrc).filter((n) => n.endsWith('.css'))) {
+    copyFileSync(join(styleSrc, f), join(styleOut, f));
+  }
   writeFileSync(join(outDir, 'index.html'), HTML, 'utf8');
   const fontSrc = join(root, 'assets', 'fonts');
   const fontOut = join(outDir, 'fonts');

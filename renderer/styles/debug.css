@@ -1,0 +1,46 @@
+/* ============================================================
+   Dev-only debug button (renderer/DebugMenu.jsx).
+
+   Never reaches a production bundle - the component is compiled out - but the
+   rules live here rather than inline so the button obeys the same tokens as
+   everything else, and so this file stays the one place a surface colour is
+   decided. z-index sits above the toast (80) and the drawer veil (70): a debug
+   tool that a dialog can bury is a debug tool you cannot reach when a dialog
+   is the thing you are debugging.
+   ============================================================ */
+.debug-fab { position: fixed; width: 44px; height: 44px; z-index: 90; }
+.debug-fab-btn {
+  width: 44px; height: 44px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--raised); color: var(--muted);
+  border: 1px solid var(--rule); box-shadow: var(--shadow-lg);
+  /* The gesture is drag-or-click, so the cursor names the less obvious half;
+     touch-action: none is what stops the OS claiming the drag as a scroll. */
+  cursor: grab; touch-action: none;
+  transition: color .15s ease, border-color .15s ease, background .15s ease;
+}
+.debug-fab-btn:hover { color: var(--ink-2); border-color: var(--rule-strong); }
+.debug-fab-btn.on { color: var(--accent); border-color: var(--accent); }
+.debug-fab-btn:active { cursor: grabbing; }
+
+.debug-menu {
+  position: absolute; min-width: 232px;
+  background: var(--raised); border: 1px solid var(--rule);
+  border-radius: 12px; box-shadow: var(--shadow-lg);
+  padding: 6px; animation: pop .14s ease;
+}
+.debug-menu-head {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--faint); padding: 6px 10px 7px;
+}
+.debug-menu-item {
+  width: 100%; display: flex; align-items: flex-start; gap: 10px;
+  padding: 8px 10px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--ink-2);
+  font: inherit; font-size: 13px; font-weight: 500; text-align: left;
+  cursor: pointer;
+}
+.debug-menu-item > svg { flex: none; margin-top: 1px; }
+.debug-menu-item:hover:not(:disabled) { background: var(--nav-hover); color: var(--ink); }
+.debug-menu-item:disabled { opacity: .5; cursor: default; }
+.debug-menu-hint { display: block; font-size: 11.5px; font-weight: 400; color: var(--faint); margin-top: 2px; }

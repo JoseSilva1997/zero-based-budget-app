@@ -42,7 +42,7 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
     if (dragGroupId && targetId && dragGroupId !== targetId) dispatch({ type: "reorderGroup", month: mid, groupId: dragGroupId, targetId, after: overGroupAfter });
     endGroupDrag();
   };
-  const GroupDropLine = () => <div style={{ height: 3, borderRadius: 999, background: "var(--accent)", margin: "-9px 2px 8px" }} />;
+  const GroupDropLine = () => <div className="group-drop-line" />;
   /* Item drag lives here, not inside a group card, because an item that can
      only be dragged within the card that owns its drag state is an item that
      can never leave its group. */
@@ -64,7 +64,7 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
             <button className="icon-btn subtle" aria-label={`Delete ${lbl.mo} ${lbl.yr}`} title="Delete this month" onClick={() => setConfirmMonth(true)}><Icons.trash size={15} /></button>
           )}
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div className="topbar-actions">
           <button className="btn wallet-btn" onClick={() => setWalletOpen(true)} title="Open Wallet - funding plan by account">
             <Icons.wallet size={16} />
             Wallet
@@ -81,22 +81,21 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
 
       <QuickEntrySection mo={mo} month={mid} currency={currency} dispatch={dispatch} />
 
-      {/* Wider than the default section-head gap, and wider than the gap
-          Income and Quick entry share above it: this is the page's actual
-          work surface, not one more strip of setup, and the break says so
-          before a single row of it is on screen. */}
-      <div className="section-head" style={{ marginTop: 42 }}>
+      {/* The wider break above this heading is .section-head.allocations-head's,
+          in shell.css, which carries the note explaining why it is wider. */}
+      <div className="section-head allocations-head">
         <h2>Allocations</h2>
         {/* Same grid as the rows below, plus a leading cell for their 26px drag
             handle, so each label sits over the column it names. The layout
             lives in .budget-colhead now, which is also where "Actual" picks
-            up the accent it shares with the month bar's solid fill. */}
+            up the accent it shares with the month bar's solid fill, and where
+            .col-right right-aligns the three money labels. */}
         <div className="budget-colhead">
           <span />
           <span />
-          <span style={{ textAlign: "right" }}>Allocated</span>
-          <span className="col-actual" style={{ textAlign: "right" }}>Actual</span>
-          <span className="col-diff" style={{ textAlign: "right" }}>Difference</span>
+          <span className="col-right">Allocated</span>
+          <span className="col-actual col-right">Actual</span>
+          <span className="col-diff col-right">Difference</span>
           <span />
         </div>
       </div>
@@ -130,16 +129,16 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
       })}
 
       {mo.groups.length === 0 && (
-        <div className="panel empty" style={{ marginBottom: 14 }}>
+        <div className="panel empty no-groups">
           <div className="empty-icon"><Icons.budget size={22} /></div>
-          <div style={{ fontWeight: 600, color: "var(--ink-2)" }}>No groups yet</div>
-          <div style={{ fontSize: 13, maxWidth: 300 }}>Add a group like House, Food, or Savings, then give it items to allocate toward.</div>
+          <div className="no-groups-title">No groups yet</div>
+          <div className="no-groups-hint">Add a group like House, Food, or Savings, then give it items to allocate toward.</div>
         </div>
       )}
 
       {addingGroup ? (
-        <div className="panel" style={{ display: "flex", gap: 8, padding: "12px 16px", alignItems: "center" }}>
-          <input autoFocus className="tinput" value={newGroup} aria-label="New group name" onChange={(e) => setNewGroup(e.target.value)} placeholder="Group name (e.g. Healthcare)…" style={{ maxWidth: 320, fontWeight: 600 }}
+        <div className="panel new-group-row">
+          <input autoFocus className="tinput new-group-input" value={newGroup} aria-label="New group name" onChange={(e) => setNewGroup(e.target.value)} placeholder="Group name (e.g. Healthcare)…"
             onKeyDown={(e) => { if (e.key === "Enter") commitGroup(); if (e.key === "Escape") { setAddingGroup(false); setNewGroup(""); } }} onBlur={commitGroup} />
           <button className="btn btn-sm btn-primary" onMouseDown={(e) => e.preventDefault()} onClick={commitGroup}>Add group</button>
         </div>
@@ -148,7 +147,7 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
            reads as a drop target or a missing card, and it out-weighed every
            real group above it; this is the same quiet "+ Add item" affordance
            each group card already ends with, one level out. */
-        <button className="btn btn-ghost" style={{ marginTop: 4, color: "var(--muted)" }} onClick={() => setAddingGroup(true)}><Icons.plus size={16} /> Add group</button>
+        <button className="btn btn-ghost btn-quiet add-group-btn" onClick={() => setAddingGroup(true)}><Icons.plus size={16} /> Add group</button>
       )}
 
       {walletOpen && <WalletDrawer mo={mo} accounts={state.settings.accounts} members={state.settings.members} currency={currency} month={mid} onClose={() => setWalletOpen(false)} />}
@@ -176,15 +175,16 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
    reports it also carries the way back, and the longer window an action earns
    is what that edge was drawn to make visible.
 
-   Everything visual lives in app.css under ".toast". The one value set here is
-   --toast-life, which is the store's own timeout handed across to CSS, so the
-   countdown and the disappearance are the same number. */
+   Everything visual lives in styles/overlays.css under ".toast". The one value
+   set here is --toast-life, which is the store's own timeout handed across to
+   CSS, so the countdown and the disappearance are the same number. */
 function Toast({ msg, onDismiss }) {
   if (!msg) return null;
   const isError = msg.tone === "error";
   return (
     // The dock spans the window and centres the toast in it; see the .toast-dock
-    // note in app.css for why the centring cannot live on the toast itself.
+    // note in styles/overlays.css for why the centring cannot live on the toast
+    // itself.
     <div className="toast-dock">
       <div
         className={isError ? "toast is-error" : "toast"}
@@ -211,8 +211,8 @@ function Toast({ msg, onDismiss }) {
 /* ---- loading shell ------------------------------------------------------ */
 function LoadingScreen() {
   return (
-    <div role="status" style={{ position: "fixed", inset: 0, display: "grid", placeItems: "center", color: "var(--muted)", fontSize: 14 }}>
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+    <div role="status" className="loading-screen">
+      <div className="loading-screen-inner">
         <div className="brand-mark" aria-hidden="true">HB</div>
         Loading your budget…
       </div>
@@ -231,21 +231,21 @@ function StartupErrorScreen({ error, onRetry }) {
     }
   };
   return (
-    <div style={{ position: "fixed", inset: 0, display: "grid", placeItems: "center", padding: 30 }}>
-      <div className="panel" style={{ maxWidth: 480, padding: "30px 32px" }}>
-        <div style={{ width: 44, height: 44, borderRadius: 13, background: "var(--breach-soft)", color: "var(--breach-ink)", display: "grid", placeItems: "center", marginBottom: 18 }}>
+    <div className="startup-error">
+      <div className="panel startup-error-card">
+        <div className="startup-error-icon">
           <Icons.alert size={22} />
         </div>
-        <h3 style={{ margin: "0 0 8px", fontSize: 21, fontWeight: 600, letterSpacing: "-0.02em" }}>House Budget couldn't open your data</h3>
-        <p style={{ margin: "0 0 6px", color: "var(--ink-2)", fontSize: 14, lineHeight: 1.55 }}>
+        <h3 className="startup-error-title">House Budget couldn't open your data</h3>
+        <p className="startup-error-body">
           Your budget file is still on this device, and nothing has been changed or deleted. This usually means the app is already running in another window, or the file is being synced by another program.
         </p>
         {/* A driver error string genuinely is code, so this one keeps the
             mono face that the app's amounts have given up. */}
-        <p className="code" style={{ margin: "0 0 22px", color: "var(--muted)", fontSize: 12.5, lineHeight: 1.5, wordBreak: "break-word" }}>
+        <p className="code startup-error-detail">
           {error && error.message}
         </p>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div className="startup-error-actions">
           <button className="btn btn-primary" onClick={onRetry}>Try again</button>
           <button className="btn" onClick={openFolder}><Icons.folder size={15} /> Open data folder</button>
         </div>
@@ -368,18 +368,20 @@ function App() {
               {railed ? <Icons.right size={18} /> : <Icons.left size={18} />}
             </span>
           </button>
-          {/* The app title, so the page has a level-one heading. 'margin: 0'
-              only cancels the UA default; the look comes from .brand-name. */}
-          <div className="brand-text"><h1 className="brand-name" style={{ margin: 0 }}>House Budget</h1><div className="brand-sub">Zero-based · local</div></div>
+          {/* The app title, so the page has a level-one heading. The 'margin: 0'
+              that used to be stated here is .brand-name's own declaration in
+              shell.css, which carries this note in full alongside it. */}
+          <div className="brand-text"><h1 className="brand-name">House Budget</h1><div className="brand-sub">Zero-based · local</div></div>
         </div>
         {/* No section label over these four. "Workspace" was the word a SaaS
             template uses for a tenant, and this is a household's own budget on
             its own machine; four items directly under the app's name need no
             header at all. "Household" below stays, because it labels a list of
             people rather than the app's own sections. */}
-        {/* The nav is its own box in the sidebar's column, so it repeats the
-            column's gap rather than inheriting it through a fragment. */}
-        <nav aria-label="Sections" style={{ display: "flex", flexDirection: "column", gap: 8, paddingBottom: 8 }}>
+        {/* The nav's own box in the sidebar's column is .nav-list in shell.css,
+            where the note explaining why it repeats the column's gap now sits
+            with the rule. */}
+        <nav aria-label="Sections" className="nav-list">
           {NAV.map(([id, label, Ico, IcoFill]) => {
             const on = tab === id;
             const I = on ? IcoFill : Ico;

@@ -83,7 +83,7 @@ Example - one screenshot of each of the 4 screens:
 
 function parseArgs(argv) {
   const steps = [];
-  const opts = { build: true, reseed: false, real: false, confirmReal: false, fullpage: true, help: false };
+  const opts = { build: true, reseed: false, real: false, confirmReal: false, fullpage: true, help: false, sandbox: null, window: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const next = () => {
@@ -100,6 +100,8 @@ function parseArgs(argv) {
       case '--all-screens': steps.push({ kind: 'all-screens', dir: next() }); break;
       case '--no-build': opts.build = false; break;
       case '--reseed': opts.reseed = true; break;
+      case '--sandbox': opts.sandbox = next(); break;
+      case '--window': opts.window = next(); break;
       case '--real': opts.real = true; break;
       case '--confirm-real-data': opts.confirmReal = true; break;
       case '--no-fullpage': opts.fullpage = false; break;
@@ -127,9 +129,29 @@ async function clickText(page, text) {
   }, text);
 }
 
+/* Park the pointer somewhere inert before every capture.
+
+   These are real OS windows, so CSS :hover follows the REAL mouse cursor into
+   the screenshot. Leave the physical pointer over the app while a run happens
+   and whatever sits under it is captured in its hover state - and it is stable
+   across runs, so it does not even look like flake. It cost real time once: a
+   month-budget.png that differed from its baseline in four consecutive runs,
+   with no renderer change that could explain it, turned out to be the cursor
+   resting on an income row's name field. .tinput:hover drew a border and
+   .income-row:hover revealed the row's delete button.
+
+   (0, 0) is the top-left of the sidebar, which carries no hover rule at any
+   depth. Moving there also clears the hover state the real cursor set, because
+   Chromium recomputes hover from the last input event it saw and this is one.
+   Nothing in an automated run generates a real mouse event afterwards. */
+async function parkPointer(page) {
+  try { await page.mouse.move(0, 0); } catch { /* a closed page is the caller's problem, not ours */ }
+}
+
 async function takeShot(app, page, outPath, opts) {
   const out = path.resolve(process.cwd(), outPath);
   fs.mkdirSync(path.dirname(out), { recursive: true });
+  await parkPointer(page);
   if (opts.fullpage) {
     // Playwright's own fullPage option grows the viewport to the
     // *document's* scroll size, but this app scrolls inside .main, not
@@ -198,7 +220,15 @@ async function main() {
 
   let userDataDir = null;
   if (!opts.real) {
-    userDataDir = SANDBOX_DIR;
+    /* --sandbox names a private fixture DB. The default is one shared
+       directory, which is right for a single session and wrong the moment two
+       of them run at once: concurrent runs race on the same SQLite file, and a
+       --reseed under a sibling's feet fails outright ("table
+       household_members already exists") or, worse, silently changes the data
+       a sibling is mid-way through screenshotting. A run that needs to CHANGE
+       the fixture - adding a second month to exercise a comparison view - has
+       no other safe way to do it while anything else is running. */
+    userDataDir = opts.sandbox ? path.resolve(opts.sandbox) : SANDBOX_DIR;
     fs.mkdirSync(userDataDir, { recursive: true });
     const dataDir = path.join(userDataDir, 'data');
     const dbFile = path.join(dataDir, 'budget.sqlite');
@@ -220,6 +250,23 @@ async function main() {
   const page = app.windows().find((w) => !w.url().startsWith('devtools://')) ?? await app.firstWindow();
   await page.waitForTimeout(1000);
   console.log('launched:', page.url());
+
+  /* --window resizes the real OS window, which is the only way to reach the
+     breakpoints: the app scrolls inside .main, so a CSS-side viewport trick
+     changes nothing a media query can see. Set on the BrowserWindow rather
+     than through Playwright's viewport, which has no effect on Electron.
+     The app declares a minimum size, so a width below it is clamped and the
+     tier below 1024 stays reachable only through the View menu's zoom. */
+  if (opts.window) {
+    const [w, h] = opts.window.split('x').map(Number);
+    const got = await app.evaluate(async ({ BrowserWindow }, size) => {
+      const win = BrowserWindow.getAllWindows()[0];
+      win.setSize(size.w, size.h);
+      return win.getContentSize();
+    }, { w, h });
+    await page.waitForTimeout(400);
+    console.log(`window -> asked ${w}x${h}, content ${got[0]}x${got[1]}`);
+  }
 
   try {
     await runSteps(app, page, steps, opts);

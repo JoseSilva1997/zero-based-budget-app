@@ -27,6 +27,14 @@ function assert(cond, msg) {
   if (!cond) throw new Error(msg);
 }
 
+/* renderer/app.css is a manifest of @imports over renderer/styles/*.css, so a
+   text search for a rule has to follow them. */
+function readCss(file) {
+  return fs
+    .readFileSync(file, 'utf8')
+    .replace(/@import\s+"([^"]+)";/g, (_m, rel) => readCss(path.join(path.dirname(file), rel)));
+}
+
 /* ---- the page-side suite ------------------------------------------------
    Bundled and run inside the window. Returns [{ name, ok, msg }]; the main
    process decides the exit code from that.
@@ -161,9 +169,13 @@ app.whenReady().then(async () => {
     const bannerSrc = fs.readFileSync(path.join(root, 'renderer', 'UpdateBanner.jsx'), 'utf8');
     assert(!/position:\s*'fixed'/.test(bannerSrc), 'the banner should sit in the sidebar, not float over the app');
 
-    const css = fs.readFileSync(path.join(root, 'renderer', 'app.css'), 'utf8');
+    /* The banner's rules live in renderer/styles/shell.css now; app.css is the
+       @import manifest over that folder. Read the manifest and the files it
+       names, so this check keeps asking "is the rule in the stylesheet" rather
+       than "is it in this one file". */
+    const css = readCss(path.join(root, 'renderer', 'app.css'));
     for (const cls of ['.update-banner', '.update-banner-bar', '.update-banner-actions']) {
-      assert(css.includes(cls), `app.css is missing ${cls}`);
+      assert(css.includes(cls), `the renderer stylesheet is missing ${cls}`);
     }
 
     /* ---- bundle the suite + component ----------------------------------- */

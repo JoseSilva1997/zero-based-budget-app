@@ -2,7 +2,7 @@
    Shared UI: icons, MoneyInput, StatTile, helpers
    ============================================================ */
 import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react';
-import { daysInMonth, fmt } from './lib/index.js';
+import { cx, daysInMonth, fmt } from './lib/index.js';
 
 /* ---- icons (stroke, 1.6) ------------------------------------------------
    Every icon here is decorative: it sits next to a label, or inside a button
@@ -285,9 +285,8 @@ function MoneyInput({ value, onCommit, currency = "$", className = "", placehold
     return true;
   };
   return (
-    <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-      <input ref={ref} className={`minput ${className}`} inputMode="text"
-        style={invalid ? { borderColor: "var(--breach)", boxShadow: "none" } : undefined}
+    <div className="field-wrap">
+      <input ref={ref} className={cx("minput", className, invalid && "is-invalid")} inputMode="text"
         data-col={col} aria-label={label}
         aria-invalid={invalid ? true : undefined} aria-describedby={invalid ? noteId : undefined}
         value={display} placeholder={placeholder ?? `${currency}0.00`}
@@ -307,9 +306,9 @@ function MoneyInput({ value, onCommit, currency = "$", className = "", placehold
       {/* One chip above the field, carrying either the arithmetic preview or the
           reason the value was refused. */}
       {invalid ? (
-        <span id={noteId} role="alert" style={{ position: "absolute", right: 6, bottom: "100%", marginBottom: 3, background: "var(--breach-soft)", color: "var(--breach-ink)", border: "1px solid var(--breach)", fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 6, maxWidth: 230, lineHeight: 1.35, textAlign: "right", boxShadow: "var(--shadow-sm)", zIndex: 4 }}>{invalid}</span>
+        <span id={noteId} role="alert" className="field-chip is-error">{invalid}</span>
       ) : preview !== null && (
-        <span className="num" style={{ position: "absolute", right: 6, bottom: "100%", marginBottom: 3, background: "var(--ink)", color: "var(--on-ink)", fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 6, whiteSpace: "nowrap", boxShadow: "var(--shadow-sm)", zIndex: 4 }}>= {fmt(currency, preview)}</span>
+        <span className="num field-chip">= {fmt(currency, preview)}</span>
       )}
     </div>
   );
@@ -336,7 +335,7 @@ function DayField({ day, monthId, onCommit, onEnter, inputRef, autoFocus = false
   // so holding an arrow on an existing entry is not one database write per step.
   const step = (delta) => setTxt(String(clampTo(parsed() + delta)));
   return (
-    <input ref={inputRef} autoFocus={autoFocus} className={`minput num${tray ? " tray" : ""}`} value={txt} inputMode="numeric" title={title} aria-label={title}
+    <input ref={inputRef} autoFocus={autoFocus} className={cx("minput num day", tray && "tray")} value={txt} inputMode="numeric" title={title} aria-label={title}
       onChange={(e) => setTxt(e.target.value.replace(/[^0-9]/g, "").slice(0, 2))}
       onFocus={(e) => e.target.select()}
       onBlur={() => onCommit(clamp())}
@@ -351,19 +350,24 @@ function DayField({ day, monthId, onCommit, onEnter, inputRef, autoFocus = false
           e.preventDefault(); // otherwise the caret jumps to one end of the field
           step(e.key === "ArrowUp" ? 1 : -1);
         }
-      }}
-      style={{ width: 44, height: 26, textAlign: "center", fontSize: 12, padding: "0 4px", flex: "none", color: "var(--ink-2)" }} />
+      }} />
   );
 }
 
 /* ---- text input (inline rename) ---------------------------------------- */
 /* 'allowEmpty' is for genuinely optional text (an entry's note): without it a
    cleared field snaps back to its old value, so the field can never be emptied. */
-function TextInline({ value, onCommit, className = "", placeholder = "", style, col, label, allowEmpty = false }) {
+/* There is no `style` prop. There was one, and every caller used it to hand
+   this field a static rule that has since become a class; the last of them
+   went in Phase D, leaving a prop nobody passed and a door back to inline
+   styling standing open. MoneyInput, DayField and Avatar never had one:
+   Avatar's own inline style is computed from its size prop and its member's
+   colour, which is the runtime-value carve-out and not this. */
+function TextInline({ value, onCommit, className = "", placeholder = "", col, label, allowEmpty = false }) {
   const [txt, setTxt] = useState(value);
   useEffect(() => { setTxt(value); }, [value]);
   return (
-    <input className={`tinput ${className}`} value={txt} placeholder={placeholder} style={style}
+    <input className={`tinput ${className}`} value={txt} placeholder={placeholder}
       data-col={col} aria-label={label}
       onChange={(e) => setTxt(e.target.value)}
       onBlur={() => onCommit(allowEmpty ? txt.trim() : txt.trim() || value)}
@@ -381,6 +385,10 @@ function TextInline({ value, onCommit, className = "", placeholder = "", style, 
 /* ---- member avatar ------------------------------------------------------ */
 function Avatar({ member, size = 26 }) {
   const initials = (member?.name || "?").trim().slice(0, 1).toUpperCase();
+  /* Every one of these four is a runtime value - three read the size prop, the
+     fourth reads the member's own colour - so this is the inline-style rule's
+     carve-out rather than an exception to it. .avatar in shell.css owns the
+     rest. */
   return <span className="avatar" style={{ width: size, height: size, background: member?.color || "var(--muted)", fontSize: size * 0.42 }}>{initials}</span>;
 }
 
@@ -409,13 +417,12 @@ function MiniBar({ actual, allocated }) {
   const label = allocated > 0
     ? `${Math.round(share * 100)}% of the budget used${over ? ", over budget" : ""}`
     : (over ? "Over budget, nothing allocated" : "Nothing allocated");
-  const fill = over
-    ? "repeating-linear-gradient(-45deg, var(--breach) 0 2px, color-mix(in srgb, var(--breach) 45%, var(--well)) 2px 4px)"
-    : "var(--accent)";
   // scaleX rather than width: animating width relayouts every row on each commit.
+  // It is the one thing here that cannot be known until the numbers are in, so
+  // it is the one thing left inline; the hatch is .mini-bar-fill.is-over.
   return (
-    <div role="img" aria-label={label} style={{ height: 5, borderRadius: 99, background: "var(--well)", overflow: "hidden", width: "100%" }}>
-      <div style={{ height: "100%", width: "100%", transformOrigin: "left", transform: `scaleX(${pct})`, background: fill, transition: "transform .3s ease" }} />
+    <div role="img" aria-label={label} className="mini-bar">
+      <div className={cx("mini-bar-fill", over && "is-over")} style={{ transform: `scaleX(${pct})` }} />
     </div>
   );
 }
@@ -485,7 +492,7 @@ function ConfirmDialog({ title, children, confirmLabel, onConfirm, onClose, busy
       <p>{children}</p>
       {/* Cancel takes focus, never the destructive button: a stray Enter on an
           unexpected dialog must not be the thing that deletes the data. */}
-      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 18 }}>
+      <div className="dialog-actions">
         <button className="btn btn-ghost" data-autofocus onClick={onClose} disabled={busy}>Cancel</button>
         <button className="btn btn-danger" onClick={onConfirm} disabled={busy}>
           {icon}{busy ? "Working…" : confirmLabel}
@@ -507,13 +514,13 @@ function ConfirmDialog({ title, children, confirmLabel, onConfirm, onClose, busy
    rules should land on the same line. */
 function ChartCard({ title, sub, children, wide, stretch }) {
   return (
-    <div className="fade-in" style={{ gridColumn: wide ? "span 2" : "auto", minWidth: 0, ...(stretch ? { alignSelf: "stretch", display: "flex", flexDirection: "column" } : null) }}>
-      <div aria-hidden="true" style={{ height: 1, background: "linear-gradient(90deg, transparent, color-mix(in srgb, var(--rule) 65%, transparent) 50%, transparent)", marginBottom: 18 }} />
-      <div style={{ marginBottom: 14 }}>
-        <div style={{ fontWeight: 600, fontSize: 15.5 }}>{title}</div>
-        {sub && <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 2 }}>{sub}</div>}
+    <div className={cx("fade-in chart-card", wide && "is-wide", stretch && "is-stretch")}>
+      <div aria-hidden="true" className="chart-rule" />
+      <div className="chart-head">
+        <div className="chart-title">{title}</div>
+        {sub && <div className="chart-sub">{sub}</div>}
       </div>
-      <div style={{ borderBottom: "1px solid color-mix(in srgb, var(--rule-faint) 55%, transparent)", paddingBottom: 12, ...(stretch ? { flex: 1 } : null) }}>
+      <div className="chart-body">
         {children}
       </div>
     </div>

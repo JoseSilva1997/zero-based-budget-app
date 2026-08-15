@@ -16,12 +16,13 @@
    ============================================================ */
 import React, { useState, useEffect, useCallback } from 'react';
 import { Icons } from './components.jsx';
+import { cx } from './lib/index.js';
 
 /** What went wrong with the last click, said in the banner that offered it. */
 function BannerFailure({ text }) {
   return (
-    <div className="update-banner-line" style={{ color: 'var(--breach-ink)' }}>
-      <Icons.alert size={15} style={{ flex: 'none', marginTop: 1 }} />
+    <div className="update-banner-line is-failure">
+      <Icons.alert size={15} />
       <span>{text}</span>
     </div>
   );
@@ -89,7 +90,7 @@ export function UpdateBanner() {
       ) : status.state === 'available' ? (
         <>
           <div className="update-banner-line">
-            <Icons.download size={15} style={{ color: 'var(--accent)', flex: 'none', marginTop: 1 }} />
+            <Icons.download size={15} />
             <span><strong>Version {status.version}</strong> is ready to download.</span>
           </div>
           {failure && <BannerFailure text={failure} />}
@@ -105,7 +106,7 @@ export function UpdateBanner() {
       ) : (
         <>
           <div className="update-banner-line">
-            <Icons.check size={15} style={{ color: 'var(--accent)', flex: 'none', marginTop: 1 }} />
+            <Icons.check size={15} />
             <span><strong>Version {status.version}</strong> is ready to install.</span>
           </div>
           {failure && <BannerFailure text={failure} />}
@@ -160,9 +161,8 @@ export function UpdateSettings() {
   }[status.state];
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  gap: 16, padding: '14px 18px' }}>
-      <div style={{ fontSize: 13.5, color: (failure || status.state === 'error') ? 'var(--breach-ink)' : 'var(--ink)' }}>
+    <div className="update-setting-row">
+      <div className={cx('update-setting-line', (failure || status.state === 'error') && 'is-failure')}>
         {failure || line}
       </div>
       {status.state === 'available' ? (

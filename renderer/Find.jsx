@@ -223,7 +223,7 @@ function FindBar({ onClose, focusToken }) {
 
   return (
     <div className="find-bar" role="search">
-      <Icons.search size={15} style={{ color: "var(--faint)", flex: "none" }} />
+      <Icons.search size={15} />
       <input ref={inputRef} className="find-input" value={query} autoFocus
         placeholder="Find in this tab…" aria-label="Find in this tab"
         onChange={(e) => setQuery(e.target.value)} onKeyDown={onKeyDown} />

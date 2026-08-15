@@ -1,0 +1,256 @@
+/* ============================================================
+   Settings screen.
+
+   Imported after budget.css, because .set-row and its first-child rule live
+   there and a Settings-specific override has to be able to reach past them.
+   That split is historical rather than principled: .set-row is a Settings
+   shape that ended up in budget.css during the stylesheet split, and moving
+   it here is a reasonable later tidy-up.
+
+   Every rule below that also carries .set-row is written as a compound
+   selector (.set-row.set-item, not .set-item) on purpose. The declarations
+   used to be inline, so they outranked everything budget.css could say about
+   .set-row, including its compound and :first-child rules. A bare class would
+   be (0,1,0) and could lose one of those; the compound is (0,2,0) and sits in
+   a later file, so it wins the same arguments the inline style used to win.
+   ============================================================ */
+
+/* ---- the page's repeating row ------------------------------------------
+   Setting() draws every labelled row on the screen: a title-and-prose column
+   and a controls column that shrinks to its contents. */
+.set-row.set-item {
+  display: grid; grid-template-columns: 1fr auto; gap: 24px;
+  align-items: center; padding: 20px 24px;
+}
+.set-title { font-weight: 600; font-size: var(--text-15-5); }
+.set-sub {
+  font-size: var(--text-13); color: var(--muted);
+  margin-top: 3px; line-height: 1.45; max-width: 460px;
+}
+.set-control { display: flex; align-items: center; gap: var(--space-3); }
+
+/* The "Add member" / "Add account" row that closes a list panel. */
+.set-row.set-row-add { padding: var(--space-5) 18px; }
+
+/* .btn-quiet moved to controls.css, beside the .btn-ghost it qualifies: the
+   shell migration had written the identical rule as .add-group-btn, so it was
+   stated twice in two files. */
+
+/* The two inline name fields (a member's name, an account's name). Both
+   values match what .tinput already sets, so this class only exists to keep
+   the call sites from restating them; it is a candidate for deletion once
+   someone confirms .tinput is the intended resting weight for these. */
+.set-inline-name { font-weight: 500; font-size: var(--text-14); }
+
+/* ---- General: the currency tray ----------------------------------------
+   A radiogroup in a segmented tray: the chips share one bordered --well strip
+   and the chosen one is the solid accent square. */
+.chip-tray {
+  display: flex; gap: var(--space-2);
+  background: var(--well); border: 1px solid var(--rule-faint);
+  border-radius: var(--radius-2xs); padding: var(--space-1);
+}
+.currency-chip {
+  position: relative; width: 40px; height: 40px;
+  font-size: var(--text-14); font-weight: 500;
+}
+.currency-chip.is-on { font-weight: 700; }
+/* The tick rides inside the filled square, in the same ink as the symbol, so
+   the selection reads without asking anyone to compare fills. */
+.chip-tick {
+  position: absolute; top: 3px; right: 5px;
+  color: inherit; display: grid; place-items: center;
+}
+
+/* ---- Appearance: the theme cards ---------------------------------------- */
+.theme-panel { padding: var(--space-7) 24px; }
+.theme-heading { font-weight: 600; font-size: var(--text-15); margin-bottom: 14px; }
+.theme-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--space-6);
+}
+/* Each card is painted with the theme it previews rather than the one the app
+   is currently wearing, so the fixed rgba() borders are deliberate: they have
+   to read on any background a theme brings, not on the active theme's. */
+.theme-card {
+  position: relative; display: flex; align-items: flex-end;
+  min-height: 96px; padding: var(--space-5) 14px;
+  border-radius: var(--radius-sm); cursor: pointer; text-align: left;
+  border: 1px solid rgba(255,255,255,0.12);
+  box-shadow: none;
+  transition: box-shadow .15s, border-color .15s;
+}
+.theme-card.is-on {
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+/* The active card's name is the bright one; the others dim with their whole
+   card, so the eye lands where the ring is. */
+.theme-card-name { font-size: var(--text-13-5); font-weight: 500; color: rgba(255,255,255,0.55); }
+.theme-card.is-on .theme-card-name { font-size: var(--text-14-5); font-weight: 600; color: rgba(255,255,255,0.95); }
+.theme-card-active {
+  position: absolute; top: 11px; right: 14px;
+  font-size: var(--text-9-5); font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--accent-ink);
+}
+
+/* ---- Household members -------------------------------------------------- */
+.set-row.member-row {
+  display: grid; grid-template-columns: auto 1fr auto; gap: var(--space-5);
+  align-items: center; padding: var(--space-5) var(--space-7); min-height: 56px;
+}
+/* Wider than .row-actions' own 2px: this tray holds a six-swatch radiogroup
+   and a delete button, which are two objects rather than a run of icons. */
+.row-actions.member-actions { gap: var(--space-3); }
+.swatch-row { display: flex; gap: 5px; }
+/* the swatches are fixed hex, not theme tokens, so a dark tick reads on every
+   one of them */
+.swatch {
+  width: 20px; height: 20px; padding: 0; border-radius: var(--radius-pill);
+  border: 2px solid transparent; cursor: pointer;
+  display: grid; place-items: center; color: rgba(0,0,0,0.72);
+}
+/* Selected: a 2px --ink ring with a 1px --on-ink hairline outside it, so the
+   chosen swatch separates from both the row behind it and its five neighbours.
+
+   That hairline is a box-shadow and not an outline, which is the whole fix
+   here. It was an outline, and the resting state carried `outline: none` to
+   clear it - between them they took the outline property away from
+   :focus-visible, so tabbing through six colour buttons showed nothing at all
+   and the picker could not be operated from the keyboard. The comment above
+   these rules has always claimed the swatches are named for screen readers;
+   they were, and then there was no way to see where you were.
+
+   box-shadow at 0 offset and 0 blur paints exactly where the outline did, so
+   the selected swatch is unchanged to the pixel, and outline is free again for
+   the global :focus-visible ring in base.css. */
+.swatch.is-on { border-color: var(--ink); box-shadow: 0 0 0 1px var(--on-ink); }
+/* The last member cannot be removed, so its button is disabled rather than
+   hidden: the column keeps its width and the row does not reflow. */
+.member-remove:disabled { opacity: .3; }
+
+/* ---- Funding accounts --------------------------------------------------- */
+.set-row.acct-note {
+  padding: var(--space-5) var(--space-7);
+  font-size: var(--text-12-5); color: var(--muted); line-height: 1.5;
+}
+.set-row.account-row {
+  display: grid; grid-template-columns: auto 1fr 150px 130px auto;
+  gap: var(--space-5); align-items: center; padding: var(--space-5) var(--space-7);
+}
+.account-icon {
+  width: 30px; height: 30px; border-radius: var(--radius-2xs); flex: none;
+  display: grid; place-items: center;
+}
+/* Spelled with the element, because select.btn in controls.css is (0,1,1) and
+   reserves 26px on the right for the chevron it draws. These two selects sit
+   in fixed 150px/130px tracks with a name beside them, so they take the
+   narrower gutter and let the chevron sit closer to the value. */
+select.account-select { padding-right: var(--space-3); }
+
+/* ---- Data & backup: the segmented control ------------------------------- */
+.seg {
+  display: flex; gap: var(--space-1);
+  background: var(--well); padding: var(--space-1); border-radius: var(--radius-sm);
+}
+.seg-item {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 7px var(--space-5); border-radius: 7px; border: none;
+  font-size: var(--text-13); font-weight: 500;
+  background: transparent; color: var(--muted); box-shadow: none;
+}
+.seg-item.is-on {
+  font-weight: 600; background: var(--raised); color: var(--ink);
+  box-shadow: var(--shadow-sm);
+}
+/* The unchosen two answer the pointer. They had no hover at all: three
+   clickable radios sitting inert under the cursor while every other chip in
+   the app lifts, which reads as "not a control" right up until you click one
+   and it turns out to be.
+
+   Scoped to :not(.is-on) because the chosen one is already a raised card and
+   has nowhere to lift to; a wash over its fill would only muddy it. Same wash
+   and same ink as .chip-radio:hover in controls.css, which is the currency
+   picker's tray - the two trays are near-twins and this is the one difference
+   between them that was a defect rather than a decision. */
+.seg-item:not(.is-on):hover {
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  color: var(--ink);
+}
+/* the tick keeps its space when hidden, so choosing an option does not
+   shuffle the other two sideways */
+.seg-check { flex: none; visibility: hidden; }
+.seg-item.is-on .seg-check { visibility: visible; }
+
+/* ---- Restore dialog ----------------------------------------------------- */
+.restore-summary { display: block; margin-bottom: var(--space-5); }
+.restore-note { display: block; color: var(--ink-2); }
+/* .alert in controls.css carries the box, its ink and its icon; these four are
+   the whole of what is different about this copy. It is NOT .alert-banner,
+   which the Dashboard and History banners take: this one pads 10px 12px
+   against their 11px 14px and closes with 14px against their 16px. Two near
+   misses, and normalising either would move pixels in the restore dialog, so
+   the difference is kept and stated rather than harmonised away.
+   The .restore-error-icon class is gone with it: `.alert > svg` reaches this
+   icon, as it does the other three. */
+.restore-error {
+  background: var(--breach-soft); border-radius: var(--radius-sm);
+  padding: var(--space-4) var(--space-5); margin-bottom: 14px;
+}
+
+.backup-list {
+  border: 1px solid var(--rule); border-radius: 12px;
+  overflow: hidden; max-height: 300px; overflow-y: auto;
+}
+.backup-loading { padding: 18px; color: var(--muted); font-size: var(--text-13); }
+.backup-empty { padding: 20px; color: var(--muted); font-size: var(--text-13); line-height: 1.5; }
+.backup-empty strong { color: var(--ink-2); }
+.backup-item {
+  width: 100%; display: grid; grid-template-columns: auto 1fr auto;
+  gap: var(--space-5); align-items: center; text-align: left;
+  padding: 11px 14px; border: 0; border-top: none;
+  background: transparent; color: var(--ink); cursor: pointer; font: inherit;
+}
+/* Every snapshot but the first is ruled off from the one above it. */
+.backup-item.is-ruled { border-top: 1px solid var(--rule-faint); }
+.backup-item-icon { color: var(--faint); }
+.backup-item-text { min-width: 0; }
+.backup-item-date { display: block; font-size: var(--text-13-5); font-weight: 500; }
+.backup-item-file { display: block; font-size: var(--text-11-5); color: var(--muted); margin-top: 2px; }
+.backup-item-size { font-size: var(--text-12); color: var(--faint); white-space: nowrap; }
+
+.restore-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-5); margin-top: 18px;
+}
+/* The real <input type="file">, kept in the tree so the visible button can
+   click it, and out of the layout because it is not the affordance. */
+.restore-file-input { display: none; }
+
+/* ---- Shortcuts ---------------------------------------------------------- */
+.set-row.sc-failed { padding: 14px var(--space-7); font-size: var(--text-13); color: var(--muted); }
+.set-row.sc-head { padding: var(--space-6) var(--space-7) 0; }
+.sc-head-title { font-weight: 600; font-size: var(--text-14-5); }
+.sc-head-note { font-size: var(--text-12-5); color: var(--muted); margin-top: 3px; line-height: 1.45; }
+
+.sc-group { border-top: 1px solid var(--rule-faint); padding: 14px var(--space-7) var(--space-6); }
+.sc-group.is-first { border-top: none; padding-top: var(--space-4); }
+/* .eyebrow carries the shape; this adds only the margin, which differs from
+   the Wallet panel's copy of the same label. This rule briefly restated all
+   five of .eyebrow's declarations, because .eyebrow was written at 11.5px
+   while every call site it was made for measures 11px. The utility was wrong,
+   not this label; it is 11px now and the duplication is gone. */
+.sc-group-title { margin-bottom: var(--space-3); }
+.sc-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 20px; padding: 5px 0;
+}
+.sc-label { font-size: var(--text-13-5); color: var(--ink-2); min-width: 0; }
+.keys { display: inline-flex; align-items: center; gap: var(--space-1); flex: none; }
+.keys-sep { color: var(--faint); font-size: var(--text-11); }
+
+/* ---- foot --------------------------------------------------------------- */
+.settings-foot {
+  display: flex; align-items: center; gap: var(--space-3); justify-content: center;
+  margin: 26px 0 var(--space-4); color: var(--faint); font-size: var(--text-12);
+}

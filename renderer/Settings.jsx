@@ -3,7 +3,7 @@
    ============================================================ */
 import React, { useEffect, useRef, useState } from 'react';
 import { Avatar, ConfirmDialog, Icons, Modal, TextInline } from './components.jsx';
-import { BUDGET_THEMES } from './lib/index.js';
+import { BUDGET_THEMES, cx } from './lib/index.js';
 import { ACCT_ICON, ACCT_TYPE_LABEL, hexToSoft } from './Accounts.jsx';
 import { UpdateSettings } from './UpdateBanner.jsx';
 
@@ -34,10 +34,10 @@ const IN_APP_SHORTCUTS = [
 /* `alt` rows are alternatives ("↓ or ↑"); everything else is a chord. */
 function Keys({ keys, alt }) {
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, flex: "none" }}>
+    <span className="keys">
       {keys.map((k, i) => (
         <React.Fragment key={k}>
-          {i > 0 && <span style={{ color: "var(--faint)", fontSize: 11 }}>{alt ? "/" : "+"}</span>}
+          {i > 0 && <span className="keys-sep">{alt ? "/" : "+"}</span>}
           <kbd>{k}</kbd>
         </React.Fragment>
       ))}
@@ -61,11 +61,11 @@ function groupByTitle(rows) {
 
 function ShortcutGroup({ title, rows, first }) {
   return (
-    <div style={{ borderTop: first ? "none" : "1px solid var(--rule-faint)", padding: first ? "10px 22px 16px" : "14px 22px 16px" }}>
-      <div style={{ fontSize: 11, color: "var(--ink-2)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 8 }}>{title}</div>
+    <div className={cx("sc-group", first && "is-first")}>
+      <div className="eyebrow sc-group-title">{title}</div>
       {rows.map((r) => (
-        <div key={r.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20, padding: "5px 0" }}>
-          <span style={{ fontSize: 13.5, color: "var(--ink-2)", minWidth: 0 }}>{r.label}</span>
+        <div key={r.label} className="sc-row">
+          <span className="sc-label">{r.label}</span>
           <Keys keys={r.keys} alt={r.alt} />
         </div>
       ))}
@@ -94,7 +94,7 @@ function ShortcutsSection() {
   return (
     <div className="panel">
       {failed && (
-        <div className="set-row" style={{ padding: "14px 22px", fontSize: 13, color: "var(--muted)" }}>
+        <div className="set-row sc-failed">
           The menu shortcuts couldn't be read, so only the in-app keys are listed below.
         </div>
       )}
@@ -104,9 +104,9 @@ function ShortcutsSection() {
               per-section wrapper: the stylesheet reaches it, so the first
               section's heading loses the rule and the second one keeps it as
               the divider between the two. */}
-          <div className="set-row" style={{ padding: "16px 22px 0" }}>
-            <div style={{ fontWeight: 600, fontSize: 14.5 }}>{s.title}</div>
-            <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 3, lineHeight: 1.45 }}>{s.note}</div>
+          <div className="set-row sc-head">
+            <div className="sc-head-title">{s.title}</div>
+            <div className="sc-head-note">{s.note}</div>
           </div>
           {s.groups.map((g, i) => <ShortcutGroup key={g.title} title={g.title} rows={g.rows} first={i === 0} />)}
         </div>
@@ -171,11 +171,11 @@ function RestoreDialog({ onClose, onRestored }) {
       <ConfirmDialog title="Replace everything with this backup?" width={520}
         confirmLabel="Replace my data" icon={<Icons.upload size={15} />}
         busy={busy} onClose={() => setPending(null)} onConfirm={confirm}>
-        <span style={{ display: "block", marginBottom: 12 }}>
+        <span className="restore-summary">
           You have {plural(live.months, "month", "months")} and {plural(live.entries, "spending entry", "spending entries")} right now.
           This backup from {incoming.savedAt} holds {plural(incoming.months, "month", "months")} and {plural(incoming.entries, "spending entry", "spending entries")}.
         </span>
-        <span style={{ display: "block", color: "var(--ink-2)" }}>
+        <span className="restore-note">
           Your current data is saved to a new backup first, so you can come back to it from this same list.
         </span>
       </ConfirmDialog>
@@ -188,35 +188,35 @@ function RestoreDialog({ onClose, onRestored }) {
       <p>Pick a snapshot to go back to. Nothing changes until you confirm on the next screen.</p>
 
       {err && (
-        <div style={{ display: "flex", gap: 9, alignItems: "flex-start", background: "var(--breach-soft)", color: "var(--breach-ink)", padding: "10px 12px", borderRadius: 10, fontSize: 13, marginBottom: 14, lineHeight: 1.45 }}>
-          <Icons.alert size={16} style={{ flex: "none", marginTop: 1 }} /> {err}
+        <div className="alert restore-error">
+          <Icons.alert size={16} /> {err}
         </div>
       )}
 
-      <div className="scroll-list" style={{ border: "1px solid var(--rule)", borderRadius: 12, overflow: "hidden", maxHeight: 300, overflowY: "auto" }}>
-        {backups === null && <div style={{ padding: "18px", color: "var(--muted)", fontSize: 13 }}>Looking for backups…</div>}
+      <div className="scroll-list backup-list">
+        {backups === null && <div className="backup-loading">Looking for backups…</div>}
         {backups !== null && backups.length === 0 && (
-          <div style={{ padding: "20px", color: "var(--muted)", fontSize: 13, lineHeight: 1.5 }}>
-            No backups yet. Use <strong style={{ color: "var(--ink-2)" }}>Back up now</strong> to make one, or choose a file below.
+          <div className="backup-empty">
+            No backups yet. Use <strong>Back up now</strong> to make one, or choose a file below.
           </div>
         )}
         {(backups || []).map((b, i) => (
           <button key={b.path} type="button" onClick={() => choose(b.path)}
-            style={{ width: "100%", display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 12, alignItems: "center", textAlign: "left", padding: "11px 14px", border: 0, borderTop: i ? "1px solid var(--rule-faint)" : "none", background: "transparent", color: "var(--ink)", cursor: "pointer", font: "inherit" }}>
-            <Icons.folder size={16} style={{ color: "var(--faint)" }} />
-            <span style={{ minWidth: 0 }}>
-              <span style={{ display: "block", fontSize: 13.5, fontWeight: 500 }}>{b.savedAt}</span>
-              <span style={{ display: "block", fontSize: 11.5, color: "var(--muted)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.fileName}</span>
+            className={cx("backup-item", i && "is-ruled")}>
+            <Icons.folder size={16} className="backup-item-icon" />
+            <span className="backup-item-text">
+              <span className="backup-item-date">{b.savedAt}</span>
+              <span className="backup-item-file truncate">{b.fileName}</span>
             </span>
-            <span className="num" style={{ fontSize: 12, color: "var(--faint)", whiteSpace: "nowrap" }}>{fileSize(b.size)}</span>
+            <span className="num backup-item-size">{fileSize(b.size)}</span>
           </button>
         ))}
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 18 }}>
+      <div className="restore-foot">
         <>
-          <input ref={fileRef} type="file" accept=".sqlite" onChange={onPickFile} style={{ display: "none" }} />
-          <button className="btn btn-sm btn-ghost" style={{ color: "var(--muted)" }} onClick={() => fileRef.current.click()}>
+          <input ref={fileRef} type="file" accept=".sqlite" onChange={onPickFile} className="restore-file-input" />
+          <button className="btn btn-sm btn-ghost btn-quiet" onClick={() => fileRef.current.click()}>
             <Icons.folder size={14} /> Choose a file instead…
           </button>
         </>
@@ -228,12 +228,12 @@ function RestoreDialog({ onClose, onRestored }) {
 
 function Setting({ title, sub, children }) {
   return (
-    <div className="set-row" style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 24, alignItems: "center", padding: "20px 24px" }}>
+    <div className="set-row set-item">
       <div>
-        <div style={{ fontWeight: 600, fontSize: 15.5 }}>{title}</div>
-        {sub && <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 3, lineHeight: 1.45, maxWidth: 460 }}>{sub}</div>}
+        <div className="set-title">{title}</div>
+        {sub && <div className="set-sub">{sub}</div>}
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>{children}</div>
+      <div className="set-control">{children}</div>
     </div>
   );
 }
@@ -292,21 +292,18 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
       <div className="section-head"><h2>General</h2></div>
       <div className="panel panel-feature">
         <Setting title="Currency symbol" sub="Shown before every amount across the app.">
-          {/* A radiogroup in a segmented tray: the chips share one bordered
-              --well strip and the chosen one is the solid accent square. */}
-          <div role="radiogroup" aria-label="Currency symbol" style={{ display: "flex", gap: 6, background: "var(--well)", border: "1px solid var(--rule-faint)", borderRadius: 8, padding: 4 }}>
+          {/* A radiogroup in a segmented tray; see .chip-tray in settings.css
+              for how the tray and its chosen chip are drawn. */}
+          <div role="radiogroup" aria-label="Currency symbol" className="chip-tray">
             {CURRENCIES.map(c => {
               const on = s.currency === c;
               return (
                 <button key={c} role="radio" aria-checked={on} aria-label={`Use ${c} as the currency symbol`}
                   onClick={() => dispatch({ type: "updateSettings", patch: { currency: c } })}
-                  className="num chip-radio" style={{ position: "relative", width: 40, height: 40, fontSize: 14, fontWeight: on ? 700 : 500 }}>
+                  className={cx("num", "chip-radio", "currency-chip", on && "is-on")}>
                   {c}
-                  {/* The tick rides inside the filled square, in the same ink
-                      as the symbol, so the selection reads without asking
-                      anyone to compare fills. */}
                   {on && (
-                    <span style={{ position: "absolute", top: 3, right: 5, color: "inherit", display: "grid", placeItems: "center" }}>
+                    <span className="chip-tick">
                       <Icons.check size={10} />
                     </span>
                   )}
@@ -318,35 +315,27 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
       </div>
 
       <div className="section-head"><h2>Appearance</h2></div>
-      <div className="panel panel-feature" style={{ padding: "22px 24px" }}>
-        <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 14 }}>Theme</div>
+      <div className="panel panel-feature theme-panel">
+        <div className="theme-heading">Theme</div>
         {/* Driven entirely by BUDGET_THEMES: a theme added to that registry
             appears here with no change to this file.
 
             Each card is painted with the theme it previews rather than the one
-            the app is currently wearing, so the fixed rgba() borders are
-            deliberate: they have to read on any background a theme brings, not
-            on the active theme's. Selection is the accent ring plus the ACTIVE
-            caption in the corner. */}
-        <div role="radiogroup" aria-label="Theme" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 16 }}>
+            the app is currently wearing, which is why th.bg is the one thing
+            left inline here and why .theme-card's borders are fixed rgba()
+            values (see the note beside that rule). Selection is the accent
+            ring plus the ACTIVE caption in the corner. */}
+        <div role="radiogroup" aria-label="Theme" className="theme-grid">
           {BUDGET_THEMES.map((th) => {
             const on = s.theme === th.id;
             return (
               <button key={th.id} role="radio" aria-checked={on} aria-label={`${th.label} theme`}
                 onClick={() => dispatch({ type: "updateSettings", patch: { theme: th.id } })}
-                style={{
-                  position: "relative", display: "flex", alignItems: "flex-end",
-                  minHeight: 96, padding: "12px 14px", borderRadius: "var(--radius-sm)", cursor: "pointer", textAlign: "left",
-                  background: th.bg,
-                  border: on ? "2px solid var(--accent)" : "1px solid rgba(255,255,255,0.12)",
-                  boxShadow: on ? "0 0 16px color-mix(in srgb, var(--accent) 25%, transparent)" : "none",
-                  transition: "box-shadow .15s, border-color .15s",
-                }}>
-                {/* The active card's name is the bright one; the others dim
-                    with their whole card, so the eye lands where the ring is. */}
-                <span style={{ fontSize: on ? 14.5 : 13.5, fontWeight: on ? 600 : 500, color: on ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.55)" }}>{th.label}</span>
+                className={cx("theme-card", on && "is-on")}
+                style={{ background: th.bg }}>
+                <span className="theme-card-name">{th.label}</span>
                 {on && (
-                  <span style={{ position: "absolute", top: 11, right: 14, fontSize: 9.5, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--accent-ink)" }}>Active</span>
+                  <span className="theme-card-active">Active</span>
                 )}
               </button>
             );
@@ -357,41 +346,43 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
       <div className="section-head"><h2>Household members</h2></div>
       <div className="panel">
         {s.members.map(m => (
-          <div key={m.id} className="set-row" style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 12, alignItems: "center", padding: "12px 22px", minHeight: 56 }}>
+          <div key={m.id} className="set-row member-row">
             <Avatar member={m} size={32} />
-            <TextInline value={m.name} col="memberName" label="Member name" onCommit={(v) => dispatch({ type: "updateMember", id: m.id, patch: { name: v } })} style={{ fontWeight: 500, fontSize: 14 }} />
+            <TextInline value={m.name} col="memberName" label="Member name" onCommit={(v) => dispatch({ type: "updateMember", id: m.id, patch: { name: v } })} className="set-inline-name" />
             {/* Hover-revealed (.row-actions now also answers inside .set-row):
                 six colour dots per member on every resting row was the
                 noisiest thing on the screen, and picking a colour is a
                 once-a-year act. Keyboard focus reveals them the same way. */}
-            <div className="row-actions" style={{ gap: 8 }}>
-              <div role="radiogroup" aria-label={`Colour for ${m.name}`} style={{ display: "flex", gap: 5 }}>
+            <div className="row-actions member-actions">
+              <div role="radiogroup" aria-label={`Colour for ${m.name}`} className="swatch-row">
                 {MEMBER_COLORS.map(c => {
                   const on = m.color === c;
                   return (
                     <button key={c} role="radio" aria-checked={on} aria-label={COLOR_NAME[c] || c}
                       title={COLOR_NAME[c] || c}
                       onClick={() => dispatch({ type: "updateMember", id: m.id, patch: { color: c } })}
-                      style={{ width: 20, height: 20, padding: 0, borderRadius: 99, background: c, border: on ? "2px solid var(--ink)" : "2px solid transparent", outline: on ? "1px solid var(--on-ink)" : "none", cursor: "pointer", display: "grid", placeItems: "center", color: "rgba(0,0,0,0.72)" }}>
+                      className={cx("swatch", on && "is-on")}
+                      style={{ background: c }}>
                       {/* the swatches are fixed hex, not theme tokens, so a dark
-                          tick reads on every one of them */}
+                          tick reads on every one of them - see .swatch's colour
+                          in settings.css, which is what the tick inherits */}
                       {on && <Icons.check size={11} />}
                     </button>
                   );
                 })}
               </div>
-              <button className="icon-btn" title={`Remove ${m.name}`} aria-label={`Remove ${m.name}`} disabled={s.members.length <= 1} style={{ opacity: s.members.length <= 1 ? .3 : 1 }} onClick={() => setRemoveMember(m)}><Icons.trash size={16} /></button>
+              <button className="icon-btn member-remove" title={`Remove ${m.name}`} aria-label={`Remove ${m.name}`} disabled={s.members.length <= 1} onClick={() => setRemoveMember(m)}><Icons.trash size={16} /></button>
             </div>
           </div>
         ))}
-        <div className="set-row" style={{ padding: "12px 18px" }}>
-          <button className="btn btn-sm btn-ghost" style={{ color: "var(--muted)" }} onClick={() => dispatch({ type: "addMember", name: "New member", color: MEMBER_COLORS[s.members.length % MEMBER_COLORS.length] })}><Icons.plus size={14} /> Add member</button>
+        <div className="set-row set-row-add">
+          <button className="btn btn-sm btn-ghost btn-quiet" onClick={() => dispatch({ type: "addMember", name: "New member", color: MEMBER_COLORS[s.members.length % MEMBER_COLORS.length] })}><Icons.plus size={14} /> Add member</button>
         </div>
       </div>
 
       <div className="section-head"><h2>Funding accounts</h2></div>
       <div className="panel">
-        <div className="set-row" style={{ padding: "12px 22px", fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5 }}>
+        <div className="set-row acct-note">
           {/* Two sentences, no italic. The emphasis on "where" was carrying an
               explanation the reader hadn't asked for yet, and naming Revolut
               dated the copy to one product in one country. */}
@@ -401,13 +392,15 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
         {(s.accounts || []).map(a => {
           const owner = s.members.find(m => m.id === a.owner);
           return (
-            <div key={a.id} className="set-row" style={{ display: "grid", gridTemplateColumns: "auto 1fr 150px 130px auto", gap: 12, alignItems: "center", padding: "12px 22px" }}>
-              <span style={{ width: 30, height: 30, borderRadius: 8, flex: "none", background: hexToSoft(a.color), color: a.color, display: "grid", placeItems: "center" }}>{React.createElement(Icons[ACCT_ICON[a.type] || "coins"], { size: 16 })}</span>
-              <TextInline value={a.name} col="accountName" label="Account name" onCommit={(v) => dispatch({ type: "updateAccount", id: a.id, patch: { name: v } })} style={{ fontWeight: 500, fontSize: 14 }} />
-              <select value={a.type} aria-label={`Account type for ${a.name}`} onChange={(e) => dispatch({ type: "updateAccount", id: a.id, patch: { type: e.target.value } })} className="btn btn-sm" style={{ paddingRight: 8 }}>
+            <div key={a.id} className="set-row account-row">
+              {/* hexToSoft() reads the account's own colour, so the fill and
+                  the glyph's ink are the two runtime values here. */}
+              <span className="account-icon" style={{ background: hexToSoft(a.color), color: a.color }}>{React.createElement(Icons[ACCT_ICON[a.type] || "coins"], { size: 16 })}</span>
+              <TextInline value={a.name} col="accountName" label="Account name" onCommit={(v) => dispatch({ type: "updateAccount", id: a.id, patch: { name: v } })} className="set-inline-name" />
+              <select value={a.type} aria-label={`Account type for ${a.name}`} onChange={(e) => dispatch({ type: "updateAccount", id: a.id, patch: { type: e.target.value } })} className="btn btn-sm account-select">
                 {Object.entries(ACCT_TYPE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
-              <select value={a.owner || ""} aria-label={`Who owns ${a.name}`} onChange={(e) => dispatch({ type: "updateAccount", id: a.id, patch: { owner: e.target.value || null } })} className="btn btn-sm" style={{ paddingRight: 8 }}>
+              <select value={a.owner || ""} aria-label={`Who owns ${a.name}`} onChange={(e) => dispatch({ type: "updateAccount", id: a.id, patch: { owner: e.target.value || null } })} className="btn btn-sm account-select">
                 <option value="">Shared</option>
                 {s.members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
               </select>
@@ -417,8 +410,8 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
             </div>
           );
         })}
-        <div className="set-row" style={{ padding: "12px 18px" }}>
-          <button className="btn btn-sm btn-ghost" style={{ color: "var(--muted)" }} onClick={() => dispatch({ type: "addAccount", name: "New account", color: MEMBER_COLORS[(s.accounts || []).length % MEMBER_COLORS.length], accType: "main" })}><Icons.plus size={14} /> Add account</button>
+        <div className="set-row set-row-add">
+          <button className="btn btn-sm btn-ghost btn-quiet" onClick={() => dispatch({ type: "addAccount", name: "New account", color: MEMBER_COLORS[(s.accounts || []).length % MEMBER_COLORS.length], accType: "main" })}><Icons.plus size={14} /> Add account</button>
         </div>
       </div>
 
@@ -428,15 +421,15 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
           <button className="btn btn-primary" onClick={doBackup}><Icons.download size={15} /> Back up now</button>
         </Setting>
         <Setting title="Automatic backups" sub="When the app should quietly save a snapshot for you.">
-          <div role="radiogroup" aria-label="Automatic backups" style={{ display: "flex", gap: 4, background: "var(--well)", padding: 4, borderRadius: 10 }}>
+          <div role="radiogroup" aria-label="Automatic backups" className="seg">
             {AUTO.map(([val, label]) => {
               const on = s.autoBackup === val;
               return (
                 <button key={val} role="radio" aria-checked={on} onClick={() => dispatch({ type: "updateSettings", patch: { autoBackup: val } })}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 7, border: "none", fontSize: 13, fontWeight: on ? 600 : 500, background: on ? "var(--raised)" : "transparent", color: on ? "var(--ink)" : "var(--muted)", boxShadow: on ? "var(--shadow-sm)" : "none" }}>
+                  className={cx("seg-item", on && "is-on")}>
                   {/* the tick keeps its space when hidden, so choosing an option
-                      does not shuffle the other two sideways */}
-                  <Icons.check size={12} style={{ flex: "none", visibility: on ? "visible" : "hidden" }} />
+                      does not shuffle the other two sideways - see .seg-check */}
+                  <Icons.check size={12} className="seg-check" />
                   {label}
                 </button>
               );
@@ -463,7 +456,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
 
       <div className="section-head"><h2>Updates</h2></div>
       <div className="panel"><UpdateSettings /></div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center", margin: "26px 0 10px", color: "var(--faint)", fontSize: 12 }}>
+      <div className="settings-foot">
         <Icons.coins size={14} /> House Budget · local-first{version ? ` · v${version}` : ""}
       </div>
 

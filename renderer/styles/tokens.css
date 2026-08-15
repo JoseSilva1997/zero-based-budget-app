@@ -1,0 +1,478 @@
+/* ============================================================
+   House Budget - sleek dark system
+
+   THEMING
+   -------
+   One theme is one complete palette: surfaces, ink, rules and accent together,
+   in a single block keyed on [data-theme="<id>"]. There is no second axis. The
+   only two places that name a theme are that block and one entry in
+   renderer/lib/theme.js, so adding a theme is those two edits plus a run of
+   tests/tokens-electron.cjs to prove the palette clears its floors.
+
+   Tokens are layered, and the order of the layers is load-bearing. :root and
+   [data-theme="x"] have identical specificity (0,1,0), so at equal specificity
+   the later declaration wins. Layers 1-3 therefore sit ABOVE the theme blocks:
+   that is precisely what lets a theme override any default it does not want.
+
+     1. PRIMITIVES   typography, geometry, layout. Do not vary by theme.
+     2. DEFAULTS     semantic colour and elevation. True of any dark theme, so
+                     themes inherit rather than restate them.
+     3. DERIVED      tokens computed from the contract with var()/color-mix, so
+                     a theme gets them free by setting --accent and its surfaces.
+     4. THEMES       the contract itself, one block per theme.
+
+   Everything below layer 4 consumes tokens and declares none, with one
+   exception: the breakpoints at the foot of this file re-declare the two
+   layout primitives that are responsive (--sidebar-w, --budget-cols).
+
+   THEME CONTRACT
+   --------------
+   A theme block must set all of the following. [data-theme="obsidian"] is the
+   reference implementation and is written to be copied as the template.
+
+     surfaces   --board       the canvas
+                --raised      cards and popovers, the busiest text backdrop
+                --well        insets: trays, progress tracks, input fills
+     sidebar    --panel       the sidebar's own surface, NOT on the board ramp
+                --nav-hover   --nav-active   --nav-active-ink
+     ink        --ink  --ink-2  --muted  --faint
+                --on-ink      foreground for anything FILLED with --ink
+     rules      --rule  --rule-strong  --rule-faint
+     accent     --accent      --accent-soft   --accent-ink
+                --on-accent   ink that sits on top of an --accent fill
+
+   And may override, from layers 2-3: --accent-btn, --canvas-wash, --bar-plan,
+   the accent washes, the semantic colours, and the shadow ramp.
+
+   THE INLINE-STYLE RULE
+   ---------------------
+   An inline `style` prop in the renderer is permitted only for a value that
+   cannot be known until runtime: a percentage from barGeometry, a member's
+   own colour, a measured portal coordinate, a width from a size prop.
+   Everything else belongs in a class in this directory, taking a token if
+   one exists at that exact value and keeping its own literal otherwise.
+   Never invent a value, never snap to a near rung.
+
+   Two things enforce it, both run by `npm test` via `pretest`:
+
+     scripts/check-inline-styles.mjs guard 1  fails on an inline style holding
+       a literal, with one allowlisted exception documented in that file.
+     scripts/check-inline-styles.mjs guard 2  warns when an element carries a
+       class whose rules declare a property its inline style also sets. The
+       inline value wins, so those rules have never applied and the class is
+       dormant. Six such classes were found by hand while the renderer was
+       taken from 393 inline style objects to 23, including a .btn-ghost:hover
+       that had never once fired. Advisory only: masking is correct whenever
+       the inline value is runtime-derived, and nothing but a human can tell
+       the two apart.
+   ============================================================ */
+
+/* Bundled, not fetched. The sidebar strapline says "local", and until now
+   the one outbound request at startup was for these typefaces. Offline they
+   fell back to system-ui at different metrics inside a pixel-fixed layout.
+   Licensed under the SIL OFL: see fonts/OFL.txt (IBM Plex) and
+   fonts/PlusJakartaSans-OFL.txt, shipped alongside these woff2 files in
+   every build (renderer/dist here, installed app there).
+
+   Plus Jakarta Sans ships as two subsets per weight: latin covers the app's
+   own copy plus £ € ¥, and latin-ext exists for ₹ (U+20B9) in the currency
+   picker and for accented names beyond latin-1. The unicode-range values are
+   the subsets' own, from @fontsource/plus-jakarta-sans/unicode.json. */
+@font-face { font-family: "Plus Jakarta Sans"; font-weight: 400; font-style: normal; font-display: block; src: url("../fonts/PlusJakartaSans-Regular.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Plus Jakarta Sans"; font-weight: 500; font-style: normal; font-display: block; src: url("../fonts/PlusJakartaSans-Medium.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Plus Jakarta Sans"; font-weight: 600; font-style: normal; font-display: block; src: url("../fonts/PlusJakartaSans-SemiBold.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Plus Jakarta Sans"; font-weight: 700; font-style: normal; font-display: block; src: url("../fonts/PlusJakartaSans-Bold.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Plus Jakarta Sans"; font-weight: 400; font-style: normal; font-display: block; src: url("../fonts/PlusJakartaSans-Regular-ext.woff2") format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Plus Jakarta Sans"; font-weight: 500; font-style: normal; font-display: block; src: url("../fonts/PlusJakartaSans-Medium-ext.woff2") format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Plus Jakarta Sans"; font-weight: 600; font-style: normal; font-display: block; src: url("../fonts/PlusJakartaSans-SemiBold-ext.woff2") format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Plus Jakarta Sans"; font-weight: 700; font-style: normal; font-display: block; src: url("../fonts/PlusJakartaSans-Bold-ext.woff2") format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "IBM Plex Mono"; font-weight: 400; font-style: normal; font-display: block; src: url("../fonts/IBMPlexMono-Regular.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-weight: 500; font-style: normal; font-display: block; src: url("../fonts/IBMPlexMono-Medium.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-weight: 600; font-style: normal; font-display: block; src: url("../fonts/IBMPlexMono-SemiBold.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-weight: 700; font-style: normal; font-display: block; src: url("../fonts/IBMPlexMono-Bold.woff2") format("woff2"); }
+
+/* ============================================================
+   LAYER 1 - PRIMITIVES
+   Typography, geometry and layout. None of this varies by theme, and a theme
+   block has no business declaring any of it.
+   ============================================================ */
+:root {
+  --font-sans: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  /* The figure face for money columns. Kept as its own token so it can differ
+     from --font-sans if the UI face's tabular figures ever prove unusable;
+     see the .num comment below for the verification story. */
+  --font-num: var(--font-sans);
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+
+  /* ---- the type scale ----
+     Twenty-four rungs: one for every distinct size the renderer already sets,
+     with no value merged into a neighbour. Complete coverage is the point. A
+     scale that does not name a size in use forces whoever migrates that rule to
+     invent a substitute, and inventing it inside a mechanical refactor is how a
+     refactor starts changing what is on screen.
+
+     It started at twenty-three and gained --text-18 when develop's month bar
+     redesign merged in, which set a size the census below had never seen. That
+     is the scale working as intended rather than a hole in it: complete
+     coverage is a claim about a moment, and the answer to a new size arriving
+     is a new rung, never rounding it into the nearest old one. The census that
+     follows is the state at the consolidation, not a ceiling.
+
+     The names are the pixel values, with "-" for the decimal point, so
+     --text-13-5 is 13.5px and means nothing else. That is deliberate. This is a
+     holding pen, not a designed scale, and t-shirt names (--text-sm,
+     --text-base) would claim a hierarchy nobody has decided on: they would
+     force a judgement at every call site (is 13px "sm" or "base"?) at exactly
+     the moment it is least visible and least reviewed. Numeric names also make
+     the eventual collapse a grep rather than an audit, because every consumer
+     of a doomed rung says its own pixel value out loud.
+
+     These are not new values. Every rung was read off the 187 size declarations
+     the renderer carries today: 151 inline fontSize props across renderer/*.jsx
+     and 36 font-size rules in renderer/styles/*.css. Combined count per value,
+     which is also the map of where the weight sits:
+
+          9.5   1      12    18      14.5   1      19   2      28   1
+         10     5      12.5  18      15     5      20   1      30   1
+         10.5   4      13    37      15.5   4      21   1      34   2
+         11    20      13.5  25      16     1      22   1      46   1
+         11.5  17      14    19      17     2
+
+     An earlier draft of this scale had ten rungs, all on the half-pixel values,
+     plus a rule that any other size snapped to the nearest rung as it migrated.
+     That rule is deleted and must not come back. The bare integers 10, 11, 12
+     and 13 each sit EXACTLY 0.5px from two rungs, so no nearest rung exists for
+     any of them, and those four values are 80 of the 187 declarations: 43% of
+     the codebase. Snapping would have meant a design decision taken 80 times,
+     silently, by whichever agent happened to open the file.
+
+     COLLAPSING THIS SCALE IS DEFERRED to its own reviewed project. Twenty-three
+     rungs is not a target, it is an honest inventory of the drift. The obvious
+     candidates are the whole/half pairs, one rendered pixel apart at most and
+     almost certainly the same intent recorded twice by two different hands:
+
+         --text-10   /  --text-10-5      5 sites vs 4
+         --text-11   /  --text-11-5     20 sites vs 17
+         --text-12   /  --text-12-5     18 sites vs 18
+         --text-13   /  --text-13-5     37 sites vs 25
+         --text-14   /  --text-14-5     19 sites vs 1
+         --text-15   /  --text-15-5      5 sites vs 4
+
+     The first four of those pairs are the 80 declarations named above and are
+     the whole of the problem. The top end is the other candidate and is cheaper:
+     16, 17, 19, 20, 21 and 22 hold 8 sites between them, and nothing above
+     15.5px is set more than twice anywhere in the app.
+
+     The half pixels themselves are not drift and survive any collapse. Plus
+     Jakarta Sans is a wider face than the Hanken Grotesk the mockups are set in
+     and reads a size larger at the same size (the .brand-name comment in
+     shell.css measures the overrun that taught us this), so the design was
+     re-tuned downward in .5px steps rather than whole ones. A whole-pixel
+     ladder would have to round every one of those decisions in some direction.
+
+     Four fontSize sites deliberately have NO rung here and must not be given
+     one, for two different reasons. DashboardCharts.jsx:23 (axisProps) and
+     :219 (LabelList) hand fontSize to Recharts, which writes it as an SVG
+     presentation attribute rather than as CSS, so a var() would not resolve.
+     :91 (MonthTick) is NOT one of those - it is a plain button in an HTML flex
+     row - but its size has to stay equal to the value axisProps gives recharts
+     for its own ticks, and a number that must match another number belongs at
+     the same place as the number it matches. Two of the three are the 11px
+     sites in the census above. components.jsx:384
+     computes the Avatar's size from its size prop at runtime and stays inline
+     under the plan's inline-style rule. See
+     docs/superpowers/plans/2026-08-15-renderer-styling-consolidation.md. */
+  --text-9-5:  9.5px;   --text-10:   10px;    --text-10-5: 10.5px;
+  --text-11:   11px;    --text-11-5: 11.5px;  --text-12:   12px;
+  --text-12-5: 12.5px;  --text-13:   13px;    --text-13-5: 13.5px;
+  --text-14:   14px;    --text-14-5: 14.5px;  --text-15:   15px;
+  --text-15-5: 15.5px;  --text-16:   16px;    --text-17:   17px;
+  --text-18:   18px;
+  --text-19:   19px;    --text-20:   20px;    --text-21:   21px;
+  --text-22:   22px;    --text-28:   28px;    --text-30:   30px;
+  --text-34:   34px;    --text-46:   46px;
+
+  /* ---- the radius scale ----
+     One addition, measured the same way as the type scale. The renderer sets 14
+     distinct radius literals across CSS and JSX, and 8px is the most used of
+     them at 12 sites: more than 6px (10 sites) and more than --radius-sm's 10px
+     (9 sites), and it was the only one of the three top values with no rung to
+     land on.
+
+     Adding it renamed 6px from --radius-xs to --radius-3xs, so the ramp still
+     reads smallest-first: 3xs, 2xs, sm, base, lg. The alternative was 2xs (8px)
+     sitting LARGER than xs (6px), which inverts the one thing a t-shirt ramp
+     promises. Both tokens were one task old and had no consumers, so the rename
+     cost nothing; it would have cost a sweep of every stylesheet a phase later.
+
+     The other nine literals (2, 3, 5, 7, 9, 11, 12, 13, 17) deliberately get
+     no rung. They are one-off nudges, 1 to 5 sites each, and a rung would
+     dignify them into a vocabulary. They stay as literals in CSS when their
+     rules migrate, which is a visible, greppable place for them to sit. */
+  --radius-3xs: 6px;
+  --radius-2xs: 8px;
+  --radius-sm: 10px;
+  --radius: 14px;
+  --radius-lg: 20px;
+  /* Larger than any box it is used on, which is the point: a pill tracks the
+     box's own height instead of needing a value per control. The codebase
+     spells the pill two ways, 99px at 6 sites and 999px at 6 more, and both
+     render identically because both already exceed half the height of every box
+     they are set on. Both become this token as their rules migrate: a 99px site
+     is not a different radius and must not be preserved as a literal. */
+  --radius-pill: 999px;
+
+  --row-h: 50px;
+  /* ---- the space scale ----
+     The step between rungs widens as the values grow (2, 2, 2, 2, 4, 6, 8),
+     because a 2px difference is a real one between a chip's padding and a
+     row's, and an invisible one between two block gaps. Same provenance as the
+     type scale: these are the values already in use, not a fresh geometry.
+     --space-6 is the same 16px as --gap and is deliberately not merged with
+     it: --gap names a role (the distance between blocks) and --space-6 names a
+     length, and a later decision to move blocks to 22px should not have to
+     rewrite every 16px padding in the app to get there.
+
+     THE SPACING SCALE DOES NOT COVER EVERY LENGTH IN USE, AND THAT IS ON
+     PURPOSE. The renderer sets spacings this ladder has no rung for: 14, 18,
+     20, 24 and 26 in the middle, and a scatter of 1, 2 and 3 at the small end.
+     Filling those gaps was considered and rejected. It would take the scale
+     past sixty tokens, at which point --space-11 versus --space-12 carries no
+     more meaning than 24 versus 26 did and the vocabulary is just the problem
+     again with a var() wrapped round it.
+
+     So the standing rule, which every migration task in this project follows:
+
+         When a style moves from JSX into CSS, it uses a token if one exists at
+         that exact value, and otherwise keeps its literal. Do not invent a
+         value, do not snap to a near rung. A literal living in CSS is visible
+         and collapsible; the problem this project solves is literals scattered
+         through JSX.
+
+     This applies to type and radius as well as space. The type scale happens to
+     have a rung for every size in use, so in practice it always hits the first
+     branch; the radius scale does not, and 2/3/5/7/9/11/12/13/17 are expected
+     to arrive in these stylesheets as bare pixel values. That is the rule
+     working, not the rule failing. */
+  --space-1: 4px;  --space-2: 6px;  --space-3: 8px;   --space-4: 10px;
+  --space-5: 12px; --space-6: 16px; --space-7: 22px;  --space-8: 30px;
+
+  /* The default gap between blocks. Inline JSX still hard-codes 16 in a lot of
+     places; migrating those to var(--gap) is now underway rather than merely
+     permitted, and the space scale above is where the hard-coded lengths that
+     match a rung are headed. The ones that do not match stay literal; see the
+     standing rule in the space comment. See
+     docs/superpowers/plans/2026-08-15-renderer-styling-consolidation.md. */
+  --gap: 16px;
+  --sidebar-w: 240px;
+  /* Content spans the window rather than sitting in a 1080px well; the cap
+     only exists so an ultra-wide monitor doesn't stretch table rows to arm's
+     length. At the app's default 1280px window it never engages. */
+  --maxw: 1440px;
+
+  /* The budget grid, in one place, because five call sites draw it: the column
+     header and the four row shapes (item, group, entry, add-entry). Callers
+     pair it with gap: 10 and padding: 7px 8px. The Difference column is the
+     fifth track; below 1200px it is dropped here and hidden with .col-diff. */
+  --budget-cols: 1fr 150px 158px 150px 78px;
+}
+
+/* ============================================================
+   LAYER 2 - DEFAULTS
+   True of any dark theme, so themes inherit these rather than restating them
+   six times. A theme that needs different values (a light one would) simply
+   declares them: its block comes later and wins.
+   ============================================================ */
+:root {
+  /* Semantic colour, re-cut to the domain. In zero-based budgeting an
+     envelope spent exactly to plan IS the success, so "settled" gets no
+     colour at all: it is the resting state. Exactly ONE state earns a hue,
+     and it is the failure.
+
+     There used to be a second, --unsettled: an amber that painted the
+     unallocated remainder of the month bar, on the reasoning that money
+     without a job is a nag. It is gone. A budget that has not been written
+     yet is not an error, and colouring the majority of the bar on the 1st
+     of the month made the app open every month by shouting. Absence says
+     it better: the bar starts hollow, and allocating fills it. See the
+     MonthBar docstring for the whole of that argument.
+
+     --breach carries two roles: the budget meaning "over budget", and the
+     ordinary red of an error affordance (invalid input, a failed load, a
+     destructive action) that has nothing to do with a budget state. One red
+     for both is deliberate: a second red would look identical and just be
+     confusing. What --breach may never mean is under-spending or any other
+     settled state painted red or green, the mistake this token was cut to
+     undo. */
+  --breach: oklch(0.63 0.20 27);
+  --breach-soft: oklch(0.31 0.10 27);
+  --breach-ink: oklch(0.80 0.15 27);
+  --info: oklch(0.72 0.13 240);
+  --info-soft: oklch(0.31 0.08 240);
+
+  /* Elevation. Pure-black shadows, which is what a dark canvas wants and what
+     a light theme would have to restate. */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.4), 0 1px 1px rgba(0,0,0,0.3);
+  --shadow-md: 0 8px 24px -10px rgba(0,0,0,0.6), 0 2px 8px -4px rgba(0,0,0,0.45);
+  --shadow-lg: 0 30px 70px -22px rgba(0,0,0,0.75), 0 10px 28px -14px rgba(0,0,0,0.55);
+}
+
+/* ============================================================
+   LAYER 3 - DERIVED
+   Every token here is computed from the contract, so a theme earns all of them
+   by setting --accent and its surfaces and writing none of this down. Custom
+   properties resolve at use time against the element's final computed values,
+   so declaring these before the theme blocks costs nothing and buys the
+   override (see the cascade note at the top of the file).
+   ============================================================ */
+:root {
+  /* The canvas fill. A theme with a flat board leaves this alone; one that
+     wants a wash behind the content states a gradient instead (obsidian does).
+     Consumed by .main, so it is a background shorthand value, not a colour. */
+  --canvas-wash: var(--board);
+
+  /* Accent-tinted running text (item names in the budget rows). --accent-ink
+     at full strength read too loud across a whole month, so this is a lighter,
+     quieter blend of it toward the ink ramp: still unmistakably the accent,
+     but sitting closer to the text around it. Derived rather than hand-tuned
+     per theme; blending toward --ink can only raise contrast above
+     --accent-ink's own floors. */
+  --accent-text: color-mix(in srgb, var(--accent-ink) 45%, var(--ink));
+
+  /* The accent is free to be any hue a theme likes, but text sitting ON it is
+     not. --accent-btn is the accent darkened to the point where --on-accent
+     clears WCAG AA at 4.5:1. A theme whose accent is already light enough to
+     carry dark ink inherits the accent unchanged; one that is not (obsidian's
+     violet) overrides this with the darkened value and records the ratio. */
+  --accent-btn: var(--accent);
+
+  /* Focus ring. The solid 2px core is what carries the indicator: raw --accent
+     must clear 3:1 against the lightest surface it can land on, which is
+     --raised (4.62:1 in obsidian). The soft outer band is decoration on top of
+     that, not the indicator itself, which is why it is no longer a lone 32%
+     wash at 1.5:1. */
+  --ring: 0 0 0 2px var(--accent), 0 0 0 5px color-mix(in srgb, var(--accent) 26%, transparent);
+  --glow-sm: 0 4px 18px -6px color-mix(in srgb, var(--accent) 55%, transparent);
+  --glow-md: 0 8px 28px -8px color-mix(in srgb, var(--accent) 60%, transparent);
+
+  /* The "planned" weight, on the dashboard's allocated-vs-actual bars AND on
+     the month bar. One token for both, because it means the same thing in
+     both places: money that has a job on paper. The same accent as the money
+     that actually moved, at half strength - one hue, two weights, no edge on
+     either. The only line in the month bar is the track's own outline, which
+     the fills sit inside and never touch.
+
+     Half strength is a balance, not a floor: 2.03:1 against the bare track
+     and 2.51:1 against the solid spend, both guarded in
+     tests/tokens-electron.cjs. Neither reaches 3:1 and neither can, because
+     the solid accent is only 5.10:1 against the track to begin with, so 3:1
+     on one of those boundaries comes straight out of the other. Two earlier
+     settings each took one end of that trade and lost the other: --bar-faded
+     at 73% was 1.62:1 against the spend (one violet slab in two weights), and
+     a 20% wash was 1.21:1 against the track (invisible rather than quiet). */
+  --bar-plan: color-mix(in srgb, var(--accent) 50%, transparent);
+
+  /* Accent washes. The Month Budget screen is three levels deep (group
+     header, item row, spending entry) and every one of them used to be a
+     near-black band, so depth was carried by hairlines alone and the header
+     read as recessed rather than as a header. These give depth a second
+     channel: how much accent a surface carries. A group header is the only
+     band on the page that is washed; an opened item and the entry tray it
+     opens share a lighter wash, which is what makes them read as one object
+     rather than two neighbours; everything else is neutral.
+     --wash-breach replaces the accent on a group header that is over, so the
+     loudest surface on the page is always the one that needs attention. */
+  --wash-head: color-mix(in srgb, var(--accent) 13%, var(--board));
+  --wash-open: color-mix(in srgb, var(--accent) 6%, var(--raised));
+  --wash-tray: color-mix(in srgb, var(--accent) 5%, var(--board));
+  /* Deliberately WEAKER than --wash-head, not stronger, even though it is the
+     more urgent of the two. Red carries far more perceived weight than violet
+     at the same mix, and at parity the breach header stopped reading as a
+     header that happens to be over and started reading as a slab of error
+     with a budget inside it. The row already says "$35 OVER" in a filled
+     pill and prints the figure in --breach-ink; the wash only has to tell the
+     eye which card to land on while scrolling past a dozen of them. */
+  --wash-breach: color-mix(in srgb, var(--breach) 8%, var(--board));
+}
+
+/* ============================================================
+   LAYER 4 - THEMES
+   One block per theme, each a complete palette. The tokens a block must set
+   are listed under THEME CONTRACT at the top of this file.
+
+   The ink ramp is measured, not eyeballed. --faint and --muted are stated in
+   oklch and their lightness is solved so that both clear 4.5:1 against
+   --raised, which is the tightest of the three surfaces and the one most of
+   this text actually sits on. The ramp is preserved by construction,
+   faint < muted < ink-2 < ink, with a real step between each rung rather than
+   three near-identical greys. Measured on --raised in obsidian:
+       faint 4.64 · muted 6.28 · ink-2 9.85 · ink 16.74
+
+   Rules are graded by what they carry. --rule-strong is the boundary or the
+   state of something interactive (buttons, the month steppers, the active nav
+   item, the "Assign account" chip, keycaps, the sidebar and drawer edges), so
+   it is solved to 3:1 against --raised per WCAG 1.4.11. --rule is structure
+   (card outlines, dividers, the progress track) and --rule-faint is a row rule
+   between rows that are already self-identifying; both are decorative, but at
+   1.03-1.38:1 they were invisible rather than subtle, so they are lifted to
+   2.30:1 and 1.90:1 where they can at least be seen.
+
+   The sidebar ramp (--panel and the two nav fills) is deliberately separate
+   from board/raised/well, because the sidebar is not a card on the canvas: it
+   is the surface the canvas sits beside, and the two ramps are free to move in
+   opposite directions. Obsidian's --panel is LIGHTER than --raised, since a
+   true-black canvas has nowhere to go but up. Only the relationship inside the
+   ramp is fixed: --nav-active clears --panel by the step the design was drawn
+   at, 1.39:1 in obsidian.
+
+   Adding a theme is this block copied, revalued, and run through
+   tests/tokens-electron.cjs, which enforces every floor named above. Run it
+   with --report to read the measured ratios back out.
+   ============================================================ */
+
+/* ---- obsidian (true-black OLED, violet accent) --------------------------- */
+[data-theme="obsidian"] {
+  /* --- surfaces --- */
+  --board: #000000;
+  --raised: #141418;  --well: #060607;
+  /* A faint violet-tinted radial wash behind the canvas, lighter at the top
+     than --board's flat black. A theme whose --board already carries a tint
+     would leave --canvas-wash alone rather than layer a gradient that fights
+     it. */
+  --canvas-wash: radial-gradient(ellipse at top, #181924 0%, #0a0b0e 50%, #050508 100%);
+
+  /* --- sidebar ---
+     The literal values it was drawn at: neutral, rather than carrying
+     obsidian's faint violet cast, because the drawing is neutral. */
+  --panel: #1c1b1c;   --nav-hover: #2a2a2a;  --nav-active: #353435;
+  /* The active item's icon, and the one judgement rather than measurement in
+     this block. Obsidian was drawn with the accent living in the brand tile
+     alone, so the active icon is plain --ink. A theme that wants the accent in
+     the nav sets var(--accent-ink) here instead. */
+  --nav-active-ink: var(--ink);
+
+  /* --- ink ---
+     --on-ink is the foreground for anything FILLED with --ink (toast, tooltip,
+     arithmetic preview). Split from --raised so that surface can move without
+     silently turning these chips dark-on-dark. */
+  --ink: #f4f4f7;      --ink-2: #bdbdc6;
+  --muted: oklch(0.678 0.016 285.9);   /* 6.28:1 on --raised */
+  --faint: oklch(0.599 0.015 285.8);   /* 4.64:1 on --raised */
+  --on-ink: #141418;
+
+  /* --- rules --- */
+  --rule: oklch(0.434 0.016 285.3);          /* 2.30:1 on --raised */
+  --rule-strong: oklch(0.500 0.019 285.3);   /* 3.05:1 on --raised */
+  --rule-faint: oklch(0.389 0.010 285.6);    /* 1.90:1 on --raised */
+
+  /* --- accent ---
+     A violet at hue 293, tuned toward the #7C3AED of the design mockups. The
+     mockup value itself (oklch 0.54) is too dark to clear the progress bar's
+     outer floor against --well; L 0.62 is the derived compromise. */
+  --accent: oklch(0.62 0.21 293);
+  --accent-soft: oklch(0.31 0.11 293); --accent-ink: oklch(0.82 0.15 293);
+  --on-accent: #ffffff;
+  /* L 0.62 cannot carry white ink at AA, so the button fill alone is darkened
+     until it can. Overrides the layer-3 default of plain --accent. */
+  --accent-btn: oklch(0.585 0.21 293);       /* white ink: 4.58:1 */
+}

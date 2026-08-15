@@ -35,6 +35,18 @@ function eq(a, b, msg) {
   if (a !== b) throw new Error(`${msg}: got ${JSON.stringify(a)}, want ${JSON.stringify(b)}`);
 }
 
+/* renderer/app.css is a manifest of @imports over renderer/styles/*.css. This
+   suite injects the sheet with insertCSS into a data: URL document, where a
+   relative @import has no file to resolve against, so the manifest is followed
+   here instead - in the browser's own order, depth first, each import resolved
+   against the file that names it. Same helper as tokens-electron.cjs and
+   update-banner-electron.cjs, for the same reason. */
+function readCss(file) {
+  return fs
+    .readFileSync(file, 'utf8')
+    .replace(/@import\s+"([^"]+)";/g, (_m, rel) => readCss(path.join(path.dirname(file), rel)));
+}
+
 /* The panel, reduced to the elements the rail rules actually address. Built
    from the same class names main.jsx renders; block 3 below is what keeps the
    two from drifting apart. */
@@ -113,7 +125,7 @@ app.whenReady().then(async () => {
     db.close();
 
     /* ---- 2. what the CSS does with it ------------------------------------ */
-    const css = fs.readFileSync(path.join(root, 'renderer', 'app.css'), 'utf8');
+    const css = readCss(path.join(root, 'renderer', 'app.css'));
     win = new BrowserWindow({
       show: false,
       width: 1280,

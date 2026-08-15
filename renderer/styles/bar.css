@@ -1,0 +1,196 @@
+/* ---- month bar -----------------------------------------------------------
+   Full-bleed and structural: it sits directly on the board, not inside a
+   .panel or a .raised, because it is neither flat furniture nor the one
+   lifted object on the screen. */
+
+/* The block the whole bar occupies. Both shapes MonthBar can render share it -
+   the empty-state invitation and the full bar - so the month heading above and
+   the budget groups below do not shift when the first income arrives. */
+.bar-block { margin: var(--space-1) 0 38px; }
+
+/* The empty state. There is no track to read yet, so the only thing to say is
+   how to get one. */
+.bar-note { margin-top: var(--space-4); font-size: var(--text-13); color: var(--muted); }
+
+/* The figures above the track. Aligned on their baselines rather than their
+   boxes, because the two sides are set at 12px and 19px and it is the baseline
+   the eye reads them along.
+
+   Recorded after develop's redesign merged in: the row itself is 12px and the
+   two figures inside it are now 16px (spent) and 18px (income), so the two
+   sizes the sentence above names are no longer the two sizes on the row. The
+   reasoning it gives is unchanged - the row still mixes sizes and still has to
+   sit on one baseline - so the comment is kept whole rather than rewritten.
+
+   The row carries the 12px and the --muted for both of its sides, so neither
+   span has to restate them; only the figures step out of it. */
+.bar-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: var(--space-6);
+  font-size: var(--text-12); color: var(--muted);
+}
+
+/* The four money figures: spent and income above the track, allocated and
+   left-to-allocate below it. One class, because all four are the same object
+   and all four turn the same colour together. */
+.bar-figure { font-size: var(--text-16); font-weight: 700; color: var(--ink); }
+/* .is-over is g.overAllocated, the plan fact: the allocation exceeds income.
+   It is NOT the same thing as a 'beyond' region being on the track, which is a
+   rendering fact and drives the income mark instead; see the comment beside
+   hasBeyond in MonthBar.jsx for why the two must never be conflated. */
+.bar-figure.is-over { color: var(--breach-ink); }
+/* The income figure is the one the others are measured against, so it is set a
+   notch larger than them. 18px had no rung when develop's redesign arrived; it
+   has --text-18 now, added for this, because the answer to a new size is a new
+   rung and never rounding it into 17 or 19. See the never-snap rule in
+   tokens.css. */
+.bar-figure-income { margin-left: var(--space-3); font-size: var(--text-18); }
+
+/* The bullets beside the figures echo the bar's own paint: a solid dot for
+   spent (PAINT.spent), a plain washed dot for allocated (PAINT.allocated),
+   and a hollow ring for left to allocate since the bar marks that money by
+   leaving the track bare and outlined in --rule-strong, not by filling it.
+
+   The two paints are spelled out here as the same one-stop gradients PAINT's
+   flat() builds, rather than as the plain colours they are equivalent to. That
+   equivalence is not exact in the raster: swapping linear-gradient(c, c) for c
+   moved 32 pixels across the two dots by one 255th, which is a visual change
+   however invisible, so the gradient stays. If PAINT.spent or PAINT.allocated
+   is ever revalued, these two have to follow by hand - CSS cannot read the
+   table, and that is the cost of the bullets echoing the bar at all. */
+.bar-dot {
+  display: inline-block; width: 6px; height: 6px;
+  border-radius: 50%; margin-right: var(--space-2); vertical-align: middle;
+}
+.bar-dot-spent { background: linear-gradient(var(--accent), var(--accent)); }
+.bar-dot-allocated { background: linear-gradient(var(--bar-plan), var(--bar-plan)); }
+.bar-dot-left { background: transparent; box-shadow: inset 0 0 0 1px var(--rule-strong); }
+/* Over-allocated, so there is no money left to leave hollow: the ring fills
+   in and the dot joins the breach. */
+.bar-dot-left.is-over { background: var(--breach); box-shadow: none; }
+
+.bar-wrap { position: relative; }
+.bar-track {
+  position: relative;
+  height: 34px;
+  /* A full pill, per the mockups: half the track height, so the ends are
+     semicircles. The fills inside are pills of the same radius, inherited
+     from here so the two can never drift apart, and the clip is only a
+     backstop for a fill that reaches the track's own end. */
+  border-radius: 17px;
+  background: var(--well);
+  overflow: hidden;
+  /* Isolates the region transitions (width, see MonthBar.jsx) from the rest
+     of the page, same reasoning as .update-banner-track's transform
+     transition above. */
+  contain: layout paint;
+}
+/* The vessel outline. The track is drawn, not merely implied: --well is
+   within a percent of --board, so without this an unallocated month rendered
+   as a fill floating in nothing.
+
+   --rule, not --rule-strong. The strong weight is the ramp's boundary token
+   and it was the right call while this line was the only thing marking how
+   much room was left - but it is no longer carrying that alone. The fills
+   start at the left edge and end in a cap now, so the outline's job is to
+   describe the vessel, not to measure it, and at --rule-strong it drew
+   harder than the money inside it. --rule-faint is a step too far the other
+   way: it is 1.03:1 against the plan fill, so the ring would vanish exactly
+   where it crosses the allocated band and break the thing this outline
+   exists to be.
+
+   It is a pseudo-element rather than a box-shadow on .bar-track itself
+   because an inset shadow paints BENEATH the element's children. Every fill
+   buried the top and bottom of the line along its own length, so the outline
+   survived only where the track happened to be bare - a vessel interrupted
+   by its own contents, and the interruption moved as the month filled up.
+   ::after is the last thing painted inside the track, so the hairline now
+   runs unbroken around the whole bar and the fills are simply what is inside
+   it. The unallocated remainder needs no treatment of its own: it is the
+   stretch of the ring with nothing behind it, and reads hollow for exactly
+   that reason. */
+.bar-track::after {
+  content: "";
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px var(--rule);
+  pointer-events: none;
+}
+/* The fills are fills: no border, no ring, nothing that touches the outline
+   above. They stack from the track's left edge rather than tiling across it
+   (see MonthBar.jsx), which means each one has to be opaque or the fill
+   behind it shows through - and --bar-plan is translucent. So the track
+   colour sits under every fill as its background-colour and each region's
+   own paint arrives as a background-image on top: the stack composites
+   correctly without every entry in the paint table having to be opaque, and
+   the hatches' --well band is now literally the colour beneath them.
+
+   The transition is on width and not on transform: it is a constant, so it
+   lives here rather than beside the percentage the JSX computes, but WHY it
+   is width is a fact about the geometry and is written where the geometry is,
+   above .bar-wrap in MonthBar.jsx. */
+.bar-region {
+  position: absolute; top: 0; bottom: 0; left: 0;
+  background-color: var(--well);
+  border-radius: inherit;
+  transition: width .35s ease;
+}
+/* The income mark is two elements, not one, because .bar-track has to clip
+   (overflow: hidden keeps fills inside the rounded corners) and the mark
+   has to be visible against --board, and those two requirements cannot both
+   be met by one element inside the track.
+   .bar-mark-rule stays inside, a 1px line crossing the fills at whatever
+   contrast that fill happens to have against --rule-strong: as low as
+   1.01:1 in ocean. That is covered, not missed: it carries precision, not
+   visibility.
+   .bar-mark-tick is the sibling in .bar-wrap that carries visibility: two
+   4px ticks, one above and one below the track, landing on --board where
+   --rule-strong clears 3:1 in all four themes (worst measured: 3.47:1). The
+   middle of its box is left transparent so it does not paint a second,
+   redundant line over the rule already inside the track. */
+.bar-mark-rule {
+  position: absolute; top: 0; bottom: 0; width: 1px;
+  background: var(--rule-strong);
+}
+.bar-mark-tick { position: absolute; top: -4px; bottom: -4px; width: 1px; }
+.bar-mark-tick::before, .bar-mark-tick::after {
+  content: "";
+  position: absolute; left: 0; width: 1px; height: 4px;
+  background: var(--rule-strong);
+}
+.bar-mark-tick::before { top: 0; }
+.bar-mark-tick::after { bottom: 0; }
+
+/* The read-out under the track: what the bar draws, said in words and figures
+   for the people the bar itself is hidden from (.bar-wrap is aria-hidden).
+
+   No font-size here, unlike .bar-head above, and that is deliberate rather
+   than an omission. The left-to-allocate side is a figure, a literal space and
+   then a word, and that space is set in the container's own font: giving this
+   row a size would resize a space that is currently the page's. The one side
+   that does need the small size takes .bar-legend-item for it. */
+.bar-legend {
+  display: flex; justify-content: flex-start; align-items: baseline;
+  gap: 20px; margin-top: var(--space-6);
+}
+.bar-legend-item { font-size: var(--text-12); color: var(--muted); }
+/* The word after the left-to-allocate figure: "remaining", or "over-allocated"
+   when the plan has outgrown the income. Plain weight and --muted, so the
+   figure in front of it is the thing being read. */
+.bar-remainder-label { font-size: var(--text-12); font-weight: 400; color: var(--muted); }
+
+/* The over-budget strip. Once the gap closes this is the only coloured thing
+   left on the screen, which is the point; see the comment above it in
+   MonthBar.jsx. */
+.bar-over {
+  display: flex; align-items: center; gap: var(--space-4); margin-top: 14px;
+  padding: 11px 14px; border-radius: var(--radius-2xs);
+  background: var(--breach-soft); color: var(--breach-ink);
+  font-size: var(--text-13);
+}
+/* Everything in the strip holds its own width. The item list is the one part
+   that flexes, and therefore the one part that truncates. */
+.bar-over > svg, .bar-over strong, .bar-over-total { flex: none; }
+.bar-over strong { font-weight: 600; }
+.bar-over-items { opacity: 0.9; flex: 1 1 auto; }
+.bar-over-total { margin-left: auto; font-weight: 600; }

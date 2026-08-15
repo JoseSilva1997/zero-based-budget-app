@@ -40,8 +40,8 @@ function DashboardScreen({ currency, onOpenMonth }) {
       </div>
 
       {loadError && (
-        <div role="alert" style={{ display: "flex", gap: 9, alignItems: "flex-start", background: "var(--breach-soft)", color: "var(--breach-ink)", padding: "11px 14px", borderRadius: 10, fontSize: 13, lineHeight: 1.45, marginBottom: 16 }}>
-          <Icons.alert size={16} style={{ flex: "none", marginTop: 1 }} />
+        <div role="alert" className="alert alert-banner">
+          <Icons.alert size={16} />
           <span>Your months couldn't be read, so this overview is empty rather than complete. {loadError}</span>
         </div>
       )}
@@ -50,19 +50,16 @@ function DashboardScreen({ currency, onOpenMonth }) {
       <HeadlineStats allSeries={allSeries} series={series} currency={currency} />
 
       {!hasAnyData ? (
-        <div className="panel empty" style={{ marginTop: 16 }}>
+        <div className="panel empty dash-empty">
           <div className="empty-icon"><Icons.monitor size={22} /></div>
-          <div style={{ fontWeight: 600, color: "var(--ink-2)" }}>Your overview will appear here</div>
-          <div style={{ fontSize: 13, maxWidth: 340 }}>Enter a month's actual spending and savings, and the dashboard will start charting your trends and habits over time.</div>
+          <div className="dash-empty-title">Your overview will appear here</div>
+          <div className="dash-empty-note">Enter a month's actual spending and savings, and the dashboard will start charting your trends and habits over time.</div>
         </div>
       ) : (
-        /* `alignItems: start` so a card sizes to its own content. Without it
-           every card in a row stretched to the tallest one, and "Category
-           trends" - which on a young household is a single sentence - was
-           being held open to the 380px of the savings chart beside it. */
-        /* Wider gaps than the card grid used to need: with the chart boxes
-           gone, the space between charts is the only thing separating them. */
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "64px 32px", marginTop: 52, alignItems: "start" }}>
+        /* Why the row is `align-items: start` and why the gaps are wider than
+           the old card grid needed moved with the rules onto .dash-grid in
+           styles/charts.css. */
+        <div className="dash-grid">
           {/* Each card's title now carries the whole of what the card is. The
               explainer line under every one of them ("What you set aside each
               month, and how much of your income that was", "Your nest egg

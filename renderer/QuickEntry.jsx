@@ -9,7 +9,7 @@
    ============================================================ */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DayField, Icons, evalMoney, isExpr } from './components.jsx';
-import { actualDay, fmt } from './lib/index.js';
+import { actualDay, cx, fmt } from './lib/index.js';
 import { useStore } from './store.jsx';
 
 /* Every item in the month, flattened with its group, in screen order. */
@@ -37,17 +37,17 @@ function SuggestionRow({ s, active, currency, onPick, id }) {
     <button type="button" id={id} role="option" aria-selected={active}
       onMouseDown={(e) => e.preventDefault()}
       onClick={() => onPick(s)}
-      style={{ width: "100%", display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "center", textAlign: "left", padding: "7px 10px", border: 0, background: active ? "var(--well)" : "transparent", color: "var(--ink)", cursor: "pointer", font: "inherit" }}>
-      <span style={{ minWidth: 0 }}>
-        <span style={{ display: "block", fontSize: 13.5, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
-        <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, marginTop: 2, color: s.itemId == null ? "var(--breach-ink)" : "var(--muted)", overflow: "hidden", whiteSpace: "nowrap" }}>
+      className={cx("picker-option qe-sugg", active && "is-active")}>
+      <span className="picker-option-text">
+        <span className="picker-option-name truncate">{s.name}</span>
+        <span className={cx("qe-sugg-sub", s.itemId == null && "is-unresolved")}>
           {s.itemId == null ? <Icons.alert size={12} /> : <Icons.right size={12} />}
           {s.itemId == null ? `"${s.itemName}" is not in this month - pick an item` : `${s.groupName} · ${s.itemName}`}
         </span>
       </span>
-      <span style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-        <span className="num" style={{ display: "block", fontSize: 12.5, color: "var(--ink-2)" }}>{fmt(currency, s.amount)}</span>
-        <span style={{ display: "block", fontSize: 11, color: "var(--faint)", marginTop: 2 }}>
+      <span className="qe-sugg-meta">
+        <span className="num qe-sugg-amt">{fmt(currency, s.amount)}</span>
+        <span className="qe-sugg-when">
           {s.monthLabel}{s.uses > 1 ? ` · ${s.uses}×` : ""}
         </span>
       </span>
@@ -227,14 +227,10 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
   if (items.length === 0) {
     return (
       <>
-        {/* Tighter than the default section-head gap: Income and Quick entry
-            are both low-stakes "money in / log a spend" strips ahead of the
-            real work surface, and reading as a pair says so. Allocations,
-            what the page is actually for, gets the generous gap instead. */}
-        <div className="section-head" style={{ marginTop: 20 }}><h2>Quick entry</h2></div>
-        <div className="panel empty" style={{ padding: "30px" }}>
+        <div className="section-head qe-head"><h2>Quick entry</h2></div>
+        <div className="panel empty qe-empty">
           <div className="empty-icon"><Icons.coins size={20} /></div>
-          <div style={{ fontSize: 14 }}>Add a group and some items below, then log your spending from here.</div>
+          <div className="qe-empty-text">Add a group and some items below, then log your spending from here.</div>
         </div>
       </>
     );
@@ -242,51 +238,35 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
 
   return (
     <>
-      {/* Tighter than the default section-head gap: Income and Quick entry
-          are both low-stakes "money in / log a spend" strips ahead of the
-          real work surface, and reading as a pair says so. Allocations,
-          what the page is actually for, gets the generous gap instead. */}
-      <div className="section-head" style={{ marginTop: 20 }}>
+      <div className="section-head qe-head">
         <h2>Quick entry</h2>
-        {/* The number is the live figure, so it reads as one: full ink at 600,
-            with the label staying muted beside it - same recipe as Income's
-            "Combined" figure. */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--muted)" }}>
-          <span className="num" style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{entryCount}</span>
+        <div className="qe-count">
+          <span className="num qe-count-num">{entryCount}</span>
           <span>{entryCount === 1 ? "entry" : "entries"} logged this month</span>
         </div>
       </div>
 
-      {/* overflow: visible so the suggestion list can hang past the card's
-          bottom edge; .panel-unclipped is what pays for that, rounding the
-          bottom of whichever block ends up last in here. */}
-      <div ref={rootRef} className="panel panel-unclipped" style={{ overflow: "visible" }}>
-        {/* Six fields cannot hold their widths in a narrow window, and a Log
-            button pushed outside the card is a button you cannot press. They
-            wrap as two halves rather than one at a time, so a break always
-            lands between "goes under" and the note - never mid-sequence. */}
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, padding: "12px 16px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flex: "1.1 1 360px", minWidth: 0 }}>
+      <div ref={rootRef} className="panel panel-unclipped qe-card">
+        <div className="qe-fields">
+        <div className="qe-half qe-half-what">
           <DayField day={day} monthId={month} title="Day of month for this entry" onCommit={setDay} onEnter={add} inputRef={dayRef} tray />
 
           {/* Name + past-entry suggestions. Focusing an EMPTY field does not
               reopen the list: it would cover the "just logged" recap the moment
               an entry lands. Typing or ArrowDown opens it. */}
-          <div style={{ position: "relative", flex: "1.3 1 150px", minWidth: 0 }}>
-            <input ref={nameRef} className="tinput tray" value={name} role="combobox"
+          <div className="qe-name-wrap">
+            <input ref={nameRef} className="tinput tray qe-field" value={name} role="combobox"
               aria-label="What the spending was, as it appears on your statement"
               aria-expanded={open && shown.length > 0} aria-controls={listId} aria-autocomplete="list"
               aria-activedescendant={open && hi >= 0 ? `${listId}-${hi}` : undefined}
               placeholder="What was it?" autoComplete="off"
-              style={{ height: 32, fontSize: 13 }}
               onChange={(e) => typeName(e.target.value)}
               onFocus={() => { if (name.trim()) setOpen(true); }}
               onKeyDown={onNameKeyDown} />
             {open && shown.length > 0 && (
-              <div id={listId} role="listbox" aria-label="Previously logged entries"
-                style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, minWidth: 280, zIndex: 30, border: "1px solid var(--rule-strong)", borderRadius: 10, overflow: "hidden", background: "var(--raised)", boxShadow: "var(--shadow-lg)" }}>
+              <div id={listId} role="listbox" aria-label="Previously logged entries" className="qe-sugg-list">
                 {shown.map((s, idx) => (
-                  <div key={`${s.name}|${s.itemName}`} style={{ borderTop: idx ? "1px solid var(--rule-faint)" : "none" }}>
+                  <div key={`${s.name}|${s.itemName}`} className="qe-sugg-row">
                     <SuggestionRow s={s} id={`${listId}-${idx}`} active={idx === hi} currency={currency} onPick={pick} />
                   </div>
                 ))}
@@ -295,11 +275,11 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
           </div>
 
           {/* destination item */}
-          <select ref={itemRef} className="tinput tray" value={itemId == null ? "" : String(itemId)}
+          <select ref={itemRef} value={itemId == null ? "" : String(itemId)}
+            className={cx("tinput tray qe-field qe-item-select", itemId == null && "is-empty", orphaned && "is-orphaned")}
             aria-label="Which budget item this spending goes under"
             onChange={(e) => { setItemId(e.target.value === "" ? null : Number(e.target.value)); }}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); amtRef.current && amtRef.current.focus(); } }}
-            style={{ height: 32, fontSize: 13, cursor: "pointer", fontFamily: "inherit", flex: "1 1 140px", minWidth: 0, color: itemId == null ? "var(--muted)" : "var(--ink)", ...(orphaned ? { border: "1px solid var(--breach)" } : null) }}>
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); amtRef.current && amtRef.current.focus(); } }}>
             <option value="">Goes under…</option>
             {mo.groups.filter((g) => g.items.length > 0).map((g) => (
               <optgroup key={g.id} label={g.name}>
@@ -309,23 +289,21 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
           </select>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flex: "1 1 340px", minWidth: 0 }}>
-          <input className="tinput tray" value={note} aria-label="Note for this spending entry (optional)"
+        <div className="qe-half qe-half-amount">
+          <input className="tinput tray qe-field qe-note" value={note} aria-label="Note for this spending entry (optional)"
             onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)"
-            style={{ height: 32, fontSize: 13, flex: "1 1 120px", minWidth: 0, color: "var(--ink-2)" }}
             onKeyDown={(e) => e.key === "Enter" && add()} />
 
-          <div style={{ position: "relative", height: 32, flex: "0 0 140px" }}>
-            <input ref={amtRef} className="minput tray" aria-label="Amount spent" inputMode="text"
-              style={{ paddingLeft: 8, height: 32, fontSize: 13 }}
+          <div className="qe-amt-cell">
+            <input ref={amtRef} className="minput tray qe-field qe-amt-input" aria-label="Amount spent" inputMode="text"
               value={amt} onChange={(e) => setAmt(e.target.value)} placeholder={`${currency}0.00`}
               onKeyDown={(e) => e.key === "Enter" && add()} />
             {amtPreview !== null && (
-              <span className="num" style={{ position: "absolute", right: 4, bottom: "100%", marginBottom: 3, background: "var(--ink)", color: "var(--on-ink)", fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 6, whiteSpace: "nowrap", zIndex: 4 }}>= {fmt(currency, amtPreview)}</span>
+              <span className="num field-chip field-chip-tight">= {fmt(currency, amtPreview)}</span>
             )}
           </div>
 
-          <button className="btn btn-sm btn-primary" style={{ height: 32, justifyContent: "center", flex: "0 0 auto" }}
+          <button className="btn btn-sm btn-primary qe-log-btn"
             title={ready ? "Log this spend" : "Enter a name, an item and an amount"}
             onClick={() => add()}><Icons.plus size={14} /> Log</button>
         </div>
@@ -333,28 +311,26 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
 
         {/* Where the chosen name is going, or why it cannot go anywhere yet. */}
         {(target || orphaned) && (
-          <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "7px 16px", borderTop: "1px solid var(--rule-faint)", fontSize: 12.5, color: orphaned ? "var(--breach-ink)" : "var(--muted)", background: orphaned ? "var(--breach-soft)" : "var(--board)" }}>
-            {orphaned ? <Icons.alert size={14} /> : <Icons.check size={14} style={{ color: "var(--accent)" }} />}
+          <div className={cx("qe-target", orphaned && "is-orphaned")}>
+            {orphaned ? <Icons.alert size={14} /> : <Icons.check size={14} className="qe-target-ok" />}
             {orphaned
               ? <span>"{picked.name}" used to go under "{picked.itemName}", which this month does not have. Choose the item it belongs to now.</span>
-              : <span>Goes under <strong style={{ fontWeight: 600, color: "var(--ink-2)" }}>{target.groupName} · {target.name}</strong>{picked && picked.itemId != null ? ", matched from a past entry" : ""}.</span>}
+              : <span>Goes under <strong className="qe-target-name">{target.groupName} · {target.name}</strong>{picked && picked.itemId != null ? ", matched from a past entry" : ""}.</span>}
           </div>
         )}
 
         {recent.length > 0 && (
-          <div style={{ borderTop: "1px solid var(--rule-strong)", background: "var(--board)" }}>
-            <div style={{ padding: "8px 16px 4px", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--faint)", fontWeight: 600 }}>Just logged</div>
+          <div className="qe-recent">
+            <div className="qe-recent-head">Just logged</div>
             {recent.map(({ a, it, g }) => (
-              <div key={a.id} className="income-row" style={{ display: "grid", gridTemplateColumns: "44px minmax(0, 1fr) minmax(0, auto) 120px 34px", alignItems: "center", gap: 10, padding: "5px 16px" }}>
-                <span className="num" style={{ fontSize: 12, color: "var(--faint)", textAlign: "center" }}>{actualDay(a, month)}</span>
-                <span style={{ fontSize: 13, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {a.name || <span style={{ color: "var(--faint)" }}>Unnamed</span>}
-                  {a.note && <span style={{ color: "var(--faint)", fontSize: 12 }}> · {a.note}</span>}
+              <div key={a.id} className="income-row qe-recent-row">
+                <span className="num qe-recent-day">{actualDay(a, month)}</span>
+                <span className="qe-recent-name truncate">
+                  {a.name || <span className="qe-recent-unnamed">Unnamed</span>}
+                  {a.note && <span className="qe-recent-note"> · {a.note}</span>}
                 </span>
-                {/* Where it filed itself, as a quiet chip aligned against the
-                    amount - the destination is metadata, not the entry. */}
-                <span style={{ justifySelf: "end", minWidth: 0, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11.5, fontWeight: 500, color: "var(--ink-2)", background: "var(--well)", border: "1px solid var(--rule-faint)", borderRadius: 999, padding: "2px 9px" }}>{g.name} · {it.name}</span>
-                <span className="num" style={{ fontSize: 13, textAlign: "right" }}>{fmt(currency, a.amount)}</span>
+                <span className="qe-recent-dest truncate">{g.name} · {it.name}</span>
+                <span className="num qe-recent-amt">{fmt(currency, a.amount)}</span>
                 <div className="row-actions">
                   <button className="icon-btn subtle" title="Remove entry"
                     aria-label={`Remove ${a.name ? `"${a.name}"` : "unnamed"} entry of ${fmt(currency, a.amount)} from ${it.name}`}

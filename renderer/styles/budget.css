@@ -1,0 +1,414 @@
+/* ============================================================
+   The Month Budget screen: the Allocations table's three levels, the column
+   head, settings rows, drag handles, the new-month copy cards, the funding
+   account chip, hover row actions and the wallet trigger.
+   ============================================================ */
+
+/* ---- the budget grid recipe ----------------------------------------------
+   Five call sites draw the same table: the column head above it, the item row,
+   the group header, and the two rows inside an opened item's entry tray. Every
+   one of them used to hand-write the tracks, the alignment and the gap in its
+   own inline style, so the table's geometry was stated five times and agreed
+   by hand. It is stated once here instead.
+
+   What actually differs between the five stays with each variant below rather
+   than being forced into this rule: the paddings are not the same, the entry
+   rows carry a height instead, and the column head needs one extra leading
+   track for the 26px drag handle the rows sit beside. --budget-cols itself
+   lives in tokens.css and narrows at both breakpoints. */
+.budget-row, .budget-colhead, .entry-row, .entry-add-row {
+  display: grid; grid-template-columns: var(--budget-cols);
+  align-items: center; gap: var(--space-4);
+}
+.budget-row, .budget-colhead { padding: 7px var(--space-3); }
+/* The item row and the group header are each the wide half of a flex strip
+   whose narrow half is the drag handle, so both take the remaining width and
+   both have to be allowed to shrink inside it. */
+.budget-row-item, .group-head { flex: 1; min-width: 0; }
+.budget-row-item { min-height: var(--row-h); }
+
+/* ---- the Allocations table's three levels --------------------------------
+   Group header, item row, spending entry. All three were near-black bands
+   separated by hairlines, and the header was the darkest of them, so the
+   deepest level on the page looked like the shallowest. Depth is carried by
+   accent presence now (see the wash tokens in layer 3); the hairlines stay
+   and do the fine work.
+
+   Level 1. The group header, and the only washed band on the page. The top
+   highlight is the same inset .panel-feature uses, so a card that opens with
+   a header reads lit from above rather than merely tinted. */
+.group-head {
+  background: var(--wash-head);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--accent) 22%, transparent);
+  transition: background-color .14s;
+  padding: var(--space-6) var(--space-3);
+  border-bottom: 1px solid var(--rule-strong);
+}
+/* A collapsed group's header IS the whole card, so it closes with the card's
+   own edge rather than with a rule between itself and rows that are not
+   rendered. Same fact the handle beside it carries as .is-collapsed. */
+.group-head.is-collapsed { border-bottom: none; }
+/* A group whose spending has passed its plan. The wash swaps hue rather than
+   gaining a badge: the header is already the loudest surface in the card, so
+   the cheapest way to make the failing group findable in a long month is to
+   let that surface change colour. The DiffPill in the same row still says it
+   in words, so this is a second encoding and not the only one. */
+.group-head.is-over {
+  background: var(--wash-breach);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--breach) 18%, transparent);
+}
+/* Dragging an item onto a group header appends it to that group. Declared
+   after .is-over on purpose: a live drag affordance has to win over a resting
+   surface, over-budget header included. */
+.group-head.is-append-target { background: var(--accent-soft); }
+/* Level 2, opened. An item with its entries showing takes a wash of its own,
+   and the tray below shares it: the pair reads as one opened object instead
+   of a row that happens to sit above an unrelated black strip. */
+.budget-row-open { background: var(--wash-open); }
+/* Level 3. The entry tray, one step deeper: the same hue, mixed into --board
+   rather than --raised, so it recedes from the row that owns it while still
+   belonging to it. */
+.entry-tray {
+  background: var(--wash-tray);
+  border-top: 1px solid color-mix(in srgb, var(--accent) 20%, var(--rule-faint));
+  padding: var(--space-6);
+}
+
+/* The column labels over the Allocations table, and the rule that grounds
+   them. Both were absent: the labels floated over the first group card with
+   nothing tying them to the columns they name. The rule is the app's own
+   dissolving hairline (see ChartCard in components.jsx), accent-tinted at the
+   centre - it belongs to the table below it, not to the heading above. */
+.budget-colhead {
+  flex: 1; min-width: 0;
+  grid-template-columns: 26px var(--budget-cols);
+  font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--faint); font-weight: 600;
+}
+/* "Actual" is the accent's word. In the month bar the solid accent is money
+   that actually moved, and this is the column of those figures, so naming it
+   in the same colour is the one place the table declares the mapping. The
+   label is 11.5px at weight 600 - large text by WCAG's definition it is not,
+   so --accent-text (a blend toward --ink, never below --accent-ink's own
+   floors) carries it rather than raw --accent. */
+.budget-colhead .col-actual { color: var(--accent-text); }
+.budget-rule {
+  height: 1px; margin: 0 2px 10px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 58%, transparent) 50%, transparent);
+}
+
+/* ---- the item row --------------------------------------------------------
+   The outer wrapper: the drop target, the drag ghost, and the rule between one
+   row and the next.
+
+   The first row draws no rule of its own: the group header above it
+   already closes with one, in --rule-strong, and the two abutted into a
+   2px double line under every header. A drop target still gets its
+   accent edge wherever it lands - that one is a drag affordance, not a
+   divider, and has to be seen on the first row as much as any other. That is
+   why .is-drop-target is declared after .is-first rather than before it. */
+.item-row { border-top: 1px solid var(--rule); transition: background .12s; }
+.item-row.is-first { border-top: none; }
+.item-row.is-dragging { opacity: .4; }
+.item-row.is-drop-target { border-top: 2px solid var(--accent); background: var(--accent-soft); }
+/* The handle-plus-row strip. align-items: stretch is what makes the handle a
+   full-height edge of the row rather than a glyph floating in the middle of
+   it. */
+.item-row-main { display: flex; align-items: stretch; min-height: var(--row-h); }
+.item-name-cell { min-width: 0; padding-right: var(--space-2); display: flex; flex-direction: column; gap: var(--space-1); }
+.item-name-wrap { display: flex; min-width: 0; }
+/* The accent text is the mockups' sprinkle: the name is the one thing on the
+   row a person scans for, so it is the one thing that takes the theme's
+   colour - in the lighter --accent-text blend, not the full-strength ink. */
+.item-name-input { min-width: 0; color: var(--accent-text); }
+.item-acct-cell { padding-left: var(--space-3); min-width: 0; }
+
+/* The button that opens an item's entry tray. Open, this is the control that
+   owns the tray below, so it takes the accent as a selection state rather
+   than the anonymous --well it used to lift to: the row, the button and the
+   tray are then the same colour event down the page. */
+.item-spend-btn {
+  display: flex; align-items: center; justify-content: flex-end; gap: 7px;
+  background: transparent; border: 1px solid transparent; border-radius: 7px;
+  padding: 5px 9px; color: var(--ink); transition: .12s;
+}
+.item-spend-btn.is-open {
+  background: var(--well);
+  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+}
+.item-spend-amt { font-size: var(--text-14); }
+.item-spend-count {
+  font-size: var(--text-10-5); color: var(--faint); background: var(--well);
+  border-radius: 5px; padding: 1px 5px; min-width: 16px; text-align: center;
+}
+.item-diff-cell { display: flex; flex-direction: column; gap: 5px; align-items: flex-end; }
+
+/* Savings is not a success state, so the marker in the Move menu is quiet
+   rather than green. Matches the neutral Savings badge on the group row. The
+   menu's own rules live in overlays.css; this one is here because the icon is
+   drawn by MonthGroups.jsx. */
+.move-menu-savings { flex: none; color: var(--muted); }
+
+/* ---- the entry tray ------------------------------------------------------
+   One row per spending entry, then the add-spend row. Both draw the budget
+   grid above, so only what is theirs alone is here. */
+.entry-list { margin-bottom: var(--space-6); }
+.entry-row { padding: 5px 0; border-bottom: 1px solid var(--rule-faint); }
+/* The day, name and note share the first two tracks of the grid: they are one
+   sentence about the entry, and splitting them across the name and allocated
+   columns would line "What was it?" up under a column of money. The left
+   padding clears the drag handle's 26px gutter plus the row's own inset. */
+.entry-fields, .entry-add-fields {
+  grid-column: span 2; display: flex; align-items: center;
+  gap: var(--space-4); padding-left: var(--space-8);
+}
+.entry-fields { min-width: 0; }
+.entry-name, .entry-add-name { flex: 1 1 0; min-width: 0; font-size: var(--text-13); }
+.entry-note, .entry-add-note { flex: 1 1 0; min-width: 0; font-size: var(--text-13); color: var(--ink-2); }
+.entry-action-cell { display: flex; justify-content: flex-end; }
+
+.entry-add-row { height: 32px; }
+.entry-add-label { font-size: var(--text-12); color: var(--muted); font-weight: 500; margin-right: 2px; white-space: nowrap; }
+.entry-add-name, .entry-add-note { height: 32px; }
+.entry-amount-cell { position: relative; height: 32px; }
+.entry-amount-input { padding-left: var(--space-3); height: 32px; font-size: var(--text-13); }
+/* The arithmetic preview over the add-spend amount field used to be written
+   out here as .entry-amount-preview: the same box as .field-chip in
+   controls.css (which MoneyInput uses) but 2px further right and without the
+   shadow, and byte for byte the same box as .qe-amt-preview in quickentry.css.
+   That merge has happened. The nine shared declarations are .field-chip and
+   the two that differ are .field-chip-tight, both in controls.css, and the
+   call site in MonthGroups.jsx now reads `num field-chip field-chip-tight`.
+   Neither difference was normalised away; see the note at .field-chip-tight. */
+.entry-add-btn { height: 32px; white-space: nowrap; }
+
+/* ---- add an item ---------------------------------------------------------
+   Same rule as the rows: this panel separates itself from the item above
+   it, but in an empty group it opens directly under the group header,
+   which already draws that line. */
+.add-item-panel { padding: var(--space-4) var(--space-6); border-top: 1px solid var(--rule-faint); background: var(--board); }
+.add-item-panel.is-first { border-top: none; }
+.add-item-controls { display: flex; gap: var(--space-3); }
+.add-item-input { max-width: 340px; }
+.add-item-results {
+  margin-top: var(--space-3); border: 1px solid var(--rule-faint);
+  border-radius: var(--radius-2xs); overflow: hidden; background: var(--well);
+}
+/* The candidate button is .picker-option in controls.css, which quick entry's
+   suggestion rows also take: the two were the same eleven declarations written
+   out on two screens. This min-height is the one thing that was never shared -
+   a candidate row is held open to 40px, a suggestion row is not - so it is all
+   that is left here. It is NOT pushed onto .picker-option: doing so would grow
+   quick entry's suggestion rows, which is a visual change.
+   .add-item-text and .add-item-name went the same way, into
+   .picker-option-text and .picker-option-name; .add-item-sub and
+   .add-item-amt stayed, being genuinely different from their opposite numbers
+   (see the notes at .qe-sugg-sub and .qe-sugg-amt). */
+.add-item-option { min-height: 40px; }
+/* The hairline goes BETWEEN candidates, so the first one draws none and does
+   not double up with the results box's own top edge. It stays (0,2,0), so it
+   still outranks the `border: 0` .picker-option carries for the button reset. */
+.add-item-option + .add-item-option { border-top: 1px solid var(--rule-faint); }
+.add-item-sub { display: block; font-size: var(--text-11-5); color: var(--muted); margin-top: 2px; }
+.add-item-amt { font-size: var(--text-12-5); color: var(--ink-2); white-space: nowrap; }
+.add-item-empty { padding: 9px var(--space-4); color: var(--muted); font-size: var(--text-12-5); }
+
+/* ---- the group card ------------------------------------------------------ */
+.group-card { margin-bottom: 14px; overflow: hidden; transition: opacity .12s; }
+.group-card.is-dragging { opacity: .4; }
+.group-head-row { display: flex; align-items: stretch; }
+.group-name-cell { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+.group-toggle { flex: none; transition: transform .18s; }
+.group-toggle.is-collapsed { transform: rotate(-90deg); }
+.group-name-wrap { display: flex; flex: 1 1 auto; min-width: 0; }
+.group-name-input { font-weight: 600; font-size: var(--text-15); min-width: 0; }
+.group-savings-pill { flex: none; }
+/* Allocated is the plan and stays a plain figure; actual is money
+   that moved, and in the month bar money that moved is the solid
+   accent, so the group's actual total is where the table says the
+   same thing. It also fixes an inversion: actual used to be the
+   DIMMER of the two at --ink-2, which read as the plan mattering
+   more than what actually happened. Over budget, the breach owns
+   the figure instead - one hue per row, and the loudest wins. */
+.group-alloc, .group-actual { text-align: right; font-size: var(--text-13-5); font-weight: 600; }
+.group-alloc { padding-right: var(--space-3); }
+.group-actual { color: var(--accent-text); padding-right: 9px; }
+.group-actual.is-over { color: var(--breach-ink); }
+.group-diff-cell { text-align: right; }
+/* No rule here either: this only ever sits directly under the group
+   header, which already draws one. */
+.group-empty {
+  padding: var(--space-6); text-align: center; color: var(--faint);
+  font-size: var(--text-13); transition: background .12s;
+}
+.group-empty.is-append-target { color: var(--ink-2); background: var(--accent-soft); }
+.group-foot { background: var(--board); border-top: 1px solid var(--rule-faint); padding: var(--space-1) 0; transition: background .12s; }
+.group-foot.is-append-target { background: var(--accent-soft); }
+/* The "Add item" button. Its ink was set inline, which also pinned it through
+   hover, because .btn-ghost:hover's lift to --ink cannot outrank a style
+   attribute. Both states are spelled out here so the rendering is unchanged;
+   whether that hover lift was wanted is a design question and not a
+   refactor's to answer. */
+.group-add-btn, .group-add-btn:hover { color: var(--muted); }
+.group-add-btn { margin: var(--space-3) var(--space-4); }
+
+/* A row in a panel that stacks rows: Settings, mostly. The hairline goes
+   BETWEEN rows, which means the first row in a panel draws none. Every row set
+   this border inline, first row included, so six sections opened with a second
+   line one pixel inside the panel's own top edge, cutting the full width of the
+   container. Inline styles are unreachable from a :first-child rule, which is
+   why the border lives here now rather than at each call site. The second
+   selector reaches Shortcuts, whose rows sit one level further in, inside a
+   wrapper per section. */
+.set-row { border-top: 1px solid var(--rule-faint); }
+.panel > .set-row:first-child,
+.panel > :first-child > .set-row:first-child { border-top: none; }
+
+/* Drag handles are keyboard-operable, so they need resting, hover and focus
+   states of their own. The whole of the handle is drawn here now, its --faint
+   glyph colour included: that colour used to be set inline in JSX, where this
+   rule could not reach it. The outline is inset because the handle sits flush
+   against the left edge of its row.
+
+   Square, because the rows are. An item row draws no radius of its own, so the
+   8px this used to carry made the hover fill the one rounded thing in a column
+   of square ones, floating inside a row it is meant to be part of. */
+.drag-handle {
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; flex: none; cursor: grab; color: var(--faint);
+  border: 0; padding: 0;
+  background: transparent; border-radius: 0; transition: background-color .12s;
+}
+.drag-handle:hover { background: var(--well); }
+.drag-handle:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; background: var(--well); }
+
+/* The group card's handle is a corner of that card rather than a control
+   floating inside it: it is filled with --board against the card's --raised,
+   and the card clips to --radius-lg. So it takes the card's own curve on the
+   corner it actually occupies and stays square on the three that are interior.
+   Rounded on all four, it left the card's fill showing through as a wedge at
+   each of those three and stopped short of the card's curve at the outer one.
+   The curve is 1px tighter than the card's: the border is drawn outside what
+   the card clips, so its inner edge is where the handle has to meet it.
+   A collapsed group's header IS the whole card, so its handle owns the
+   bottom-left corner too. */
+.drag-handle-group { border-radius: calc(var(--radius-lg) - 1px) 0 0 0; }
+.drag-handle-group.is-collapsed { border-bottom-left-radius: calc(var(--radius-lg) - 1px); }
+
+/* The group handle is part of the header band, so it wears the header's fill
+   (see .group-head above). It has to be declared here, after .drag-handle,
+   rather than up beside .group-head: the two selectors have identical
+   specificity, so the later one wins, and .drag-handle's transparent fill is
+   the one that would otherwise take it. Hover is spelled out for the same
+   reason - the handle used to carry its fill inline, where .drag-handle:hover
+   could not reach it at all. */
+.group-head-handle, .group-head-handle:hover { background: var(--wash-head); transition: background-color .14s; }
+.group-head-handle.is-over, .group-head-handle.is-over:hover { background: var(--wash-breach); }
+/* The handle closes the header band with the same rule the band itself draws,
+   and drops it for the same reason: a collapsed group has nothing below its
+   header to be divided from. .drag-handle resets the border entirely, so this
+   has to come after it. */
+.group-head-handle { border-bottom: 1px solid var(--rule-strong); }
+.group-head-handle.is-collapsed { border-bottom: none; }
+
+/* No focus ring here: `.copy-opt:focus-within` in the stylesheet draws it from
+   the off-screen radio inside, so the two cannot disagree. */
+/* The copy / start-empty option cards in the new-month dialog. Their fill and
+   border carry the selected state and are reachable from here now, on
+   .copy-opt.is-on, rather than being written by a JS function at each call
+   site. Hover stays the shadow lift it became while the fill was out of reach:
+   moving hover onto the fill is what this rule would now prefer, but it would
+   change what is on screen, and this pass is not permitted to. Focus gets a
+   ring the label never had. */
+.copy-opt {
+  position: relative; display: flex; gap: var(--space-5);
+  padding: 13px 14px; border-radius: 11px;
+  border: 1px solid var(--rule); background: var(--raised);
+  cursor: pointer; transition: .14s;
+}
+.copy-opt.is-on { border-color: var(--accent); background: var(--accent-soft); }
+.copy-opt:hover { box-shadow: var(--shadow-sm); }
+/* The focusable element is the off-screen radio inside the card, so the ring
+   has to come from the card that the user is actually looking at. */
+.copy-opt:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.copy-opts { display: flex; flex-direction: column; gap: var(--space-4); margin-bottom: 18px; }
+/* The tick sits on --accent, so it has to use the ink that theme picked for it:
+   plain white measures 1.46:1 on lime and 1.67:1 on cyan, i.e. invisible. */
+.copy-radio {
+  width: 20px; height: 20px; border-radius: var(--radius-pill); flex: none;
+  margin-top: 1px; display: grid; place-items: center;
+  color: var(--on-accent); background: transparent;
+  border: 1.5px solid var(--rule-strong);
+}
+.copy-radio.is-on { background: var(--accent); border-color: var(--accent); }
+.copy-opt-title { display: block; font-weight: 600; font-size: var(--text-14); cursor: pointer; }
+.copy-opt-sub { font-size: var(--text-12-5); color: var(--muted); margin-top: 2px; }
+.copy-opt-extra { display: flex; align-items: center; gap: var(--space-3); margin-top: var(--space-4); font-size: var(--text-13); color: var(--ink-2); }
+/* .dialog-actions in controls.css is this row plus a margin-top the dialog does
+   not want here, the radiogroup above already carrying its own bottom margin.
+   Merge candidate, not a merge. */
+.new-month-actions { display: flex; gap: var(--space-3); justify-content: flex-end; }
+.new-month-note { margin-top: 14px; font-size: var(--text-11-5); color: var(--faint); display: flex; align-items: center; gap: var(--space-2); }
+
+/* account chip (item funding account) */
+.acct-chip {
+  position: relative; display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 8px 3px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 500;
+  color: var(--ink-2); background: var(--well); border: 1px solid var(--rule);
+  max-width: 100%; cursor: pointer;
+  transition: background-color .12s, border-color .12s, color .12s, box-shadow .12s;
+}
+.acct-chip:hover { border-color: var(--rule-strong); color: var(--ink); }
+/* The chip's real focus target is the invisible select stretched across it, so
+   the generic :focus-visible outline was being painted on an opacity: 0 box and
+   every funding-account chip in the budget was keyboard-reachable with nothing
+   to show for it. The ring goes on the chip instead, and the select's own
+   outline is dropped so there is exactly one indicator. */
+.acct-chip:focus-within { box-shadow: var(--ring); border-color: var(--accent); color: var(--ink); }
+.acct-chip-empty { color: var(--faint); background: transparent; border: 1px dashed var(--rule-strong); }
+.acct-chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px; }
+.acct-chip select {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  opacity: 0; cursor: pointer; border: none; -webkit-appearance: none; appearance: none;
+}
+.acct-chip select:focus-visible { outline: none; }
+
+/* Hidden row actions stay unreachable until the row is engaged: opacity alone
+   left a delete button focusable while invisible. Focus reveals them too, so
+   keyboard users can reach what the mouse reveals on hover. */
+.row-actions { display: flex; align-items: center; gap: 2px; opacity: 0; pointer-events: none; transition: opacity .14s; }
+.budget-row:hover .row-actions, .income-row:hover .row-actions, .set-row:hover .row-actions,
+.budget-row:focus-within .row-actions, .income-row:focus-within .row-actions, .set-row:focus-within .row-actions { opacity: 1; pointer-events: auto; }
+/* The item row's pair, stacked rather than side by side. Declared after
+   .row-actions so the gap it drops to zero is actually dropped. */
+.row-actions-stack { flex-direction: column; align-items: flex-end; justify-content: center; gap: 0; }
+.row-actions-end { justify-content: flex-end; }
+/* The Move menu is portalled to the body, so the row that owns it loses :hover
+   the instant the pointer travels into the menu. This pins the actions visible
+   for as long as the menu is open. */
+.row-actions.is-open { opacity: 1; pointer-events: auto; }
+
+/* "By account" row in the Wallet drawer - expands to its allocations */
+.acct-row { transition: filter .12s; }
+.acct-row:not(:disabled):hover { filter: brightness(1.06); }
+.acct-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* wallet trigger button - the quiet half of the topbar pair. "New month" is
+   the solid primary beside it; two loud buttons side by side would shout over
+   each other, so this one is an ordinary outlined control whose accent lives
+   only in the glyph and the amount. */
+.wallet-btn {
+  gap: 8px; font-weight: 600;
+  background: var(--raised);
+  border-color: var(--rule-strong);
+  color: var(--ink);
+  box-shadow: var(--shadow-sm);
+}
+.wallet-btn svg { color: var(--accent-ink); }
+.wallet-btn .wallet-amt {
+  font-weight: 600; font-variant-numeric: tabular-nums lining-nums;
+  color: var(--accent-ink);
+  padding-left: 8px; margin-left: 2px;
+  border-left: 1px solid var(--rule);
+}
+.wallet-btn .wallet-warn { width: 7px; height: 7px; border-radius: 99px; background: var(--breach); flex: none; box-shadow: 0 0 0 3px var(--breach-soft); }
