@@ -17,6 +17,8 @@
 @import "styles/shell.css";
 @import "styles/controls.css";
 @import "styles/budget.css";
+@import "styles/settings.css";
+@import "styles/wallet.css";
 @import "styles/overlays.css";
 @import "styles/bar.css";
 @import "styles/debug.css";

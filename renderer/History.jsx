@@ -73,8 +73,17 @@ function HistoryScreen({ currency, onOpenMonth }) {
             + `actual ${fmt(currency, s.actual, { cents: false })}, `
             + `saved ${fmt(currency, s.savings, { cents: false })}. `
             + (s.overCount > 0 ? `${s.overCount} item${s.overCount !== 1 ? "s" : ""} over budget.` : "Nothing over budget.");
+          // The row deliberately carries no .budget-row class. It has a grid
+          // of its own, six columns wide, and .budget-row means the Month
+          // Budget grid: var(--budget-cols), five columns, 7px 8px padding.
+          // The class was inert while these declarations were inline, since
+          // inline outranks it and the only rule .budget-row carried was a
+          // hover reveal for .row-actions, which this screen has none of. It
+          // stopped being inert once .budget-row gained the grid recipe, so it
+          // is dropped rather than left as a trap for whoever moves these
+          // declarations into CSS.
           return (
-            <button key={s.id} onClick={() => setDetail(s.id)} className="budget-row" aria-label={rowLabel} style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr 1fr 1fr 90px", gap: 10, padding: "13px 18px", alignItems: "center", borderTop: "1px solid var(--rule-faint)", background: "transparent", border: "none", borderTopWidth: 1, borderTopStyle: "solid", borderTopColor: "var(--rule-faint)", width: "100%", textAlign: "left", cursor: "pointer", color: "var(--ink)" }}>
+            <button key={s.id} onClick={() => setDetail(s.id)} aria-label={rowLabel} style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr 1fr 1fr 1fr 90px", gap: 10, padding: "13px 18px", alignItems: "center", borderTop: "1px solid var(--rule-faint)", background: "transparent", border: "none", borderTopWidth: 1, borderTopStyle: "solid", borderTopColor: "var(--rule-faint)", width: "100%", textAlign: "left", cursor: "pointer", color: "var(--ink)" }}>
               <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontWeight: 600, fontSize: 14 }}>{s.label}</span>
                 {s.id === activeMonth && <span className="pill pill-neutral" style={{ fontSize: 10 }}>current</span>}

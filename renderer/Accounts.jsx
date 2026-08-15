@@ -3,13 +3,15 @@
    ============================================================ */
 import { useEffect, useRef, useState } from 'react';
 import { Avatar, DiffPill, Icons, MiniBar } from './components.jsx';
-import { accountTotals, fmt, itemActual, monthLabel, round2, walletSummary } from './lib/index.js';
+import { accountTotals, cx, fmt, itemActual, monthLabel, round2, walletSummary } from './lib/index.js';
 
 const ACCT_ICON = { joint: "user", main: "budget", wallet: "coins", savings: "plant" };
 const ACCT_TYPE_LABEL = { joint: "Shared", main: "Main account", wallet: "Wallet", savings: "Savings" };
 
+/* Size comes from the caller and the fill is the account's own colour, so both
+   stay inline; the box itself is .wallet-dot. */
 function AccountDot({ acc, size = 9 }) {
-  return <span style={{ width: size, height: size, borderRadius: 3, background: acc ? acc.color : "var(--faint)", flex: "none", display: "inline-block" }} />;
+  return <span className="wallet-dot" style={{ width: size, height: size, background: acc ? acc.color : "var(--faint)" }} />;
 }
 
 /* compact inline select shown under each item name.
@@ -20,10 +22,10 @@ function AccountDot({ acc, size = 9 }) {
 function AccountSelect({ value, accounts, onChange, label = "Funding account" }) {
   const acc = accounts.find(a => a.id === value);
   return (
-    <span className={`acct-chip ${acc ? "" : "acct-chip-empty"}`}>
-      {acc ? <AccountDot acc={acc} size={8} /> : <span style={{ display: "inline-flex" }}><Icons.coins size={12} /></span>}
+    <span className={cx("acct-chip", !acc && "acct-chip-empty")}>
+      {acc ? <AccountDot acc={acc} size={8} /> : <span className="wallet-chip-glyph"><Icons.coins size={12} /></span>}
       <span className="acct-chip-name">{acc ? acc.name : "Assign account"}</span>
-      <Icons.down size={12} style={{ opacity: 0.5, marginLeft: -2 }} />
+      <Icons.down size={12} className="wallet-chip-caret" />
       <select value={value || ""} onChange={(e) => onChange(e.target.value || null)} aria-label={label}>
         <option value="">Unassigned</option>
         {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
@@ -71,33 +73,33 @@ function AccountPanel({ mo, accounts, members, currency }) {
   return (
     <div className="fade-in">
       {/* per-person "who moves what" */}
-      <div style={{ fontSize: 11, color: "var(--ink-2)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 10 }}>Who moves what</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 22 }}>
+      <div className="eyebrow wallet-eyebrow">Who moves what</div>
+      <div className="wallet-movers">
         {perPerson.map(p => (
-          <div key={p.member.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 16px", borderRadius: 11, background: "var(--well)", border: "1px solid var(--rule-strong)", boxShadow: `inset 4px 0 0 0 ${p.member.color || "var(--accent)"}` }}>
+          <div key={p.member.id} className="wallet-mover" style={{ boxShadow: `inset 4px 0 0 0 ${p.member.color || "var(--accent)"}` }}>
             <Avatar member={p.member} size={30} />
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 600 }}>{p.member.name} total</div>
-              <div style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>into {p.accts.map(t => t.account.name).join(" · ")}</div>
+            <div className="wallet-grow">
+              <div className="wallet-mover-name">{p.member.name} total</div>
+              <div className="wallet-mover-sub truncate">into {p.accts.map(t => t.account.name).join(" · ")}</div>
             </div>
-            <div className="num" style={{ fontSize: 17, fontWeight: 600, flex: "none" }}>{fmt(currency, p.amount)}</div>
+            <div className="num wallet-mover-amt">{fmt(currency, p.amount)}</div>
           </div>
         ))}
         {shared.length > 0 && (
-          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 16px", borderRadius: 11, background: "var(--well)", border: "1px solid var(--rule-strong)", boxShadow: "inset 4px 0 0 0 var(--info)" }}>
-            <span style={{ width: 30, height: 30, borderRadius: 8, background: "var(--info-soft)", color: "var(--info)", display: "grid", placeItems: "center", flex: "none" }}><Icons.user size={16} /></span>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 600 }}>Shared total</div>
-              <div style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>into {shared.map(t => t.account.name).join(" · ")}</div>
+          <div className="wallet-mover is-shared">
+            <span className="wallet-shared-icon"><Icons.user size={16} /></span>
+            <div className="wallet-grow">
+              <div className="wallet-mover-name">Shared total</div>
+              <div className="wallet-mover-sub truncate">into {shared.map(t => t.account.name).join(" · ")}</div>
             </div>
-            <div className="num" style={{ fontSize: 17, fontWeight: 600, flex: "none" }}>{fmt(currency, sharedAmt, { cents: false })}</div>
+            <div className="num wallet-mover-amt">{fmt(currency, sharedAmt, { cents: false })}</div>
           </div>
         )}
       </div>
 
       {/* per-account breakdown */}
-      <div style={{ fontSize: 11, color: "var(--ink-2)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 10 }}>By account</div>
-      <div className="panel" style={{ overflow: "hidden" }}>
+      <div className="eyebrow wallet-eyebrow">By account</div>
+      <div className="panel wallet-list">
         {byAccount.map((t, i) => {
           const owner = members.find(m => m.id === t.account.owner);
           const pct = totalToFund > 0 ? t.allocated / totalToFund : 0;
@@ -107,45 +109,45 @@ function AccountPanel({ mo, accounts, members, currency }) {
           const listId = `acct-items-${t.account.id}`;
           const tint = owner ? `color-mix(in srgb, ${owner.color} 3%, var(--board))` : `color-mix(in srgb, var(--info) 3%, var(--board))`;
           return (
-            <div key={t.account.id} style={{ borderTop: i ? "1px solid var(--rule)" : "none" }}>
-              <button className="acct-row" onClick={canOpen ? () => toggleAcct(t.account.id) : undefined} disabled={!canOpen}
+            <div key={t.account.id} className={cx("wallet-acct", i && "is-divided")}>
+              <button className="acct-row wallet-acct-row" onClick={canOpen ? () => toggleAcct(t.account.id) : undefined} disabled={!canOpen}
                 aria-expanded={canOpen ? open : undefined} aria-controls={canOpen ? listId : undefined}
                 title={canOpen ? (open ? "Hide allocations" : "Show allocations") : undefined}
-                style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "12px 15px", border: "none", textAlign: "left", color: "var(--ink)", cursor: canOpen ? "pointer" : "default", background: tint }}>
-                <span style={{ width: 34, height: 34, borderRadius: 9, flex: "none", background: hexToSoft(t.account.color), color: t.account.color, display: "grid", placeItems: "center" }}><Icon size={17} /></span>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13.5, display: "flex", alignItems: "center", gap: 7 }}>{t.account.name}
-                    {owner ? <span className="pill pill-neutral" style={{ fontSize: 10 }}>{owner.name}</span> : <span className="pill pill-neutral" style={{ fontSize: 10 }}>{ACCT_TYPE_LABEL[t.account.type] || "Shared"}</span>}
+                style={{ background: tint }}>
+                <span className="wallet-tile" style={{ background: hexToSoft(t.account.color), color: t.account.color }}><Icon size={17} /></span>
+                <div className="wallet-grow">
+                  <div className="wallet-acct-title">{t.account.name}
+                    {owner ? <span className="pill pill-neutral wallet-owner-pill">{owner.name}</span> : <span className="pill pill-neutral wallet-owner-pill">{ACCT_TYPE_LABEL[t.account.type] || "Shared"}</span>}
                   </div>
                   {/* The pill only appears when the account is over: the item
                       rows carry one permanently, but a "on track" pill on every
                       row here would bury the one row that is not. */}
-                  <div style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ flex: "none" }}>{t.count} item{t.count !== 1 ? "s" : ""}</span>
-                    <span style={{ flex: 1, maxWidth: 90 }}><MiniBar actual={t.actual} allocated={t.allocated} /></span>
-                    <span className="num" style={{ flex: "none" }}>{fmt(currency, t.actual, { cents: false })} spent</span>
+                  <div className="wallet-acct-meta">
+                    <span className="wallet-fixed">{t.count} item{t.count !== 1 ? "s" : ""}</span>
+                    <span className="wallet-meta-bar"><MiniBar actual={t.actual} allocated={t.allocated} /></span>
+                    <span className="num wallet-fixed">{fmt(currency, t.actual, { cents: false })} spent</span>
                     {t.actual > t.allocated + 0.001 && <DiffPill diff={round2(t.allocated - t.actual)} currency={currency} />}
                   </div>
                 </div>
-                {canOpen && <Icons.down size={16} style={{ flex: "none", color: "var(--faint)", transform: open ? "none" : "rotate(-90deg)", transition: "transform .18s" }} />}
-                <div style={{ textAlign: "right", flex: "none" }}>
-                  <div className="num" style={{ fontSize: 15.5, fontWeight: 600 }}>{fmt(currency, t.allocated)}</div>
-                  <div className="num" style={{ fontSize: 10.5, color: "var(--faint)", marginTop: 2 }}>{Math.round(pct * 100)}% of plan</div>
+                {canOpen && <Icons.down size={16} className={cx("wallet-caret", open && "is-open")} />}
+                <div className="wallet-acct-figs">
+                  <div className="num wallet-figure">{fmt(currency, t.allocated)}</div>
+                  <div className="num wallet-acct-pct">{Math.round(pct * 100)}% of plan</div>
                 </div>
               </button>
               {canOpen && open && (
-                <div id={listId} className="fade-in" style={{ background: "var(--well)", borderTop: "1px solid var(--rule)", boxShadow: `inset 3px 0 0 0 ${t.account.color}` }}>
+                <div id={listId} className="fade-in wallet-acct-items" style={{ boxShadow: `inset 3px 0 0 0 ${t.account.color}` }}>
                   {t.items.map((it, j) => (
-                    <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "9px 15px 9px 26px", borderTop: j ? "1px solid var(--rule)" : "none" }}>
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ fontSize: 12.5, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.name}</div>
-                        <div style={{ fontSize: 11, color: "var(--faint)", marginTop: 3, display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ flex: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 110 }}>{it.group}</span>
-                          <span style={{ flex: 1, maxWidth: 70 }}><MiniBar actual={it.actual} allocated={it.allocated} /></span>
-                          <span className="num" style={{ flex: "none" }}>{fmt(currency, it.actual, { cents: false })} spent</span>
+                    <div key={it.id} className={cx("wallet-alloc", j && "is-divided")}>
+                      <div className="wallet-grow">
+                        <div className="wallet-alloc-name truncate">{it.name}</div>
+                        <div className="wallet-alloc-meta">
+                          <span className="wallet-alloc-group truncate">{it.group}</span>
+                          <span className="wallet-alloc-bar"><MiniBar actual={it.actual} allocated={it.allocated} /></span>
+                          <span className="num wallet-fixed">{fmt(currency, it.actual, { cents: false })} spent</span>
                         </div>
                       </div>
-                      <div className="num" style={{ fontSize: 13.5, fontWeight: 600, flex: "none" }}>{fmt(currency, it.allocated)}</div>
+                      <div className="num wallet-alloc-amt">{fmt(currency, it.allocated)}</div>
                     </div>
                   ))}
                 </div>
@@ -158,11 +160,11 @@ function AccountPanel({ mo, accounts, members, currency }) {
       {/* savings wallets - breakdown of the savings group into the savings account's wallets */}
       {savingsItems.length > 0 && (
         <>
-          <div style={{ fontSize: 11, color: "var(--ink-2)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600, marginBottom: 10, marginTop: 22, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div className="eyebrow wallet-eyebrow wallet-savings-head">
             <span>{savingsAccount ? savingsAccount.name : "Savings"} wallets</span>
-            <span className="num" style={{ color: "var(--faint)", letterSpacing: 0 }}>{fmt(currency, savingsTotal)}</span>
+            <span className="num wallet-savings-total">{fmt(currency, savingsTotal)}</span>
           </div>
-          <div className="panel" style={{ overflow: "hidden" }}>
+          <div className="panel wallet-list">
             {savingsItems.map((it, i) => {
               // A savings icon in the app's default green used to be a small
               // "you're doing well" nudge; the same reasoning that retired the
@@ -170,22 +172,22 @@ function AccountPanel({ mo, accounts, members, currency }) {
               // no colour of its own falls back to the neutral avatar tint.
               const color = savingsAccount ? savingsAccount.color : "var(--muted)";
               return (
-                <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 15px", borderTop: i ? "1px solid var(--rule)" : "none" }}>
+                <div key={it.id} className={cx("wallet-savings-row", i && "is-divided")}>
                   {/* Neutral pairing to match the icon colour above: #96a1b4 is
                       --muted resolved to a literal hex (hexToSoft only takes one,
                       it can't read a CSS var), so a savings wallet with no account
                       colour of its own gets a grey tint under a grey icon rather
                       than the old green tint under a now-grey icon. */}
-                  <span style={{ width: 34, height: 34, borderRadius: 9, flex: "none", background: hexToSoft(savingsAccount ? savingsAccount.color : "#96a1b4"), color, display: "grid", placeItems: "center" }}><Icons.plant size={17} /></span>
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontWeight: 600, fontSize: 13.5 }}>{it.name}</div>
-                    <div style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ flex: 1, maxWidth: 90 }}><MiniBar actual={it.actual} allocated={it.allocated} /></span>
-                      <span className="num" style={{ flex: "none" }}>{fmt(currency, it.actual, { cents: false })} moved</span>
+                  <span className="wallet-tile" style={{ background: hexToSoft(savingsAccount ? savingsAccount.color : "#96a1b4"), color }}><Icons.plant size={17} /></span>
+                  <div className="wallet-grow">
+                    <div className="wallet-savings-name">{it.name}</div>
+                    <div className="wallet-acct-meta">
+                      <span className="wallet-meta-bar"><MiniBar actual={it.actual} allocated={it.allocated} /></span>
+                      <span className="num wallet-fixed">{fmt(currency, it.actual, { cents: false })} moved</span>
                       {it.actual > it.allocated + 0.001 && <DiffPill diff={round2(it.allocated - it.actual)} currency={currency} />}
                     </div>
                   </div>
-                  <div className="num" style={{ textAlign: "right", flex: "none", fontSize: 15.5, fontWeight: 600 }}>{fmt(currency, it.allocated)}</div>
+                  <div className="num wallet-savings-amt">{fmt(currency, it.allocated)}</div>
                 </div>
               );
             })}
@@ -194,9 +196,9 @@ function AccountPanel({ mo, accounts, members, currency }) {
       )}
 
       {unassigned && (
-        <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "12px 15px", borderRadius: 11, marginTop: 14, background: "var(--breach-soft)", color: "var(--breach-ink)" }}>
+        <div className="wallet-unassigned">
           <Icons.alert size={16} />
-          <span style={{ fontSize: 13, fontWeight: 500 }}>{fmt(currency, unassigned.allocated, { cents: false })} across {unassigned.count} item{unassigned.count !== 1 ? "s" : ""} isn't assigned to an account yet.</span>
+          <span className="wallet-unassigned-text">{fmt(currency, unassigned.allocated, { cents: false })} across {unassigned.count} item{unassigned.count !== 1 ? "s" : ""} isn't assigned to an account yet.</span>
         </div>
       )}
     </div>
@@ -246,18 +248,18 @@ function WalletDrawer({ mo, accounts, members, currency, month, onClose }) {
       <div className="drawer-veil" onClick={onClose} />
       <aside ref={boxRef} className="drawer" role="dialog" aria-modal="true" aria-label="Wallet">
         <div className="drawer-head">
-          <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
-            <span style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(150deg, var(--accent-btn), var(--accent))", color: "var(--on-accent)", display: "grid", placeItems: "center", boxShadow: "var(--glow-sm), inset 0 1px 0 color-mix(in srgb, #fff 22%, transparent)", flex: "none" }}><Icons.wallet size={19} /></span>
+          <div className="wallet-head-id">
+            <span className="wallet-head-mark"><Icons.wallet size={19} /></span>
             <div>
-              <div style={{ fontWeight: 600, fontSize: 16 }}>Wallet</div>
-              <div style={{ fontSize: 12, color: "var(--muted)" }}> Movements for {monthLabel(month).mo}</div>
+              <div className="wallet-head-title">Wallet</div>
+              <div className="wallet-head-sub"> Movements for {monthLabel(month).mo}</div>
             </div>
           </div>
           <button className="icon-btn" onClick={onClose} aria-label="Close the Wallet" title="Close"><Icons.x size={18} /></button>
         </div>
-        <div style={{ padding: "16px 22px 18px", borderBottom: "1px solid var(--rule)", background: "color-mix(in srgb, var(--accent) 8%, var(--board))" }}>
-          <div style={{ fontSize: 11.5, color: "var(--muted)", fontWeight: 500, marginBottom: 6 }}>Total to move this month</div>
-          <span className="num" style={{ fontSize: 30, fontWeight: 600, letterSpacing: "-0.025em", color: "var(--ink)" }}>{fmt(currency, toFund)}</span>
+        <div className="wallet-total">
+          <div className="wallet-total-label">Total to move this month</div>
+          <span className="num wallet-total-figure">{fmt(currency, toFund)}</span>
         </div>
         <div className="drawer-body">
           <AccountPanel mo={mo} accounts={accounts} members={members} currency={currency} />

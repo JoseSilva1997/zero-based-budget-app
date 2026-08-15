@@ -103,6 +103,6 @@ input { font-family: inherit; }
    design decision to be taken on its own rather than a side effect of naming
    this one. */
 .eyebrow {
-  font-size: var(--text-11-5); text-transform: uppercase; letter-spacing: 0.06em;
+  font-size: var(--text-11); text-transform: uppercase; letter-spacing: 0.06em;
   font-weight: 600; color: var(--ink-2);
 }

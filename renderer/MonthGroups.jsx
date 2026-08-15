@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ConfirmDialog, DayField, DiffPill, Icons, MiniBar, Modal, MoneyInput, TextInline, evalMoney, isExpr } from './components.jsx';
-import { actualDay, fmt, groupActual, groupAllocated, itemActual, makeActualDate, monthLabel, nextMonthId, normalizeItemName, round2 } from './lib/index.js';
+import { actualDay, cx, fmt, groupActual, groupAllocated, itemActual, makeActualDate, monthLabel, nextMonthId, normalizeItemName, round2 } from './lib/index.js';
 import { useStore } from './store.jsx';
 import { AccountSelect } from './Accounts.jsx';
 
@@ -56,7 +56,10 @@ function announce(message) {
     el.id = "reorder-live";
     el.setAttribute("aria-live", "polite");
     el.setAttribute("role", "status");
-    el.style.cssText = "position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap";
+    // .sr-only, the same visually-hidden recipe the off-screen radios in the
+    // new-month dialog take. This node is built by hand rather than by React,
+    // so it sets className rather than carrying one in JSX.
+    el.className = "sr-only";
     document.body.appendChild(el);
   }
   el.textContent = message;
@@ -64,17 +67,16 @@ function announce(message) {
 
 /* The handle reorders by mouse (HTML5 drag on the row) or by keyboard. Both
    live here so the two paths cannot drift apart. */
-function DragHandle({ label, onGrab, onRelease, onMove, style, className = "" }) {
+function DragHandle({ label, onGrab, onRelease, onMove, className = "" }) {
   return (
-    <button type="button" className={`drag-handle ${className}`} aria-label={label}
+    <button type="button" className={cx("drag-handle", className)} aria-label={label}
       title="Drag to reorder, or focus this and press the up and down arrow keys"
       onMouseDown={onGrab} onMouseUp={onRelease} onBlur={onRelease}
       onKeyDown={(e) => {
         if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
         e.preventDefault(); // otherwise the page scrolls out from under the row
         onMove(e.key === "ArrowUp" ? -1 : 1);
-      }}
-      style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, flex: "none", cursor: "grab", color: "var(--faint)", border: 0, padding: 0, ...style }}>
+      }}>
       <Icons.drag size={25} />
     </button>
   );
@@ -190,10 +192,10 @@ function MoveMenu({ anchorRef, groups, itemName, onPick, onClose }) {
       {groups.map((g, i) => (
         <button key={g.id} type="button" className="move-menu-item" autoFocus={i === 0}
           onClick={() => { onPick(g.id); closeRestoringFocus(); }}>
-          <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.name}</span>
+          <span className="truncate">{g.name}</span>
           {/* Savings is not a success state, so the marker is quiet rather than
               green. Matches the neutral Savings badge on the group row. */}
-          {g.isSavings && <Icons.plant size={13} style={{ flex: "none", color: "var(--muted)" }} />}
+          {g.isSavings && <Icons.plant size={13} className="move-menu-savings" />}
         </button>
       ))}
     </div>,
@@ -240,45 +242,45 @@ function EntriesDrawer({ item, group, currency, dispatch, month }) {
        it share one accent wash so an opened item reads as a single object
        two levels deep, rather than as a row with an unrelated black band
        stuck under it. */
-    <div className="fade-in entry-tray" style={{ padding: "16px" }}>
+    <div className="fade-in entry-tray">
       {item.actuals.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
+        <div className="entry-list">
           {item.actuals.map(a => (
-            <div key={a.id} style={{ display: "grid", gridTemplateColumns: "var(--budget-cols)", alignItems: "center", gap: 10, padding: "5px 0", borderBottom: "1px solid var(--rule-faint)" }}>
-              <div style={{ gridColumn: "span 2", display: "flex", alignItems: "center", gap: 10, paddingLeft: 30, minWidth: 0 }}>
+            <div key={a.id} className="entry-row">
+              <div className="entry-fields">
                 <DayField day={actualDay(a, month)} monthId={month} title="Day of month (when it was spent)"
                   onCommit={(d) => dispatch({ type: "updateActual", month, groupId: group.id, itemId: item.id, id: a.id, patch: { date: makeActualDate(month, d) } })} />
-                <TextInline value={a.name} placeholder="What was it?" col="entryName" label="What this spending entry was for" onCommit={(v) => dispatch({ type: "updateActual", month, groupId: group.id, itemId: item.id, id: a.id, patch: { name: v } })} style={{ flex: "1 1 0", minWidth: 0, fontSize: 13 }} />
-                <TextInline value={a.note} placeholder="Note" col="entryNote" label="Note for this spending entry" allowEmpty onCommit={(v) => dispatch({ type: "updateActual", month, groupId: group.id, itemId: item.id, id: a.id, patch: { note: v } })} style={{ flex: "1 1 0", minWidth: 0, fontSize: 13, color: "var(--ink-2)" }} />
+                <TextInline value={a.name} placeholder="What was it?" col="entryName" label="What this spending entry was for" onCommit={(v) => dispatch({ type: "updateActual", month, groupId: group.id, itemId: item.id, id: a.id, patch: { name: v } })} className="entry-name" />
+                <TextInline value={a.note} placeholder="Note" col="entryNote" label="Note for this spending entry" allowEmpty onCommit={(v) => dispatch({ type: "updateActual", month, groupId: group.id, itemId: item.id, id: a.id, patch: { note: v } })} className="entry-note" />
               </div>
               <MoneyInput value={a.amount} currency={currency} col="entryAmount" label="Amount spent" onCommit={(v) => dispatch({ type: "updateActual", month, groupId: group.id, itemId: item.id, id: a.id, patch: { amount: v } })} />
               <div className="col-diff" />
-              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <div className="entry-action-cell">
                 <button className="icon-btn subtle" aria-label={`Remove ${a.name ? `"${a.name}"` : "unnamed"} entry of ${fmt(currency, a.amount)} from ${item.name}`} title="Remove entry" onClick={() => remove(a)}><Icons.x size={14} /></button>
               </div>
             </div>
           ))}
         </div>
       )}
-      <div style={{ display: "grid", gridTemplateColumns: "var(--budget-cols)", alignItems: "center", gap: 10, height: 32 }}>
-        <div style={{ gridColumn: "span 2", display: "flex", alignItems: "center", gap: 10, paddingLeft: 30 }}>
-          <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 500, marginRight: 2, whiteSpace: "nowrap" }}>Add spend</span>
+      <div className="entry-add-row">
+        <div className="entry-add-fields">
+          <span className="entry-add-label">Add spend</span>
           <DayField day={day} monthId={month} title="Day of month for this entry" onCommit={setDay} onEnter={add} inputRef={dayRef} autoFocus />
-          <input className="tinput" value={name} aria-label="What the spending was for" onChange={(e) => setName(e.target.value)} placeholder="What was it?" style={{ flex: "1 1 0", minWidth: 0, fontSize: 13, height: 32 }} onKeyDown={(e) => e.key === "Enter" && add()} />
-          <input className="tinput" value={note} aria-label="Note for this spending entry (optional)" onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)" style={{ flex: "1 1 0", minWidth: 0, fontSize: 13, height: 32, color: "var(--ink-2)" }} onKeyDown={(e) => e.key === "Enter" && add()} />
+          <input className="tinput entry-add-name" value={name} aria-label="What the spending was for" onChange={(e) => setName(e.target.value)} placeholder="What was it?" onKeyDown={(e) => e.key === "Enter" && add()} />
+          <input className="tinput entry-add-note" value={note} aria-label="Note for this spending entry (optional)" onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)" onKeyDown={(e) => e.key === "Enter" && add()} />
         </div>
-        <div style={{ position: "relative", height: 32 }}>
-          <input ref={amtRef} className="minput" aria-label="Amount spent" style={{ paddingLeft: 8, height: 32, fontSize: 13 }} inputMode="text" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder={`${currency}0.00`} onKeyDown={(e) => e.key === "Enter" && add()} />
+        <div className="entry-amount-cell">
+          <input ref={amtRef} className="minput entry-amount-input" aria-label="Amount spent" inputMode="text" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder={`${currency}0.00`} onKeyDown={(e) => e.key === "Enter" && add()} />
           {amtPreview !== null && (
-            <span className="num" style={{ position: "absolute", right: 4, bottom: "100%", marginBottom: 3, background: "var(--ink)", color: "var(--on-ink)", fontSize: 11, fontWeight: 600, padding: "2px 7px", borderRadius: 6, whiteSpace: "nowrap", zIndex: 4 }}>= {fmt(currency, amtPreview)}</span>
+            <span className="num entry-amount-preview">= {fmt(currency, amtPreview)}</span>
           )}
         </div>
         {/* Add sits in the actions column, under the entries' remove buttons:
             the Difference column is the one that disappears on narrow windows,
             and a button that vanishes with it is a button you cannot press. */}
         <div className="col-diff" />
-        <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <button className="btn btn-sm btn-primary" style={{ height: 32, whiteSpace: "nowrap" }} onClick={() => add()}><Icons.plus size={14} /> Add</button>
+        <div className="entry-action-cell">
+          <button className="btn btn-sm btn-primary entry-add-btn" onClick={() => add()}><Icons.plus size={14} /> Add</button>
         </div>
       </div>
     </div>
@@ -314,17 +316,15 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
         onDrop();
       }}
       onDragEnd={() => { setGrabbed(false); onDragEnd(); }}
-      /* The first row draws no rule of its own: the group header above it
-         already closes with one, in --rule-strong, and the two abutted into a
-         2px double line under every header. A drop target still gets its
-         accent edge wherever it lands - that one is a drag affordance, not a
-         divider, and has to be seen on the first row as much as any other. */
-      style={{ borderTop: isDropTarget ? "2px solid var(--accent)" : index === 0 ? "none" : "1px solid var(--rule)", opacity: isDragging ? .4 : 1, background: isDropTarget ? "var(--accent-soft)" : undefined, transition: "background .12s" }}>
-      <div style={{ display: "flex", alignItems: "stretch", minHeight: "var(--row-h)" }}>
+      /* Why the first row draws no rule, and why a drop target overrides that
+         anyway, is written above .item-row in budget.css, next to the rules
+         that do it. */
+      className={cx("item-row", index === 0 && "is-first", isDragging && "is-dragging", isDropTarget && "is-drop-target")}>
+      <div className="item-row-main">
       <DragHandle label={`Reorder ${item.name}, item ${index + 1} of ${count} in ${group.name}`}
         onGrab={() => setGrabbed(true)} onRelease={() => setGrabbed(false)} onMove={onMove} />
-      <div className={`budget-row${open ? " budget-row-open" : ""}`} style={{ flex: 1, minWidth: 0, display: "grid", gridTemplateColumns: "var(--budget-cols)", alignItems: "center", gap: 10, padding: "7px 8px", minHeight: "var(--row-h)" }}>
-        <div style={{ minWidth: 0, paddingRight: 6, display: "flex", flexDirection: "column", gap: 4 }}>
+      <div className={cx("budget-row", "budget-row-item", open && "budget-row-open")}>
+        <div className="item-name-cell">
           {/* The title is on the wrapper because the field itself is an input:
               it cannot ellipsis, so the full name has to be reachable some
               other way (hover here, or scroll inside the field). The accent
@@ -332,11 +332,11 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
               row a person scans for, so it is the one thing that takes the
               theme's colour - in the lighter --accent-text blend, not the
               full-strength ink. */}
-          <span title={item.name} style={{ display: "flex", minWidth: 0 }}>
-            <TextInline value={item.name} col="itemName" label="Item name" style={{ minWidth: 0, color: "var(--accent-text)" }}
+          <span title={item.name} className="item-name-wrap">
+            <TextInline value={item.name} col="itemName" label="Item name" className="item-name-input"
               onCommit={(v) => dispatch({ type: "renameItem", month, groupId: group.id, itemId: item.id, name: v })} />
           </span>
-          <div style={{ paddingLeft: 8, minWidth: 0 }}>
+          <div className="item-acct-cell">
             <AccountSelect value={item.account} accounts={accounts} label={`Funding account for ${item.name}`} onChange={(a) => dispatch({ type: "setItemAccount", month, groupId: group.id, itemId: item.id, account: a })} />
           </div>
         </div>
@@ -348,15 +348,11 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
             "$120.00 3, button", which says nothing about which item it opens. */}
         <button onClick={onToggle} title="View / add spending entries" aria-expanded={open}
           aria-label={`${fmt(currency, actual)} spent on ${item.name} in ${item.actuals.length} ${item.actuals.length === 1 ? "entry" : "entries"}`}
-          /* Open, this is the control that owns the tray below, so it takes
-             the accent as a selection state rather than the anonymous --well
-             it used to lift to: the row, the button and the tray are then
-             the same colour event down the page. */
-          style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 7, background: open ? "var(--well)" : "transparent", borderRadius: 7, padding: "5px 9px", color: "var(--ink)", transition: ".12s", border: open ? "1px solid color-mix(in srgb, var(--accent) 42%, transparent)" : "1px solid transparent" }}>
-          <span className="num" style={{ fontSize: 14 }}>{fmt(currency, actual)}</span>
-          <span style={{ fontSize: 10.5, color: "var(--faint)", background: "var(--well)", borderRadius: 5, padding: "1px 5px", minWidth: 16, textAlign: "center" }}>{item.actuals.length}</span>
+          className={cx("item-spend-btn", open && "is-open")}>
+          <span className="num item-spend-amt">{fmt(currency, actual)}</span>
+          <span className="item-spend-count">{item.actuals.length}</span>
         </button>
-        <div className="col-diff" style={{ display: "flex", flexDirection: "column", gap: 5, alignItems: "flex-end" }}>
+        <div className="col-diff item-diff-cell">
           <DiffPill diff={diff} currency={currency} />
           <MiniBar actual={actual} allocated={item.allocated} />
         </div>
@@ -366,7 +362,7 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
             stack (62px) out-measures the name+account column (57px) and grows
             every item row by 5px, which adds up over a long month. Do not
             "fix" this back to plain .icon-btn. */}
-        <div className="row-actions" style={{ flexDirection: "column", alignItems: "flex-end", justifyContent: "center", gap: 0, ...(moveOpen ? { opacity: 1, pointerEvents: "auto" } : null) }}>
+        <div className={cx("row-actions", "row-actions-stack", moveOpen && "is-open")}>
           <button className="icon-btn compact" aria-label={`Delete item ${item.name} from this month`} title="Delete item (this month only)" onClick={() => setConfirmDelete(true)}><Icons.trash size={15} /></button>
           {/* No aria-haspopup: its non-false values are all synonyms for menu,
               listbox, tree, grid or dialog (WAI-ARIA), and this disclosure
@@ -460,12 +456,11 @@ function AddItemSearch({ month, groupId, currency, dispatch, onClose, itemCount 
   };
   const shown = candidates.slice(0, 7);
   return (
-    /* Same rule as the rows: this panel separates itself from the item above
-       it, but in an empty group it opens directly under the group header,
-       which already draws that line. */
-    <div ref={rootRef} style={{ padding: "10px 16px", borderTop: itemCount === 0 ? "none" : "1px solid var(--rule-faint)", background: "var(--board)" }}>
-      <div style={{ display: "flex", gap: 8 }}>
-        <input autoFocus ref={inputRef} className="tinput" value={query} aria-label="Search previous items, or type a new item name" onChange={(e) => setQuery(e.target.value)} placeholder="Search previous items or type new..." style={{ maxWidth: 340 }}
+    /* Why an empty group's panel draws no top rule is written above
+       .add-item-panel in budget.css, next to the rule that does it. */
+    <div ref={rootRef} className={cx("add-item-panel", itemCount === 0 && "is-first")}>
+      <div className="add-item-controls">
+        <input autoFocus ref={inputRef} className="tinput add-item-input" value={query} aria-label="Search previous items, or type a new item name" onChange={(e) => setQuery(e.target.value)} placeholder="Search previous items or type new..."
           onKeyDown={(e) => {
             if (e.key === "Enter" && !saving) createItem();
             if (e.key === "Escape") { setQuery(""); onClose(); }
@@ -474,20 +469,20 @@ function AddItemSearch({ month, groupId, currency, dispatch, onClose, itemCount 
           {saving ? "Adding…" : exact ? "Add existing" : "Create item"}
         </button>
       </div>
-      <div style={{ marginTop: 8, border: "1px solid var(--rule-faint)", borderRadius: 8, overflow: "hidden", background: "var(--well)" }}>
-        {shown.length > 0 ? shown.map((candidate, idx) => (
+      <div className="add-item-results">
+        {shown.length > 0 ? shown.map((candidate) => (
           <button key={`${candidate.month}:${candidate.name}`} type="button" disabled={saving}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => selectCandidate(candidate)}
-            style={{ width: "100%", minHeight: 40, display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "center", textAlign: "left", padding: "7px 10px", border: 0, borderTop: idx ? "1px solid var(--rule-faint)" : "none", background: "transparent", color: "var(--ink)", cursor: "pointer", font: "inherit" }}>
-            <span style={{ minWidth: 0 }}>
-              <span style={{ display: "block", fontSize: 13.5, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{candidate.name}</span>
-              <span style={{ display: "block", fontSize: 11.5, color: "var(--muted)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{candidate.groupName} - {candidate.monthLabel}</span>
+            className="add-item-option">
+            <span className="add-item-text">
+              <span className="add-item-name truncate">{candidate.name}</span>
+              <span className="add-item-sub truncate">{candidate.groupName} - {candidate.monthLabel}</span>
             </span>
-            <span className="num" style={{ fontSize: 12.5, color: "var(--ink-2)", whiteSpace: "nowrap" }}>{fmt(currency, candidate.allocated, { cents: false })}</span>
+            <span className="num add-item-amt">{fmt(currency, candidate.allocated, { cents: false })}</span>
           </button>
         )) : (
-          <div style={{ padding: "9px 10px", color: "var(--muted)", fontSize: 12.5 }}>
+          <div className="add-item-empty">
             {trimmed ? "No previous item matches this search." : "Search items from previous months that are not in this month."}
           </div>
         )}
@@ -586,44 +581,38 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, dragItem
     announce(`${group.name} moved to position ${groupIndex + dir + 1} of ${groups.length}.`);
   };
   return (
-    <div ref={cardRef} id={groupCardId(group.id)} className="raised fade-in" draggable={grabbed}
+    <div ref={cardRef} id={groupCardId(group.id)} className={cx("raised fade-in group-card", isDragging && "is-dragging")} draggable={grabbed}
       onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; onDragStart(); }}
       onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; const r = e.currentTarget.getBoundingClientRect(); onDragOverGroup(e.clientY > r.top + r.height / 2); }}
       onDrop={(e) => { e.preventDefault(); onDrop(); }}
-      onDragEnd={() => { setGrabbed(false); onDragEnd(); }}
-      style={{ marginBottom: 14, overflow: "hidden", opacity: isDragging ? .4 : 1, transition: "opacity .12s" }}>
-      <div style={{ display: "flex", alignItems: "stretch" }}>
+      onDragEnd={() => { setGrabbed(false); onDragEnd(); }}>
+      <div className="group-head-row">
       {/* 'is-collapsed' is what tells the stylesheet this handle is the card's
           bottom-left corner as well as its top-left one: a collapsed group
           renders nothing below its header. */}
       <DragHandle label={`Reorder group ${group.name}, ${groupIndex + 1} of ${groups.length}`}
-        className={`drag-handle-group group-head-handle${over ? " is-over" : ""}${group.collapsed ? " is-collapsed" : ""}`}
-        onGrab={() => setGrabbed(true)} onRelease={() => setGrabbed(false)} onMove={moveGroup}
-        style={{ borderBottom: group.collapsed ? "none" : "1px solid var(--rule-strong)" }} />
+        className={cx("drag-handle-group group-head-handle", over && "is-over", group.collapsed && "is-collapsed")}
+        onGrab={() => setGrabbed(true)} onRelease={() => setGrabbed(false)} onMove={moveGroup} />
       {/* .group-head is the page's one washed band (see the three-levels
           comment in app.css): it is what makes a group header read as a
           header rather than as the darkest, and so apparently deepest, strip
           in its own card. A drop target still overrides it - that is a live
           drag affordance and has to win over a resting surface. */}
-      <div {...appendTargetProps} style={{ flex: 1, minWidth: 0, display: "grid", gridTemplateColumns: "var(--budget-cols)", alignItems: "center", gap: 10, padding: "16px 8px", borderBottom: group.collapsed ? "none" : "1px solid var(--rule-strong)", ...(appendHere ? { background: "var(--accent-soft)" } : null) }} className={`budget-row group-head${over ? " is-over" : ""}`}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-          <button className="icon-btn" aria-expanded={!group.collapsed} aria-label={group.collapsed ? `Expand ${group.name}` : `Collapse ${group.name}`} onClick={() => dispatch({ type: "toggleCollapse", month, groupId: group.id })} style={{ flex: "none", transform: group.collapsed ? "rotate(-90deg)" : "none", transition: "transform .18s" }}><Icons.down size={16} /></button>
-          <span title={group.name} style={{ display: "flex", flex: "1 1 auto", minWidth: 0 }}>
-            <TextInline value={group.name} col="groupName" label="Group name" onCommit={(v) => dispatch({ type: "renameGroup", month, groupId: group.id, name: v })} style={{ fontWeight: 600, fontSize: 15, minWidth: 0 }} />
+      <div {...appendTargetProps} className={cx("budget-row group-head", over && "is-over", group.collapsed && "is-collapsed", appendHere && "is-append-target")}>
+        <div className="group-name-cell">
+          <button className={cx("icon-btn group-toggle", group.collapsed && "is-collapsed")} aria-expanded={!group.collapsed} aria-label={group.collapsed ? `Expand ${group.name}` : `Collapse ${group.name}`} onClick={() => dispatch({ type: "toggleCollapse", month, groupId: group.id })}><Icons.down size={16} /></button>
+          <span title={group.name} className="group-name-wrap">
+            <TextInline value={group.name} col="groupName" label="Group name" onCommit={(v) => dispatch({ type: "renameGroup", month, groupId: group.id, name: v })} className="group-name-input" />
           </span>
-          {group.isSavings && <span className="pill pill-neutral" style={{ flex: "none" }}><Icons.plant size={12} /> Savings</span>}
+          {group.isSavings && <span className="pill pill-neutral group-savings-pill"><Icons.plant size={12} /> Savings</span>}
         </div>
-        {/* Allocated is the plan and stays a plain figure; actual is money
-            that moved, and in the month bar money that moved is the solid
-            accent, so the group's actual total is where the table says the
-            same thing. It also fixes an inversion: actual used to be the
-            DIMMER of the two at --ink-2, which read as the plan mattering
-            more than what actually happened. Over budget, the breach owns
-            the figure instead - one hue per row, and the loudest wins. */}
-        <div className="num" style={{ textAlign: "right", fontSize: 13.5, fontWeight: 600, paddingRight: 8 }}>{fmt(currency, alloc, { cents: false })}</div>
-        <div className="num" style={{ textAlign: "right", fontSize: 13.5, fontWeight: 600, color: over ? "var(--breach-ink)" : "var(--accent-text)", paddingRight: 9 }}>{fmt(currency, actual, { cents: false })}</div>
-        <div className="col-diff" style={{ textAlign: "right" }}><DiffPill diff={diff} currency={currency} /></div>
-        <div className="row-actions" style={{ justifyContent: "flex-end" }}>
+        {/* Why the actual total is the accent one and the allocated total is
+            plain is written above .group-alloc in budget.css, next to the rules
+            that do it. */}
+        <div className="num group-alloc">{fmt(currency, alloc, { cents: false })}</div>
+        <div className={cx("num group-actual", over && "is-over")}>{fmt(currency, actual, { cents: false })}</div>
+        <div className="col-diff group-diff-cell"><DiffPill diff={diff} currency={currency} /></div>
+        <div className="row-actions row-actions-end">
           <button className="icon-btn" aria-label={group.isSavings ? `Unmark ${group.name} as a savings group` : `Mark ${group.name} as a savings group`} title={group.isSavings ? "Unmark as savings" : "Mark as savings group"} onClick={() => dispatch({ type: "setSavings", month, groupId: group.id, value: !group.isSavings })}><Icons.plant size={15} /></button>
           <button className="icon-btn" aria-label={`Delete group ${group.name} from this month`} title="Delete group (this month only)" onClick={() => setConfirmDelete(true)}><Icons.trash size={15} /></button>
         </div>
@@ -632,9 +621,9 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, dragItem
       {!group.collapsed && (
         <div>
           {group.items.length === 0 && !addingItem && (
-            /* No rule here either: this only ever sits directly under the group
-               header, which already draws one. */
-            <div {...appendTargetProps} style={{ padding: "16px", textAlign: "center", color: appendHere ? "var(--ink-2)" : "var(--faint)", fontSize: 13, background: appendHere ? "var(--accent-soft)" : undefined, transition: "background .12s" }}>No items yet.</div>
+            /* Why this one draws no top rule either is written above
+               .group-empty in budget.css, next to the rules that do it. */
+            <div {...appendTargetProps} className={cx("group-empty", appendHere && "is-append-target")}>No items yet.</div>
           )}
           {group.items.map((it, itemIndex) => (
             <ItemRow key={it.id} item={it} group={group} currency={currency} dispatch={dispatch} month={month} accounts={accounts}
@@ -660,8 +649,8 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, dragItem
           {addingItem ? (
             <AddItemSearch month={month} groupId={group.id} currency={currency} dispatch={dispatch} itemCount={itemCount} onClose={() => setAddingItem(false)} />
           ) : (
-            <div {...appendTargetProps} style={{ background: appendHere ? "var(--accent-soft)" : "var(--board)", borderTop: "1px solid var(--rule-faint)", padding: "4px 0", transition: "background .12s" }}>
-              <button className="btn btn-ghost btn-sm" style={{ margin: "8px 10px", color: "var(--muted)" }} onClick={() => setAddingItem(true)}><Icons.plus size={14} /> Add item</button>
+            <div {...appendTargetProps} className={cx("group-foot", appendHere && "is-append-target")}>
+              <button className="btn btn-ghost btn-sm group-add-btn" onClick={() => setAddingItem(true)}><Icons.plus size={14} /> Add item</button>
             </div>
           )}
         </div>
@@ -718,57 +707,45 @@ function NewMonthModal({ onClose, dispatch }) {
            not be answered from the keyboard. The card is no longer a <label>
            either - the "also copy income" checkbox nests inside it, and a label
            inside a label belongs to nothing in particular. */
-        <div role="radiogroup" aria-label="What to put in the new month" style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 18 }}>
-          <div className="copy-opt" style={optStyle(copy)} onClick={() => setCopy(true)}>
-            <input type="radio" id="new-month-copy" name="new-month-source" checked={copy} style={offscreenInput}
+        <div role="radiogroup" aria-label="What to put in the new month" className="copy-opts">
+          <div className={cx("copy-opt", copy && "is-on")} onClick={() => setCopy(true)}>
+            {/* Focusable but not seen: the drawn radio beside it is the visible
+                one. .sr-only rather than display:none or visibility:hidden,
+                which would take it out of the tab order (and out of Modal's
+                focus trap) all over again. Same for the second card below. */}
+            <input type="radio" id="new-month-copy" name="new-month-source" checked={copy} className="sr-only"
               onChange={() => setCopy(true)} />
-            <div aria-hidden="true" style={radioStyle(copy)}>{copy && <Icons.check size={13} />}</div>
+            <div aria-hidden="true" className={cx("copy-radio", copy && "is-on")}>{copy && <Icons.check size={13} />}</div>
             <div>
-              <label htmlFor="new-month-copy" style={{ display: "block", fontWeight: 600, fontSize: 14, cursor: "pointer" }}>Copy structure from {prevLbl.short}</label>
-              <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 2 }}>{prevGroups} groups · {prevItems} items · allocated amounts. Spending starts fresh at zero.</div>
+              <label htmlFor="new-month-copy" className="copy-opt-title">Copy structure from {prevLbl.short}</label>
+              <div className="copy-opt-sub">{prevGroups} groups · {prevItems} items · allocated amounts. Spending starts fresh at zero.</div>
               {copy && (
-                <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, fontSize: 13, color: "var(--ink-2)" }}>
+                <label className="copy-opt-extra">
                   <input type="checkbox" checked={copyIncome} onChange={(e) => setCopyIncome(e.target.checked)} /> Also copy income amounts
                 </label>
               )}
             </div>
           </div>
-          <div className="copy-opt" style={optStyle(!copy)} onClick={() => setCopy(false)}>
-            <input type="radio" id="new-month-empty" name="new-month-source" checked={!copy} style={offscreenInput}
+          <div className={cx("copy-opt", !copy && "is-on")} onClick={() => setCopy(false)}>
+            <input type="radio" id="new-month-empty" name="new-month-source" checked={!copy} className="sr-only"
               onChange={() => setCopy(false)} />
-            <div aria-hidden="true" style={radioStyle(!copy)}>{!copy && <Icons.check size={13} />}</div>
+            <div aria-hidden="true" className={cx("copy-radio", !copy && "is-on")}>{!copy && <Icons.check size={13} />}</div>
             <div>
-              <label htmlFor="new-month-empty" style={{ display: "block", fontWeight: 600, fontSize: 14, cursor: "pointer" }}>Start empty</label>
-              <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 2 }}>A blank month - add groups and items from scratch.</div>
+              <label htmlFor="new-month-empty" className="copy-opt-title">Start empty</label>
+              <div className="copy-opt-sub">A blank month - add groups and items from scratch.</div>
             </div>
           </div>
         </div>
       )}
-      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+      <div className="new-month-actions">
         <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
         <button className="btn btn-primary" onClick={create}><Icons.plus size={15} /> Create {lbl.mo}</button>
       </div>
-      <div style={{ marginTop: 14, fontSize: 11.5, color: "var(--faint)", display: "flex", alignItems: "center", gap: 6 }}>
+      <div className="new-month-note">
         <Icons.check size={13} /> The new month is fully independent - edits here never change past months.
       </div>
     </Modal>
   );
 }
-/* No focus ring here: `.copy-opt:focus-within` in the stylesheet draws it from
-   the off-screen radio inside, so the two cannot disagree. */
-function optStyle(active) {
-  return {
-    position: "relative", display: "flex", gap: 12, padding: "13px 14px", borderRadius: 11,
-    border: `1px solid ${active ? "var(--accent)" : "var(--rule)"}`,
-    background: active ? "var(--accent-soft)" : "var(--raised)", cursor: "pointer", transition: ".14s",
-  };
-}
-/* The tick sits on --accent, so it has to use the ink that theme picked for it:
-   plain white measures 1.46:1 on lime and 1.67:1 on cyan, i.e. invisible. */
-function radioStyle(active) { return { width: 20, height: 20, borderRadius: 99, flex: "none", marginTop: 1, display: "grid", placeItems: "center", color: "var(--on-accent)", background: active ? "var(--accent)" : "transparent", border: `1.5px solid ${active ? "var(--accent)" : "var(--rule-strong)"}` }; }
-/* Focusable but not seen: the drawn radio above is the visible one. Not
-   display:none or visibility:hidden, which would take it out of the tab order
-   (and out of Modal's focus trap) all over again. */
-const offscreenInput = { position: "absolute", width: 1, height: 1, opacity: 0, margin: 0 };
 
 export { GroupCard, NewMonthModal, allocFieldId, focusAllocated };
