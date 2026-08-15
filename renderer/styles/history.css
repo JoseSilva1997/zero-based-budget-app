@@ -1,0 +1,9 @@
+/* ============================================================
+   History, and the Month Budget screen's own furniture.
+
+   The all-months table draws a six-column grid that is NOT the budget grid.
+   It deliberately carries no .budget-row class: that class means
+   var(--budget-cols), five columns and 7px 8px padding, and it was inert here
+   only for as long as these declarations sat inline and outranked it. See the
+   comment at the row in History.jsx.
+   ============================================================ */

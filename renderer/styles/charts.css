@@ -1,0 +1,11 @@
+/* ============================================================
+   Dashboard charts.
+
+   Only the HTML around the charts lives here. Recharts is handed colours and
+   sizes as component props, and it writes several of them out as SVG
+   presentation attributes rather than as CSS, where a var() would not
+   resolve: axisProps, gridProps, the LabelList font size and MonthTick's are
+   config, not style, and stay in JS.
+
+   ChartCard itself is in controls.css, since it is a shared primitive.
+   ============================================================ */

@@ -18,4 +18,6 @@ docs/
 # skills
 .impeccable/
 .claude/skills/screenshot-app/.sandbox-userdata/
+# private fixture DBs from screenshot.mjs --sandbox (parallel or data-mutating runs)
+.claude/skills/screenshot-app/.sandbox-*/
 .claude/skills/screenshot-app/out/

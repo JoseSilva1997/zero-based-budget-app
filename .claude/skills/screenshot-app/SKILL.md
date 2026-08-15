@@ -63,6 +63,7 @@ Flags (not tied to step order):
 |---|---|
 | `--no-build` | skip the `npm run build && build:renderer` step. Only safe if you're certain the last build already reflects the current source - the default is to always rebuild first, since a stale bundle is a silent way to screenshot the wrong thing. |
 | `--reseed` | wipe the sandbox fixture DB and reseed before launching |
+| `--sandbox <dir>` | use `<dir>` as the sandbox instead of the shared default, seeding it on first use. Needed whenever two runs could overlap (parallel agents), and whenever a run will *change* the fixture - e.g. adding a second month to exercise the History comparison or the Dashboard trend charts, which the default one-month fixture leaves empty. Without it, concurrent runs race on one SQLite file and a `--reseed` can fail or silently alter what a sibling is screenshotting. |
 | `--real` + `--confirm-real-data` | launch against the real app data (see Safety above) - both flags required together |
 | `--no-fullpage` | screenshot only the visible viewport instead of the full scrollable page (default: full page) |
 

@@ -83,7 +83,7 @@ Example - one screenshot of each of the 4 screens:
 
 function parseArgs(argv) {
   const steps = [];
-  const opts = { build: true, reseed: false, real: false, confirmReal: false, fullpage: true, help: false };
+  const opts = { build: true, reseed: false, real: false, confirmReal: false, fullpage: true, help: false, sandbox: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const next = () => {
@@ -100,6 +100,7 @@ function parseArgs(argv) {
       case '--all-screens': steps.push({ kind: 'all-screens', dir: next() }); break;
       case '--no-build': opts.build = false; break;
       case '--reseed': opts.reseed = true; break;
+      case '--sandbox': opts.sandbox = next(); break;
       case '--real': opts.real = true; break;
       case '--confirm-real-data': opts.confirmReal = true; break;
       case '--no-fullpage': opts.fullpage = false; break;
@@ -198,7 +199,15 @@ async function main() {
 
   let userDataDir = null;
   if (!opts.real) {
-    userDataDir = SANDBOX_DIR;
+    /* --sandbox names a private fixture DB. The default is one shared
+       directory, which is right for a single session and wrong the moment two
+       of them run at once: concurrent runs race on the same SQLite file, and a
+       --reseed under a sibling's feet fails outright ("table
+       household_members already exists") or, worse, silently changes the data
+       a sibling is mid-way through screenshotting. A run that needs to CHANGE
+       the fixture - adding a second month to exercise a comparison view - has
+       no other safe way to do it while anything else is running. */
+    userDataDir = opts.sandbox ? path.resolve(opts.sandbox) : SANDBOX_DIR;
     fs.mkdirSync(userDataDir, { recursive: true });
     const dataDir = path.join(userDataDir, 'data');
     const dbFile = path.join(dataDir, 'budget.sqlite');

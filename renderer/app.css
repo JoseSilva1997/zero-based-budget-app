@@ -19,6 +19,9 @@
 @import "styles/budget.css";
 @import "styles/settings.css";
 @import "styles/wallet.css";
+@import "styles/quickentry.css";
+@import "styles/charts.css";
+@import "styles/history.css";
 @import "styles/overlays.css";
 @import "styles/bar.css";
 @import "styles/debug.css";

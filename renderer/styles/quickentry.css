@@ -1,0 +1,8 @@
+/* ============================================================
+   Quick entry: the log-a-spend card at the top of Month Budget.
+
+   Its card is .panel-unclipped (controls.css), which exists solely for this
+   screen: the suggestion list hangs off the name field and past the card's
+   bottom edge, so the card keeps overflow: visible and whichever block ends
+   up last has to carry the bottom curve itself.
+   ============================================================ */
