@@ -22,7 +22,7 @@
    the watch build in-process alongside Electron.
    ============================================================ */
 import esbuild from 'esbuild';
-import { mkdirSync, copyFileSync, writeFileSync, readdirSync } from 'node:fs';
+import { mkdirSync, copyFileSync, writeFileSync, readdirSync, watch } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -71,6 +71,27 @@ function writeStatics() {
   }
 }
 
+/* Keep dist/app.css in step with renderer/app.css while watching. esbuild only
+   watches the JS import graph, and the stylesheet is copied rather than
+   bundled, so without this a stylesheet edit never reaches dist (and so never
+   reaches the app). The whole renderer directory is watched rather than the one
+   file because editors save by replacing the file, which drops a watch bound to
+   the old inode; changes to anything else there are filtered out, dist/app.css
+   included, so the copy cannot re-trigger itself. Only app.css is copied, not
+   the full writeStatics(): rewriting index.html and the fonts would touch
+   mtimes the app's hot reload is watching, costing a reload per save. */
+function watchCss() {
+  let timer = null;
+  watch(rendererDir, (_event, filename) => {
+    if (filename !== 'app.css') return;
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      copyFileSync(join(rendererDir, 'app.css'), join(outDir, 'app.css'));
+      console.log('[renderer] app.css -> dist');
+    }, 50);
+  });
+}
+
 /**
  * Build the renderer bundle.
  * @param {{ dev?: boolean, watch?: boolean }} opts
@@ -98,6 +119,7 @@ export async function buildRenderer({ dev = false, watch = false } = {}) {
     const ctx = await esbuild.context(options);
     writeStatics();
     await ctx.watch();
+    watchCss();
     console.log(`[renderer] watching for changes -> ${outDir}`);
     return ctx;
   }

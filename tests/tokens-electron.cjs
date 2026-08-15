@@ -60,21 +60,30 @@ const CHECKS = [
   // The focus ring's solid 2px core, on the lightest surface it can land on.
   // WCAG 2.4.11 wants 3:1 for the indicator itself.
   ['accent ring on raised', '--accent', '--raised', 3.0],
-  // The bar's outer boundary: how far the plan extends against its track.
-  // This is the one WCAG 1.4.11 actually governs, and it moved. It used to
-  // be an opaque fill (--bar-faded, since retired) held to 3:1 in its own
-  // right, which is what pinned that fill at a 73% blend of the accent and
-  // made the plan almost as loud as the spending inside it. The plan is a
-  // wash inside a 1px --accent outline now (.bar-region.is-plan in
-  // app.css), so the boundary is the outline and the floor belongs to it.
-  // The wash beneath is unconstrained on purpose - it carries no boundary.
-  ['bar plan edge on track', '--accent', '--well', 3.0],
-  // The track's own outline. With the unallocated remainder painted as
-  // nothing at all, this is the only thing that says how much room is left,
-  // so it is a real 1.4.11 boundary rather than decoration. --well and
-  // --board are within a percent of each other in obsidian, which is exactly
-  // why an unoutlined empty track would read as no track.
-  ['bar track edge on board', '--rule-strong', '--board', 3.0],
+  // The month bar's two internal boundaries: how far the plan extends against
+  // the bare track, and where the spending ends against the plan. --bar-plan
+  // is translucent, so both are measured as it actually lands - composited
+  // over the --well it always sits on; see resolve() below.
+  //
+  // These are regression guards, NOT 1.4.11 floors, and they are the one pair
+  // in this list that could not be floors. The solid accent is 5.10:1 against
+  // the track in total, so 3:1 on either boundary is bought straight out of
+  // the other; --bar-plan's own comment in app.css records both attempts and
+  // why the middle setting is the one that ships. What these numbers exist to
+  // catch is the plan drifting back toward either end - to 1.21:1 against the
+  // track, which is invisible rather than quiet, or to 1.62:1 against the
+  // spend, which is one violet slab in two weights.
+  ['bar plan on track',   ['--bar-plan', '--well'], '--well', 1.9],
+  ['spend on bar plan',   '--accent', ['--bar-plan', '--well'], 2.4],
+  // The track's own outline, which now runs unbroken around the whole bar
+  // (.bar-track::after in app.css) rather than only where the track is bare.
+  // It was --rule-strong at a 3:1 floor while it was the only thing saying
+  // how much room was left; the fills carry their own extent now, so this
+  // stepped down to --rule and this became a guard rather than a floor.
+  // --well and --board are within a percent of each other in obsidian, which
+  // is exactly why an unoutlined empty track would read as no track, so the
+  // guard is here to stop the line dimming toward nothing.
+  ['bar track edge on board', '--rule', '--board', 2.4],
   // The income mark's tick (see .bar-mark-tick in app.css) lands on --board,
   // outside .bar-track's clip, and is the part of the mark that has to
   // actually be seen. This is the real WCAG floor for it, unlike the rule
@@ -162,7 +171,7 @@ const PAGE = (css, themes, checks) => `
   const canvas = document.createElement('canvas');
   canvas.width = 1; canvas.height = 1;
   const ctx = canvas.getContext('2d');
-  const resolve = (token) => {
+  const rawOf = (token) => {
     // getPropertyValue on the property itself (not a probe using it) is the
     // reliable definedness check: an undefined custom property used in
     // var() falls back to the inherited colour rather than failing, so
@@ -191,11 +200,30 @@ const PAGE = (css, themes, checks) => `
     const sentinel = ctx.fillStyle;
     ctx.fillStyle = raw;
     if (ctx.fillStyle === sentinel) throw new Error('unparseable colour for ' + token + ': ' + raw);
+    return raw;
+  };
 
-    // clearRect before painting: a shared canvas with the default
-    // source-over compositing would let a translucent token pick up colour
-    // from whatever pixel the previous resolve() call left behind.
+  // A check's foreground or background may be a [token, overToken] pair,
+  // meaning "this token as it actually lands, composited over that one". A
+  // bare token is painted on a cleared canvas, which reads a translucent
+  // token at full strength and so answers a question nobody asked: --bar-plan
+  // is a 50% accent and the number that matters is what it becomes over the
+  // track it always sits on. getImageData hands back un-premultiplied RGBA,
+  // so the alpha would otherwise just be dropped and the wash would measure
+  // as the raw accent.
+  //
+  // clearRect still runs first either way: a shared canvas with the default
+  // source-over compositing would let a translucent token pick up colour from
+  // whatever pixel the previous resolve() call left behind, and the base of a
+  // pair has to be the stated one rather than that leftover.
+  const resolve = (spec) => {
+    const [token, over] = Array.isArray(spec) ? spec : [spec, null];
+    const raw = rawOf(token);
+    const base = over ? rawOf(over) : null;
+
     ctx.clearRect(0, 0, 1, 1);
+    if (base) { ctx.fillStyle = base; ctx.fillRect(0, 0, 1, 1); }
+    ctx.fillStyle = raw;
     ctx.fillRect(0, 0, 1, 1);
     const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
     return [r, g, b];

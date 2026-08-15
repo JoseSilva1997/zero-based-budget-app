@@ -62,30 +62,43 @@ const mount = (mo) => {
 };
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
-// Each region is painted by a class now, not by an inline background: the old
-// PAINT table in MonthBar.jsx is a key-to-class map and the four fills live on
-// .bar-region.is-* in styles/bar.css. This suite still does not load the
-// stylesheet - colour is tests/tokens-electron.cjs's job - so what it reads is
-// which fill each region ASKED for, which is exactly what the table decided
-// before. is-plan rides along on 'allocated' and is checked on its own below.
-const paints = (host) => [...host.querySelectorAll('.bar-region')].map((n) => n.className);
+// Each region is painted by an inline background-image, so read them off the
+// DOM. Image rather than the background shorthand because .bar-region carries
+// the track colour as its own background-colour and the shorthand would wipe
+// it; that backing is what keeps the stacked fills opaque. See app.css.
+const paints = (host) => [...host.querySelectorAll('.bar-region')].map((n) => n.style.backgroundImage);
+// The two invariants of the stacked layout: every fill is a pill anchored at
+// the track's left edge (so none of them carries an inline left), and they
+// are painted longest first so each one lands on top of the one containing
+// it. Widths are percentage strings in DOM order.
+const anchored = (host) => [...host.querySelectorAll('.bar-region')].every((n) => n.style.left === '');
+const widths = (host) => [...host.querySelectorAll('.bar-region')].map((n) => parseFloat(n.style.width));
+const nested = (host) => widths(host).every((w, i, a) => i === 0 || w <= a[i - 1] + 1e-9);
 
 window.__runTests = async () => {
   // Partly allocated. The unallocated remainder is bare track, not a fill:
   // barRegions still emits a 'gap' span (see its own tests below), but
-  // MonthBar's region-class table has no entry for it, so nothing is painted
-  // there. Two spans, spent and the plan, and the plan is the outlined one.
+  // MonthBar's PAINT table has no entry for it, so nothing is painted there.
+  // Two fills, the plan and the spend nested inside it, and the plan is the
+  // outlined one.
   const partial = mount(month(3400, 2150, 4200));
   await tick();
   check('partial paints only spent and plan', paints(partial).length === 2, paints(partial).join(' | '));
-  // Named for what it proves: both fills are asked for. That they are the ONLY
-  // two is the length check above, not this one.
-  check('partial paints spent and allocated',
-    paints(partial).some((p) => p.includes('is-spent')) && paints(partial).some((p) => p.includes('is-allocated')),
-    paints(partial).join(' | '));
   check('partial leaves the gap unpainted',
-    !paints(partial).some((p) => p.includes('is-gap')), paints(partial).join(' | '));
-  check('partial outlines the plan', partial.querySelectorAll('.bar-region.is-plan').length === 1);
+    !paints(partial).some((p) => p.includes('--unsettled')), paints(partial).join(' | '));
+  // The plan is painted first so the solid spend lands on top of it. Painting
+  // them the other way round, or starting the spend anywhere but zero, is the
+  // tiled layout this replaced.
+  check('plan is painted under the spend',
+    paints(partial)[0].includes('--bar-plan') && paints(partial)[1].includes('--accent'),
+    paints(partial).join(' | '));
+  check('partial fills all start at the track edge', anchored(partial));
+  check('partial fills nest', nested(partial), widths(partial).join(' | '));
+  // Neither pill is outlined: the plan is --bar-plan and nothing else, and the
+  // boundary between it and the spend is the solid pill's own cap. An earlier
+  // round carried a 1px --accent ring on the plan; this pins its removal.
+  check('no fill carries an outline',
+    [...partial.querySelectorAll('.bar-region')].every((n) => !n.className.includes('is-plan')));
   check('partial draws no income mark', partial.querySelectorAll('.bar-mark-tick').length === 0);
 
   // Settled: nothing is left to allocate, so the plan reaches the end of the
@@ -100,27 +113,43 @@ window.__runTests = async () => {
   const over = mount(month(4510, 0, 4200));
   await tick();
   check('over-allocated draws the income mark', over.querySelectorAll('.bar-mark-tick').length === 1);
-  // is-beyond and is-overspent are the two breach fills; both take the --breach
-  // hatch in bar.css, which is where that colour is now asserted.
-  check('over-allocated paints a breach',
-    paints(over).some((p) => p.includes('is-beyond') || p.includes('is-overspent')), paints(over).join(' | '));
+  check('over-allocated paints a breach', paints(over).some((p) => p.includes('--breach')), paints(over).join(' | '));
+  // The breach is the outermost pill: it runs the whole track and the plan
+  // sits on top of it, so what shows is the stretch past the income mark.
+  // Its own span still starts at the mark - only its extent is drawn here.
+  check('breach is painted under the plan',
+    paints(over)[0].includes('--breach') && paints(over)[1].includes('--bar-plan'),
+    paints(over).join(' | '));
+  check('over-allocated fills all start at the track edge', anchored(over));
+  check('over-allocated fills nest', nested(over), widths(over).join(' | '));
   // The mark paints; the copy has to say why. Without this, a regression
-  // pinning "left to allocate" in every state would still pass everything
-  // else in this case.
+  // pinning "remaining" in every state would still pass everything else in
+  // this case.
   check('over-allocated says over-allocated', over.textContent.includes('over-allocated'), over.textContent);
 
   // The case three fix rounds were spent getting right: income 4200,
   // allocated 3400, actual 4500. The allocation never exceeded income, so
-  // g.overAllocated stays false and the label must still read "left to
-  // allocate" - but spending alone pushes a beyond region (and therefore
-  // the income mark) onto the track. Deciding the mark from g.overAllocated,
-  // or the label from hasBeyond, is exactly the bug this case pins.
+  // g.overAllocated stays false and the label must still read "remaining" -
+  // but spending alone pushes a beyond region (and therefore the income mark)
+  // onto the track. Deciding the mark from g.overAllocated, or the label from
+  // hasBeyond, is exactly the bug this case pins.
   const beyond = mount(month(3400, 4500, 4200));
   await tick();
   check('beyond-but-not-over-allocated draws the income mark', beyond.querySelectorAll('.bar-mark-tick').length === 1);
-  check('beyond-but-not-over-allocated still says left to allocate',
-    beyond.textContent.includes('left to allocate') && !beyond.textContent.includes('over-allocated'),
+  check('beyond-but-not-over-allocated still says remaining',
+    beyond.textContent.includes('remaining') && !beyond.textContent.includes('over-allocated'),
     beyond.textContent);
+  // Both breach spans are live here (the overspend clears the plan and then
+  // clears income too), and stacking them is what makes them read as one
+  // hatched overhang rather than two pills notched against each other at the
+  // income mark.
+  check('beyond stacks both breaches under the spend',
+    paints(beyond).length === 3 &&
+    paints(beyond)[0].includes('--breach') && paints(beyond)[1].includes('--breach') &&
+    paints(beyond)[2].includes('--accent'),
+    paints(beyond).join(' | '));
+  check('beyond fills all start at the track edge', anchored(beyond));
+  check('beyond fills nest', nested(beyond), widths(beyond).join(' | '));
 
   // Nothing at all: the invitation, and no regions to paint.
   const empty = mount(month(0, 0, 0));

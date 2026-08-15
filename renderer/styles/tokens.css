@@ -349,24 +349,20 @@
 
   /* The "planned" weight, on the dashboard's allocated-vs-actual bars AND on
      the month bar. One token for both, because it means the same thing in
-     both places: money that has a job on paper. It is a wash rather than a
-     fill - the plan is read by its --accent outline, and the solid accent
-     beside it is the money that actually moved.
+     both places: money that has a job on paper. The same accent as the money
+     that actually moved, at half strength - one hue, two weights, no edge on
+     either. The only line in the month bar is the track's own outline, which
+     the fills sit inside and never touch.
 
-     The month bar used to paint the plan as --bar-faded, an opaque 73% blend
-     of the accent into the track, which is nearly the solid fill: at a glance
-     the plan and the spending were one violet slab in two barely separable
-     weights, and the bar's whole argument (spending sits INSIDE the plan)
-     could not be seen. A wash plus an edge separates them by texture rather
-     than by two shades of the same hue, so the plan reads as a vessel and the
-     spending as what is in it.
-
-     What carries WCAG 1.4.11 here is the EDGE, not the wash. The governed
-     boundary is "how far the plan extends against its track", and that
-     boundary is now a 1px --accent outline, held to 3:1 against --well in
-     tests/tokens-electron.cjs. The wash is free to be as quiet as it likes
-     underneath it, which is exactly what --bar-faded's floor forbade. */
-  --bar-plan: color-mix(in srgb, var(--accent) 20%, transparent);
+     Half strength is a balance, not a floor: 2.03:1 against the bare track
+     and 2.51:1 against the solid spend, both guarded in
+     tests/tokens-electron.cjs. Neither reaches 3:1 and neither can, because
+     the solid accent is only 5.10:1 against the track to begin with, so 3:1
+     on one of those boundaries comes straight out of the other. Two earlier
+     settings each took one end of that trade and lost the other: --bar-faded
+     at 73% was 1.62:1 against the spend (one violet slab in two weights), and
+     a 20% wash was 1.21:1 against the track (invisible rather than quiet). */
+  --bar-plan: color-mix(in srgb, var(--accent) 50%, transparent);
 
   /* Accent washes. The Month Budget screen is three levels deep (group
      header, item row, spending entry) and every one of them used to be a

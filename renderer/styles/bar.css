@@ -33,54 +33,61 @@
   position: relative;
   height: 34px;
   /* A full pill, per the mockups: half the track height, so the ends are
-     semicircles. The fills inside are square; the track's own clip rounds
-     whichever fill reaches either end. */
+     semicircles. The fills inside are pills of the same radius, inherited
+     from here so the two can never drift apart, and the clip is only a
+     backstop for a fill that reaches the track's own end. */
   border-radius: 17px;
   background: var(--well);
-  /* The track is drawn, not merely implied. The unallocated remainder of the
-     month is now empty track rather than an amber fill (see the --breach
-     comment in layer 2), which only works if empty still reads as a vessel
-     with a shape: --well is within a percent of --board, so without this
-     outline an unallocated month rendered as a fill floating in nothing. It
-     is the "how much is left" boundary now that no fill marks it, so it takes
-     --rule-strong and its 3:1 rather than a decorative hairline. */
-  box-shadow: inset 0 0 0 1px var(--rule-strong);
   overflow: hidden;
-  /* Isolates the region transitions (left/width, see MonthBar.jsx) from the
-     rest of the page, same reasoning as .update-banner-track's transform
+  /* Isolates the region transitions (width, see MonthBar.jsx) from the rest
+     of the page, same reasoning as .update-banner-track's transform
      transition above. */
   contain: layout paint;
 }
-/* left and width are the animated pair rather than a transform; the deviation
-   from the spec's scaleX() is argued at the point it is deviated from, next to
-   the geometry in MonthBar.jsx. The duration is a constant, so it lives here
-   and not in the style prop that carries the two runtime percentages. */
-.bar-region {
-  position: absolute; top: 0; bottom: 0;
-  transition: left .35s ease, width .35s ease;
-}
+/* The vessel outline. The track is drawn, not merely implied: --well is
+   within a percent of --board, so without this an unallocated month rendered
+   as a fill floating in nothing.
 
-/* The fills, one class per region key. These were a PAINT lookup table in
-   MonthBar.jsx keyed on the same four names; the table is now a key-to-class
-   map and the colour lives here, where the rest of the bar's colour already
-   did. 'gap' has no class for exactly the reason it had no PAINT entry: it is
-   the money with no job yet, and that is now said by leaving the track bare
-   rather than by painting anything at all. */
-.bar-region.is-spent { background: var(--accent); }
-.bar-region.is-allocated { background: var(--bar-plan); }
-/* Hatch rather than a flat fill for both breaches, so colour is never the
-   only signal. Same reasoning as MiniBar. */
-.bar-region.is-overspent,
-.bar-region.is-beyond {
-  background: repeating-linear-gradient(-45deg, var(--breach) 0 3px, color-mix(in srgb, var(--breach) 45%, var(--well)) 3px 6px);
+   --rule, not --rule-strong. The strong weight is the ramp's boundary token
+   and it was the right call while this line was the only thing marking how
+   much room was left - but it is no longer carrying that alone. The fills
+   start at the left edge and end in a cap now, so the outline's job is to
+   describe the vessel, not to measure it, and at --rule-strong it drew
+   harder than the money inside it. --rule-faint is a step too far the other
+   way: it is 1.03:1 against the plan fill, so the ring would vanish exactly
+   where it crosses the allocated band and break the thing this outline
+   exists to be.
+
+   It is a pseudo-element rather than a box-shadow on .bar-track itself
+   because an inset shadow paints BENEATH the element's children. Every fill
+   buried the top and bottom of the line along its own length, so the outline
+   survived only where the track happened to be bare - a vessel interrupted
+   by its own contents, and the interruption moved as the month filled up.
+   ::after is the last thing painted inside the track, so the hairline now
+   runs unbroken around the whole bar and the fills are simply what is inside
+   it. The unallocated remainder needs no treatment of its own: it is the
+   stretch of the ring with nothing behind it, and reads hollow for exactly
+   that reason. */
+.bar-track::after {
+  content: "";
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px var(--rule);
+  pointer-events: none;
 }
-/* The plan: money allocated but not yet spent. A wash inside an --accent
-   outline, so the span reads as an envelope with room left in it and the
-   solid fill to its left reads as what has already gone. The outline is what
-   carries WCAG 1.4.11 for the plan's extent; see --bar-plan in layer 3.
-   Inset rather than a border so the 1px lands inside the region's own width
-   and the spans still tile exactly. */
-.bar-region.is-plan { box-shadow: inset 0 0 0 1px var(--accent); }
+/* The fills are fills: no border, no ring, nothing that touches the outline
+   above. They stack from the track's left edge rather than tiling across it
+   (see MonthBar.jsx), which means each one has to be opaque or the fill
+   behind it shows through - and --bar-plan is translucent. So the track
+   colour sits under every fill as its background-colour and each region's
+   own paint arrives as a background-image on top: the stack composites
+   correctly without every entry in the paint table having to be opaque, and
+   the hatches' --well band is now literally the colour beneath them. */
+.bar-region {
+  position: absolute; top: 0; bottom: 0; left: 0;
+  background-color: var(--well);
+  border-radius: inherit;
+}
 /* The income mark is two elements, not one, because .bar-track has to clip
    (overflow: hidden keeps fills inside the rounded corners) and the mark
    has to be visible against --board, and those two requirements cannot both

@@ -24,7 +24,7 @@
     "check:styles": "node scripts/check-inline-styles.mjs",
     "test:tokens": "electron tests/tokens-electron.cjs",
     "test:tokens:report": "electron tests/tokens-electron.cjs --report",
-    "test": "electron tests/smoke-electron.cjs && electron tests/repo-electron.cjs && electron tests/migration-electron.cjs && electron tests/updater-electron.cjs && electron tests/update-banner-electron.cjs && electron tests/menu-electron.cjs && electron tests/tokens-electron.cjs && electron tests/bar-electron.cjs && electron tests/debug-screenshot-electron.cjs",
+    "test": "electron tests/smoke-electron.cjs && electron tests/repo-electron.cjs && electron tests/migration-electron.cjs && electron tests/updater-electron.cjs && electron tests/update-banner-electron.cjs && electron tests/sidebar-electron.cjs && electron tests/menu-electron.cjs && electron tests/tokens-electron.cjs && electron tests/bar-electron.cjs && electron tests/debug-screenshot-electron.cjs",
     "check:version": "node scripts/check-version.mjs"
   },
   "build": {
@@ -79,6 +79,7 @@
     "@types/node": "^22.10.5",
     "electron": "^41.7.1",
     "electron-builder": "^26.15.3",
+    "electron-reload": "^2.0.0-alpha.1",
     "esbuild": "^0.28.0",
     "playwright-core": "^1.62.1",
     "typescript": "^5.7.3"

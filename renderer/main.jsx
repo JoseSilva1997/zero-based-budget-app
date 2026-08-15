@@ -4,7 +4,7 @@
    ============================================================ */
 import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
-import { THEME_IDS, DEFAULT_THEME_ID, cx, fmt, monthLabel, walletSummary } from './lib/index.js';
+import { THEME_IDS, DEFAULT_THEME_ID, fmt, monthLabel, walletSummary } from './lib/index.js';
 import { StoreProvider, useStore } from './store.jsx';
 import { Avatar, ConfirmDialog, Icons, MsIcons } from './components.jsx';
 import { WalletDrawer } from './Accounts.jsx';
@@ -42,7 +42,7 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
     if (dragGroupId && targetId && dragGroupId !== targetId) dispatch({ type: "reorderGroup", month: mid, groupId: dragGroupId, targetId, after: overGroupAfter });
     endGroupDrag();
   };
-  const GroupDropLine = () => <div className="group-drop-line" />;
+  const GroupDropLine = () => <div style={{ height: 3, borderRadius: 999, background: "var(--accent)", margin: "-9px 2px 8px" }} />;
   /* Item drag lives here, not inside a group card, because an item that can
      only be dragged within the card that owns its drag state is an item that
      can never leave its group. */
@@ -64,7 +64,7 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
             <button className="icon-btn subtle" aria-label={`Delete ${lbl.mo} ${lbl.yr}`} title="Delete this month" onClick={() => setConfirmMonth(true)}><Icons.trash size={15} /></button>
           )}
         </div>
-        <div className="topbar-actions">
+        <div style={{ display: "flex", gap: 8 }}>
           <button className="btn wallet-btn" onClick={() => setWalletOpen(true)} title="Open Wallet - funding plan by account">
             <Icons.wallet size={16} />
             Wallet
@@ -81,7 +81,11 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
 
       <QuickEntrySection mo={mo} month={mid} currency={currency} dispatch={dispatch} />
 
-      <div className="section-head allocations-head">
+      {/* Wider than the default section-head gap, and wider than the gap
+          Income and Quick entry share above it: this is the page's actual
+          work surface, not one more strip of setup, and the break says so
+          before a single row of it is on screen. */}
+      <div className="section-head" style={{ marginTop: 42 }}>
         <h2>Allocations</h2>
         {/* Same grid as the rows below, plus a leading cell for their 26px drag
             handle, so each label sits over the column it names. The layout
@@ -90,9 +94,9 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
         <div className="budget-colhead">
           <span />
           <span />
-          <span className="col-right">Allocated</span>
-          <span className="col-actual col-right">Actual</span>
-          <span className="col-diff col-right">Difference</span>
+          <span style={{ textAlign: "right" }}>Allocated</span>
+          <span className="col-actual" style={{ textAlign: "right" }}>Actual</span>
+          <span className="col-diff" style={{ textAlign: "right" }}>Difference</span>
           <span />
         </div>
       </div>
@@ -126,16 +130,16 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
       })}
 
       {mo.groups.length === 0 && (
-        <div className="panel empty no-groups">
+        <div className="panel empty" style={{ marginBottom: 14 }}>
           <div className="empty-icon"><Icons.budget size={22} /></div>
-          <div className="no-groups-title">No groups yet</div>
-          <div className="no-groups-hint">Add a group like House, Food, or Savings, then give it items to allocate toward.</div>
+          <div style={{ fontWeight: 600, color: "var(--ink-2)" }}>No groups yet</div>
+          <div style={{ fontSize: 13, maxWidth: 300 }}>Add a group like House, Food, or Savings, then give it items to allocate toward.</div>
         </div>
       )}
 
       {addingGroup ? (
-        <div className="panel new-group-row">
-          <input autoFocus className="tinput new-group-input" value={newGroup} aria-label="New group name" onChange={(e) => setNewGroup(e.target.value)} placeholder="Group name (e.g. Healthcare)…"
+        <div className="panel" style={{ display: "flex", gap: 8, padding: "12px 16px", alignItems: "center" }}>
+          <input autoFocus className="tinput" value={newGroup} aria-label="New group name" onChange={(e) => setNewGroup(e.target.value)} placeholder="Group name (e.g. Healthcare)…" style={{ maxWidth: 320, fontWeight: 600 }}
             onKeyDown={(e) => { if (e.key === "Enter") commitGroup(); if (e.key === "Escape") { setAddingGroup(false); setNewGroup(""); } }} onBlur={commitGroup} />
           <button className="btn btn-sm btn-primary" onMouseDown={(e) => e.preventDefault()} onClick={commitGroup}>Add group</button>
         </div>
@@ -144,7 +148,7 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
            reads as a drop target or a missing card, and it out-weighed every
            real group above it; this is the same quiet "+ Add item" affordance
            each group card already ends with, one level out. */
-        <button className="btn btn-ghost btn-quiet add-group-btn" onClick={() => setAddingGroup(true)}><Icons.plus size={16} /> Add group</button>
+        <button className="btn btn-ghost" style={{ marginTop: 4, color: "var(--muted)" }} onClick={() => setAddingGroup(true)}><Icons.plus size={16} /> Add group</button>
       )}
 
       {walletOpen && <WalletDrawer mo={mo} accounts={state.settings.accounts} members={state.settings.members} currency={currency} month={mid} onClose={() => setWalletOpen(false)} />}
@@ -162,34 +166,44 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
 }
 
 /* ---- toast --------------------------------------------------------------
-   Success and failure must not look alike. Errors get their own colour, an
-   alert icon, no auto-dismiss, and role="alert" so they are announced.
+   Success and failure must not look alike, but they are one object in two
+   fills rather than two components: the same overlay recipe as the find bar
+   and the modal. What separates them is the fill, the alert icon, no
+   auto-dismiss, role="alert" so the failure is announced, and the draining
+   edge an error does not have.
+
    'msg.action' is how a one-click delete stays recoverable: the toast that
-   reports it also carries the way back. */
+   reports it also carries the way back, and the longer window an action earns
+   is what that edge was drawn to make visible.
+
+   Everything visual lives in app.css under ".toast". The one value set here is
+   --toast-life, which is the store's own timeout handed across to CSS, so the
+   countdown and the disappearance are the same number. */
 function Toast({ msg, onDismiss }) {
   if (!msg) return null;
   const isError = msg.tone === "error";
   return (
-    <div
-      role={isError ? "alert" : "status"}
-      aria-live={isError ? "assertive" : "polite"}
-      className={cx("toast", isError && "is-error")}>
-      {isError
-        ? <Icons.alert size={16} />
-        : <Icons.check size={16} />}
-      <span className="toast-msg">{msg.message}</span>
-      {msg.action && (
-        // Inherits the toast's own text colour, so it reads at the same
-        // contrast as the message it sits beside; the border is decoration.
-        <button className="link-btn toast-action" onClick={() => { msg.action.onAct(); onDismiss(); }}>
-          {msg.action.label}
-        </button>
-      )}
-      {isError && (
-        <button className="toast-dismiss" onClick={onDismiss} aria-label="Dismiss">
-          <Icons.x size={15} />
-        </button>
-      )}
+    // The dock spans the window and centres the toast in it; see the .toast-dock
+    // note in app.css for why the centring cannot live on the toast itself.
+    <div className="toast-dock">
+      <div
+        className={isError ? "toast is-error" : "toast"}
+        style={isError ? undefined : { "--toast-life": `${msg.duration}ms` }}
+        role={isError ? "alert" : "status"}
+        aria-live={isError ? "assertive" : "polite"}>
+        {isError && <Icons.alert size={16} className="toast-icon" />}
+        <span className="toast-msg">{msg.message}</span>
+        {msg.action && (
+          <button className="btn btn-sm" onClick={() => { msg.action.onAct(); onDismiss(); }}>
+            {msg.action.label}
+          </button>
+        )}
+        {isError && (
+          <button className="icon-btn toast-dismiss" onClick={onDismiss} aria-label="Dismiss">
+            <Icons.x size={15} />
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -197,8 +211,8 @@ function Toast({ msg, onDismiss }) {
 /* ---- loading shell ------------------------------------------------------ */
 function LoadingScreen() {
   return (
-    <div role="status" className="loading-screen">
-      <div className="loading-screen-inner">
+    <div role="status" style={{ position: "fixed", inset: 0, display: "grid", placeItems: "center", color: "var(--muted)", fontSize: 14 }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
         <div className="brand-mark" aria-hidden="true">HB</div>
         Loading your budget…
       </div>
@@ -217,21 +231,21 @@ function StartupErrorScreen({ error, onRetry }) {
     }
   };
   return (
-    <div className="startup-error">
-      <div className="panel startup-error-card">
-        <div className="startup-error-icon">
+    <div style={{ position: "fixed", inset: 0, display: "grid", placeItems: "center", padding: 30 }}>
+      <div className="panel" style={{ maxWidth: 480, padding: "30px 32px" }}>
+        <div style={{ width: 44, height: 44, borderRadius: 13, background: "var(--breach-soft)", color: "var(--breach-ink)", display: "grid", placeItems: "center", marginBottom: 18 }}>
           <Icons.alert size={22} />
         </div>
-        <h3 className="startup-error-title">House Budget couldn't open your data</h3>
-        <p className="startup-error-body">
+        <h3 style={{ margin: "0 0 8px", fontSize: 21, fontWeight: 600, letterSpacing: "-0.02em" }}>House Budget couldn't open your data</h3>
+        <p style={{ margin: "0 0 6px", color: "var(--ink-2)", fontSize: 14, lineHeight: 1.55 }}>
           Your budget file is still on this device, and nothing has been changed or deleted. This usually means the app is already running in another window, or the file is being synced by another program.
         </p>
         {/* A driver error string genuinely is code, so this one keeps the
             mono face that the app's amounts have given up. */}
-        <p className="code startup-error-detail">
+        <p className="code" style={{ margin: "0 0 22px", color: "var(--muted)", fontSize: 12.5, lineHeight: 1.5, wordBreak: "break-word" }}>
           {error && error.message}
         </p>
-        <div className="startup-error-actions">
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button className="btn btn-primary" onClick={onRetry}>Try again</button>
           <button className="btn" onClick={openFolder}><Icons.folder size={15} /> Open data folder</button>
         </div>
@@ -321,27 +335,60 @@ function App() {
     ["settings", "Settings", MsIcons.settings, MsIcons.settingsFill],
   ];
 
+  /* Collapsed the sidebar is a 64px rail of icons, and everything about that
+     is CSS: the flag only puts data-panel="rail" on the shell, which overrides
+     --sidebar-w and hides the labels. The markup below is the same in both
+     states, so there is one sidebar to maintain rather than two, and the
+     toast dock (pinned at left: var(--sidebar-w)) follows for free. */
+  const railed = state.settings.sidebarCollapsed;
+  const toggleRail = () => dispatch({ type: "updateSettings", patch: { sidebarCollapsed: !railed } });
+
   return (
-    <div className={`app ${find.open ? "find-open" : ""}`}>
-      <aside className="sidebar">
+    <div className={`app ${find.open ? "find-open" : ""}`} data-panel={railed ? "rail" : undefined}>
+      <aside className="sidebar" id="sidebar-panel">
         <div className="brand">
-          <div className="brand-mark" aria-hidden="true">HB</div>
-          {/* The app title, so the page has a level-one heading. The heading's
-              own look, and the reset of the UA margin an <h1> arrives with,
-              are both .brand-name's in shell.css. */}
-          <div><h1 className="brand-name">House Budget</h1><div className="brand-sub">Zero-based · local</div></div>
+          {/* The monogram is the collapse control: it is the one thing that
+              keeps its place in both states, so the button never moves out
+              from under the cursor that just used it. The heading stays
+              outside it - a button may only contain phrasing content, and an
+              h1 inside one is invalid. */}
+          <button
+            type="button"
+            className="brand-mark"
+            onClick={toggleRail}
+            aria-expanded={!railed}
+            aria-controls="sidebar-panel"
+            aria-label={railed ? "Expand panel" : "Collapse panel"}
+            title={railed ? "Expand panel" : "Collapse panel"}
+          >
+            <span className="brand-mark-hb" aria-hidden="true">HB</span>
+            {/* Swapped in on hover, so the tile says what it does without the
+                panel carrying a second control for it. */}
+            <span className="brand-mark-chev" aria-hidden="true">
+              {railed ? <Icons.right size={18} /> : <Icons.left size={18} />}
+            </span>
+          </button>
+          {/* The app title, so the page has a level-one heading. 'margin: 0'
+              only cancels the UA default; the look comes from .brand-name. */}
+          <div className="brand-text"><h1 className="brand-name" style={{ margin: 0 }}>House Budget</h1><div className="brand-sub">Zero-based · local</div></div>
         </div>
         {/* No section label over these four. "Workspace" was the word a SaaS
             template uses for a tenant, and this is a household's own budget on
             its own machine; four items directly under the app's name need no
             header at all. "Household" below stays, because it labels a list of
             people rather than the app's own sections. */}
-        <nav aria-label="Sections" className="nav-list">
+        {/* The nav is its own box in the sidebar's column, so it repeats the
+            column's gap rather than inheriting it through a fragment. */}
+        <nav aria-label="Sections" style={{ display: "flex", flexDirection: "column", gap: 8, paddingBottom: 8 }}>
           {NAV.map(([id, label, Ico, IcoFill]) => {
             const on = tab === id;
             const I = on ? IcoFill : Ico;
             return (
-              <button key={id} className={`nav-item ${on ? "active" : ""}`} aria-current={on ? "page" : undefined} onClick={() => setTab(id)}><I size={20} /> {label}</button>
+              /* aria-label is unconditional rather than only set on the rail:
+                 the visible label is hidden in CSS, so the name has to come
+                 from somewhere the collapse never touches. title is what
+                 gives the rail its hover tooltip. */
+              <button key={id} className={`nav-item ${on ? "active" : ""}`} aria-current={on ? "page" : undefined} aria-label={label} title={label} onClick={() => setTab(id)}><I size={20} /> <span className="nav-item-label">{label}</span></button>
             );
           })}
         </nav>
@@ -352,7 +399,7 @@ function App() {
           <div className="household">
             <div className="nav-label">Household</div>
             {state.settings.members.map(m => (
-              <div className="member-chip" key={m.id}><Avatar member={m} size={24} /> {m.name}</div>
+              <div className="member-chip" key={m.id} title={m.name}><Avatar member={m} size={24} /> <span className="member-chip-name">{m.name}</span></div>
             ))}
           </div>
         </div>
@@ -370,7 +417,10 @@ function App() {
       {find.open && <FindBar focusToken={find.token} onClose={() => setFind((f) => ({ ...f, open: false }))} />}
 
       {newMonth && <NewMonthModal dispatch={dispatch} onClose={() => setNewMonth(false)} />}
-      <Toast msg={toastMsg} onDismiss={dismissToast} />
+      {/* Keyed on the store's counter, not on the message: two identical
+          confirmations in a row would otherwise reuse the same DOM node, and
+          neither the entrance nor the draining edge would restart. */}
+      <Toast key={toastMsg ? toastMsg.id : "none"} msg={toastMsg} onDismiss={dismissToast} />
       {/* Dev only. The test is written inline, not as an imported IS_DEV
           constant, because esbuild only substitutes process.env.NODE_ENV where
           it literally appears: behind an import it stayed a runtime binding and

@@ -34,6 +34,7 @@ function settingsFromBootstrap(bs) {
     theme,
     autoBackup: bs.settings.autoBackup || "onclose",
     lastBackup: bs.settings.lastBackup || null,
+    sidebarCollapsed: bs.settings.sidebarCollapsed === true,
     members: (bs.settings.members || []).map((m) => ({
       id: m.id,
       name: m.name,
@@ -143,10 +144,22 @@ export function StoreProvider({ children }) {
      write read as a success. An offered action gets longer than a bare
      confirmation, because it has to be read and then acted on. */
   const toastTimer = useRef(null);
+  // 'seq' exists so the view can key on it. Two identical messages in a row
+  // produce two equal strings, React keeps the same DOM node, and the entrance
+  // and the draining edge never restart: the second confirmation arrives
+  // already half expired. A counter makes every toast a distinct object.
+  const toastSeq = useRef(0);
   const toast = useCallback((message, tone = "success", action) => {
-    setToastMsg({ message, tone, action });
+    // The lifetime is decided here and carried ON the message, because the
+    // toast now draws it: its bottom edge empties over exactly this long. A
+    // second copy of these numbers in the view would drift from this one, and
+    // the drift would show as an edge that runs out before the toast does.
+    // 0 means "never", which is what an error gets - a message you can miss is
+    // a message that lets a failed write read as a success.
+    const duration = tone === "error" ? 0 : action ? 6000 : 2600;
+    setToastMsg({ id: (toastSeq.current += 1), message, tone, action, duration });
     clearTimeout(toastTimer.current);
-    if (tone !== "error") toastTimer.current = setTimeout(() => setToastMsg(null), action ? 6000 : 2600);
+    if (duration) toastTimer.current = setTimeout(() => setToastMsg(null), duration);
   }, []);
   const dismissToast = useCallback(() => {
     clearTimeout(toastTimer.current);

@@ -12,7 +12,17 @@
   grid-template-columns: var(--sidebar-w) 1fr;
   background: var(--board);
   overflow: hidden;
+  /* The collapse animates the column itself rather than a transform on the
+     panel, so the main column is genuinely laid out at each width along the
+     way and nothing has to be corrected at the end. */
+  transition: grid-template-columns .16s ease;
 }
+/* Collapsed: the panel is a rail of icons. The width lands on .app rather
+   than :root, which is what lets it beat the breakpoints at the foot of this
+   file - a declaration on the element itself wins over one inherited from an
+   ancestor, whatever media query wrote that one. The rail is 64px at every
+   window size. See "Collapsed rail" below for what the panel does with it. */
+.app[data-panel="rail"] { --sidebar-w: 64px; }
 
 /* Sidebar. It is a panel now rather than a stripe of the canvas: --panel sits
    a step off --board, and that value difference is what separates the two
@@ -36,11 +46,31 @@
   width: 34px; height: 34px; border-radius: 8px; flex: none;
   background: var(--accent); box-shadow: var(--shadow-sm);
   display: grid; place-items: center; color: var(--on-accent);
+  position: relative;
   /* The mark is the "HB" monogram, set in the app's own face rather than
      drawn as a glyph: the brand asset and the type carry the same voice. */
   font-size: 14px; font-weight: 700; letter-spacing: 0.02em;
   user-select: none;
 }
+/* In the panel the tile is also the collapse control, and it is a button
+   because it does something. Everything interactive is scoped to that element:
+   the loading shell draws the same tile as a plain div, and a splash screen
+   should not answer the cursor. */
+button.brand-mark {
+  border: none; padding: 0; cursor: pointer;
+  transition: filter .14s;
+}
+button.brand-mark:hover { filter: brightness(1.1); }
+button.brand-mark:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+/* The monogram and the chevron share one grid cell and cross-fade, so the
+   tile's size never changes and the row beneath it never moves. */
+.brand-mark-hb, .brand-mark-chev {
+  grid-area: 1 / 1; display: grid; place-items: center;
+  transition: opacity .12s;
+}
+.brand-mark-chev { opacity: 0; }
+button.brand-mark:hover .brand-mark-hb, button.brand-mark:focus-visible .brand-mark-hb { opacity: 0; }
+button.brand-mark:hover .brand-mark-chev, button.brand-mark:focus-visible .brand-mark-chev { opacity: 1; }
 /* 16px, not the 20px the drawing is set at. Two reasons, and the second is the
    binding one. Plus Jakarta Sans is a wider face than the Hanken Grotesk the
    drawing uses, so it reads a size larger at the same size: 20px measures
@@ -165,6 +195,47 @@
 /* Same swap the banner makes, for the errors this half is obliged to show. */
 .update-setting-line.is-failure { color: var(--breach-ink); }
 
+/* ============================================================
+   Collapsed rail
+
+   Everything the 64px state changes, in one place. The rule is that nothing
+   is re-laid-out and nothing is re-rendered: the same markup is here in both
+   states, the labels are simply not drawn, and each item that loses its label
+   keeps the name on aria-label and title, so the icon is still identified to
+   a screen reader and still names itself on hover.
+
+   The labels go at once rather than fading with the column. Text that shrinks
+   with the panel spends the whole animation being crushed against an edge;
+   text that is gone leaves the icons sliding into place on their own.
+   ============================================================ */
+[data-panel="rail"] .sidebar { padding: 16px 8px; }
+[data-panel="rail"] .brand { justify-content: center; gap: 0; padding: 8px 0 28px; }
+[data-panel="rail"] .brand-text { display: none; }
+[data-panel="rail"] .nav-item { justify-content: center; gap: 0; padding: 10px 0; }
+[data-panel="rail"] .nav-item-label { display: none; }
+/* The "Household" heading. Nothing else uses .nav-label inside the panel. */
+[data-panel="rail"] .sidebar .nav-label { display: none; }
+[data-panel="rail"] .household { align-items: center; padding-top: 14px; }
+[data-panel="rail"] .member-chip { justify-content: center; gap: 0; }
+[data-panel="rail"] .member-chip-name { display: none; }
+[data-panel="rail"] .sidebar-foot { padding: 0; }
+
+/* The update notice does not fit a 64px column, so the rail carries a dot on
+   the monogram instead and expanding reveals the notice itself. The banner
+   stays mounted and hidden rather than unmounted, which is what lets :has()
+   see it: UpdateBanner already renders nothing at all when there is no update
+   to act on, so its mere presence in the panel is the condition, and no state
+   has to be lifted out of it to light the dot. */
+[data-panel="rail"] .update-banner { display: none; }
+[data-panel="rail"] .sidebar:has(.update-banner) .brand-mark::after {
+  content: ""; position: absolute; top: -3px; right: -3px;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--ink);
+  /* Ringed in the panel's own fill, so the dot separates from the accent tile
+     underneath it without a border colour of its own. */
+  box-shadow: 0 0 0 2px var(--panel);
+}
+
 /* Main column. overflow-x was hidden, which clipped rather than scrolled: at a
    narrow window the budget grid ran off the right edge and scrollWidth stayed
    pinned, so there was no way to reach what had been cut off. The breakpoints
@@ -177,7 +248,7 @@
 .main-inner { max-width: var(--maxw); margin: 0 auto; padding: 30px 38px 80px; }
 
 /* Topbar with month nav */
-.topbar { display: flex; align-items: center; justify-content: space-between; gap: var(--gap); margin-bottom: 30px; }
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: var(--gap); margin-bottom: 42px; }
 .month-nav { display: flex; align-items: flex-end; gap: 14px; }
 .month-nav .icon-btn { align-items: flex-end; }
 .month-step {

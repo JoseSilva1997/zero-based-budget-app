@@ -10,6 +10,31 @@
    ChartCard itself is in controls.css, since it is a shared primitive.
    ============================================================ */
 
+/* Recharts plots, kept from reaching the scrollbar.
+   ResponsiveContainer measures its parent and writes a pixel width onto
+   .recharts-wrapper from a ResizeObserver callback, which is delivered after
+   the layout it describes. While the column is moving - the panel collapsing,
+   or the window being dragged - the wrapper therefore spends a frame or two
+   carrying the width the column had before, and on the way narrower that
+   stale width is wider than the column it sits in.
+   .main scrolls sideways when its content genuinely cannot fit (see
+   shell.css), and a plot that is 60px too wide for one frame is not that: it
+   flashed a horizontal scrollbar in and out, and the reflow each appearance
+   caused was visible as a stutter through the whole animation.
+
+   The clip goes here, on the responsive container, because this is the only
+   box in the plot with a width worth measuring against. Recharts puts a
+   deliberate `width: 0; overflow-x: visible` sizer between this element and
+   the wrapper, so that the plot's own pixel width can never feed back into
+   the width it is measuring. Anything resolved against a percentage below
+   this point resolves against that zero and the chart disappears.
+   `clip` rather than `hidden`: it clips the one axis that overflows without
+   making a scroll container or disturbing the vertical, and clipped overflow
+   stops counting toward .main's scroll width, which is the whole point. The
+   plot is correct again on the next frame; all this does is decline to
+   reserve room for a number that is already out of date. */
+.recharts-responsive-container { overflow-x: clip; }
+
 /* ---- the dashboard screen ----------------------------------------------- */
 
 /* A failed read of the month series used to be written out here as .dash-error

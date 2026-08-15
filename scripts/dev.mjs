@@ -5,9 +5,10 @@
    2. Starts the renderer bundle in esbuild watch mode (rebuilds on save).
    3. Launches Electron.
 
-   Edit a renderer .jsx, save, then press Ctrl+R in the app window to reload
-   (the bundle is already rebuilt by the watcher). Edit main/preload TypeScript
-   and you'll need to restart this command, since tsc only runs once here.
+   Edit a renderer .jsx or app.css and save: the watcher rebuilds and the app
+   reloads itself (electron-reload, wired up in main/index.ts). Edit main/preload
+   TypeScript and you'll need to restart this command, since tsc only runs once
+   here.
 
    Extra arguments are passed straight through to Electron, which is how the
    update simulation is switched on:
@@ -33,7 +34,14 @@ await run('npm', ['run', 'build']);
 const ctx = await buildRenderer({ dev: true, watch: true });
 
 // 3. Launch Electron; shut the watcher down when the app exits.
-const electron = spawn('npx', ['electron', '.', ...process.argv.slice(2)], { stdio: 'inherit', shell: true });
+// HB_DEV switches on the hot reload in main/index.ts. It is set here rather
+// than inferred from app.isPackaged so the test suite, which also runs Electron
+// unpackaged, never arms the watcher.
+const electron = spawn('npx', ['electron', '.', ...process.argv.slice(2)], {
+  stdio: 'inherit',
+  shell: true,
+  env: { ...process.env, HB_DEV: '1' },
+});
 electron.on('exit', async (code) => {
   await ctx?.dispose();
   process.exit(code ?? 0);
