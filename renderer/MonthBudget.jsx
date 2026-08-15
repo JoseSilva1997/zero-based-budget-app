@@ -52,7 +52,7 @@ function IncomeSection({ mo, currency, members, dispatch, month }) {
       <div className="section-head">
         <h2>Income</h2>
       </div>
-      <div className="panel panel-clip">
+      <div className="panel is-clipped">
         {mo.incomes.length === 0 && (
           <div className="empty income-empty">
             <div className="empty-icon"><Icons.coins size={20} /></div>

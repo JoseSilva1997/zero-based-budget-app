@@ -39,8 +39,8 @@
 }
 .hist-colhead {
   padding: var(--space-4) 18px;
-  font-size: var(--text-11); text-transform: uppercase; letter-spacing: 0.06em;
-  color: var(--faint); font-weight: 600;
+  /* Shape from .eyebrow in base.css; the ink and the fill are this one's. */
+  color: var(--faint);
   background: var(--board);
 }
 /* Month is the only column read from the left. The five that follow are

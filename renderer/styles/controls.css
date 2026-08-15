@@ -81,26 +81,37 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
   background: var(--raised); color: var(--ink);
 }
 
-/* Cards */
-/* Two recipes, not one, but the difference is carried by fill and elevation
-   rather than by border weight. Both take the --raised fill so cards read as
-   surfaces sitting on the darker board (colour-driven hierarchy, per the
-   mockups); the borders are demoted to hairlines. What separates them is
-   depth: .panel is flat furniture at the board's level (lists, tables,
-   forms, empty states) with the smallest shadow, while .raised is the single
-   lifted object on a screen (on Month Budget, the group envelope) and rests
-   at --shadow-md rather than only reaching it on hover. If everything is
-   raised, nothing is. */
+/* ---- cards --------------------------------------------------------------
+   One card, three modifiers, and each modifier answers one question.
+
+   .is-raised and .is-feature are elevation; .is-clipped and .is-unclipped are
+   what the card does with children that reach its corners. Two axes, named
+   apart, so a call site can take one from each without either implying the
+   other.
+
+   It was four classes on three axes: .panel and .raised were siblings that
+   restated each other's fill and radius to disagree about a border and a
+   shadow, .panel-feature was a modifier, and .panel-unclipped a behaviour -
+   all four spelled the same way, so nothing in the name said which of them
+   could be combined with which. .raised in particular read as a peer of
+   .panel when it was only ever .panel with more lift, which is why it is a
+   modifier now and carries only the two declarations that were ever
+   different.
+
+   Every card takes the --raised fill, so cards read as surfaces sitting on
+   the darker board (colour-driven hierarchy, per the mockups) and the borders
+   stay hairlines. Depth is what separates them. */
 .panel {
   background: var(--raised);
   border: 1px solid var(--rule-faint);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
 }
-.raised {
-  background: var(--raised);
-  border: 1px solid var(--rule);
-  border-radius: var(--radius-lg);
+/* The single lifted object on a screen - on Month Budget, the group envelope.
+   It rests at --shadow-md rather than only reaching it on hover. If
+   everything is raised, nothing is. */
+.panel.is-raised {
+  border-color: var(--rule);
   box-shadow: var(--shadow-md);
 }
 /* A .panel with a bit more definition: the General and Appearance cards on
@@ -108,7 +119,7 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
    rows, read as flat furniture at --shadow-sm's faint border. This is
    .panel plus a visible border and a soft top highlight, not a global bump -
    the rest of Settings stays at the quieter chrome the rows share. */
-.panel-feature {
+.panel.is-feature {
   border-color: var(--rule);
   box-shadow: var(--shadow-md), inset 0 1px 0 color-mix(in srgb, #fff 6%, transparent);
 }
@@ -123,7 +134,7 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
    curve, so a --board fill stops following the card's square content box out
    past its rounded border. Radius only, no clipping: the field row holds the
    arithmetic preview chip, which is drawn above the field and outside the row. */
-.panel-unclipped > :last-child {
+.panel.is-unclipped > :last-child {
   border-bottom-left-radius: calc(var(--radius-lg) - 1px);
   border-bottom-right-radius: calc(var(--radius-lg) - 1px);
 }
@@ -139,8 +150,8 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
    (.hist-months in history.css, .income-panel in the same file, .wallet-list in
    wallet.css), each with its own comment saying what the two above say. Those
    three names carried nothing else and are gone; the call sites read
-   `panel panel-clip`. */
-.panel-clip { overflow: hidden; }
+   `panel is-clipped`. */
+.panel.is-clipped { overflow: hidden; }
 
 /* Pills / tags */
 .pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: var(--text-12); font-weight: 600; font-variant-numeric: tabular-nums lining-nums; }

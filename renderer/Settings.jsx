@@ -290,7 +290,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
       <div className="topbar"><div><div className="page-title">Settings</div><div className="page-sub">Preferences for this household. Everything stays on this device.</div></div></div>
 
       <div className="section-head"><h2>General</h2></div>
-      <div className="panel panel-feature">
+      <div className="panel is-feature">
         <Setting title="Currency symbol" sub="Shown before every amount across the app.">
           {/* A radiogroup in a segmented tray; see .chip-tray in settings.css
               for how the tray and its chosen chip are drawn. */}
@@ -315,7 +315,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
       </div>
 
       <div className="section-head"><h2>Appearance</h2></div>
-      <div className="panel panel-feature theme-panel">
+      <div className="panel is-feature theme-panel">
         <div className="theme-heading">Theme</div>
         {/* Driven entirely by BUDGET_THEMES: a theme added to that registry
             appears here with no change to this file.
@@ -421,7 +421,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
           <button className="btn btn-primary" onClick={doBackup}><Icons.download size={15} /> Back up now</button>
         </Setting>
         <Setting title="Automatic backups" sub="When the app should quietly save a snapshot for you.">
-          <div role="radiogroup" aria-label="Automatic backups" className="seg">
+          <div role="radiogroup" aria-label="Automatic backups" className="chip-tray">
             {AUTO.map(([val, label]) => {
               const on = s.autoBackup === val;
               return (

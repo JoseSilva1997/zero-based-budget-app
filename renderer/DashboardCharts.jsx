@@ -316,7 +316,7 @@ function BudgetAccuracyChart({ series, currency, onOpenMonth }) {
         {/* "Chronically over budget" was a diagnosis, and the thing being
             diagnosed is the household reading it. This says the same thing
             about the same rows without the verdict attached. */}
-        <div className="offender-head">Runs over most often</div>
+        <div className="eyebrow offender-head">Runs over most often</div>
         {offenders.length === 0 ? (
           <div className="offender-none">
             <Icons.check size={14} className="offender-none-icon" /> Nothing has run over budget.

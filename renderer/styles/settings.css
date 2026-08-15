@@ -42,9 +42,27 @@
    someone confirms .tinput is the intended resting weight for these. */
 .set-inline-name { font-weight: 500; font-size: var(--text-14); }
 
-/* ---- General: the currency tray ----------------------------------------
-   A radiogroup in a segmented tray: the chips share one bordered --well strip
-   and the chosen one is the solid accent square. */
+/* ---- the segmented tray -------------------------------------------------
+   One tray, two sets of chips in it: the currency symbols under General and
+   the auto-backup options under Data & backup. A radiogroup in a bordered
+   --well strip.
+
+   These were two classes, .chip-tray and .seg, differing only in a border,
+   8px against 10px of radius and 6px against 4px of gap. Two controls built
+   on two screens by two hands, arriving at the same object and disagreeing
+   about three numbers - drift rather than decision, so it is one class now
+   and the backup control took the currency picker's values.
+
+   The bordered version won because the border is what makes a tray read as a
+   container rather than as loose chips, and that matters more for the backup
+   control, whose chips are words. Glyphs in a row look like a set on their
+   own; "Off / On app close / Once a day" does not.
+
+   What is NOT merged is the chips inside it. .currency-chip is a fixed 40px
+   square that fills solid with the accent when chosen; .seg-item is
+   content-width and lifts into a --raised card. Those are two selection
+   languages, and picking one for both would be a design change rather than a
+   consolidation. */
 .chip-tray {
   display: flex; gap: var(--space-2);
   background: var(--well); border: 1px solid var(--rule-faint);
@@ -148,11 +166,10 @@
    narrower gutter and let the chevron sit closer to the value. */
 select.account-select { padding-right: var(--space-3); }
 
-/* ---- Data & backup: the segmented control ------------------------------- */
-.seg {
-  display: flex; gap: var(--space-1);
-  background: var(--well); padding: var(--space-1); border-radius: var(--radius-sm);
-}
+/* ---- Data & backup: the chips in the tray -------------------------------
+   The tray itself is .chip-tray, shared with the currency picker; see its
+   comment for why these two controls stopped having a tray each. Only the
+   chips are particular to this control. */
 .seg-item {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 7px var(--space-5); border-radius: 7px; border: none;

@@ -164,8 +164,8 @@
    --faint, and reconciling them moves pixels. Noted for the deferred pass that
    merges the five eyebrow variants. */
 .offender-head {
-  font-size: var(--text-11); text-transform: uppercase; letter-spacing: 0.06em;
-  color: var(--faint); font-weight: 600; margin-bottom: var(--space-3);
+  /* Shape from .eyebrow in base.css; the ink and the margin are this one's. */
+  color: var(--faint); margin-bottom: var(--space-3);
 }
 .offender-none {
   display: flex; align-items: center; gap: var(--space-2);

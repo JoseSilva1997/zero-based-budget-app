@@ -90,7 +90,7 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
             lives in .budget-colhead now, which is also where "Actual" picks
             up the accent it shares with the month bar's solid fill, and where
             .col-right right-aligns the three money labels. */}
-        <div className="budget-colhead">
+        <div className="eyebrow budget-colhead">
           <span />
           <span />
           <span className="col-right">Allocated</span>
@@ -399,7 +399,7 @@ function App() {
           {/* The rule above this group is .household's, not the foot's: an
               update notice is about the app, not about who lives here. */}
           <div className="household">
-            <div className="nav-label">Household</div>
+            <div className="eyebrow nav-label">Household</div>
             {state.settings.members.map(m => (
               <div className="member-chip" key={m.id} title={m.name}><Avatar member={m} size={24} /> <span className="member-chip-name">{m.name}</span></div>
             ))}

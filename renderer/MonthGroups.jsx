@@ -188,7 +188,7 @@ function MoveMenu({ anchorRef, groups, itemName, onPick, onClose }) {
     <div ref={ref} className="move-menu" role="group" aria-label={`Move ${itemName} to another group`}
       style={{ top: pos.top, left: pos.left }}
       onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); closeRestoringFocus(); } }}>
-      <div className="move-menu-label">Move to</div>
+      <div className="eyebrow move-menu-label">Move to</div>
       {groups.map((g, i) => (
         <button key={g.id} type="button" className="move-menu-item" autoFocus={i === 0}
           onClick={() => { onPick(g.id); closeRestoringFocus(); }}>
@@ -581,7 +581,7 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, dragItem
     announce(`${group.name} moved to position ${groupIndex + dir + 1} of ${groups.length}.`);
   };
   return (
-    <div ref={cardRef} id={groupCardId(group.id)} className={cx("raised fade-in group-card", isDragging && "is-dragging")} draggable={grabbed}
+    <div ref={cardRef} id={groupCardId(group.id)} className={cx("panel is-raised fade-in group-card", isDragging && "is-dragging")} draggable={grabbed}
       onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; onDragStart(); }}
       onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; const r = e.currentTarget.getBoundingClientRect(); onDragOverGroup(e.clientY > r.top + r.height / 2); }}
       onDrop={(e) => { e.preventDefault(); onDrop(); }}

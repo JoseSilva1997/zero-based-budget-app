@@ -11,10 +11,10 @@
   background: var(--raised); border: 1px solid var(--rule);
   border-radius: var(--radius-sm); box-shadow: var(--shadow-md);
 }
-.move-menu-label {
-  padding: 6px 9px 5px; font-size: var(--text-11); text-transform: uppercase;
-  letter-spacing: 0.05em; color: var(--faint); font-weight: 600;
-}
+/* Shape from .eyebrow in base.css; the padding and the ink are this label's
+   own. --faint because it sits inside a popover on --raised, where --ink-2
+   would read as one of the rows rather than as the heading over them. */
+.move-menu-label { padding: 6px 9px 5px; color: var(--faint); }
 .move-menu-item {
   width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px;
   text-align: left; padding: 7px 9px; border: 0; border-radius: 7px;

@@ -162,8 +162,8 @@
    so it is a design decision rather than a refactor's to take. */
 .qe-recent-head {
   padding: var(--space-3) var(--space-6) var(--space-1);
-  font-size: var(--text-11); text-transform: uppercase; letter-spacing: 0.06em;
-  color: var(--faint); font-weight: 600;
+  /* Shape from .eyebrow in base.css; the ink and the padding are this one's. */
+  color: var(--faint);
 }
 /* Five tracks: the day, what it was, where it filed itself, the amount, and
    the remove button. The two minmax(0, …) tracks are what let the name and

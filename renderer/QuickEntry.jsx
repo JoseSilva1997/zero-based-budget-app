@@ -246,7 +246,7 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
         </div>
       </div>
 
-      <div ref={rootRef} className="panel panel-unclipped qe-card">
+      <div ref={rootRef} className="panel is-unclipped qe-card">
         <div className="qe-fields">
         <div className="qe-half qe-half-what">
           <DayField day={day} monthId={month} title="Day of month for this entry" onCommit={setDay} onEnter={add} inputRef={dayRef} tray />
@@ -321,7 +321,7 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
 
         {recent.length > 0 && (
           <div className="qe-recent">
-            <div className="qe-recent-head">Just logged</div>
+            <div className="eyebrow qe-recent-head">Just logged</div>
             {recent.map(({ a, it, g }) => (
               <div key={a.id} className="income-row qe-recent-row">
                 <span className="num qe-recent-day">{actualDay(a, month)}</span>

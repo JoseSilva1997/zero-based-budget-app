@@ -85,9 +85,10 @@ button.brand-mark:hover .brand-mark-chev, button.brand-mark:focus-visible .brand
 .brand-name { font-weight: 500; font-size: var(--text-15); line-height: 22px; white-space: nowrap; margin: 0; }
 .brand-sub { font-size: var(--text-11); line-height: 16px; color: var(--muted); }
 
-/* --muted, not --faint. This label sits on --panel rather than --raised, and
+/* Shape from .eyebrow in base.css; only the ink is this label's own.
+   --muted, not --faint. This label sits on --panel rather than --raised, and
    the drawing sets it in the same ink as the names beneath it. */
-.nav-label { font-size: var(--text-10); text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 600; }
+.nav-label { color: var(--muted); }
 /* The <nav> holding the four section buttons.
    The nav is its own box in the sidebar's column, so it repeats the
    column's gap rather than inheriting it through a fragment. */

@@ -210,7 +210,7 @@ function DebugMenuPanel() {
     <div ref={rootRef} className="debug-fab" style={{ left: pos.x, top: pos.y }}>
       {open && (
         <div className="debug-menu" role="menu" aria-label="Debug tools" style={menuStyle}>
-          <div className="debug-menu-head">Debug</div>
+          <div className="eyebrow debug-menu-head">Debug</div>
           {ITEMS.map(({ id, label, hint, icon: Ico, run }) => (
             <button key={id} className="debug-menu-item" role="menuitem" disabled={busy} onClick={run}>
               <Ico size={16} />

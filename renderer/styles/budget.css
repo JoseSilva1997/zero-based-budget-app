@@ -82,8 +82,8 @@
 .budget-colhead {
   flex: 1; min-width: 0;
   grid-template-columns: 26px var(--budget-cols);
-  font-size: var(--text-11); text-transform: uppercase; letter-spacing: 0.05em;
-  color: var(--faint); font-weight: 600;
+  /* Shape from .eyebrow in base.css; only the ink is this one's own. */
+  color: var(--faint);
 }
 /* "Actual" is the accent's word. In the month bar the solid accent is money
    that actually moved, and this is the column of those figures, so naming it

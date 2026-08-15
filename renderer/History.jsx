@@ -55,11 +55,11 @@ function HistoryScreen({ currency, onOpenMonth }) {
 
       {/* month list */}
       <div className="section-head"><h2>All months</h2></div>
-      <div className="panel panel-clip">
+      <div className="panel is-clipped">
         {/* Not a table: every row is one button that opens a month, and a row
             cannot be both a control and a set of cells. The strip below is a
             visual key for the columns; the reading of it lives on each row. */}
-        <div className="hist-colhead">
+        <div className="eyebrow hist-colhead">
           <span>Month</span><span>Income</span><span>Allocated</span><span>Actual</span><span>Saved</span><span>Status</span>
         </div>
         {[...series].reverse().map((s, i) => {
