@@ -17,6 +17,7 @@ import { DashboardScreen } from './Dashboard.jsx';
 import { SettingsScreen } from './Settings.jsx';
 import { UpdateBanner } from './UpdateBanner.jsx';
 import { FindBar } from './Find.jsx';
+import { DebugMenu } from './DebugMenu.jsx';
 
 function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
   const mid = state.activeMonth;
@@ -87,16 +88,21 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
       <div className="section-head" style={{ marginTop: 42 }}>
         <h2>Allocations</h2>
         {/* Same grid as the rows below, plus a leading cell for their 26px drag
-            handle, so each label sits over the column it names. */}
-        <div style={{ flex: 1, minWidth: 0, display: "grid", gridTemplateColumns: "26px var(--budget-cols)", alignItems: "center", gap: 10, padding: "7px 8px", fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--faint)", fontWeight: 600 }}>
+            handle, so each label sits over the column it names. The layout
+            lives in .budget-colhead now, which is also where "Actual" picks
+            up the accent it shares with the month bar's solid fill. */}
+        <div className="budget-colhead">
           <span />
           <span />
           <span style={{ textAlign: "right" }}>Allocated</span>
-          <span style={{ textAlign: "right" }}>Actual</span>
+          <span className="col-actual" style={{ textAlign: "right" }}>Actual</span>
           <span className="col-diff" style={{ textAlign: "right" }}>Difference</span>
           <span />
         </div>
       </div>
+      {/* Grounds the labels on the table rather than leaving them floating
+          over the first card. */}
+      <div className="budget-rule" aria-hidden="true" />
 
       {mo.groups.map((g) => {
         const showLine = dragGroupId && dragGroupId !== g.id && overGroupId === g.id;
@@ -382,6 +388,13 @@ function App() {
 
       {newMonth && <NewMonthModal dispatch={dispatch} onClose={() => setNewMonth(false)} />}
       <Toast msg={toastMsg} onDismiss={dismissToast} />
+      {/* Dev only. The test is written inline, not as an imported IS_DEV
+          constant, because esbuild only substitutes process.env.NODE_ENV where
+          it literally appears: behind an import it stayed a runtime binding and
+          the whole DebugMenu module rode along into the production bundle. Like
+          this it folds to `false && …`, the reference disappears, and the module
+          is tree-shaken out entirely. Verified by grepping renderer/dist/app.js. */}
+      {process.env.NODE_ENV === 'development' && <DebugMenu />}
     </div>
   );
 }

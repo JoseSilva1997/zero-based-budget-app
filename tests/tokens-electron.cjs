@@ -50,7 +50,6 @@ const CHECKS = [
   ['rule-strong on raised', '--rule-strong', '--raised', 3.0],
   ['rule on raised',        '--rule',        '--raised', 2.0],
   ['rule-faint on raised',  '--rule-faint',  '--raised', 1.7],
-  ['unsettled on board', '--unsettled', '--board', 3.0],
   ['breach on board',    '--breach',    '--board', 3.0],
   ['breach-ink on breach-soft', '--breach-ink', '--breach-soft', 4.5],
   // The primary button. --accent-btn exists precisely so this clears AA when
@@ -60,44 +59,40 @@ const CHECKS = [
   // The focus ring's solid 2px core, on the lightest surface it can land on.
   // WCAG 2.4.11 wants 3:1 for the indicator itself.
   ['accent ring on raised', '--accent', '--raised', 3.0],
-  // The bar's outer boundary: how far the fill extends against its track.
-  // This is the one WCAG 1.4.11 actually governs, so it stays at 3:1.
-  ['bar fill faded on track', '--bar-faded', '--well', 3.0],
-  // The bar's inner boundary, between its two fill intensities, is a
-  // redundant encoding rather than the sole carrier of the amounts it
-  // represents: MonthBar prints "spent" and "allocated" as text beneath
-  // the bar, so 1.4.11's "information not otherwise available" test does
-  // not bind this pair to 3:1. It could not hold 3:1 anyway on most
-  // palettes: ratios multiply, so outer x inner = contrast(--accent, --well),
-  // and two stacked 3:1 floors would need that product to reach 9:1. Which
-  // is why this floor is derived rather than picked.
-  //
-  // Derivation: --bar-faded's mix percentage is the smallest whole number
-  // that clears the outer floor above (raising it lightens --bar-faded,
-  // which raises the outer ratio and lowers this one, so the smallest
-  // percentage that clears the outer floor also maximises this one). At the
-  // 73% renderer/app.css settled on, the tightest measurement the design has
-  // ever had here was 1.503:1, and 1.5 is that rounded DOWN to one decimal
-  // place, so the floor holds with the margin the design actually has rather
-  // than a hair over it. Obsidian itself measures 1.617:1. A change to
-  // --accent or --well that erodes this below 1.5 is a real regression: it
-  // means the two fills are collapsing toward indistinguishable.
-  ['bar fill solid on faded', '--accent',    '--bar-faded', 1.5],
+  // The bar's outer boundary: how far the plan extends against its track.
+  // This is the one WCAG 1.4.11 actually governs, and it moved. It used to
+  // be an opaque fill (--bar-faded, since retired) held to 3:1 in its own
+  // right, which is what pinned that fill at a 73% blend of the accent and
+  // made the plan almost as loud as the spending inside it. The plan is a
+  // wash inside a 1px --accent outline now (.bar-region.is-plan in
+  // app.css), so the boundary is the outline and the floor belongs to it.
+  // The wash beneath is unconstrained on purpose - it carries no boundary.
+  ['bar plan edge on track', '--accent', '--well', 3.0],
+  // The track's own outline. With the unallocated remainder painted as
+  // nothing at all, this is the only thing that says how much room is left,
+  // so it is a real 1.4.11 boundary rather than decoration. --well and
+  // --board are within a percent of each other in obsidian, which is exactly
+  // why an unoutlined empty track would read as no track.
+  ['bar track edge on board', '--rule-strong', '--board', 3.0],
   // The income mark's tick (see .bar-mark-tick in app.css) lands on --board,
   // outside .bar-track's clip, and is the part of the mark that has to
   // actually be seen. This is the real WCAG floor for it, unlike the rule
-  // that crosses the track fills.
+  // that crosses the track fills. Same pair as the track edge above, checked
+  // separately because the two would not move together: a theme is free to
+  // give the track a different edge without touching the mark.
   ['mark on board', '--rule-strong', '--board', 3.0],
-  // The bar's inner boundary between 'gap' and 'allocated' (--unsettled vs
-  // --bar-faded) is a redundant encoding, same reasoning as the derived
-  // floor above: the amounts are printed as text beneath the bar, so 1.4.11
-  // does not bind this pair to 3:1. The floor is 1.3 because the tightest
-  // this pair has ever measured is 1.3988:1, rounded DOWN to one decimal.
-  // Obsidian is nowhere near it at 3.413:1, and the floor is deliberately
-  // left at the historic value rather than tightened onto the one theme that
-  // ships: it is a collapse guard for whatever palette comes next, not a
-  // certificate that the pair is accessible on its own.
-  ['unsettled on bar-faded', '--unsettled', '--bar-faded', 1.3],
+  // The accent washes that carry the Allocations table's three levels. These
+  // are surfaces, not boundaries, and text sits ON them: --muted is the
+  // lightest ink any of them has to hold (the group header's Savings pill and
+  // the tray's "Add spend" label), so AA at 4.5:1 binds it. The washes are
+  // mixed into --board, which is darker than the --raised the ink ramp was
+  // solved against, so these should pass with room - they are here to catch a
+  // theme that mixes a pale accent into a pale board and quietly loses the
+  // labels sitting on top.
+  ['muted on wash-head',   '--muted', '--wash-head',   4.5],
+  ['muted on wash-tray',   '--muted', '--wash-tray',   4.5],
+  ['muted on wash-open',   '--muted', '--wash-open',   4.5],
+  ['breach-ink on wash-breach', '--breach-ink', '--wash-breach', 4.5],
   // The sidebar's own ramp. --panel is a separate surface from --board and
   // --raised (see the theme block comment in app.css), so every ink that lands
   // on it needs its own floor: the ink ramp is solved against --raised, and in

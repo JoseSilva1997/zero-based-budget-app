@@ -41,8 +41,8 @@
      accent     --accent      --accent-soft   --accent-ink
                 --on-accent   ink that sits on top of an --accent fill
 
-   And may override, from layers 2-3: --accent-btn, --canvas-wash, --bar-faded,
-   --bar-plan, the semantic colours, and the shadow ramp.
+   And may override, from layers 2-3: --accent-btn, --canvas-wash, --bar-plan,
+   the accent washes, the semantic colours, and the shadow ramp.
    ============================================================ */
 
 /* Bundled, not fetched. The sidebar strapline says "local", and until now
@@ -112,16 +112,24 @@
 :root {
   /* Semantic colour, re-cut to the domain. In zero-based budgeting an
      envelope spent exactly to plan IS the success, so "settled" gets no
-     colour at all: it is the resting state. Only two states earn a hue.
-     --unsettled is the default nag, money that has no job yet. --breach
-     carries two roles: the budget meaning "over budget", and the ordinary
-     red of an error affordance (invalid input, a failed load, a destructive
-     action) that has nothing to do with a budget state. One red for both is
-     deliberate: a second red would look identical and just be confusing.
-     What --breach may never mean again is under-spending or any other
+     colour at all: it is the resting state. Exactly ONE state earns a hue,
+     and it is the failure.
+
+     There used to be a second, --unsettled: an amber that painted the
+     unallocated remainder of the month bar, on the reasoning that money
+     without a job is a nag. It is gone. A budget that has not been written
+     yet is not an error, and colouring the majority of the bar on the 1st
+     of the month made the app open every month by shouting. Absence says
+     it better: the bar starts hollow, and allocating fills it. See the
+     MonthBar docstring for the whole of that argument.
+
+     --breach carries two roles: the budget meaning "over budget", and the
+     ordinary red of an error affordance (invalid input, a failed load, a
+     destructive action) that has nothing to do with a budget state. One red
+     for both is deliberate: a second red would look identical and just be
+     confusing. What --breach may never mean is under-spending or any other
      settled state painted red or green, the mistake this token was cut to
      undo. */
-  --unsettled: oklch(0.80 0.15 85);
   --breach: oklch(0.63 0.20 27);
   --breach-soft: oklch(0.31 0.10 27);
   --breach-ink: oklch(0.80 0.15 27);
@@ -173,32 +181,48 @@
   --glow-sm: 0 4px 18px -6px color-mix(in srgb, var(--accent) 55%, transparent);
   --glow-md: 0 8px 28px -8px color-mix(in srgb, var(--accent) 60%, transparent);
 
-  /* The bar's two intensities, derived from the accent so the theme paints the
-     largest object on the screen rather than 0.07% of it.
+  /* The "planned" weight, on the dashboard's allocated-vs-actual bars AND on
+     the month bar. One token for both, because it means the same thing in
+     both places: money that has a job on paper. It is a wash rather than a
+     fill - the plan is read by its --accent outline, and the solid accent
+     beside it is the money that actually moved.
 
-     Only one floor binds here: --bar-faded against --well must clear 3:1,
-     because that boundary (how far the fill extends against its track) is the
-     one WCAG 1.4.11 actually governs. --accent against --bar-faded is NOT held
-     to 3:1: the two fills are a redundant encoding, not the sole carrier of
-     the amounts they represent (MonthBar prints "spent" and "allocated" as
-     text beneath the bar), so 1.4.11's "information not otherwise available"
-     test does not apply to it. See tests/tokens-electron.cjs for the derived
-     (not chosen) floor that check is held to instead.
+     The month bar used to paint the plan as --bar-faded, an opaque 73% blend
+     of the accent into the track, which is nearly the solid fill: at a glance
+     the plan and the spending were one violet slab in two barely separable
+     weights, and the bar's whole argument (spending sits INSIDE the plan)
+     could not be seen. A wash plus an edge separates them by texture rather
+     than by two shades of the same hue, so the plan reads as a vessel and the
+     spending as what is in it.
 
-     The two floors pull in opposite directions, which is what fixes the
-     percentage: raising it lightens --bar-faded, which raises the outer ratio
-     and lowers the inner one. The smallest whole percent that clears the outer
-     floor is therefore also the one that maximises the inner separation. 73
-     was derived that way and obsidian sits comfortably inside it (outer
-     3.15:1, inner 1.62:1), since a true-black --well is the easiest track
-     there is. A theme with a lighter --well may have to raise it; the test
-     will say so. */
-  --bar-faded: color-mix(in srgb, var(--accent) 73%, var(--well));
-
-  /* The "planned" weight on the dashboard's allocated-vs-actual bars. It is a
-     wash rather than a fill: the bar is read by its accent outline, and the
-     solid accent beside it is the money that actually moved. */
+     What carries WCAG 1.4.11 here is the EDGE, not the wash. The governed
+     boundary is "how far the plan extends against its track", and that
+     boundary is now a 1px --accent outline, held to 3:1 against --well in
+     tests/tokens-electron.cjs. The wash is free to be as quiet as it likes
+     underneath it, which is exactly what --bar-faded's floor forbade. */
   --bar-plan: color-mix(in srgb, var(--accent) 20%, transparent);
+
+  /* Accent washes. The Month Budget screen is three levels deep (group
+     header, item row, spending entry) and every one of them used to be a
+     near-black band, so depth was carried by hairlines alone and the header
+     read as recessed rather than as a header. These give depth a second
+     channel: how much accent a surface carries. A group header is the only
+     band on the page that is washed; an opened item and the entry tray it
+     opens share a lighter wash, which is what makes them read as one object
+     rather than two neighbours; everything else is neutral.
+     --wash-breach replaces the accent on a group header that is over, so the
+     loudest surface on the page is always the one that needs attention. */
+  --wash-head: color-mix(in srgb, var(--accent) 13%, var(--board));
+  --wash-open: color-mix(in srgb, var(--accent) 6%, var(--raised));
+  --wash-tray: color-mix(in srgb, var(--accent) 5%, var(--board));
+  /* Deliberately WEAKER than --wash-head, not stronger, even though it is the
+     more urgent of the two. Red carries far more perceived weight than violet
+     at the same mix, and at parity the breach header stopped reading as a
+     header that happens to be over and started reading as a slab of error
+     with a budget inside it. The row already says "$35 OVER" in a filled
+     pill and prints the figure in --breach-ink; the wash only has to tell the
+     eye which card to land on while scrolling past a dozen of them. */
+  --wash-breach: color-mix(in srgb, var(--breach) 8%, var(--board));
 }
 
 /* ============================================================
@@ -577,6 +601,66 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
 .section-head { display: flex; align-items: center; justify-content: space-between; margin: 30px 2px 14px; }
 .section-head h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); font-weight: 600; margin: 0; }
 
+/* ---- the Allocations table's three levels --------------------------------
+   Group header, item row, spending entry. All three were near-black bands
+   separated by hairlines, and the header was the darkest of them, so the
+   deepest level on the page looked like the shallowest. Depth is carried by
+   accent presence now (see the wash tokens in layer 3); the hairlines stay
+   and do the fine work.
+
+   Level 1. The group header, and the only washed band on the page. The top
+   highlight is the same inset .panel-feature uses, so a card that opens with
+   a header reads lit from above rather than merely tinted. */
+.group-head {
+  background: var(--wash-head);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--accent) 22%, transparent);
+  transition: background-color .14s;
+}
+/* A group whose spending has passed its plan. The wash swaps hue rather than
+   gaining a badge: the header is already the loudest surface in the card, so
+   the cheapest way to make the failing group findable in a long month is to
+   let that surface change colour. The DiffPill in the same row still says it
+   in words, so this is a second encoding and not the only one. */
+.group-head.is-over {
+  background: var(--wash-breach);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--breach) 18%, transparent);
+}
+/* Level 2, opened. An item with its entries showing takes a wash of its own,
+   and the tray below shares it: the pair reads as one opened object instead
+   of a row that happens to sit above an unrelated black strip. */
+.budget-row-open { background: var(--wash-open); }
+/* Level 3. The entry tray, one step deeper: the same hue, mixed into --board
+   rather than --raised, so it recedes from the row that owns it while still
+   belonging to it. */
+.entry-tray {
+  background: var(--wash-tray);
+  border-top: 1px solid color-mix(in srgb, var(--accent) 20%, var(--rule-faint));
+}
+
+/* The column labels over the Allocations table, and the rule that grounds
+   them. Both were absent: the labels floated over the first group card with
+   nothing tying them to the columns they name. The rule is the app's own
+   dissolving hairline (see ChartCard in components.jsx), accent-tinted at the
+   centre - it belongs to the table below it, not to the heading above. */
+.budget-colhead {
+  flex: 1; min-width: 0;
+  display: grid; grid-template-columns: 26px var(--budget-cols);
+  align-items: center; gap: 10px; padding: 7px 8px;
+  font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--faint); font-weight: 600;
+}
+/* "Actual" is the accent's word. In the month bar the solid accent is money
+   that actually moved, and this is the column of those figures, so naming it
+   in the same colour is the one place the table declares the mapping. The
+   label is 11.5px at weight 600 - large text by WCAG's definition it is not,
+   so --accent-text (a blend toward --ink, never below --accent-ink's own
+   floors) carries it rather than raw --accent. */
+.budget-colhead .col-actual { color: var(--accent-text); }
+.budget-rule {
+  height: 1px; margin: 0 2px 10px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 58%, transparent) 50%, transparent);
+}
+
 /* A row in a panel that stacks rows: Settings, mostly. The hairline goes
    BETWEEN rows, which means the first row in a panel draws none. Every row set
    this border inline, first row included, so six sections opened with a second
@@ -688,6 +772,16 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
    bottom-left corner too. */
 .drag-handle-group { border-radius: calc(var(--radius-lg) - 1px) 0 0 0; }
 .drag-handle-group.is-collapsed { border-bottom-left-radius: calc(var(--radius-lg) - 1px); }
+
+/* The group handle is part of the header band, so it wears the header's fill
+   (see .group-head above). It has to be declared here, after .drag-handle,
+   rather than up beside .group-head: the two selectors have identical
+   specificity, so the later one wins, and .drag-handle's transparent fill is
+   the one that would otherwise take it. Hover is spelled out for the same
+   reason - the handle used to carry its fill inline, where .drag-handle:hover
+   could not reach it at all. */
+.group-head-handle, .group-head-handle:hover { background: var(--wash-head); transition: background-color .14s; }
+.group-head-handle.is-over, .group-head-handle.is-over:hover { background: var(--wash-breach); }
 
 /* The copy / start-empty option cards in the new-month dialog. Their fill and
    border are inline (they carry the selected state), so hover lifts them with
@@ -973,6 +1067,14 @@ kbd {
      whichever fill reaches either end. */
   border-radius: 17px;
   background: var(--well);
+  /* The track is drawn, not merely implied. The unallocated remainder of the
+     month is now empty track rather than an amber fill (see the --breach
+     comment in layer 2), which only works if empty still reads as a vessel
+     with a shape: --well is within a percent of --board, so without this
+     outline an unallocated month rendered as a fill floating in nothing. It
+     is the "how much is left" boundary now that no fill marks it, so it takes
+     --rule-strong and its 3:1 rather than a decorative hairline. */
+  box-shadow: inset 0 0 0 1px var(--rule-strong);
   overflow: hidden;
   /* Isolates the region transitions (left/width, see MonthBar.jsx) from the
      rest of the page, same reasoning as .update-banner-track's transform
@@ -980,6 +1082,13 @@ kbd {
   contain: layout paint;
 }
 .bar-region { position: absolute; top: 0; bottom: 0; }
+/* The plan: money allocated but not yet spent. A wash inside an --accent
+   outline, so the span reads as an envelope with room left in it and the
+   solid fill to its left reads as what has already gone. The outline is what
+   carries WCAG 1.4.11 for the plan's extent; see --bar-plan in layer 3.
+   Inset rather than a border so the 1px lands inside the region's own width
+   and the spans still tile exactly. */
+.bar-region.is-plan { box-shadow: inset 0 0 0 1px var(--accent); }
 /* The income mark is two elements, not one, because .bar-track has to clip
    (overflow: hidden keeps fills inside the rounded corners) and the mark
    has to be visible against --board, and those two requirements cannot both
@@ -1005,3 +1114,50 @@ kbd {
 }
 .bar-mark-tick::before { top: 0; }
 .bar-mark-tick::after { bottom: 0; }
+
+/* ============================================================
+   Dev-only debug button (renderer/DebugMenu.jsx).
+
+   Never reaches a production bundle - the component is compiled out - but the
+   rules live here rather than inline so the button obeys the same tokens as
+   everything else, and so this file stays the one place a surface colour is
+   decided. z-index sits above the toast (80) and the drawer veil (70): a debug
+   tool that a dialog can bury is a debug tool you cannot reach when a dialog
+   is the thing you are debugging.
+   ============================================================ */
+.debug-fab { position: fixed; width: 44px; height: 44px; z-index: 90; }
+.debug-fab-btn {
+  width: 44px; height: 44px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--raised); color: var(--muted);
+  border: 1px solid var(--rule); box-shadow: var(--shadow-lg);
+  /* The gesture is drag-or-click, so the cursor names the less obvious half;
+     touch-action: none is what stops the OS claiming the drag as a scroll. */
+  cursor: grab; touch-action: none;
+  transition: color .15s ease, border-color .15s ease, background .15s ease;
+}
+.debug-fab-btn:hover { color: var(--ink-2); border-color: var(--rule-strong); }
+.debug-fab-btn.on { color: var(--accent); border-color: var(--accent); }
+.debug-fab-btn:active { cursor: grabbing; }
+
+.debug-menu {
+  position: absolute; min-width: 232px;
+  background: var(--raised); border: 1px solid var(--rule);
+  border-radius: 12px; box-shadow: var(--shadow-lg);
+  padding: 6px; animation: pop .14s ease;
+}
+.debug-menu-head {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--faint); padding: 6px 10px 7px;
+}
+.debug-menu-item {
+  width: 100%; display: flex; align-items: flex-start; gap: 10px;
+  padding: 8px 10px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--ink-2);
+  font: inherit; font-size: 13px; font-weight: 500; text-align: left;
+  cursor: pointer;
+}
+.debug-menu-item > svg { flex: none; margin-top: 1px; }
+.debug-menu-item:hover:not(:disabled) { background: var(--nav-hover); color: var(--ink); }
+.debug-menu-item:disabled { opacity: .5; cursor: default; }
+.debug-menu-hint { display: block; font-size: 11.5px; font-weight: 400; color: var(--faint); margin-top: 2px; }

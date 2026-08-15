@@ -5,6 +5,9 @@ release/
 *.log
 .DS_Store
 
+# captures from the dev-only debug menu (main/ipc/debug.ts writes here)
+screenshots/
+
 # local SQLite artefacts if a DB is ever created in-tree during testing
 *.sqlite
 *.sqlite-wal

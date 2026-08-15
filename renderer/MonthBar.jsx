@@ -1,11 +1,22 @@
 /* ============================================================
    The month bar. One object for the whole month's money.
 
-   The filled part is money with a job; the gap is money without one. Solid
-   sits inside faded, faded sits inside the track, so both failure states
-   are the same visual event at two scales: something sticking out past
-   what should contain it. That is why nothing here is green. Finishing is
-   marked by the amber going away, not by a colour arriving.
+   The track starts hollow and allocating fills it. Solid accent is money
+   that actually moved; the washed, outlined span beside it is money that
+   has a job on paper but has not gone yet; bare track is money with no job.
+   Solid sits inside the plan, the plan sits inside the track, so both
+   failure states are the same visual event at two scales: something
+   sticking out past what should contain it. That is why nothing here is
+   green - finishing is marked by the track filling up, not by a colour
+   arriving.
+
+   Nor is anything here amber any more. The unallocated remainder used to be
+   painted --unsettled on the reasoning that money without a job is a nag,
+   which meant a month opened on the 1st as a bar that was almost entirely
+   warning about a budget nobody had had the chance to write yet. Absence is
+   the better signal: an empty vessel already reads as one that wants
+   filling, and it costs the page its loudest colour, which now belongs to
+   the breach alone.
    ============================================================ */
 import { Icons } from './components.jsx';
 import { barGeometry, barRegions, fmt, monthActual, monthAllocated, monthIncome, monthSavings, monthUnallocated, overBudgetItems, round2 } from './lib/index.js';
@@ -32,11 +43,16 @@ const hatch = (c) => `repeating-linear-gradient(-45deg, var(${c}) 0 3px, color-m
 /* barRegions emits 'spent', 'allocated', 'overspent', 'gap' and 'beyond'.
    There is no 'overAllocated' region: over-allocation is a plan fact (see
    below), not a region key, and paints through 'beyond' like an overspend
-   does. */
+   does.
+
+   'gap' is deliberately absent from this table. It is still real geometry -
+   barRegions computes and returns it, and the tests still hold it to
+   tiling - but it is the money with no job yet, and that is now said by
+   leaving the track bare rather than by painting anything at all. A key
+   with no entry here renders nothing; see the filter in the map below. */
 const PAINT = {
   spent: "var(--accent)",
-  allocated: "var(--bar-faded)",
-  gap: "var(--unsettled)",
+  allocated: "var(--bar-plan)",
   overspent: hatch("--breach"),
   beyond: hatch("--breach"),
 };
@@ -93,8 +109,11 @@ function MonthBar({ mo, currency }) {
           animated instead. Deliberate deviation, not an oversight. */}
       <div className="bar-wrap" aria-hidden="true">
         <div className="bar-track">
-          {regions.map((r) => (
-            <div key={r.key} className="bar-region"
+          {regions.filter((r) => PAINT[r.key]).map((r) => (
+            /* 'allocated' is the plan, and the plan is drawn as a vessel:
+               .is-plan adds the --accent outline that carries how far it
+               extends, so the wash under it can stay quiet. */
+            <div key={r.key} className={`bar-region${r.key === "allocated" ? " is-plan" : ""}`}
               style={{ left: `${r.from * 100}%`, width: `${(r.to - r.from) * 100}%`, background: PAINT[r.key], transition: "left .35s ease, width .35s ease" }} />
           ))}
           {/* The rule: crosses the track at 1px, carries precision (exactly

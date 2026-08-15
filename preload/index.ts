@@ -160,6 +160,17 @@ const api = {
     return () => { ipcRenderer.off('updater:status', listener); };
   },
 
+  /* ---------- dev tools ----------
+     Only registered in the main process when the app is unpackaged, so in a
+     shipped build these two reject rather than doing anything. The renderer's
+     only caller (renderer/DebugMenu.jsx) is compiled out of production
+     bundles, so that never happens in practice. `extraW`/`extraH` are how much
+     of .main is currently hidden by its own overflow; main grows the window by
+     that much before capturing, then restores it. */
+  debugScreenshot: (size: { extraW: number; extraH: number }) =>
+    invoke<{ path: string }>('debug:screenshot', size),
+  debugReveal: (filePath: string) => invoke<Ok>('debug:reveal', { path: filePath }),
+
   // Not an IPC channel - resolves a picked File's absolute path (replaces the
   // removed File.path), used by the restore flow.
   pathForFile: (file: File): string => webUtils.getPathForFile(file),

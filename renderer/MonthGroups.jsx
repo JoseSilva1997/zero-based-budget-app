@@ -236,7 +236,11 @@ function EntriesDrawer({ item, group, currency, dispatch, month }) {
   };
   const amtPreview = isExpr(amt) ? evalMoney(amt) : null;
   return (
-    <div className="fade-in" style={{ padding: "16px", background: "var(--board)", borderTop: "1px solid var(--rule-faint)" }}>
+    /* .entry-tray, not a bare --board strip: the tray and the item row above
+       it share one accent wash so an opened item reads as a single object
+       two levels deep, rather than as a row with an unrelated black band
+       stuck under it. */
+    <div className="fade-in entry-tray" style={{ padding: "16px" }}>
       {item.actuals.length > 0 && (
         <div style={{ marginBottom: 16 }}>
           {item.actuals.map(a => (
@@ -319,7 +323,7 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
       <div style={{ display: "flex", alignItems: "stretch", minHeight: "var(--row-h)" }}>
       <DragHandle label={`Reorder ${item.name}, item ${index + 1} of ${count} in ${group.name}`}
         onGrab={() => setGrabbed(true)} onRelease={() => setGrabbed(false)} onMove={onMove} />
-      <div className="budget-row" style={{ flex: 1, minWidth: 0, display: "grid", gridTemplateColumns: "var(--budget-cols)", alignItems: "center", gap: 10, padding: "7px 8px", minHeight: "var(--row-h)" }}>
+      <div className={`budget-row${open ? " budget-row-open" : ""}`} style={{ flex: 1, minWidth: 0, display: "grid", gridTemplateColumns: "var(--budget-cols)", alignItems: "center", gap: 10, padding: "7px 8px", minHeight: "var(--row-h)" }}>
         <div style={{ minWidth: 0, paddingRight: 6, display: "flex", flexDirection: "column", gap: 4 }}>
           {/* The title is on the wrapper because the field itself is an input:
               it cannot ellipsis, so the full name has to be reachable some
@@ -344,7 +348,11 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
             "$120.00 3, button", which says nothing about which item it opens. */}
         <button onClick={onToggle} title="View / add spending entries" aria-expanded={open}
           aria-label={`${fmt(currency, actual)} spent on ${item.name} in ${item.actuals.length} ${item.actuals.length === 1 ? "entry" : "entries"}`}
-          style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 7, background: open ? "var(--well)" : "transparent", border: "1px solid transparent", borderRadius: 7, padding: "5px 9px", color: "var(--ink)", transition: ".12s" }}>
+          /* Open, this is the control that owns the tray below, so it takes
+             the accent as a selection state rather than the anonymous --well
+             it used to lift to: the row, the button and the tray are then
+             the same colour event down the page. */
+          style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 7, background: open ? "var(--well)" : "transparent", borderRadius: 7, padding: "5px 9px", color: "var(--ink)", transition: ".12s", border: open ? "1px solid color-mix(in srgb, var(--accent) 42%, transparent)" : "1px solid transparent" }}>
           <span className="num" style={{ fontSize: 14 }}>{fmt(currency, actual)}</span>
           <span style={{ fontSize: 10.5, color: "var(--faint)", background: "var(--well)", borderRadius: 5, padding: "1px 5px", minWidth: 16, textAlign: "center" }}>{item.actuals.length}</span>
         </button>
@@ -491,6 +499,9 @@ function AddItemSearch({ month, groupId, currency, dispatch, onClose, itemCount 
 function GroupCard({ group, currency, dispatch, month, accounts, state, dragItem, overItem, onItemDragStart, onItemDragOver, onItemDragEnd, onDragStart, onDragOverGroup, onDrop, onDragEnd, isDragging }) {
   const alloc = groupAllocated(group), actual = groupActual(group);
   const diff = round2(alloc - actual);
+  // Same half-penny tolerance the item rows use, so a group and the item
+  // inside it can never disagree about whether they are over.
+  const over = diff < -0.005;
   const [addingItem, setAddingItem] = useState(false);
   const [grabbed, setGrabbed] = useState(false);
   const [openItems, setOpenItems] = useState(() => new Set());
@@ -586,10 +597,15 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, dragItem
           bottom-left corner as well as its top-left one: a collapsed group
           renders nothing below its header. */}
       <DragHandle label={`Reorder group ${group.name}, ${groupIndex + 1} of ${groups.length}`}
-        className={`drag-handle-group${group.collapsed ? " is-collapsed" : ""}`}
+        className={`drag-handle-group group-head-handle${over ? " is-over" : ""}${group.collapsed ? " is-collapsed" : ""}`}
         onGrab={() => setGrabbed(true)} onRelease={() => setGrabbed(false)} onMove={moveGroup}
-        style={{ background: "var(--board)", borderBottom: group.collapsed ? "none" : "1px solid var(--rule-strong)" }} />
-      <div {...appendTargetProps} style={{ flex: 1, minWidth: 0, display: "grid", gridTemplateColumns: "var(--budget-cols)", alignItems: "center", gap: 10, padding: "16px 8px", background: appendHere ? "var(--accent-soft)" : "var(--board)", borderBottom: group.collapsed ? "none" : "1px solid var(--rule-strong)", transition: "background .12s" }} className="budget-row">
+        style={{ borderBottom: group.collapsed ? "none" : "1px solid var(--rule-strong)" }} />
+      {/* .group-head is the page's one washed band (see the three-levels
+          comment in app.css): it is what makes a group header read as a
+          header rather than as the darkest, and so apparently deepest, strip
+          in its own card. A drop target still overrides it - that is a live
+          drag affordance and has to win over a resting surface. */}
+      <div {...appendTargetProps} style={{ flex: 1, minWidth: 0, display: "grid", gridTemplateColumns: "var(--budget-cols)", alignItems: "center", gap: 10, padding: "16px 8px", borderBottom: group.collapsed ? "none" : "1px solid var(--rule-strong)", ...(appendHere ? { background: "var(--accent-soft)" } : null) }} className={`budget-row group-head${over ? " is-over" : ""}`}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
           <button className="icon-btn" aria-expanded={!group.collapsed} aria-label={group.collapsed ? `Expand ${group.name}` : `Collapse ${group.name}`} onClick={() => dispatch({ type: "toggleCollapse", month, groupId: group.id })} style={{ flex: "none", transform: group.collapsed ? "rotate(-90deg)" : "none", transition: "transform .18s" }}><Icons.down size={16} /></button>
           <span title={group.name} style={{ display: "flex", flex: "1 1 auto", minWidth: 0 }}>
@@ -597,8 +613,15 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, dragItem
           </span>
           {group.isSavings && <span className="pill pill-neutral" style={{ flex: "none" }}><Icons.plant size={12} /> Savings</span>}
         </div>
+        {/* Allocated is the plan and stays a plain figure; actual is money
+            that moved, and in the month bar money that moved is the solid
+            accent, so the group's actual total is where the table says the
+            same thing. It also fixes an inversion: actual used to be the
+            DIMMER of the two at --ink-2, which read as the plan mattering
+            more than what actually happened. Over budget, the breach owns
+            the figure instead - one hue per row, and the loudest wins. */}
         <div className="num" style={{ textAlign: "right", fontSize: 13.5, fontWeight: 600, paddingRight: 8 }}>{fmt(currency, alloc, { cents: false })}</div>
-        <div className="num" style={{ textAlign: "right", fontSize: 13.5, color: "var(--ink-2)", paddingRight: 9 }}>{fmt(currency, actual, { cents: false })}</div>
+        <div className="num" style={{ textAlign: "right", fontSize: 13.5, fontWeight: 600, color: over ? "var(--breach-ink)" : "var(--accent-text)", paddingRight: 9 }}>{fmt(currency, actual, { cents: false })}</div>
         <div className="col-diff" style={{ textAlign: "right" }}><DiffPill diff={diff} currency={currency} /></div>
         <div className="row-actions" style={{ justifyContent: "flex-end" }}>
           <button className="icon-btn" aria-label={group.isSavings ? `Unmark ${group.name} as a savings group` : `Mark ${group.name} as a savings group`} title={group.isSavings ? "Unmark as savings" : "Mark as savings group"} onClick={() => dispatch({ type: "setSavings", month, groupId: group.id, value: !group.isSavings })}><Icons.plant size={15} /></button>

@@ -66,16 +66,23 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
 const paints = (host) => [...host.querySelectorAll('.bar-region')].map((n) => n.style.background);
 
 window.__runTests = async () => {
-  // Partly allocated: there is a gap, and it carries the nag colour.
+  // Partly allocated. The unallocated remainder is bare track, not a fill:
+  // barRegions still emits a 'gap' span (see its own tests below), but
+  // MonthBar's PAINT table has no entry for it, so nothing is painted there.
+  // Two spans, spent and the plan, and the plan is the outlined one.
   const partial = mount(month(3400, 2150, 4200));
   await tick();
-  check('partial paints a gap', paints(partial).some((p) => p.includes('--unsettled')), paints(partial).join(' | '));
+  check('partial paints only spent and plan', paints(partial).length === 2, paints(partial).join(' | '));
+  check('partial leaves the gap unpainted',
+    !paints(partial).some((p) => p.includes('--unsettled')), paints(partial).join(' | '));
+  check('partial outlines the plan', partial.querySelectorAll('.bar-region.is-plan').length === 1);
   check('partial draws no income mark', partial.querySelectorAll('.bar-mark-tick').length === 0);
 
-  // Settled: the gap is gone, so the nag colour must be absent entirely.
+  // Settled: nothing is left to allocate, so the plan reaches the end of the
+  // track and there is no bare remainder to read.
   const settled = mount(month(4200, 0, 4200));
   await tick();
-  check('settled paints no gap', !paints(settled).some((p) => p.includes('--unsettled')), paints(settled).join(' | '));
+  check('settled paints one plan span', paints(settled).length === 1, paints(settled).join(' | '));
 
   // Over-allocated: the income mark becomes an interior rule, plus the
   // tick that carries the mark's visibility outside .bar-track's clip (see
