@@ -166,46 +166,44 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
 }
 
 /* ---- toast --------------------------------------------------------------
-   Success and failure must not look alike. Errors get their own colour, an
-   alert icon, no auto-dismiss, and role="alert" so they are announced.
+   Success and failure must not look alike, but they are one object in two
+   fills rather than two components: the same overlay recipe as the find bar
+   and the modal. What separates them is the fill, the alert icon, no
+   auto-dismiss, role="alert" so the failure is announced, and the draining
+   edge an error does not have.
+
    'msg.action' is how a one-click delete stays recoverable: the toast that
-   reports it also carries the way back. */
+   reports it also carries the way back, and the longer window an action earns
+   is what that edge was drawn to make visible.
+
+   Everything visual lives in app.css under ".toast". The one value set here is
+   --toast-life, which is the store's own timeout handed across to CSS, so the
+   countdown and the disappearance are the same number. */
 function Toast({ msg, onDismiss }) {
   if (!msg) return null;
   const isError = msg.tone === "error";
   return (
-    <div
-      role={isError ? "alert" : "status"}
-      aria-live={isError ? "assertive" : "polite"}
-      style={{
-        position: "fixed", bottom: 26, left: "50%", transform: "translateX(-50%)",
-        maxWidth: "min(560px, calc(100vw - 60px))",
-        background: isError ? "var(--breach-soft)" : "var(--ink)",
-        color: isError ? "var(--breach-ink)" : "var(--on-ink)",
-        border: isError ? "1px solid var(--breach)" : "1px solid transparent",
-        padding: isError ? "11px 12px 11px 16px" : "11px 18px",
-        borderRadius: 10, fontSize: 13.5, fontWeight: 500, lineHeight: 1.45,
-        boxShadow: "var(--shadow-lg)", zIndex: 80,
-        display: "flex", alignItems: "flex-start", gap: 10, animation: "pop .2s ease",
-      }}>
-      {isError
-        ? <Icons.alert size={16} style={{ flex: "none", marginTop: 1 }} />
-        : <Icons.check size={16} style={{ color: "var(--accent)", flex: "none", marginTop: 1 }} />}
-      <span style={{ minWidth: 0 }}>{msg.message}</span>
-      {msg.action && (
-        // Inherits the toast's own text colour, so it reads at the same
-        // contrast as the message it sits beside; the border is decoration.
-        <button onClick={() => { msg.action.onAct(); onDismiss(); }}
-          style={{ flex: "none", background: "transparent", color: "inherit", font: "inherit", fontWeight: 600, lineHeight: 1.45, textDecoration: "underline", textUnderlineOffset: 2, border: "1px solid color-mix(in srgb, currentColor 40%, transparent)", borderRadius: 7, padding: "0 9px" }}>
-          {msg.action.label}
-        </button>
-      )}
-      {isError && (
-        <button onClick={onDismiss} aria-label="Dismiss"
-          style={{ flex: "none", marginLeft: 4, background: "transparent", border: 0, color: "inherit", opacity: .7, display: "grid", placeItems: "center", padding: 2, borderRadius: 6 }}>
-          <Icons.x size={15} />
-        </button>
-      )}
+    // The dock spans the window and centres the toast in it; see the .toast-dock
+    // note in app.css for why the centring cannot live on the toast itself.
+    <div className="toast-dock">
+      <div
+        className={isError ? "toast is-error" : "toast"}
+        style={isError ? undefined : { "--toast-life": `${msg.duration}ms` }}
+        role={isError ? "alert" : "status"}
+        aria-live={isError ? "assertive" : "polite"}>
+        {isError && <Icons.alert size={16} className="toast-icon" />}
+        <span className="toast-msg">{msg.message}</span>
+        {msg.action && (
+          <button className="btn btn-sm" onClick={() => { msg.action.onAct(); onDismiss(); }}>
+            {msg.action.label}
+          </button>
+        )}
+        {isError && (
+          <button className="icon-btn toast-dismiss" onClick={onDismiss} aria-label="Dismiss">
+            <Icons.x size={15} />
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -387,7 +385,10 @@ function App() {
       {find.open && <FindBar focusToken={find.token} onClose={() => setFind((f) => ({ ...f, open: false }))} />}
 
       {newMonth && <NewMonthModal dispatch={dispatch} onClose={() => setNewMonth(false)} />}
-      <Toast msg={toastMsg} onDismiss={dismissToast} />
+      {/* Keyed on the store's counter, not on the message: two identical
+          confirmations in a row would otherwise reuse the same DOM node, and
+          neither the entrance nor the draining edge would restart. */}
+      <Toast key={toastMsg ? toastMsg.id : "none"} msg={toastMsg} onDismiss={dismissToast} />
       {/* Dev only. The test is written inline, not as an imported IS_DEV
           constant, because esbuild only substitutes process.env.NODE_ENV where
           it literally appears: behind an import it stayed a runtime binding and
