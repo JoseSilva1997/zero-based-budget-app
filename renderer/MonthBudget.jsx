@@ -51,10 +51,6 @@ function IncomeSection({ mo, currency, members, dispatch, month }) {
     <>
       <div className="section-head">
         <h2>Income</h2>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: 12.5, color: "var(--muted)" }}>Combined</span>
-          <span className="num" style={{ fontSize: 15, fontWeight: 600 }}>{fmt(currency, total)}</span>
-        </div>
       </div>
       <div className="panel" style={{ overflow: "hidden" }}>
         {mo.incomes.length === 0 && (

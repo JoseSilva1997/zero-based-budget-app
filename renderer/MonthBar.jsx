@@ -1,14 +1,18 @@
 /* ============================================================
    The month bar. One object for the whole month's money.
 
-   The track starts hollow and allocating fills it. Solid accent is money
-   that actually moved; the washed, outlined span beside it is money that
-   has a job on paper but has not gone yet; bare track is money with no job.
-   Solid sits inside the plan, the plan sits inside the track, so both
-   failure states are the same visual event at two scales: something
-   sticking out past what should contain it. That is why nothing here is
-   green - finishing is marked by the track filling up, not by a colour
-   arriving.
+   The track starts hollow and allocating fills it. Every fill starts at the
+   track's left edge and they sit one inside another: solid accent is money
+   that actually moved, the half-strength pill it sits inside is money that
+   has a job on paper but has not gone yet, and bare track past the end of
+   that pill is money with no job. One hue at two weights, and no fill carries
+   an edge: the only line is the track's own outline, running unbroken around
+   the whole bar so the stretch with nothing behind it reads hollow. Solid
+   inside the plan, plan inside the
+   track, so both failure states are the same visual event at two scales:
+   something sticking out past what should contain it. That is why nothing
+   here is green - finishing is marked by the track filling up, not by a
+   colour arriving.
 
    Nor is anything here amber any more. The unallocated remainder used to be
    painted --unsettled on the reasoning that money without a job is a nag,
@@ -19,7 +23,7 @@
    the breach alone.
    ============================================================ */
 import { Icons } from './components.jsx';
-import { barGeometry, barRegions, fmt, monthActual, monthAllocated, monthIncome, monthSavings, monthUnallocated, overBudgetItems, round2 } from './lib/index.js';
+import { barGeometry, barRegions, fmt, monthActual, monthAllocated, monthIncome, monthUnallocated, overBudgetItems, round2 } from './lib/index.js';
 import { focusAllocated } from './MonthGroups.jsx';
 
 /* overBudgetItems reports names; routing to the row that fixes one needs its
@@ -39,6 +43,12 @@ function sumOver(over) { return round2(over.reduce((a, o) => a + o.over, 0)); }
 /* Hatch rather than a flat fill for both breaches, so colour is never the
    only signal. Same reasoning as MiniBar. */
 const hatch = (c) => `repeating-linear-gradient(-45deg, var(${c}) 0 3px, color-mix(in srgb, var(${c}) 45%, var(--well)) 3px 6px)`;
+/* Flat paints are gradients too, so every entry in the table below arrives
+   as a background-image and leaves .bar-region's own --well backing intact
+   underneath. That is what lets the fills stack: --bar-plan is a 20% wash,
+   and a stack of translucent pills would show the breach hatch through the
+   plan. See .bar-region in app.css. */
+const flat = (c) => `linear-gradient(var(${c}), var(${c}))`;
 
 /* barRegions emits 'spent', 'allocated', 'overspent', 'gap' and 'beyond'.
    There is no 'overAllocated' region: over-allocation is a plan fact (see
@@ -51,21 +61,47 @@ const hatch = (c) => `repeating-linear-gradient(-45deg, var(${c}) 0 3px, color-m
    leaving the track bare rather than by painting anything at all. A key
    with no entry here renders nothing; see the filter in the map below. */
 const PAINT = {
-  spent: "var(--accent)",
-  allocated: "var(--bar-plan)",
+  spent: flat("--accent"),
+  allocated: flat("--bar-plan"),
   overspent: hatch("--breach"),
   beyond: hatch("--breach"),
 };
 
+/* Paint order, longest pill first, so the shorter one lands on top: the
+   breach behind everything with only its overhang showing, then the plan,
+   then the solid spend nested inside it.
+
+   barRegions still returns tiled left-to-right spans, and it should - tiling
+   is what makes the geometry provable, and the tests hold it to that. But
+   tiled spans are the wrong thing to *draw*. Rendered as pills they gave
+   every pair of neighbours two facing semicircular caps with a crescent of
+   bare track between them, so the bar read as something that had been
+   interrupted rather than as one thing sitting inside another. Only the `to`
+   of each span is used here, as that pill's extent from zero, which is why a
+   fill ending short of the one behind it means money still contained and a
+   fill whose end pokes out from behind means the failure. */
+const STACK = ["beyond", "overspent", "allocated", "spent"];
+
+/* The bullets beside the figures echo the bar's own paint: a solid dot for
+   spent (PAINT.spent), a plain washed dot for allocated (PAINT.allocated),
+   and a hollow ring for left to allocate since the bar marks that money by
+   leaving the track bare and outlined in --rule-strong, not by filling it. */
+const dotBase = { display: "inline-block", width: 6, height: 6, borderRadius: "50%", marginRight: 6, verticalAlign: "middle" };
+const spentDot = { ...dotBase, background: PAINT.spent };
+const allocatedDot = { ...dotBase, background: PAINT.allocated };
+const leftDot = (overAllocated) => (overAllocated
+  ? { ...dotBase, background: "var(--breach)" }
+  : { ...dotBase, background: "transparent", boxShadow: "inset 0 0 0 1px var(--rule-strong)" });
+
 function MonthBar({ mo, currency }) {
   const income = monthIncome(mo), alloc = monthAllocated(mo), actual = monthActual(mo);
-  const savings = monthSavings(mo), unalloc = monthUnallocated(mo);
+  const unalloc = monthUnallocated(mo);
   const over = withRowIds(mo, overBudgetItems(mo));
   const g = barGeometry(income, alloc, actual);
 
   if (g.empty) {
     return (
-      <div style={{ margin: "4px 0 26px" }}>
+      <div style={{ margin: "4px 0 38px" }}>
         <div className="bar-track" />
         <div style={{ marginTop: 10, fontSize: 13, color: "var(--muted)" }}>
           Add this month's income to start allocating.
@@ -83,38 +119,39 @@ function MonthBar({ mo, currency }) {
      be conflated: that month shows the mark and still says "left to
      allocate". */
   const hasBeyond = regions.some((r) => r.key === "beyond");
+  const figureColor = g.overAllocated ? "var(--breach-ink)" : "var(--ink)";
+  /* Concentric pills, all anchored at the track's left edge; see STACK. A
+     key with no PAINT entry (that is 'gap') drops out here. */
+  const byKey = new Map(regions.map((r) => [r.key, r]));
+  const rendered = STACK.filter((key) => PAINT[key] && byKey.has(key));
 
   /* The figures beside the bar say everything the bar says, so announcing
      the bar as well would just duplicate. MiniBar is role="img" because it
      stands alone; this one does not. */
   return (
-    <div style={{ margin: "4px 0 26px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+    <div style={{ margin: "4px 0 38px" }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 16, fontSize: 12, color: "var(--muted)" }}>
         <span style={{ fontSize: 12, color: "var(--muted)" }}>
-          {fmt(currency, income)} income
-        </span>
-        <span className="num" style={{ fontSize: 19, fontWeight: 500, color: g.overAllocated ? "var(--breach-ink)" : "var(--ink)" }}>
-          {fmt(currency, Math.abs(unalloc))}{" "}
-          <span style={{ fontSize: 12, fontWeight: 400, color: "var(--muted)" }}>
-            {g.overAllocated ? "over-allocated" : "left to allocate"}
-          </span>
-        </span>
+          <span style={spentDot} /><span className="num" style={{ fontSize: 16, fontWeight: 700, color: figureColor }}>{fmt(currency, actual)}</span> spent</span>
+        <span>income:<span className="num" style={{ marginLeft: 8, fontSize: 18, fontWeight: 700, color: figureColor }}>{fmt(currency, income)}</span></span>
       </div>
 
       {/* Spec calls for transform: scaleX() so the fill transition never
-          triggers layout. It is not used here: an overspend or an
-          over-allocation moves where the *next* region starts as well as
-          how wide this one is, and scaleX with a fixed transform-origin
-          cannot express a moving start point, so left and width are
-          animated instead. Deliberate deviation, not an oversight. */}
+          triggers layout. Every fill now shares the track's left edge, which
+          is exactly the fixed origin scaleX wanted and could not have while
+          the spans tiled - but scaleX would stretch each pill's semicircular
+          caps into ellipses, and those caps are what carry the nesting. So
+          width is animated instead, inside a track that is contain: layout
+          paint. Deliberate deviation, not an oversight. */}
       <div className="bar-wrap" aria-hidden="true">
         <div className="bar-track">
-          {regions.filter((r) => PAINT[r.key]).map((r) => (
-            /* 'allocated' is the plan, and the plan is drawn as a vessel:
-               .is-plan adds the --accent outline that carries how far it
-               extends, so the wash under it can stay quiet. */
-            <div key={r.key} className={`bar-region${r.key === "allocated" ? " is-plan" : ""}`}
-              style={{ left: `${r.from * 100}%`, width: `${(r.to - r.from) * 100}%`, background: PAINT[r.key], transition: "left .35s ease, width .35s ease" }} />
+          {rendered.map((key) => (
+            <div key={key} className="bar-region"
+              style={{
+                width: `${byKey.get(key).to * 100}%`,
+                backgroundImage: PAINT[key],
+                transition: "width .35s ease",
+              }} />
           ))}
           {/* The rule: crosses the track at 1px, carries precision (exactly
               where income falls against the fills), clipped by the track
@@ -130,10 +167,18 @@ function MonthBar({ mo, currency }) {
         {hasBeyond && <div className="bar-mark-tick" style={{ left: `${g.incomeX * 100}%` }} />}
       </div>
 
-      <div style={{ display: "flex", gap: 18, marginTop: 8, fontSize: 12, color: "var(--muted)" }}>
-        <span><span className="num" style={{ color: "var(--ink-2)" }}>{fmt(currency, actual)}</span> spent</span>
-        <span><span className="num" style={{ color: "var(--ink-2)" }}>{fmt(currency, alloc)}</span> allocated</span>
-        {savings > 0 && <span><span className="num" style={{ color: "var(--ink-2)" }}>{fmt(currency, savings)}</span> of that to savings</span>}
+      <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "baseline", gap: 20, marginTop: 16 }}>
+        <span style={{ fontSize: 12, color: "var(--muted)" }}>
+          <span style={allocatedDot} /><span className="num" style={{ fontSize: 16, fontWeight: 700, color: figureColor }}>{fmt(currency, alloc)}</span> allocated
+        </span>
+        <span>
+          <span style={leftDot(g.overAllocated)} /><span className="num" style={{ fontSize: 16, fontWeight: 700, color: figureColor }}>
+            {fmt(currency, Math.abs(unalloc))}
+          </span>{" "}
+          <span style={{ fontSize: 12, fontWeight: 400, color: "var(--muted)" }}>
+            {g.overAllocated ? "over-allocated" : "remaining"}
+          </span>
+        </span>
       </div>
 
       {over.length > 0 && (
