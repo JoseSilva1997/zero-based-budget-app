@@ -7,3 +7,224 @@
    only for as long as these declarations sat inline and outranked it. See the
    comment at the row in History.jsx.
    ============================================================ */
+
+/* ---- the failed-read banner ----------------------------------------------
+   A trends read that failed is shown rather than swallowed, so an error does
+   not arrive looking like a household with nothing in it. The breach palette
+   because it is an error affordance, which is the second of --breach's two
+   roles (see the token's comment in tokens.css). */
+.hist-error {
+  display: flex; gap: 9px; align-items: flex-start;
+  padding: 11px 14px; border-radius: var(--radius-sm);
+  background: var(--breach-soft); color: var(--breach-ink);
+  font-size: var(--text-13); line-height: 1.45;
+  margin-bottom: var(--space-6);
+}
+/* The icon keeps its size while the sentence beside it takes the width, and
+   sits 1px down so it lands on that sentence's first line rather than above
+   it. Same pair, same reason, as the detail dialog's error below. */
+.hist-error > svg { flex: none; margin-top: 1px; }
+
+/* ---- the all-months table ------------------------------------------------
+   A .panel that clips. Every row inside is a square-cornered button running
+   the full width of the card, so without this the first and last of them would
+   paint straight through the card's own 20px corners. */
+.hist-months { overflow: hidden; }
+
+/* The six tracks, stated once for the column strip and the rows that read
+   against it. This is not the budget grid and must not be given .budget-row;
+   see the file header and the comment at the row in History.jsx. The last
+   track is fixed at 90px because it holds a status chip rather than a figure,
+   and a chip does not want to grow with the window. */
+.hist-colhead, .hist-row {
+  display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr 1fr 90px;
+  gap: var(--space-4);
+}
+.hist-colhead {
+  padding: var(--space-4) 18px;
+  font-size: var(--text-11-5); text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--faint); font-weight: 600;
+  background: var(--board);
+}
+/* Month is the only column read from the left. The five that follow are
+   figures and a status chip, and they line up with the amounts under them. */
+.hist-colhead > span + span { text-align: right; }
+
+/* One row is one button, so it carries the button reset: the user agent
+   arrives with its own border, fill and alignment on every one of these. The
+   top hairline is the divider between months, and it is set after the reset
+   rather than before it - `border: none` would otherwise wipe it. */
+.hist-row {
+  align-items: center;
+  padding: 13px 18px;
+  border: none;
+  border-top: 1px solid var(--rule-faint);
+  background: transparent; color: var(--ink);
+  width: 100%; text-align: left; cursor: pointer;
+}
+.hist-row .num { text-align: right; font-size: var(--text-13-5); }
+.hist-row-month { display: flex; align-items: center; gap: var(--space-4); }
+.hist-row-label { font-weight: 600; font-size: var(--text-14); }
+/* The "current" tag sits inside the month cell beside a name, not in a column
+   of its own like the status chips do, so it is set a rung quieter than .pill.
+   Two classes rather than one: it is overriding a size .pill itself declares,
+   and a single class would be settled by import order instead of by weight. */
+.pill.hist-row-current { font-size: var(--text-10); }
+/* Actual steps back and Saved steps forward, so the row reads as four figures
+   with the one that matters at the end of it. */
+.hist-row-actual { color: var(--ink-2); }
+.hist-row-saved { color: var(--ink); font-weight: 600; }
+.hist-row-status { text-align: right; }
+
+/* ---- comparison ---------------------------------------------------------- */
+/* The one-month case: a sentence with no box around it. Argued at the point it
+   is rendered in History.jsx. */
+.hist-cmp-none {
+  padding: 2px 2px var(--space-3);
+  font-size: var(--text-13-5); color: var(--muted); line-height: 1.5;
+}
+.hist-cmp { padding: 18px 20px; }
+.hist-cmp-head {
+  display: flex; align-items: center; gap: var(--space-4);
+  margin-bottom: var(--space-6); flex-wrap: wrap;
+}
+/* The arrow between the two month selectors: furniture, not a control, so it
+   sits at the quietest ink on the ramp. */
+.hist-cmp-head > svg { color: var(--faint); }
+/* select.btn holds the right side open at 26px for the chevron it paints
+   there. These two selectors sit either side of an arrow and want to read as a
+   tight pair, so that side is closed back to 8px and the chevron is allowed to
+   overlap the tail of the month label. Two classes rather than one: it is
+   overriding an element-plus-class rule in controls.css, and a single class
+   would lose to it on weight whatever the import order says. */
+.btn.hist-cmp-sel { padding-right: var(--space-3); }
+.hist-cmp-same { font-size: var(--text-13-5); color: var(--muted); line-height: 1.5; }
+.hist-cmp-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-5); }
+.hist-cmp-card {
+  padding: 14px var(--space-6); border-radius: 12px;
+  background: var(--board); border: 1px solid var(--rule-faint);
+}
+.hist-cmp-label { font-size: var(--text-12); color: var(--muted); margin-bottom: var(--space-3); }
+.hist-cmp-value { font-size: var(--text-19); font-weight: 500; margin-bottom: var(--space-2); }
+/* A month-over-month move is not itself good or bad in this domain
+   (spending less isn't a win, income up isn't either), so no
+   colour codes the direction: only a genuine breach earns one. */
+.hist-cmp-delta {
+  display: flex; align-items: center; gap: 5px;
+  font-size: var(--text-12); color: var(--ink-2);
+}
+/* No movement at all is not a reading, so it recedes a rung further than the
+   ink the moves are set in. */
+.hist-cmp-delta.is-neutral { color: var(--faint); }
+.hist-cmp-delta .num { font-weight: 600; }
+
+/* ---- the read-only month detail ------------------------------------------ */
+.hist-detail-head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: var(--space-6);
+}
+/* Both of these are compound on purpose. styles/history.css is imported BEFORE
+   styles/overlays.css, so `.hist-detail-title` alone would tie `.modal h3` on
+   weight and then lose the tie on order; two classes settle it by weight and
+   stay correct whatever the manifest says later. */
+.modal .hist-detail-title { margin-bottom: 2px; }
+.modal .hist-detail-sub { margin: 0; }
+.hist-detail-stats {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-3);
+  margin-bottom: 18px;
+}
+.hist-detail-stat {
+  padding: var(--space-4) var(--space-5); border-radius: var(--radius-sm);
+  background: var(--board); border: 1px solid var(--rule-faint);
+}
+.hist-detail-stat-label { font-size: var(--text-11); color: var(--muted); }
+.hist-detail-stat-value { font-size: var(--text-15); font-weight: 600; margin-top: 3px; }
+/* The breakdown scrolls inside the dialog rather than the dialog growing past
+   the window. The negative side margins let the scrollbar's lane sit in the
+   dialog's own padding instead of eating four pixels off every row, and the
+   padding-right puts the right-hand inset back for the bar itself. */
+.hist-detail-body {
+  max-height: 320px; overflow-y: auto;
+  margin: 0 -4px; padding-right: var(--space-1);
+}
+.hist-detail-loading { padding: var(--space-5) var(--space-3); color: var(--muted); font-size: var(--text-13); }
+.hist-detail-error {
+  display: flex; gap: 9px; align-items: flex-start;
+  padding: var(--space-5) var(--space-3);
+  color: var(--breach-ink); font-size: var(--text-13); line-height: 1.45;
+}
+.hist-detail-error > svg { flex: none; margin-top: 1px; }
+.hist-detail-group { margin-bottom: var(--space-5); }
+.hist-detail-group-head {
+  display: flex; justify-content: space-between;
+  font-weight: 600; font-size: var(--text-13-5);
+  padding: var(--space-2) var(--space-3); background: var(--board); border-radius: 7px;
+}
+.hist-detail-item {
+  display: grid; grid-template-columns: 1fr 90px 90px; gap: var(--space-3);
+  padding: 5px var(--space-3); font-size: var(--text-13);
+  border-bottom: 1px solid var(--rule-faint);
+}
+.hist-detail-item-name { color: var(--ink-2); }
+.hist-detail-item-alloc { text-align: right; color: var(--faint); }
+.hist-detail-item-actual { text-align: right; color: var(--ink); font-weight: 400; }
+/* The one thing in this dialog that earns a colour. It is read-only, so there
+   is no DiffPill beside it saying the same thing in words; the weight is the
+   second signal. */
+.hist-detail-item-actual.is-over { color: var(--breach-ink); font-weight: 600; }
+.hist-detail-foot { display: flex; justify-content: flex-end; margin-top: var(--space-6); }
+
+/* ---- the Month Budget screen's income section ----------------------------
+   The other half of this file: the income table that sits above the
+   Allocations table, whose own rules live in styles/budget.css. */
+.income-total { display: flex; align-items: center; gap: var(--space-5); }
+.income-total-label { font-size: var(--text-12-5); color: var(--muted); }
+.income-total-value { font-size: var(--text-15); font-weight: 600; }
+/* Clips for the same reason .hist-months does: full-width square rows inside a
+   20px-cornered card. */
+.income-panel { overflow: hidden; }
+/* Square rather than .empty's own 44px/20px: this empty state sits inside a
+   card that is one section of a screen, not alone on a blank one. */
+.empty.income-empty { padding: var(--space-8); }
+.income-empty-text { font-size: var(--text-14); }
+
+/* One income row.
+   The geometry deliberately does NOT live on .income-row, which this element
+   also carries. That class is worn by QuickEntry's "Just logged" rows as well,
+   where it draws five entirely different tracks, and it exists in budget.css
+   only to reveal .row-actions on hover. Putting a grid on it would reach into
+   another screen the same way .budget-row would have reached into the History
+   table at the top of this file.
+
+   The member cell is fixed rather than the flexible column: it only
+   ever holds an avatar and a short name, and giving it the 1fr used
+   to strand the source label in the dead air that left behind,
+   nowhere near the member it describes. The label is the free-text
+   field, so the slack belongs to it instead. */
+.income-grid {
+  display: grid; grid-template-columns: 200px 1fr 150px 40px;
+  align-items: center; gap: var(--space-4); padding: 9px var(--space-6);
+}
+/* The divider between rows, which the first row does not get. This was an
+   index test in the JSX (`idx ? border : none`); a row only ever follows
+   another row, so the adjacent-sibling selector says the same thing without
+   the map's index reaching into the style prop. */
+.income-grid + .income-grid { border-top: 1px solid var(--rule-faint); }
+.income-who { display: flex; align-items: center; gap: var(--space-4); min-width: 0; }
+/* No padding shorthand: it would set padding-right too, and
+   the .sel rule needs that side to hold the chevron it
+   paints there. */
+select.income-member {
+  min-width: 0; border: 1px solid transparent; background-color: transparent;
+  font-family: inherit; font-size: var(--text-13-5); font-weight: 500; color: var(--ink);
+  border-radius: var(--radius-3xs);
+  padding-top: 3px; padding-bottom: 3px; padding-left: var(--space-1);
+  cursor: pointer;
+}
+/* The source is free text and optional, so it sits a rung below the member
+   name it follows rather than matching .tinput's own weight and size. */
+.tinput.income-label { font-weight: 400; color: var(--ink-2); font-size: var(--text-13); }
+.income-add {
+  display: flex; gap: var(--space-2); padding: var(--space-4) var(--space-6);
+  border-top: 1px solid var(--rule-strong); background: var(--board);
+}

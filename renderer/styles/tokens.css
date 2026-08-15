@@ -142,10 +142,14 @@
      ladder would have to round every one of those decisions in some direction.
 
      Four fontSize sites deliberately have NO rung here and must not be given
-     one. DashboardCharts.jsx:23 (axisProps), :91 (MonthTick) and :219
-     (LabelList) hand fontSize to Recharts, which writes it as an SVG
-     presentation attribute rather than as CSS, so a var() would not resolve;
-     two of those are the 11px sites in the census above. components.jsx:384
+     one, for two different reasons. DashboardCharts.jsx:23 (axisProps) and
+     :219 (LabelList) hand fontSize to Recharts, which writes it as an SVG
+     presentation attribute rather than as CSS, so a var() would not resolve.
+     :91 (MonthTick) is NOT one of those - it is a plain button in an HTML flex
+     row - but its size has to stay equal to the value axisProps gives recharts
+     for its own ticks, and a number that must match another number belongs at
+     the same place as the number it matches. Two of the three are the 11px
+     sites in the census above. components.jsx:384
      computes the Avatar's size from its size prop at runtime and stays inline
      under the plan's inline-style rule. See
      docs/superpowers/plans/2026-08-15-renderer-styling-consolidation.md. */

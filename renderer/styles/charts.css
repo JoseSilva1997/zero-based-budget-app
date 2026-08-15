@@ -9,3 +9,186 @@
 
    ChartCard itself is in controls.css, since it is a shared primitive.
    ============================================================ */
+
+/* ---- the dashboard screen ----------------------------------------------- */
+
+/* A failed read of the month series. --breach carries the ordinary red of an
+   error affordance here, not a budget state; see the token's comment. */
+.dash-error {
+  display: flex; gap: 9px; align-items: flex-start;
+  background: var(--breach-soft); color: var(--breach-ink);
+  padding: 11px 14px; border-radius: var(--radius-sm);
+  font-size: var(--text-13); line-height: 1.45; margin-bottom: var(--space-6);
+}
+.dash-error-icon { flex: none; margin-top: 1px; }
+
+/* The whole-screen empty state, on top of .panel .empty from controls.css. */
+.dash-empty { margin-top: var(--space-6); }
+.dash-empty-title { font-weight: 600; color: var(--ink-2); }
+.dash-empty-note { font-size: var(--text-13); max-width: 340px; }
+
+/* `align-items: start` so a card sizes to its own content. Without it every
+   card in a row stretched to the tallest one, and "Category trends" - which on
+   a young household is a single sentence - was being held open to the 380px of
+   the savings chart beside it.
+
+   Wider gaps than the card grid used to need: with the chart boxes gone, the
+   space between charts is the only thing separating them. */
+.dash-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 64px 32px; margin-top: 52px; align-items: start;
+}
+
+/* ---- the shared tooltip -------------------------------------------------
+   The dark var(--ink) box. pointer-events: none because recharts positions it
+   under the cursor, and a box that could be hovered would chase the pointer
+   away from the mark it describes. */
+.dash-tip {
+  background: var(--ink); color: var(--on-ink);
+  padding: 7px var(--space-4); border-radius: var(--radius-2xs);
+  font-size: var(--text-12); box-shadow: var(--shadow-md);
+  white-space: nowrap; pointer-events: none;
+}
+.dash-tip-title { font-weight: 600; margin-bottom: var(--space-1); }
+/* A heading with no rows under it carries no gap below it. */
+.dash-tip-title.is-alone { margin-bottom: 0; }
+.dash-tip-row {
+  display: flex; align-items: center; gap: 7px;
+  opacity: 0.95; font-variant-numeric: tabular-nums;
+}
+/* The series swatch. Its fill is the series' own colour and stays inline. */
+.dash-tip-dot { width: 8px; height: 8px; border-radius: 2px; }
+.dash-tip-label { opacity: 0.75; }
+.dash-tip-value {
+  margin-left: auto; font-variant-numeric: tabular-nums lining-nums;
+  font-weight: 600;
+}
+
+/* ---- the too-thin-to-draw placeholder -----------------------------------
+   Left-aligned and short rather than centred in a well; the whole of that
+   argument is at ChartEmpty in DashboardCharts.jsx. */
+.chart-empty {
+  font-size: var(--text-13); color: var(--muted);
+  padding: 2px 0 var(--space-2); line-height: 1.5;
+}
+
+/* ---- the month axis -----------------------------------------------------
+   The x labels are real buttons; see the MonthAxis docstring in
+   DashboardCharts.jsx for why, and for why the row's own padding is arithmetic
+   computed against the chart's plot area and stays in the JSX.
+
+   font-size is NOT set here. The buttons are sized to match the value
+   axisProps hands recharts for its own ticks, so the two are one number with
+   one home, and that home is the JS. */
+.month-axis { display: flex; margin-top: 2px; }
+.month-axis.is-spread { justify-content: space-between; }
+
+.month-tick {
+  min-width: 0; padding: 3px 0; border: 0; border-radius: var(--radius-3xs);
+  background: transparent; font: inherit; line-height: 1.4; cursor: pointer;
+  color: var(--faint); text-decoration: none;
+  flex: 1 1 0;
+}
+/* Bars are centred in a band and an area's points sit on the plot edges, so a
+   spread row gives each label a fixed width (inline, from TICK_W) instead of an
+   equal share of the row. */
+.month-axis.is-spread .month-tick { flex: none; }
+.month-tick:hover { color: var(--ink); text-decoration: underline; }
+
+/* ---- 1. headline figures ------------------------------------------------ */
+.headline { margin-bottom: var(--space-2); }
+.headline-note {
+  font-size: var(--text-13); color: var(--muted); margin-bottom: var(--space-5);
+}
+
+/* One line, not a stack: the big figure leads and the two figures that
+   qualify it stand to its right behind hairline rules (the mockups'
+   arrangement). Wrapping still degrades it to a stack on a narrow
+   window. */
+.headline-row {
+  display: flex; align-items: center;
+  column-gap: 28px; row-gap: var(--space-6); flex-wrap: wrap;
+}
+.headline-lead { display: flex; align-items: baseline; gap: var(--space-5); }
+
+/* The one figure the screen exists for wears the accent - in the
+   lighter --accent-text blend, and a step bolder than the titles
+   around it. */
+.headline-figure {
+  font-size: var(--text-46); font-weight: 700; letter-spacing: -0.03em;
+  line-height: 1; color: var(--accent-text);
+}
+.headline-caption { font-size: var(--text-14); color: var(--muted); }
+
+/* One divider only, between the headline figure and this pair; the
+   pair itself is top-aligned so both numbers sit on the same line
+   even when one caption wraps and the other doesn't. */
+.headline-secondary {
+  display: flex; align-items: flex-start; gap: 28px;
+  padding-left: 28px; border-left: 1px solid var(--rule-faint);
+}
+.headline-stat-value { font-size: var(--text-20); font-weight: 600; line-height: 1.2; }
+.headline-stat-note {
+  font-size: var(--text-12); color: var(--faint); margin-top: 2px; max-width: 150px;
+}
+
+/* ---- 5. budget accuracy: the chart and the offenders list beside it ----- */
+.accuracy-split {
+  display: grid; grid-template-columns: 1.5fr 1fr;
+  gap: 24px; align-items: stretch;
+}
+/* Not .eyebrow: that utility is 11px on --ink-2, this label is 11.5px on
+   --faint, and reconciling them moves pixels. Noted for the deferred pass that
+   merges the five eyebrow variants. */
+.offender-head {
+  font-size: var(--text-11-5); text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--faint); font-weight: 600; margin-bottom: var(--space-3);
+}
+.offender-none {
+  display: flex; align-items: center; gap: var(--space-2);
+  font-size: var(--text-13); color: var(--muted);
+}
+.offender-none-icon { color: var(--accent); flex: none; }
+.offender-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-3); padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--rule-faint);
+}
+.offender-text { overflow: hidden; }
+/* This one DOES take .truncate: it is a block box inside .offender-text, not a
+   flex item, so the utility's min-width: 0 is the value it already computes to
+   and nothing moves. Contrast .trend-name below. */
+.offender-name { font-size: var(--text-12-5); color: var(--ink-2); }
+.offender-sub { font-size: var(--text-11); color: var(--faint); }
+.offender-count { flex: none; }
+
+/* ---- 6. category trends ------------------------------------------------- */
+.trend-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-4); padding: 9px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--rule-faint) 55%, transparent);
+}
+.trend-left { display: flex; align-items: center; gap: var(--space-3); overflow: hidden; }
+/* The ellipsis stack is written out rather than taking .truncate, because
+   .truncate also carries min-width: 0 and this span IS a flex item. Adding it
+   would let the name shrink and clip where today a long one widens the row,
+   which is a better layout and therefore a visual change this task may not
+   make. It belongs to whoever fixes the overflow on purpose. */
+.trend-name {
+  font-size: var(--text-13-5); font-weight: 500;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.trend-new { font-size: var(--text-10); flex: none; }
+.trend-right { display: flex; align-items: center; gap: var(--space-5); }
+.trend-amount { font-size: var(--text-12); color: var(--faint); }
+
+/* A trend that moved is not by itself good or bad in this domain: only
+   a genuine over-budget condition would earn red. The moving deltas
+   take the accent's text blend - theme colour, not a verdict - and a
+   flat 0% stays faint. */
+.trend-delta {
+  display: flex; align-items: center; gap: 3px; justify-content: flex-end;
+  color: var(--accent-ink); font-size: var(--text-13); font-weight: 600;
+  min-width: 58px;
+}
+.trend-delta.is-flat { color: var(--faint); }

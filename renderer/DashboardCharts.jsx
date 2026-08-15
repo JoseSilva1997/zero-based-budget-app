@@ -1,11 +1,10 @@
 /* ============================================================
    Dashboard chart toolkit - Recharts widgets + shared tooltip
    ============================================================ */
-import { useState } from 'react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
          AreaChart, Area, ComposedChart, Line, LabelList } from 'recharts';
 import { Icons } from './components.jsx';
-import { GROUP_PALETTE, fmt, round2 } from './lib/index.js';
+import { GROUP_PALETTE, cx, fmt, round2 } from './lib/index.js';
 
 /* short "Jan" style x-axis label from a "Jan 2025" series label */
 const shortMo = (label) => String(label).split(" ")[0];
@@ -34,13 +33,13 @@ function DashTooltip(props) {
     : payload.map(p => ({ label: p.name, color: p.color || p.fill, value: fmt(currency, p.value || 0, { cents: false }) }));
   if (hideZero) list = list.filter(r => r.raw == null ? true : r.raw > 0);
   return (
-    <div style={{ background: "var(--ink)", color: "var(--on-ink)", padding: "7px 10px", borderRadius: 8, fontSize: 12, boxShadow: "var(--shadow-md)", whiteSpace: "nowrap", pointerEvents: "none" }}>
-      <div style={{ fontWeight: 600, marginBottom: list.length ? 4 : 0 }}>{title}</div>
+    <div className="dash-tip">
+      <div className={cx("dash-tip-title", !list.length && "is-alone")}>{title}</div>
       {list.map((r, i) => (
-        <div key={i} style={{ display: "flex", alignItems: "center", gap: 7, opacity: 0.95, fontVariantNumeric: "tabular-nums" }}>
-          {r.color && <span style={{ width: 8, height: 8, borderRadius: 2, background: r.color }} />}
-          <span style={{ opacity: 0.75 }}>{r.label}</span>
-          <span style={{ marginLeft: "auto", fontVariantNumeric: "tabular-nums lining-nums", fontWeight: 600 }}>{r.value}</span>
+        <div key={i} className="dash-tip-row">
+          {r.color && <span className="dash-tip-dot" style={{ background: r.color }} />}
+          <span className="dash-tip-label">{r.label}</span>
+          <span className="dash-tip-value">{r.value}</span>
         </div>
       ))}
     </div>
@@ -53,7 +52,7 @@ function DashTooltip(props) {
    drawing something it left a large hole on the screen. It sits where the
    chart's first row of ink would have been instead. */
 function ChartEmpty({ note }) {
-  return <div style={{ fontSize: 13, color: "var(--muted)", padding: "2px 0 6px", lineHeight: 1.5 }}>{note}</div>;
+  return <div className="chart-empty">{note}</div>;
 }
 
 const colorOf = (names, name) => GROUP_PALETTE[Math.max(0, names.indexOf(name)) % GROUP_PALETTE.length];
@@ -79,20 +78,17 @@ const PLOT_LEFT = 48;  // YAxis width
 const PLOT_RIGHT = 8;  // chart margin.right
 const TICK_W = 40;     // fixed label width, so the edge labels can be centred
 
+/* The hover used to be React state driving two inline ternaries; it is
+   .month-tick:hover in charts.css now. fontSize stays here because it is the
+   same 11 axisProps hands recharts for its own ticks - one number with one
+   home - and it is a presentation attribute on that side, so it cannot be a
+   var(). */
 function MonthTick({ month, onOpenMonth, style }) {
-  const [hot, setHot] = useState(false);
   return (
-    <button type="button" onClick={() => onOpenMonth(month.id)}
-      onMouseEnter={() => setHot(true)} onMouseLeave={() => setHot(false)}
+    <button type="button" className="month-tick" onClick={() => onOpenMonth(month.id)}
       title={`Open ${month.label} in Month Budget`}
       aria-label={`Open ${month.label} in Month Budget`}
-      style={{
-        minWidth: 0, padding: "3px 0", border: 0, borderRadius: 6, background: "transparent",
-        font: "inherit", fontSize: 11, lineHeight: 1.4, cursor: "pointer",
-        color: hot ? "var(--ink)" : "var(--faint)",
-        textDecoration: hot ? "underline" : "none",
-        ...style,
-      }}>
+      style={{ fontSize: 11, ...style }}>
       {shortMo(month.label)}
     </button>
   );
@@ -100,15 +96,20 @@ function MonthTick({ month, onOpenMonth, style }) {
 
 function MonthAxis({ series, onOpenMonth, spread }) {
   if (!series.length || typeof onOpenMonth !== "function") return null;
-  const box = { display: "flex", paddingLeft: PLOT_LEFT, paddingRight: PLOT_RIGHT, marginTop: 2 };
+  /* Geometry, not decoration: these three lengths are how the row is squared
+     up with the chart's own plot area, and each is read by a recharts prop as
+     well (YAxis width, chart margin.right). Duplicating them into CSS would
+     make the alignment two numbers that have to be kept equal by hand, so the
+     arithmetic stays here and only the flex layout is a class. */
+  const box = { paddingLeft: PLOT_LEFT, paddingRight: PLOT_RIGHT };
   const style = spread
-    ? { ...box, justifyContent: "space-between", marginLeft: -TICK_W / 2, marginRight: -TICK_W / 2 }
+    ? { ...box, marginLeft: -TICK_W / 2, marginRight: -TICK_W / 2 }
     : box;
   return (
-    <div style={style}>
+    <div className={cx("month-axis", spread && "is-spread")} style={style}>
       {series.map((m) => (
         <MonthTick key={m.id} month={m} onOpenMonth={onOpenMonth}
-          style={spread ? { width: TICK_W, flex: "none" } : { flex: "1 1 0" }} />
+          style={spread ? { width: TICK_W } : undefined} />
       ))}
     </div>
   );
@@ -147,32 +148,25 @@ function HeadlineStats({ allSeries, series, currency }) {
   ];
 
   return (
-    <div style={{ marginBottom: 6 }}>
+    <div className="headline">
       {!hasActuals && (
-        <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 12 }}>Track a month to see your overview build up here.</div>
+        <div className="headline-note">Track a month to see your overview build up here.</div>
       )}
-      {/* One line, not a stack: the big figure leads and the two figures that
-          qualify it stand to its right behind hairline rules (the mockups'
-          arrangement). Wrapping still degrades it to a stack on a narrow
-          window. */}
-      <div style={{ display: "flex", alignItems: "center", columnGap: 28, rowGap: 16, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
-          {/* The one figure the screen exists for wears the accent - in the
-              lighter --accent-text blend, and a step bolder than the titles
-              around it. */}
-          <span className="num" style={{ fontSize: 46, fontWeight: 700, letterSpacing: "-0.03em", lineHeight: 1, color: "var(--accent-text)" }}>
+      {/* The arrangement's reasoning - one line rather than a stack, the
+          hairline divider, the accent on the one figure that matters - moved
+          with the rules into styles/charts.css. */}
+      <div className="headline-row">
+        <div className="headline-lead">
+          <span className="num headline-figure">
             {fmt(currency, totalSaved, { cents: false })}
           </span>
-          <span style={{ fontSize: 14, color: "var(--muted)" }}>set aside, all time</span>
+          <span className="headline-caption">set aside, all time</span>
         </div>
-        {/* One divider only, between the headline figure and this pair; the
-            pair itself is top-aligned so both numbers sit on the same line
-            even when one caption wraps and the other doesn't. */}
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 28, paddingLeft: 28, borderLeft: "1px solid var(--rule-faint)" }}>
+        <div className="headline-secondary">
           {secondary.map((s) => (
             <div key={s.label}>
-              <div className="num" style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.2 }}>{s.value}</div>
-              <div style={{ fontSize: 12, color: "var(--faint)", marginTop: 2, maxWidth: 150 }}>{s.label} {s.note}</div>
+              <div className="num headline-stat-value">{s.value}</div>
+              <div className="headline-stat-note">{s.label} {s.note}</div>
             </div>
           ))}
         </div>
@@ -289,7 +283,7 @@ function BudgetAccuracyChart({ series, currency, onOpenMonth }) {
   const summary = `Bar chart of allocated against actual for ${n} month${n === 1 ? "" : "s"}, ${span(series)}. `
     + (overspent === 0 ? "Actual stayed within the allocation every month." : `Actual came in over the allocation in ${overspent} of them.`);
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 24, alignItems: "stretch" }}>
+    <div className="accuracy-split">
       <div>
         {series.length ? (
           <>
@@ -322,18 +316,18 @@ function BudgetAccuracyChart({ series, currency, onOpenMonth }) {
         {/* "Chronically over budget" was a diagnosis, and the thing being
             diagnosed is the household reading it. This says the same thing
             about the same rows without the verdict attached. */}
-        <div style={{ fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--faint)", fontWeight: 600, marginBottom: 8 }}>Runs over most often</div>
+        <div className="offender-head">Runs over most often</div>
         {offenders.length === 0 ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--muted)" }}>
-            <Icons.check size={14} style={{ color: "var(--accent)", flex: "none" }} /> Nothing has run over budget.
+          <div className="offender-none">
+            <Icons.check size={14} className="offender-none-icon" /> Nothing has run over budget.
           </div>
         ) : offenders.map(o => (
-          <div key={o.k} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 0", borderBottom: "1px solid var(--rule-faint)" }}>
-            <div style={{ overflow: "hidden" }}>
-              <div style={{ fontSize: 12.5, color: "var(--ink-2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.k}</div>
-              <div style={{ fontSize: 11, color: "var(--faint)" }}>over in {o.count} of {n} {n === 1 ? "month" : "months"} · avg {fmt(currency, o.avgOver, { cents: false })}</div>
+          <div key={o.k} className="offender-row">
+            <div className="offender-text">
+              <div className="offender-name truncate">{o.k}</div>
+              <div className="offender-sub">over in {o.count} of {n} {n === 1 ? "month" : "months"} · avg {fmt(currency, o.avgOver, { cents: false })}</div>
             </div>
-            <span className="pill pill-breach" style={{ flex: "none" }}>{o.count}×</span>
+            <span className="pill pill-breach offender-count">{o.count}×</span>
           </div>
         ))}
       </div>
@@ -369,20 +363,18 @@ function CategoryTrends({ series, currency }) {
       {rows.map(row => {
         const up = row.isNew ? true : row.pct > 0;
         const flat = !row.isNew && row.pct === 0;
-        // A trend that moved is not by itself good or bad in this domain: only
-        // a genuine over-budget condition would earn red. The moving deltas
-        // take the accent's text blend - theme colour, not a verdict - and a
-        // flat 0% stays faint.
-        const color = flat ? "var(--faint)" : "var(--accent-ink)";
+        // Why a moved trend is not painted as a verdict, and why a flat 0%
+        // stays faint, moved with the colours onto .trend-delta in
+        // styles/charts.css.
         return (
-          <div key={row.g} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 0", borderBottom: "1px solid color-mix(in srgb, var(--rule-faint) 55%, transparent)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}>
-              <span style={{ fontSize: 13.5, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.g}</span>
-              {row.isNew && <span className="pill pill-neutral" style={{ fontSize: 10, flex: "none" }}>new</span>}
+          <div key={row.g} className="trend-row">
+            <div className="trend-left">
+              <span className="trend-name">{row.g}</span>
+              {row.isNew && <span className="pill pill-neutral trend-new">new</span>}
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <span className="num" style={{ fontSize: 12, color: "var(--faint)" }}>{fmt(currency, row.r, { cents: false })}/mo</span>
-              <span style={{ display: "flex", alignItems: "center", gap: 3, color, fontSize: 13, fontWeight: 600, minWidth: 58, justifyContent: "flex-end" }}>
+            <div className="trend-right">
+              <span className="num trend-amount">{fmt(currency, row.r, { cents: false })}/mo</span>
+              <span className={cx("trend-delta", flat && "is-flat")}>
                 {row.isNew ? "new" : (
                   <>
                     {!flat && (up ? <Icons.up size={14} /> : <Icons.down size={14} />)}

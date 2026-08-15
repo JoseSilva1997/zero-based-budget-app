@@ -94,8 +94,15 @@ input { font-family: inherit; }
 }
 
 /* The small-caps section label, for the four INLINE copies in Accounts.jsx and
-   Settings.jsx only. The tracking is what makes it legible: uppercase at
-   11.5px sets tight, and 0.06em is the value those inline copies already use.
+   Settings.jsx only. The tracking is what makes it legible: uppercase at 11px
+   sets tight, and 0.06em is the value those inline copies already use.
+
+   This was written at 11.5px for one phase, which matched none of its four
+   call sites; all four measure 11px. Two migrations hit the mismatch, each
+   refused to round it away, and each added its own override believing the
+   other file was the odd one out. Neither was. Recorded because the near miss
+   is the argument for the never-snap rule: a half pixel is exactly the size of
+   error that survives review.
 
    .nav-label, .move-menu-label, .section-head h2 and .debug-menu-head are the
    same idea at four other sizes, trackings and inks. They are deliberately NOT
