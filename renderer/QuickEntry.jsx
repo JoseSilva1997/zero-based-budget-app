@@ -227,7 +227,11 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
   if (items.length === 0) {
     return (
       <>
-        <div className="section-head"><h2>Quick entry</h2></div>
+        {/* Tighter than the default section-head gap: Income and Quick entry
+            are both low-stakes "money in / log a spend" strips ahead of the
+            real work surface, and reading as a pair says so. Allocations,
+            what the page is actually for, gets the generous gap instead. */}
+        <div className="section-head" style={{ marginTop: 20 }}><h2>Quick entry</h2></div>
         <div className="panel empty" style={{ padding: "30px" }}>
           <div className="empty-icon"><Icons.coins size={20} /></div>
           <div style={{ fontSize: 14 }}>Add a group and some items below, then log your spending from here.</div>
@@ -238,7 +242,11 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
 
   return (
     <>
-      <div className="section-head">
+      {/* Tighter than the default section-head gap: Income and Quick entry
+          are both low-stakes "money in / log a spend" strips ahead of the
+          real work surface, and reading as a pair says so. Allocations,
+          what the page is actually for, gets the generous gap instead. */}
+      <div className="section-head" style={{ marginTop: 20 }}>
         <h2>Quick entry</h2>
         {/* The number is the live figure, so it reads as one: full ink at 600,
             with the label staying muted beside it - same recipe as Income's

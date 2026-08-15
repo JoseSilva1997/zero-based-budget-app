@@ -65,16 +65,21 @@ function IncomeSection({ mo, currency, members, dispatch, month }) {
         )}
         {mo.incomes.map((inc, idx) => {
           const m = members.find(x => x.id === inc.memberId) || members[0];
+          // The member cell is fixed rather than the flexible column: it only
+          // ever holds an avatar and a short name, and giving it the 1fr used
+          // to strand the source label in the dead air that left behind,
+          // nowhere near the member it describes. The label is the free-text
+          // field, so the slack belongs to it instead.
           return (
-            <div className="income-row" key={inc.id} style={{ display: "grid", gridTemplateColumns: "1fr 200px 150px 40px", alignItems: "center", gap: 10, padding: "9px 16px", borderTop: idx ? "1px solid var(--rule-faint)" : "none" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div className="income-row" key={inc.id} style={{ display: "grid", gridTemplateColumns: "200px 1fr 150px 40px", alignItems: "center", gap: 10, padding: "9px 16px", borderTop: idx ? "1px solid var(--rule-faint)" : "none" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
                 <Avatar member={m} />
                 <select value={inc.memberId} aria-label="Who this income belongs to" onChange={(e) => dispatch({ type: "updateIncome", month, id: inc.id, patch: { memberId: e.target.value } })}
                   className="sel"
                   /* No padding shorthand: it would set padding-right too, and
                      the .sel rule needs that side to hold the chevron it
                      paints there. */
-                  style={{ border: "1px solid transparent", backgroundColor: "transparent", fontFamily: "inherit", fontSize: 13.5, fontWeight: 500, color: "var(--ink)", borderRadius: 6, paddingTop: 3, paddingBottom: 3, paddingLeft: 4, cursor: "pointer" }}>
+                  style={{ minWidth: 0, border: "1px solid transparent", backgroundColor: "transparent", fontFamily: "inherit", fontSize: 13.5, fontWeight: 500, color: "var(--ink)", borderRadius: 6, paddingTop: 3, paddingBottom: 3, paddingLeft: 4, cursor: "pointer" }}>
                   {members.map(mm => <option key={mm.id} value={mm.id}>{mm.name}</option>)}
                 </select>
               </div>

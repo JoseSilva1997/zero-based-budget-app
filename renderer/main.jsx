@@ -80,7 +80,11 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
 
       <QuickEntrySection mo={mo} month={mid} currency={currency} dispatch={dispatch} />
 
-      <div className="section-head">
+      {/* Wider than the default section-head gap, and wider than the gap
+          Income and Quick entry share above it: this is the page's actual
+          work surface, not one more strip of setup, and the break says so
+          before a single row of it is on screen. */}
+      <div className="section-head" style={{ marginTop: 42 }}>
         <h2>Allocations</h2>
         {/* Same grid as the rows below, plus a leading cell for their 26px drag
             handle, so each label sits over the column it names. */}
