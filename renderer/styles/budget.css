@@ -6,16 +6,14 @@
 
 /* ---- the budget grid recipe ----------------------------------------------
    Five call sites draw the same table: the column head above it, the item row,
-   the group header, and the two rows inside an opened item's entry tray. Every
-   one of them used to hand-write the tracks, the alignment and the gap in its
-   own inline style, so the table's geometry was stated five times and agreed
-   by hand. It is stated once here instead.
+   the group header, and the two rows inside an opened item's entry tray. The
+   table's geometry is stated once, here.
 
-   What actually differs between the five stays with each variant below rather
-   than being forced into this rule: the paddings are not the same, the entry
-   rows carry a height instead, and the column head needs one extra leading
-   track for the 26px drag handle the rows sit beside. --budget-cols itself
-   lives in tokens.css and narrows at both breakpoints. */
+   What differs between the five stays with each variant below rather than
+   being forced into this rule: the paddings are not the same, the entry rows
+   carry a height instead, and the column head needs one extra leading track
+   for the 26px drag handle the rows sit beside. --budget-cols itself lives in
+   tokens.css and narrows at both breakpoints. */
 .budget-row, .budget-colhead, .entry-row, .entry-add-row {
   display: grid; grid-template-columns: var(--budget-cols);
   align-items: center; gap: var(--space-4);
@@ -28,11 +26,8 @@
 .budget-row-item { min-height: var(--row-h); }
 
 /* ---- the Allocations table's three levels --------------------------------
-   Group header, item row, spending entry. All three were near-black bands
-   separated by hairlines, and the header was the darkest of them, so the
-   deepest level on the page looked like the shallowest. Depth is carried by
-   accent presence now (see the wash tokens in layer 3); the hairlines stay
-   and do the fine work.
+   Group header, item row, spending entry. Depth is carried by accent presence
+   (see the wash tokens in layer 3); the hairlines do the fine work.
 
    Level 1. The group header, and the only washed band on the page. The top
    highlight is the same inset .panel-feature uses, so a card that opens with
@@ -75,10 +70,9 @@
 }
 
 /* The column labels over the Allocations table, and the rule that grounds
-   them. Both were absent: the labels floated over the first group card with
-   nothing tying them to the columns they name. The rule is the app's own
-   dissolving hairline (see ChartCard in components.jsx), accent-tinted at the
-   centre - it belongs to the table below it, not to the heading above. */
+   them. The rule is the app's own dissolving hairline (see ChartCard in
+   components.jsx), accent-tinted at the centre - it belongs to the table below
+   it, not to the heading above. */
 .budget-colhead {
   flex: 1; min-width: 0;
   grid-template-columns: 26px var(--budget-cols);
@@ -101,11 +95,11 @@
    The outer wrapper: the drop target, the drag ghost, and the rule between one
    row and the next.
 
-   The first row draws no rule of its own: the group header above it
-   already closes with one, in --rule-strong, and the two abutted into a
-   2px double line under every header. A drop target still gets its
+   The first row draws no rule of its own: the group header above it already
+   closes with one, in --rule-strong, and without .is-first the two would abut
+   into a 2px double line under every header. A drop target still gets its
    accent edge wherever it lands - that one is a drag affordance, not a
-   divider, and has to be seen on the first row as much as any other. That is
+   divider, and has to be seen on the first row as much as any other, which is
    why .is-drop-target is declared after .is-first rather than before it. */
 .item-row { border-top: 1px solid var(--rule); transition: background .12s; }
 .item-row.is-first { border-top: none; }
@@ -124,9 +118,8 @@
 .item-acct-cell { padding-left: var(--space-3); min-width: 0; }
 
 /* The button that opens an item's entry tray. Open, this is the control that
-   owns the tray below, so it takes the accent as a selection state rather
-   than the anonymous --well it used to lift to: the row, the button and the
-   tray are then the same colour event down the page. */
+   owns the tray below, so it takes the accent as a selection state: the row,
+   the button and the tray are then the same colour event down the page. */
 .item-spend-btn {
   display: flex; align-items: center; justify-content: flex-end; gap: 7px;
   background: transparent; border: 1px solid transparent; border-radius: 7px;
@@ -172,14 +165,9 @@
 .entry-add-name, .entry-add-note { height: 32px; }
 .entry-amount-cell { position: relative; height: 32px; }
 .entry-amount-input { padding-left: var(--space-3); height: 32px; font-size: var(--text-13); }
-/* The arithmetic preview over the add-spend amount field used to be written
-   out here as .entry-amount-preview: the same box as .field-chip in
-   controls.css (which MoneyInput uses) but 2px further right and without the
-   shadow, and byte for byte the same box as .qe-amt-preview in quickentry.css.
-   That merge has happened. The nine shared declarations are .field-chip and
-   the two that differ are .field-chip-tight, both in controls.css, and the
-   call site in MonthGroups.jsx now reads `num field-chip field-chip-tight`.
-   Neither difference was normalised away; see the note at .field-chip-tight. */
+/* The arithmetic preview over the add-spend amount field is drawn by
+   .field-chip plus .field-chip-tight, both in controls.css; the call site in
+   MonthGroups.jsx reads `num field-chip field-chip-tight`. */
 .entry-add-btn { height: 32px; white-space: nowrap; }
 
 /* ---- add an item ---------------------------------------------------------
@@ -195,19 +183,17 @@
   border-radius: var(--radius-2xs); overflow: hidden; background: var(--well);
 }
 /* The candidate button is .picker-option in controls.css, which quick entry's
-   suggestion rows also take: the two were the same eleven declarations written
-   out on two screens. This min-height is the one thing that was never shared -
-   a candidate row is held open to 40px, a suggestion row is not - so it is all
-   that is left here. It is NOT pushed onto .picker-option: doing so would grow
-   quick entry's suggestion rows, which is a visual change.
-   .add-item-text and .add-item-name went the same way, into
-   .picker-option-text and .picker-option-name; .add-item-sub and
-   .add-item-amt stayed, being genuinely different from their opposite numbers
-   (see the notes at .qe-sugg-sub and .qe-sugg-amt). */
+   suggestion rows also take. This min-height is the one thing the two do not
+   share - a candidate row is held open to 40px, a suggestion row is not - so
+   it is all that is here. Do NOT push it onto .picker-option: that would grow
+   quick entry's suggestion rows, which is a visual change. The text and name
+   spans are .picker-option-text and .picker-option-name; .add-item-sub and
+   .add-item-amt are genuinely different from their opposite numbers (see the
+   notes at .qe-sugg-sub and .qe-sugg-amt). */
 .add-item-option { min-height: 40px; }
 /* The hairline goes BETWEEN candidates, so the first one draws none and does
-   not double up with the results box's own top edge. It stays (0,2,0), so it
-   still outranks the `border: 0` .picker-option carries for the button reset. */
+   not double up with the results box's own top edge. It is (0,2,0), so it
+   outranks the `border: 0` .picker-option carries for the button reset. */
 .add-item-option + .add-item-option { border-top: 1px solid var(--rule-faint); }
 .add-item-sub { display: block; font-size: var(--text-11); color: var(--muted); margin-top: 2px; }
 .add-item-amt { font-size: var(--text-12); color: var(--ink-2); white-space: nowrap; }
@@ -223,13 +209,12 @@
 .group-name-wrap { display: flex; flex: 1 1 auto; min-width: 0; }
 .group-name-input { font-weight: 600; font-size: var(--text-15); min-width: 0; }
 .group-savings-pill { flex: none; }
-/* Allocated is the plan and stays a plain figure; actual is money
-   that moved, and in the month bar money that moved is the solid
-   accent, so the group's actual total is where the table says the
-   same thing. It also fixes an inversion: actual used to be the
-   DIMMER of the two at --ink-2, which read as the plan mattering
-   more than what actually happened. Over budget, the breach owns
-   the figure instead - one hue per row, and the loudest wins. */
+/* Allocated is the plan and stays a plain figure; actual is money that moved,
+   and in the month bar money that moved is the solid accent, so the group's
+   actual total is where the table says the same thing. Actual must not be the
+   dimmer of the two, which would read as the plan mattering more than what
+   happened. Over budget, the breach owns the figure instead - one hue per row,
+   and the loudest wins. */
 .group-alloc, .group-actual { text-align: right; font-size: var(--text-13); font-weight: 600; }
 .group-alloc { padding-right: var(--space-3); }
 .group-actual { color: var(--accent-text); padding-right: 9px; }
@@ -244,35 +229,30 @@
 .group-empty.is-append-target { color: var(--ink-2); background: var(--accent-soft); }
 .group-foot { background: var(--board); border-top: 1px solid var(--rule-faint); padding: var(--space-1) 0; transition: background .12s; }
 .group-foot.is-append-target { background: var(--accent-soft); }
-/* The "Add item" button. Its ink was set inline, which also pinned it through
-   hover, because .btn-ghost:hover's lift to --ink cannot outrank a style
-   attribute. Both states are spelled out here so the rendering is unchanged;
-   whether that hover lift was wanted is a design question and not a
-   refactor's to answer. */
+/* The "Add item" button. Both states are spelled out on purpose: the button
+   holds --muted through hover rather than taking .btn-ghost:hover's lift to
+   --ink. */
 .group-add-btn, .group-add-btn:hover { color: var(--muted); }
 .group-add-btn { margin: var(--space-3) var(--space-4); }
 
 /* A row in a panel that stacks rows: Settings, mostly. The hairline goes
-   BETWEEN rows, which means the first row in a panel draws none. Every row set
-   this border inline, first row included, so six sections opened with a second
-   line one pixel inside the panel's own top edge, cutting the full width of the
-   container. Inline styles are unreachable from a :first-child rule, which is
-   why the border lives here now rather than at each call site. The second
-   selector reaches Shortcuts, whose rows sit one level further in, inside a
-   wrapper per section. */
+   BETWEEN rows, which means the first row in a panel draws none. It has to be
+   stated here rather than at the call sites, because an inline border is
+   unreachable from a :first-child rule and every panel would open with a
+   second line one pixel inside its own top edge. The second selector reaches
+   Shortcuts, whose rows sit one level further in, inside a wrapper per
+   section. */
 .set-row { border-top: 1px solid var(--rule-faint); }
 .panel > .set-row:first-child,
 .panel > :first-child > .set-row:first-child { border-top: none; }
 
 /* Drag handles are keyboard-operable, so they need resting, hover and focus
-   states of their own. The whole of the handle is drawn here now, its --faint
-   glyph colour included: that colour used to be set inline in JSX, where this
-   rule could not reach it. The outline is inset because the handle sits flush
+   states of their own. The outline is inset because the handle sits flush
    against the left edge of its row.
 
-   Square, because the rows are. An item row draws no radius of its own, so the
-   8px this used to carry made the hover fill the one rounded thing in a column
-   of square ones, floating inside a row it is meant to be part of. */
+   Square, because the rows are. An item row draws no radius of its own, so a
+   radius here would make the hover fill the one rounded thing in a column of
+   square ones, floating inside a row it is meant to be part of. */
 .drag-handle {
   display: flex; align-items: center; justify-content: center;
   width: 26px; flex: none; cursor: grab; color: var(--faint);
@@ -286,8 +266,8 @@
    floating inside it: it is filled with --board against the card's --raised,
    and the card clips to --radius-lg. So it takes the card's own curve on the
    corner it actually occupies and stays square on the three that are interior.
-   Rounded on all four, it left the card's fill showing through as a wedge at
-   each of those three and stopped short of the card's curve at the outer one.
+   Rounded on all four, it leaves the card's fill showing through as a wedge at
+   each of those three and stops short of the card's curve at the outer one.
    The curve is 1px tighter than the card's: the border is drawn outside what
    the card clips, so its inner edge is where the handle has to meet it.
    A collapsed group's header IS the whole card, so its handle owns the
@@ -300,8 +280,7 @@
    rather than up beside .group-head: the two selectors have identical
    specificity, so the later one wins, and .drag-handle's transparent fill is
    the one that would otherwise take it. Hover is spelled out for the same
-   reason - the handle used to carry its fill inline, where .drag-handle:hover
-   could not reach it at all. */
+   reason: .drag-handle:hover would otherwise wash the header's fill away. */
 .group-head-handle, .group-head-handle:hover { background: var(--wash-head); transition: background-color .14s; }
 .group-head-handle.is-over, .group-head-handle.is-over:hover { background: var(--wash-breach); }
 /* The handle closes the header band with the same rule the band itself draws,
@@ -311,15 +290,9 @@
 .group-head-handle { border-bottom: 1px solid var(--rule-strong); }
 .group-head-handle.is-collapsed { border-bottom: none; }
 
-/* No focus ring here: `.copy-opt:focus-within` in the stylesheet draws it from
-   the off-screen radio inside, so the two cannot disagree. */
-/* The copy / start-empty option cards in the new-month dialog. Their fill and
-   border carry the selected state and are reachable from here now, on
-   .copy-opt.is-on, rather than being written by a JS function at each call
-   site. Hover stays the shadow lift it became while the fill was out of reach:
-   moving hover onto the fill is what this rule would now prefer, but it would
-   change what is on screen, and this pass is not permitted to. Focus gets a
-   ring the label never had. */
+/* The copy / start-empty option cards in the new-month dialog. The fill and
+   border carry the selected state, on .copy-opt.is-on; hover is a shadow lift
+   rather than a second fill, so the two states cannot be confused. */
 .copy-opt {
   position: relative; display: flex; gap: var(--space-5);
   padding: 13px 14px; border-radius: 11px;
@@ -344,9 +317,9 @@
 .copy-opt-title { display: block; font-weight: 600; font-size: var(--text-14); cursor: pointer; }
 .copy-opt-sub { font-size: var(--text-12); color: var(--muted); margin-top: 2px; }
 .copy-opt-extra { display: flex; align-items: center; gap: var(--space-3); margin-top: var(--space-4); font-size: var(--text-13); color: var(--ink-2); }
-/* .dialog-actions in controls.css is this row plus a margin-top the dialog does
-   not want here, the radiogroup above already carrying its own bottom margin.
-   Merge candidate, not a merge. */
+/* Not .dialog-actions from controls.css: that is this row plus a margin-top
+   this dialog does not want, the radiogroup above already carrying its own
+   bottom margin. */
 .new-month-actions { display: flex; gap: var(--space-3); justify-content: flex-end; }
 .new-month-note { margin-top: 14px; font-size: var(--text-11); color: var(--faint); display: flex; align-items: center; gap: var(--space-2); }
 
@@ -360,9 +333,8 @@
 }
 .acct-chip:hover { border-color: var(--rule-strong); color: var(--ink); }
 /* The chip's real focus target is the invisible select stretched across it, so
-   the generic :focus-visible outline was being painted on an opacity: 0 box and
-   every funding-account chip in the budget was keyboard-reachable with nothing
-   to show for it. The ring goes on the chip instead, and the select's own
+   the ring has to go on the chip: a :focus-visible outline on the select is
+   painted on an opacity: 0 box and shows nothing at all. The select's own
    outline is dropped so there is exactly one indicator. */
 .acct-chip:focus-within { box-shadow: var(--ring); border-color: var(--accent); color: var(--ink); }
 .acct-chip-empty { color: var(--faint); background: transparent; border: 1px dashed var(--rule-strong); }
@@ -373,9 +345,10 @@
 }
 .acct-chip select:focus-visible { outline: none; }
 
-/* Hidden row actions stay unreachable until the row is engaged: opacity alone
-   left a delete button focusable while invisible. Focus reveals them too, so
-   keyboard users can reach what the mouse reveals on hover. */
+/* Hidden row actions stay unreachable until the row is engaged: pointer-events
+   as well as opacity, or a delete button is focusable while invisible. Focus
+   reveals them too, so keyboard users can reach what the mouse reveals on
+   hover. */
 .row-actions { display: flex; align-items: center; gap: 2px; opacity: 0; pointer-events: none; transition: opacity .14s; }
 .budget-row:hover .row-actions, .income-row:hover .row-actions, .set-row:hover .row-actions,
 .budget-row:focus-within .row-actions, .income-row:focus-within .row-actions, .set-row:focus-within .row-actions { opacity: 1; pointer-events: auto; }

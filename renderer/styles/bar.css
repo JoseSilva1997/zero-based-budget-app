@@ -12,15 +12,9 @@
    how to get one. */
 .bar-note { margin-top: var(--space-4); font-size: var(--text-13); color: var(--muted); }
 
-/* The figures above the track. Aligned on their baselines rather than their
-   boxes, because the two sides are set at 12px and 19px and it is the baseline
-   the eye reads them along.
-
-   Recorded after develop's redesign merged in: the row itself is 12px and the
-   two figures inside it are now 16px (spent) and 18px (income), so the two
-   sizes the sentence above names are no longer the two sizes on the row. The
-   reasoning it gives is unchanged - the row still mixes sizes and still has to
-   sit on one baseline - so the comment is kept whole rather than rewritten.
+/* The figures above the track. The row mixes sizes, so the two sides are
+   aligned on their baselines rather than their boxes: the baseline is what the
+   eye reads them along.
 
    The row carries the 12px and the --muted for both of its sides, so neither
    span has to restate them; only the figures step out of it. */
@@ -40,10 +34,8 @@
    hasBeyond in MonthBar.jsx for why the two must never be conflated. */
 .bar-figure.is-over { color: var(--breach-ink); }
 /* The income figure is the one the others are measured against, so it is set a
-   notch larger than them. 18px had no rung when develop's redesign arrived; it
-   has --text-18 now, added for this, because the answer to a new size is a new
-   rung and never rounding it into 17 or 19. See the never-snap rule in
-   tokens.css. */
+   notch larger than them. The answer to a new size is a new rung, never
+   rounding it into a neighbouring one; see the never-snap rule in tokens.css. */
 .bar-figure-income { margin-left: var(--space-3); font-size: var(--text-18); }
 
 /* The bullets beside the figures echo the bar's own paint: a solid dot for
@@ -52,12 +44,13 @@
    leaving the track bare and outlined in --rule-strong, not by filling it.
 
    The two paints are spelled out here as the same one-stop gradients PAINT's
-   flat() builds, rather than as the plain colours they are equivalent to. That
-   equivalence is not exact in the raster: swapping linear-gradient(c, c) for c
-   moved 32 pixels across the two dots by one 255th, which is a visual change
-   however invisible, so the gradient stays. If PAINT.spent or PAINT.allocated
-   is ever revalued, these two have to follow by hand - CSS cannot read the
-   table, and that is the cost of the bullets echoing the bar at all. */
+   flat() builds, rather than as the plain colours they are equivalent to. The
+   equivalence is not exact in the raster: Chromium paints linear-gradient(c, c)
+   and c a fraction apart, worth 32 pixels across these two dots differing by
+   one part in 255. It is a visual change however invisible, so the gradient
+   form stays. If PAINT.spent or PAINT.allocated is ever revalued, these two
+   have to follow by hand - CSS cannot read the table, and that is the cost of
+   the bullets echoing the bar at all. */
 .bar-dot {
   display: inline-block; width: 6px; height: 6px;
   border-radius: 50%; margin-right: var(--space-2); vertical-align: middle;
@@ -81,34 +74,29 @@
   background: var(--well);
   overflow: hidden;
   /* Isolates the region transitions (width, see MonthBar.jsx) from the rest
-     of the page, same reasoning as .update-banner-track's transform
-     transition above. */
+     of the page. */
   contain: layout paint;
 }
 /* The vessel outline. The track is drawn, not merely implied: --well is
-   within a percent of --board, so without this an unallocated month rendered
+   within a percent of --board, so without this an unallocated month renders
    as a fill floating in nothing.
 
-   --rule, not --rule-strong. The strong weight is the ramp's boundary token
-   and it was the right call while this line was the only thing marking how
-   much room was left - but it is no longer carrying that alone. The fills
-   start at the left edge and end in a cap now, so the outline's job is to
-   describe the vessel, not to measure it, and at --rule-strong it drew
-   harder than the money inside it. --rule-faint is a step too far the other
-   way: it is 1.03:1 against the plan fill, so the ring would vanish exactly
-   where it crosses the allocated band and break the thing this outline
-   exists to be.
+   --rule, not --rule-strong. The fills start at the left edge and end in a
+   cap, so the outline's job is to describe the vessel, not to measure it, and
+   at --rule-strong it draws harder than the money inside it. --rule-faint is
+   a step too far the other way: it is 1.03:1 against the plan fill, so the
+   ring would vanish exactly where it crosses the allocated band and break the
+   thing this outline exists to be.
 
    It is a pseudo-element rather than a box-shadow on .bar-track itself
-   because an inset shadow paints BENEATH the element's children. Every fill
-   buried the top and bottom of the line along its own length, so the outline
-   survived only where the track happened to be bare - a vessel interrupted
-   by its own contents, and the interruption moved as the month filled up.
-   ::after is the last thing painted inside the track, so the hairline now
-   runs unbroken around the whole bar and the fills are simply what is inside
-   it. The unallocated remainder needs no treatment of its own: it is the
-   stretch of the ring with nothing behind it, and reads hollow for exactly
-   that reason. */
+   because an inset shadow paints BENEATH the element's children: every fill
+   would bury the top and bottom of the line along its own length, leaving the
+   outline only where the track happens to be bare, and the interruption would
+   move as the month filled up. ::after is the last thing painted inside the
+   track, so the hairline runs unbroken around the whole bar and the fills are
+   simply what is inside it. The unallocated remainder needs no treatment of
+   its own: it is the stretch of the ring with nothing behind it, and reads
+   hollow for exactly that reason. */
 .bar-track::after {
   content: "";
   position: absolute; inset: 0;
@@ -123,7 +111,7 @@
    colour sits under every fill as its background-colour and each region's
    own paint arrives as a background-image on top: the stack composites
    correctly without every entry in the paint table having to be opaque, and
-   the hatches' --well band is now literally the colour beneath them.
+   the hatches' --well band is literally the colour beneath them.
 
    The transition is on width and not on transform: it is a constant, so it
    lives here rather than beside the percentage the JSX computes, but WHY it

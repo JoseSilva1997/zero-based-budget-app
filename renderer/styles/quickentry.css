@@ -11,11 +11,7 @@
    Tighter than the default section-head gap: Income and Quick entry
    are both low-stakes "money in / log a spend" strips ahead of the
    real work surface, and reading as a pair says so. Allocations,
-   what the page is actually for, gets the generous gap instead.
-
-   Stated once here rather than twice in the JSX: the empty state and the
-   populated one drew the same head and carried two copies of the comment
-   above, which is the whole of what they had in common. */
+   what the page is actually for, gets the generous gap instead. */
 .qe-head { margin-top: 20px; }
 
 /* The number is the live figure, so it reads as one: full ink at 600,
@@ -69,16 +65,13 @@
   overflow: hidden; background: var(--raised); box-shadow: var(--shadow-lg);
 }
 /* The hairline goes BETWEEN suggestions, so the first one draws none and does
-   not double up with the list's own top edge. Replaces an index test in the
-   JSX that said the same thing one row at a time. */
+   not double up with the list's own top edge. */
 .qe-sugg-row + .qe-sugg-row { border-top: 1px solid var(--rule-faint); }
 /* The suggestion button itself is .picker-option in controls.css, shared with
-   the add-item panel's candidate rows in budget.css: the two lists were built
-   independently on two screens and arrived at the same eleven declarations.
-   .qe-sugg-text and .qe-sugg-name went with it, into .picker-option-text and
-   .picker-option-name. The class stays on the element for the state rule
-   below, and because .add-item-option's 40px min-height is not wanted here -
-   a suggestion row is sized by its contents.
+   the add-item panel's candidate rows in budget.css; its text and name are
+   .picker-option-text and .picker-option-name. The .qe-sugg class stays on the
+   element for the state rule below, and because .add-item-option's 40px
+   min-height is not wanted here - a suggestion row is sized by its contents.
 
    .qe-sugg-sub and .qe-sugg-amt below are the two near-misses. They are NOT
    merged with .add-item-sub and .add-item-amt, which look like the same lines:
@@ -88,12 +81,11 @@
    Each pair differs by three declarations, which is a difference, not noise. */
 
 /* The highlighted row, which is the keyboard's and only the keyboard's: the
-   list has no :hover rule, and did not have one as an inline style either.
-   (0,2,0), so it still outranks .picker-option's transparent fill. */
+   list has no :hover rule. (0,2,0), so it outranks .picker-option's
+   transparent fill. */
 .qe-sugg.is-active { background: var(--well); }
 /* Deliberately NOT the .truncate stack: this line clips with no ellipsis and
-   no min-width: 0, which is what it did inline. Adding either would change
-   what is drawn. */
+   no min-width: 0, and adding either would change what is drawn. */
 .qe-sugg-sub {
   display: flex; align-items: center; gap: 5px;
   font-size: var(--text-11); margin-top: 2px; color: var(--muted);
@@ -114,8 +106,7 @@
 .qe-item-select.is-empty { color: var(--muted); }
 /* The chosen name's old item is gone from this month. Declared with the same
    specificity as .tinput's hover and focus borders in controls.css and after
-   them, so it holds through both - which is what the inline style it replaces
-   did, being unreachable by either. */
+   them, so it holds through both. */
 .qe-item-select.is-orphaned { border: 1px solid var(--breach); }
 
 /* ---- the note and amount fields ------------------------------------------ */
@@ -124,19 +115,9 @@
    tracks the field rather than the row. */
 .qe-amt-cell { position: relative; height: 32px; flex: 0 0 140px; }
 /* .minput already pads 8px on both sides, so this restates the left one it
-   already has. Carried across as it stood rather than dropped: it is the same
-   line .entry-amount-input in budget.css carries for the same field. */
+   already has; .entry-amount-input in budget.css carries the same line for the
+   same field. */
 .qe-amt-input { padding-left: var(--space-3); }
-/* The arithmetic preview over the quick-entry amount field used to be written
-   out here as .qe-amt-preview: byte for byte the same box as
-   .entry-amount-preview in budget.css, which drew this chip over the add-spend
-   field in an item's entry tray, and the same idea again as .field-chip in
-   controls.css, which MoneyInput uses and which sits 2px further left and
-   carries a shadow. That merge, deferred while no agent owned both files, has
-   happened: the nine shared declarations are .field-chip and the two that
-   differ are .field-chip-tight, both in controls.css, and the call site in
-   QuickEntry.jsx now reads `num field-chip field-chip-tight`. Neither
-   difference was normalised away; see the note at .field-chip-tight. */
 /* Level with the fields beside it rather than at .btn's own height. The
    justify-content restates what .btn already sets. */
 .qe-log-btn { height: 32px; justify-content: center; flex: 0 0 auto; }
@@ -156,10 +137,6 @@
 /* ---- "Just logged" -------------------------------------------------------
    The three most recent entries in the month, recapped under the field row. */
 .qe-recent { border-top: 1px solid var(--rule-strong); background: var(--board); }
-/* A fifth spelling of the small-caps label, at --faint rather than .eyebrow's
-   --ink-2. Deliberately not folded into .eyebrow, for the reason base.css
-   gives about the other four: reconciling the inks changes what is on screen,
-   so it is a design decision rather than a refactor's to take. */
 .qe-recent-head {
   padding: var(--space-3) var(--space-6) var(--space-1);
   /* Shape from .eyebrow in base.css; the ink and the padding are this one's. */

@@ -12,10 +12,10 @@ body {
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  /* "tnum" used to be here too, which forced tabular figures on every word of
-     running prose ("1 month tracked", "over in 1 of 12 months") and left gaps
-     around every digit in a sentence. Tabular figures are for columns that
-     have to line up, so they now live on .num and nowhere else. */
+  /* No "tnum" here: it would force tabular figures on every word of running
+     prose ("1 month tracked", "over in 1 of 12 months") and leave gaps around
+     every digit in a sentence. Tabular figures are for columns that have to
+     line up, so they live on .num and nowhere else. */
   font-feature-settings: "ss01", "cv01";
 }
 #root { height: 100%; }
@@ -24,15 +24,15 @@ input { font-family: inherit; }
 ::selection { background: color-mix(in srgb, var(--accent) 32%, transparent); color: var(--ink); }
 
 /* ---- the figure face ----------------------------------------------------
-   Every amount in this app. It is NOT the mono face, which is what it used to
-   be, because IBM Plex Mono is a code face and money is not code:
+   Every amount in this app. It is NOT the mono face, because IBM Plex Mono is
+   a code face and money is not code:
 
      - it gives the comma and the full stop a full character cell, so
        "$1,500.00" sets as "$1 , 500 . 00" and the separators read as spaces
        rather than as marks binding the digits together;
      - its zero is slashed, and at the 12-14px this app sets amounts in, that
-       slash lands as a line struck through the number. "$500" in the History
-       table read as a cancelled figure rather than a saved one.
+       slash lands as a line struck through the number, so "$500" reads as a
+       cancelled figure rather than a saved one.
 
    Plus Jakarta Sans carries true tabular lining figures (verified in this
    renderer: five 1s and five 0s both measure exactly 300px at 100px size
@@ -46,25 +46,22 @@ input { font-family: inherit; }
 }
 .code { font-family: var(--font-mono); }
 
-/* Keyboard focus must be visible everywhere, not only on the two input classes
-   that happened to style it. Text fields keep their own ring treatment above:
-   .minput:focus / .tinput:focus already set outline: none and outrank this.
+/* Keyboard focus must be visible everywhere. Text fields keep their own ring
+   treatment: .minput:focus / .tinput:focus set outline: none and outrank this.
 
-   The :not(.minput):not(.tinput) chain this rule used to carry made it (0,3,0),
-   which quietly beat every .class:focus-visible override below it, including
-   the outline-offset line that follows and the inset outline on .acct-row. A
-   bare :focus-visible is (0,1,0), so the per-class rules can now actually do
-   their job. */
+   Keep the selector bare. At (0,1,0) the per-class :focus-visible overrides
+   below it can win; adding a :not() chain would lift this to (0,3,0) and
+   silently beat every one of them, including the outline-offset line that
+   follows and the inset outline on .acct-row. */
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .btn:focus-visible, .nav-item:focus-visible, .icon-btn:focus-visible,
 .month-step:focus-visible, .find-input:focus-visible { outline-offset: 3px; }
 
 /* ---- utilities ----------------------------------------------------------
-   Four shapes the renderer currently rebuilds by hand, each in several places.
-   These carry no component identity: they are the answer to "make this one
-   line", "hide this from eyes but not from a screen reader", "this button is
-   not a button", "this is a small caps label". Anything with an opinion about
-   a specific component belongs in that component's file, not here. */
+   Four shapes with no component identity: the answer to "make this one line",
+   "hide this from eyes but not from a screen reader", "this button is not a
+   button", "this is a small caps label". Anything with an opinion about a
+   specific component belongs in that component's file, not here. */
 
 /* The ellipsis stack, which is four properties and is wrong without any one of
    them. min-width: 0 is the one that gets forgotten: inside a flex or grid
@@ -104,19 +101,9 @@ input { font-family: inherit; }
    third rung between them would be a size without a meaning.
 
    It carries shape only. Ink stays with each call site, because ink here is a
-   contrast decision rather than drift: --muted on the sidebar's --panel,
-   --faint inside a popover or over a column of figures on --raised, --ink-2
-   where the label leads a block of text. Nine rules used to carry the whole
-   shape between them, at five sizes, three trackings and three weights - the
-   debug menu's heading was 10px/700/.09em and the nav's was 10px/600/0.05em,
-   differences nobody had recorded a reason for. They are call sites now.
-
-   One piece of history worth keeping, because it is the argument for the
-   never-snap rule. This was written at 11.5px for a phase and matched none of
-   its call sites; all of them measure 11px. Two migrations hit the mismatch,
-   each refused to round it away, and each added its own override believing the
-   other file was the odd one out. Neither was. Half a pixel is exactly the
-   size of error that survives review. */
+   contrast decision: --muted on the sidebar's --panel, --faint inside a
+   popover or over a column of figures on --raised, --ink-2 where the label
+   leads a block of text. */
 .eyebrow {
   font-size: var(--text-11); text-transform: uppercase; letter-spacing: 0.06em;
   font-weight: 600; color: var(--ink-2);

@@ -12,7 +12,7 @@
    Tokens are layered, and the order of the layers is load-bearing. :root and
    [data-theme="x"] have identical specificity (0,1,0), so at equal specificity
    the later declaration wins. Layers 1-3 therefore sit ABOVE the theme blocks:
-   that is precisely what lets a theme override any default it does not want.
+   that is what lets a theme override any default it does not want.
 
      1. PRIMITIVES   typography, geometry, layout. Do not vary by theme.
      2. DEFAULTS     semantic colour and elevation. True of any dark theme, so
@@ -21,9 +21,9 @@
                      a theme gets them free by setting --accent and its surfaces.
      4. THEMES       the contract itself, one block per theme.
 
-   Everything below layer 4 consumes tokens and declares none, with one
-   exception: the breakpoints at the foot of this file re-declare the two
-   layout primitives that are responsive (--sidebar-w, --budget-cols).
+   Everything after layer 4 consumes tokens and declares none, with one
+   exception: breakpoints.css re-declares the two layout primitives that are
+   responsive (--sidebar-w, --budget-cols).
 
    THEME CONTRACT
    --------------
@@ -53,23 +53,18 @@
    one exists at that exact value and keeping its own literal otherwise.
    Never invent a value, never snap to a near rung.
 
-   Two things enforce it, both run by `npm test` via `pretest`:
-
-     scripts/check-inline-styles.mjs guard 1  fails on an inline style holding
-       a literal, with one allowlisted exception documented in that file.
-     scripts/check-inline-styles.mjs guard 2  warns when an element carries a
-       class whose rules declare a property its inline style also sets. The
-       inline value wins, so those rules have never applied and the class is
-       dormant. Six such classes were found by hand while the renderer was
-       taken from 393 inline style objects to 23, including a .btn-ghost:hover
-       that had never once fired. Advisory only: masking is correct whenever
-       the inline value is runtime-derived, and nothing but a human can tell
-       the two apart.
+   scripts/check-inline-styles.mjs enforces it, run by `npm test` via
+   `pretest`. Guard 1 fails on an inline style holding a literal, with one
+   allowlisted exception documented in that file. Guard 2 warns when an
+   element carries a class whose rules declare a property its inline style
+   also sets: the inline value wins, so the class is dormant. Guard 2 is
+   advisory, because masking is correct whenever the inline value is
+   runtime-derived and nothing but a human can tell the two apart.
    ============================================================ */
 
-/* Bundled, not fetched. The sidebar strapline says "local", and until now
-   the one outbound request at startup was for these typefaces. Offline they
-   fell back to system-ui at different metrics inside a pixel-fixed layout.
+/* Bundled, not fetched: the app makes no outbound request at startup, and a
+   fetched face that failed to arrive would fall back to system-ui at
+   different metrics inside a pixel-fixed layout.
    Licensed under the SIL OFL: see fonts/OFL.txt (IBM Plex) and
    fonts/PlusJakartaSans-OFL.txt, shipped alongside these woff2 files in
    every build (renderer/dist here, installed app there).
@@ -98,68 +93,35 @@
    ============================================================ */
 :root {
   --font-sans: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
-  /* The figure face for money columns. Kept as its own token so it can differ
-     from --font-sans if the UI face's tabular figures ever prove unusable;
-     see the .num comment below for the verification story. */
+  /* The figure face for money columns. Its own token so it can differ from
+     --font-sans if the UI face's tabular figures ever prove unusable; see
+     .num in base.css. */
   --font-num: var(--font-sans);
   --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
 
   /* ---- the type scale ----
-     Seventeen rungs, all whole pixels, and every font-size in renderer/styles
-     is one of them. There is no longer a single px literal for type anywhere in
-     this directory, which is the property worth keeping: a size that cannot be
-     written without naming a rung cannot drift.
+     Every font-size in renderer/styles is one of these rungs; there is no px
+     literal for type anywhere in this directory, and a size that cannot be
+     written without naming a rung cannot drift. All whole pixels, which
+     rasterise without sub-pixel rounding at these sizes.
 
-     It was twenty-four, and half of those were halves. The renderer had
-     accumulated both 13 and 13.5, both 11 and 11.5, both 12 and 12.5 - each
-     pair one rendered pixel apart at most, clustering by file rather than by
-     purpose, which is what gave them away: 13 dominated QuickEntry, Settings
-     and MonthGroups, 13.5 dominated History and Accounts. Two hands recording
-     the same intent, not two intents.
-
-     The pairs collapsed downward, onto the whole pixel. Three reasons, in
-     order of weight. Text can only shrink, so nothing can overflow the budget
-     grid's fixed money columns (150px, 158px, 78px) - snapping up would have
-     needed a per-screen overflow pass and could still have wrapped a figure on
-     some currency nobody tested. Whole pixels rasterise without sub-pixel
-     rounding at these sizes. And the whole value held the majority at five of
-     the six pairs (13 over 13.5 by 37 to 25, 11 over 11.5 by 20 to 17, 14 over
-     14.5 by 19 to 1), with 12/12.5 tied.
-
-     Against that, and recorded because it is the real argument for the other
-     direction: the halves were not simply noise. Plus Jakarta Sans is wider
-     than the face the mockups are set in and reads a size larger at the same
-     size, so parts of this design were re-tuned in .5px steps rather than
-     whole ones. Collapsing rounds every one of those decisions down by half a
-     pixel. That was the trade taken, deliberately, with the alternative
-     understood.
-
-     The names are still the pixel values, so --text-13 is 13px and means
-     nothing else. t-shirt names would force a judgement at every call site (is
-     13px "sm" or "base"?) at exactly the moment it is least visible, and the
-     numeric form is what made this collapse a grep rather than an audit -
-     every consumer of a doomed rung said its own pixel value out loud.
-
-     The sparse top end is deliberately NOT collapsed. 16 through 22 hold one
-     or two sites each and could fold into three rungs, but each is a heading
-     or a hero figure whose size was chosen against the thing beside it, and
-     unlike the pairs there is no evidence they are the same intent twice.
+     The names are the pixel values, so --text-13 is 13px and means nothing
+     else. t-shirt names would force a judgement at every call site (is 13px
+     "sm" or "base"?) at exactly the moment it is least visible.
 
      A new size arriving is a new rung, never a rounding into the nearest old
-     one. --text-18 got here that way, when develop's month bar redesign set a
-     size this scale had never seen.
+     one.
 
      Four fontSize sites in the JSX deliberately have NO rung and must not be
      given one, for two different reasons. DashboardCharts.jsx's axisProps and
      LabelList hand fontSize to Recharts, which writes it as an SVG
      presentation attribute rather than as CSS, so a var() would not resolve.
      MonthTick is NOT one of those - it is a plain button in an HTML flex row -
-     but its size has to stay equal to the value axisProps gives recharts for
+     but its size has to stay equal to the value axisProps gives Recharts for
      its own ticks, and a number that must match another number belongs at the
      same place as the number it matches. components.jsx computes the Avatar's
      size from its size prop at runtime and stays inline under the
-     inline-style rule. See
-     docs/superpowers/plans/2026-08-15-renderer-styling-consolidation.md. */
+     inline-style rule. */
   --text-10:   10px;    --text-11:   11px;    --text-12:   12px;
   --text-13:   13px;    --text-14:   14px;    --text-15:   15px;
   --text-16:   16px;    --text-17:   17px;    --text-18:   18px;
@@ -168,41 +130,29 @@
   --text-34:   34px;    --text-46:   46px;
 
   /* ---- the radius scale ----
-     One addition, measured the same way as the type scale. The renderer sets 14
-     distinct radius literals across CSS and JSX, and 8px is the most used of
-     them at 12 sites: more than 6px (10 sites) and more than --radius-sm's 10px
-     (9 sites), and it was the only one of the three top values with no rung to
-     land on.
+     A t-shirt ramp, and it reads smallest-first: 3xs, 2xs, sm, base, lg.
 
-     Adding it renamed 6px from --radius-xs to --radius-3xs, so the ramp still
-     reads smallest-first: 3xs, 2xs, sm, base, lg. The alternative was 2xs (8px)
-     sitting LARGER than xs (6px), which inverts the one thing a t-shirt ramp
-     promises. Both tokens were one task old and had no consumers, so the rename
-     cost nothing; it would have cost a sweep of every stylesheet a phase later.
-
-     The other nine literals (2, 3, 5, 7, 9, 11, 12, 13, 17) deliberately get
-     no rung. They are one-off nudges, 1 to 5 sites each, and a rung would
-     dignify them into a vocabulary. They stay as literals in CSS when their
-     rules migrate, which is a visible, greppable place for them to sit. */
+     The renderer's other radius literals (2, 3, 5, 7, 9, 11, 12, 13, 17)
+     deliberately get no rung. They are one-off nudges of a few sites each, and
+     a rung would dignify them into a vocabulary. They stay as literals in CSS,
+     which is a visible, greppable place for them to sit. */
   --radius-3xs: 6px;
   --radius-2xs: 8px;
   --radius-sm: 10px;
   --radius: 14px;
   --radius-lg: 20px;
   /* Larger than any box it is used on, which is the point: a pill tracks the
-     box's own height instead of needing a value per control. The codebase
-     spells the pill two ways, 99px at 6 sites and 999px at 6 more, and both
-     render identically because both already exceed half the height of every box
-     they are set on. Both become this token as their rules migrate: a 99px site
-     is not a different radius and must not be preserved as a literal. */
+     box's own height instead of needing a value per control. A 99px spelling
+     of the pill is this same radius, not a different one, and belongs on this
+     token rather than kept as a literal. */
   --radius-pill: 999px;
 
   --row-h: 50px;
   /* ---- the space scale ----
      The step between rungs widens as the values grow (2, 2, 2, 2, 4, 6, 8),
      because a 2px difference is a real one between a chip's padding and a
-     row's, and an invisible one between two block gaps. Same provenance as the
-     type scale: these are the values already in use, not a fresh geometry.
+     row's, and an invisible one between two block gaps.
+
      --space-6 is the same 16px as --gap and is deliberately not merged with
      it: --gap names a role (the distance between blocks) and --space-6 names a
      length, and a later decision to move blocks to 22px should not have to
@@ -211,33 +161,15 @@
      THE SPACING SCALE DOES NOT COVER EVERY LENGTH IN USE, AND THAT IS ON
      PURPOSE. The renderer sets spacings this ladder has no rung for: 14, 18,
      20, 24 and 26 in the middle, and a scatter of 1, 2 and 3 at the small end.
-     Filling those gaps was considered and rejected. It would take the scale
-     past sixty tokens, at which point --space-11 versus --space-12 carries no
-     more meaning than 24 versus 26 did and the vocabulary is just the problem
-     again with a var() wrapped round it.
-
-     So the standing rule, which every migration task in this project follows:
-
-         When a style moves from JSX into CSS, it uses a token if one exists at
-         that exact value, and otherwise keeps its literal. Do not invent a
-         value, do not snap to a near rung. A literal living in CSS is visible
-         and collapsible; the problem this project solves is literals scattered
-         through JSX.
-
-     This applies to type and radius as well as space. The type scale happens to
-     have a rung for every size in use, so in practice it always hits the first
-     branch; the radius scale does not, and 2/3/5/7/9/11/12/13/17 are expected
-     to arrive in these stylesheets as bare pixel values. That is the rule
-     working, not the rule failing. */
+     Filling those gaps would take the scale past sixty tokens, at which point
+     --space-11 versus --space-12 carries no more meaning than 24 versus 26 did
+     and the vocabulary is just the problem again with a var() wrapped round it.
+     A length with no rung keeps its literal in CSS rather than snapping to a
+     near one; see the inline-style rule at the top of this file. */
   --space-1: 4px;  --space-2: 6px;  --space-3: 8px;   --space-4: 10px;
   --space-5: 12px; --space-6: 16px; --space-7: 22px;  --space-8: 30px;
 
-  /* The default gap between blocks. Inline JSX still hard-codes 16 in a lot of
-     places; migrating those to var(--gap) is now underway rather than merely
-     permitted, and the space scale above is where the hard-coded lengths that
-     match a rung are headed. The ones that do not match stay literal; see the
-     standing rule in the space comment. See
-     docs/superpowers/plans/2026-08-15-renderer-styling-consolidation.md. */
+  /* The default gap between blocks. */
   --gap: 16px;
   --sidebar-w: 240px;
   /* Content spans the window rather than sitting in a 1080px well; the cap
@@ -264,21 +196,18 @@
      colour at all: it is the resting state. Exactly ONE state earns a hue,
      and it is the failure.
 
-     There used to be a second, --unsettled: an amber that painted the
-     unallocated remainder of the month bar, on the reasoning that money
-     without a job is a nag. It is gone. A budget that has not been written
-     yet is not an error, and colouring the majority of the bar on the 1st
-     of the month made the app open every month by shouting. Absence says
-     it better: the bar starts hollow, and allocating fills it. See the
-     MonthBar docstring for the whole of that argument.
+     The unallocated remainder of the month bar earns none either. A budget
+     that has not been written yet is not an error, and colouring the majority
+     of the bar on the 1st of the month would make the app open every month by
+     shouting. Absence says it better: the bar starts hollow, and allocating
+     fills it. See the MonthBar docstring for the whole of that argument.
 
      --breach carries two roles: the budget meaning "over budget", and the
      ordinary red of an error affordance (invalid input, a failed load, a
      destructive action) that has nothing to do with a budget state. One red
      for both is deliberate: a second red would look identical and just be
      confusing. What --breach may never mean is under-spending or any other
-     settled state painted red or green, the mistake this token was cut to
-     undo. */
+     settled state painted red or green. */
   --breach: oklch(0.63 0.20 27);
   --breach-soft: oklch(0.31 0.10 27);
   --breach-ink: oklch(0.80 0.15 27);
@@ -307,8 +236,8 @@
   --canvas-wash: var(--board);
 
   /* Accent-tinted running text (item names in the budget rows). --accent-ink
-     at full strength read too loud across a whole month, so this is a lighter,
-     quieter blend of it toward the ink ramp: still unmistakably the accent,
+     at full strength reads too loud across a whole month, so this is a
+     lighter, quieter blend of it toward the ink ramp: still the accent,
      but sitting closer to the text around it. Derived rather than hand-tuned
      per theme; blending toward --ink can only raise contrast above
      --accent-ink's own floors. */
@@ -324,8 +253,7 @@
   /* Focus ring. The solid 2px core is what carries the indicator: raw --accent
      must clear 3:1 against the lightest surface it can land on, which is
      --raised (4.62:1 in obsidian). The soft outer band is decoration on top of
-     that, not the indicator itself, which is why it is no longer a lone 32%
-     wash at 1.5:1. */
+     that, not the indicator itself, so it must never become the whole ring. */
   --ring: 0 0 0 2px var(--accent), 0 0 0 5px color-mix(in srgb, var(--accent) 26%, transparent);
   --glow-sm: 0 4px 18px -6px color-mix(in srgb, var(--accent) 55%, transparent);
   --glow-md: 0 8px 28px -8px color-mix(in srgb, var(--accent) 60%, transparent);
@@ -341,29 +269,26 @@
      and 2.51:1 against the solid spend, both guarded in
      tests/tokens-electron.cjs. Neither reaches 3:1 and neither can, because
      the solid accent is only 5.10:1 against the track to begin with, so 3:1
-     on one of those boundaries comes straight out of the other. Two earlier
-     settings each took one end of that trade and lost the other: --bar-faded
-     at 73% was 1.62:1 against the spend (one violet slab in two weights), and
-     a 20% wash was 1.21:1 against the track (invisible rather than quiet). */
+     on one of those boundaries comes straight out of the other. Move this
+     value either way and one of the two edges disappears. */
   --bar-plan: color-mix(in srgb, var(--accent) 50%, transparent);
 
   /* Accent washes. The Month Budget screen is three levels deep (group
-     header, item row, spending entry) and every one of them used to be a
-     near-black band, so depth was carried by hairlines alone and the header
-     read as recessed rather than as a header. These give depth a second
-     channel: how much accent a surface carries. A group header is the only
-     band on the page that is washed; an opened item and the entry tray it
-     opens share a lighter wash, which is what makes them read as one object
-     rather than two neighbours; everything else is neutral.
-     --wash-breach replaces the accent on a group header that is over, so the
-     loudest surface on the page is always the one that needs attention. */
+     header, item row, spending entry), and hairlines alone cannot carry that
+     much depth. These give it a second channel: how much accent a surface
+     carries. A group header is the only band on the page that is washed; an
+     opened item and the entry tray it opens share a lighter wash, which is
+     what makes them read as one object rather than two neighbours; everything
+     else is neutral. --wash-breach replaces the accent on a group header that
+     is over, so the loudest surface on the page is always the one that needs
+     attention. */
   --wash-head: color-mix(in srgb, var(--accent) 13%, var(--board));
   --wash-open: color-mix(in srgb, var(--accent) 6%, var(--raised));
   --wash-tray: color-mix(in srgb, var(--accent) 5%, var(--board));
   /* Deliberately WEAKER than --wash-head, not stronger, even though it is the
      more urgent of the two. Red carries far more perceived weight than violet
-     at the same mix, and at parity the breach header stopped reading as a
-     header that happens to be over and started reading as a slab of error
+     at the same mix, and at parity the breach header stops reading as a
+     header that happens to be over and starts reading as a slab of error
      with a budget inside it. The row already says "$35 OVER" in a filled
      pill and prints the figure in --breach-ink; the wash only has to tell the
      eye which card to land on while scrolling past a dozen of them. */
@@ -388,9 +313,9 @@
    item, the "Assign account" chip, keycaps, the sidebar and drawer edges), so
    it is solved to 3:1 against --raised per WCAG 1.4.11. --rule is structure
    (card outlines, dividers, the progress track) and --rule-faint is a row rule
-   between rows that are already self-identifying; both are decorative, but at
-   1.03-1.38:1 they were invisible rather than subtle, so they are lifted to
-   2.30:1 and 1.90:1 where they can at least be seen.
+   between rows that are already self-identifying; both are decorative and carry
+   no WCAG floor, but they sit at 2.30:1 and 1.90:1 rather than lower, below
+   which a hairline is invisible rather than subtle.
 
    The sidebar ramp (--panel and the two nav fills) is deliberately separate
    from board/raised/well, because the sidebar is not a card on the canvas: it

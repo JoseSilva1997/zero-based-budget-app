@@ -10,53 +10,33 @@
    ChartCard itself is in controls.css, since it is a shared primitive.
    ============================================================ */
 
-/* Recharts plots, kept from reaching the scrollbar.
-   ResponsiveContainer measures its parent and writes a pixel width onto
-   .recharts-wrapper from a ResizeObserver callback, which is delivered after
-   the layout it describes. While the column is moving - the panel collapsing,
-   or the window being dragged - the wrapper therefore spends a frame or two
-   carrying the width the column had before, and on the way narrower that
-   stale width is wider than the column it sits in.
-   .main scrolls sideways when its content genuinely cannot fit (see
-   shell.css), and a plot that is 60px too wide for one frame is not that: it
-   flashed a horizontal scrollbar in and out, and the reflow each appearance
-   caused was visible as a stutter through the whole animation.
+/* Recharts plots, kept from reaching the scrollbar. ResponsiveContainer writes
+   a pixel width onto .recharts-wrapper from a ResizeObserver callback, which is
+   delivered after the layout it describes, so while the column narrows the
+   wrapper spends a frame or two wider than the column it sits in.
 
-   The clip goes here, on the responsive container, because this is the only
-   box in the plot with a width worth measuring against. Recharts puts a
-   deliberate `width: 0; overflow-x: visible` sizer between this element and
-   the wrapper, so that the plot's own pixel width can never feed back into
-   the width it is measuring. Anything resolved against a percentage below
-   this point resolves against that zero and the chart disappears.
-   `clip` rather than `hidden`: it clips the one axis that overflows without
-   making a scroll container or disturbing the vertical, and clipped overflow
-   stops counting toward .main's scroll width, which is the whole point. The
-   plot is correct again on the next frame; all this does is decline to
-   reserve room for a number that is already out of date. */
+   `clip` rather than `hidden`: clip does not create a scroll container, and
+   clipped overflow stops counting toward .main's scroll width (see shell.css),
+   which is the whole point. It goes on the responsive container because
+   Recharts puts a deliberate `width: 0; overflow-x: visible` sizer below this
+   element, and anything resolved against a percentage past that point resolves
+   against the zero and the chart disappears. */
 .recharts-responsive-container { overflow-x: clip; }
 
 /* ---- the dashboard screen ----------------------------------------------- */
-
-/* A failed read of the month series used to be written out here as .dash-error
-   plus a .dash-error-icon: the box was one of four copies of the same alert on
-   four screens, and identical declaration for declaration to History's. It is
-   `alert alert-banner` in controls.css now, with the icon reached by
-   `.alert > svg` rather than by a class of its own. --breach carries the
-   ordinary red of an error affordance there, not a budget state; see the
-   token's comment. */
 
 /* The whole-screen empty state, on top of .panel .empty from controls.css. */
 .dash-empty { margin-top: var(--space-6); }
 .dash-empty-title { font-weight: 600; color: var(--ink-2); }
 .dash-empty-note { font-size: var(--text-13); max-width: 340px; }
 
-/* `align-items: start` so a card sizes to its own content. Without it every
-   card in a row stretched to the tallest one, and "Category trends" - which on
-   a young household is a single sentence - was being held open to the 380px of
-   the savings chart beside it.
+/* `align-items: start` so a card sizes to its own content rather than
+   stretching to the tallest in its row: "Category trends" is a single sentence
+   on a young household, and would otherwise be held open to the 380px of the
+   savings chart beside it.
 
-   Wider gaps than the card grid used to need: with the chart boxes gone, the
-   space between charts is the only thing separating them. */
+   The gaps are wide because there are no boxes around the charts, so the space
+   between them is the only thing separating them. */
 .dash-grid {
   display: grid; grid-template-columns: 1fr 1fr;
   gap: 64px 32px; margin-top: 52px; align-items: start;
@@ -160,9 +140,6 @@
   display: grid; grid-template-columns: 1.5fr 1fr;
   gap: 24px; align-items: stretch;
 }
-/* Not .eyebrow: that utility is 11px on --ink-2, this label is 11.5px on
-   --faint, and reconciling them moves pixels. Noted for the deferred pass that
-   merges the five eyebrow variants. */
 .offender-head {
   /* Shape from .eyebrow in base.css; the ink and the margin are this one's. */
   color: var(--faint); margin-bottom: var(--space-3);
@@ -193,10 +170,8 @@
 }
 .trend-left { display: flex; align-items: center; gap: var(--space-3); overflow: hidden; }
 /* The ellipsis stack is written out rather than taking .truncate, because
-   .truncate also carries min-width: 0 and this span IS a flex item. Adding it
-   would let the name shrink and clip where today a long one widens the row,
-   which is a better layout and therefore a visual change this task may not
-   make. It belongs to whoever fixes the overflow on purpose. */
+   .truncate also carries min-width: 0 and this span IS a flex item: adding it
+   would let the name shrink and clip, where today a long one widens the row. */
 .trend-name {
   font-size: var(--text-13); font-weight: 500;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;

@@ -16,10 +16,9 @@
 }
 .btn:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--rule-strong)); transform: translateY(-1px); box-shadow: var(--shadow-md); }
 .btn:active { transform: translateY(0); }
-/* Flat, not a gradient: the light end of the old gradient dropped the label
-   under AA in a quarter of the theme/accent pairs. Depth comes from the inset
-   highlight and the accent glow, and hover brightens the glow rather than the
-   fill. */
+/* Flat, not a gradient: a gradient's light end drops the label under AA in a
+   quarter of the theme/accent pairs. Depth comes from the inset highlight and
+   the accent glow, and hover brightens the glow rather than the fill. */
 .btn-primary { background: var(--accent-btn); color: var(--on-accent); border-color: transparent; box-shadow: var(--glow-sm), inset 0 1px 0 color-mix(in srgb, #fff 18%, transparent); font-weight: 600; }
 .btn-primary:hover { box-shadow: var(--glow-md), inset 0 1px 0 color-mix(in srgb, #fff 26%, transparent); }
 .btn-ghost { background: transparent; border-color: transparent; box-shadow: none; color: var(--ink-2); }
@@ -28,16 +27,10 @@
    "add member / add account / add group / choose a file" buttons are
    afterthoughts under a list, not peers of the list.
 
-   The :hover half of the selector is not redundant. .btn-ghost:hover above is
-   (0,2,0) and would otherwise lift the label to --ink, which the inline colour
-   this replaces never allowed it to do - the inline style was masking the hover
-   rule entirely, so these buttons have never brightened. Written as a compound
-   so it wins on weight rather than on which file happens to be imported later.
-
-   Two migrations wrote this rule independently, one in shell.css and one in
-   settings.css, with the same declaration and the same reasoning, because
-   neither owned the other's file. It lives here now, beside the .btn-ghost it
-   qualifies. */
+   The :hover half of the selector is not redundant: .btn-ghost:hover above is
+   (0,2,0) and would otherwise lift the label to --ink. Written as a compound
+   so it wins on weight rather than on which file happens to be imported
+   later. */
 .btn-ghost.btn-quiet, .btn-ghost.btn-quiet:hover { color: var(--muted); }
 .btn-sm { padding: 6px 10px; font-size: var(--text-12); }
 .btn-danger { color: var(--breach-ink); }
@@ -55,14 +48,14 @@
    back to 73px, level with the row's other columns. */
 .icon-btn.compact { width: 26px; height: 26px; }
 
-/* Native <select> chrome was the one surface in this app the OS still drew
-   itself: a square-cornered box with its own border, its own arrow and its own
-   font, sitting inside a screen where every other control is drawn here. These
-   opt out of it and take the app's edge plus a chevron that matches Icons.down.
-   The stroke is a fixed mid-grey rather than currentColor, which a data URI
-   cannot read; it clears every one of the four backgrounds, all of which are
-   dark. The hover selectors are spelled out because .tinput:hover sets
-   `background` as a shorthand and would otherwise wipe the chevron off.
+/* The OS draws native <select> chrome itself: a square-cornered box with its
+   own border, arrow and font, inside a screen where every other control is
+   drawn here. These opt out of it and take the app's edge plus a chevron that
+   matches Icons.down. The stroke is a fixed mid-grey rather than currentColor,
+   which a data URI cannot read; it clears every one of the four backgrounds,
+   all of which are dark. The hover selectors are spelled out because
+   .tinput:hover sets `background` as a shorthand and would otherwise wipe the
+   chevron off.
    The funding-account chip's select is excluded on purpose: it is stretched
    invisible across the chip and has to stay that way. */
 select.btn, select.tinput, select.sel,
@@ -87,16 +80,8 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
    .is-raised and .is-feature are elevation; .is-clipped and .is-unclipped are
    what the card does with children that reach its corners. Two axes, named
    apart, so a call site can take one from each without either implying the
-   other.
-
-   It was four classes on three axes: .panel and .raised were siblings that
-   restated each other's fill and radius to disagree about a border and a
-   shadow, .panel-feature was a modifier, and .panel-unclipped a behaviour -
-   all four spelled the same way, so nothing in the name said which of them
-   could be combined with which. .raised in particular read as a peer of
-   .panel when it was only ever .panel with more lift, which is why it is a
-   modifier now and carries only the two declarations that were ever
-   different.
+   other. Each modifier states only what it changes; the base .panel below
+   carries everything they share.
 
    Every card takes the --raised fill, so cards read as surfaces sitting on
    the darker board (colour-driven hierarchy, per the mockups) and the borders
@@ -144,13 +129,7 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
    square-cornered element running the full width of the card - a button in the
    all-months table and the Wallet's account list, a grid row in the income
    table - so without the clip the first and last of them paint straight
-   through the card's own 20px curve.
-
-   Three files each declared this single declaration under a name of their own
-   (.hist-months in history.css, .income-panel in the same file, .wallet-list in
-   wallet.css), each with its own comment saying what the two above say. Those
-   three names carried nothing else and are gone; the call sites read
-   `panel is-clipped`. */
+   through the card's own 20px curve. */
 .panel.is-clipped { overflow: hidden; }
 
 /* Pills / tags */
@@ -179,7 +158,7 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
    obvious control: it is the only thing that says which of forty cells in the
    grid is now taking your typing, and that is as necessary after a click as
    after a Tab. The hover state gains a border for the same reason: a background
-   change alone was 1.1:1 and could not be seen. */
+   change alone is 1.1:1 and cannot be seen. */
 .minput {
   font-family: var(--font-num); font-variant-numeric: tabular-nums lining-nums;
   border: 1px solid transparent; background: transparent; color: var(--ink);
@@ -246,19 +225,12 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
   white-space: normal;
 }
 /* The same chip over the two amount fields that sit in a 32px row: the
-   add-spend field in an item's entry tray, and quick entry's own. Those two
-   were written out in full as .entry-amount-preview (budget.css) and
-   .qe-amt-preview (quickentry.css), byte for byte identical to each other, and
-   differing from .field-chip in exactly the two declarations below - so the
-   nine they all share are now stated once above and the difference is named
-   here rather than restated twice.
+   add-spend field in an item's entry tray, and quick entry's own. These two
+   declarations are the whole of the difference from .field-chip.
 
    The 4px offset and the absent shadow are deliberately NOT harmonised to
-   .field-chip's 6px and --shadow-sm. Doing so would move the chip on two
-   screens, and nothing in this consolidation is permitted to change what is
-   drawn. Whether the three should agree is a design question; it is recorded
-   here so that whoever takes it can see the whole of the difference in one
-   place, which was the thing three separate rules made impossible. */
+   .field-chip's 6px and --shadow-sm: doing so would move the chip on two
+   screens. Whether the three should agree is an open design question. */
 .field-chip-tight { right: var(--space-1); box-shadow: none; }
 
 /* Mini progress bar (an item's actual against its allocation). The track clips,
@@ -283,9 +255,7 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
 /* ---- the failed-read alert ----------------------------------------------
    The message box four screens draw when a read fails: Dashboard's month
    series, History's month list, the month-detail dialog's breakdown, and the
-   restore dialog's backup list. Each of the four had a class of its own in its
-   own file (.dash-error, .hist-error, .hist-detail-error, .restore-error) and
-   all four agreed on the six declarations below exactly.
+   restore dialog's backup list.
 
    Shown rather than swallowed, so an error does not arrive looking like a
    household with nothing in it. The breach palette because this is an error
@@ -300,22 +270,18 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
 }
 /* The icon keeps its size while the sentence beside it takes the width, and
    sits 1px down so it lands on that sentence's first line rather than above
-   it. Two of the four call sites used to say this with a class of their own
-   (.dash-error-icon, .restore-error-icon) and two with a child combinator; the
-   combinator reaches all four, because every one of them holds exactly one
-   svg. The two classes are gone from the JSX with the rules that needed them. */
+   it. A child combinator rather than a class of its own, which is safe because
+   every one of the four call sites holds exactly one svg. */
 .alert > svg { flex: none; margin-top: 1px; }
-/* The two that are banners across the top of a screen rather than a line
-   inside a dialog. Dashboard's and History's were identical declaration for
-   declaration - same fill, same corner, same 11px 14px, same 16px below - so
-   they are one rule now.
+/* For the two alerts that are banners across the top of a screen (Dashboard's
+   and History's) rather than a line inside a dialog.
 
-   The restore dialog's copy is NOT folded in here. It pads 10px 12px against
-   these 11px 14px and closes with 14px against these 16px, and reconciling
-   either would move pixels, so it keeps those four declarations of its own in
-   settings.css and takes only .alert. .hist-detail-error is not folded in for
-   the same reason and one more: it carries no fill and no corner at all, being
-   a line inside a dialog that already has both. */
+   The restore dialog's alert deliberately does NOT take this class: it pads
+   10px 12px against these 11px 14px and closes with 14px against these 16px,
+   and reconciling either would move pixels, so it keeps those declarations of
+   its own in settings.css and takes only .alert. .hist-detail-error stays out
+   for the same reason and one more: it carries no fill and no corner at all,
+   being a line inside a dialog that already has both. */
 .alert-banner {
   background: var(--breach-soft); border-radius: var(--radius-sm);
   padding: 11px 14px; margin-bottom: var(--space-6);
@@ -324,10 +290,9 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
 /* ---- an option in a list of candidates -----------------------------------
    The row inside a list of things you can pick: quick entry's suggestion list
    (.qe-sugg, hanging off the name field) and the add-item panel's list of
-   previous items (.add-item-option). Two widgets built independently on two
-   screens that arrived at the same button, declaration for declaration, save
-   for a min-height the candidates carry and the suggestions do not - so that
-   one stays at its own call site instead of being pushed onto both.
+   previous items (.add-item-option). The candidates carry a min-height the
+   suggestions do not, so that one stays at its own call site rather than being
+   pushed onto both.
 
    It is a <button> at both sites, which is what the reset is for: the user
    agent arrives with its own border, fill, alignment and font on every one of

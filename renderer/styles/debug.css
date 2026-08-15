@@ -29,11 +29,7 @@
   border-radius: 12px; box-shadow: var(--shadow-lg);
   padding: 6px; animation: pop .14s ease;
 }
-/* Shape from .eyebrow in base.css; the padding and the ink are this one's own.
-   It used to carry a size, a weight and a tracking of its own too - 10px, 700
-   and .09em against the family's 11px, 600 and 0.06em - which made the app's
-   dev-only menu the one place a small-caps heading was set differently, for no
-   reason anyone recorded. */
+/* Shape from .eyebrow in base.css; the padding and the ink are this one's own. */
 .debug-menu-head { color: var(--faint); padding: 6px 10px 7px; }
 .debug-menu-item {
   width: 100%; display: flex; align-items: flex-start; gap: 10px;

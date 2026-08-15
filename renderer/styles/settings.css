@@ -3,16 +3,12 @@
 
    Imported after budget.css, because .set-row and its first-child rule live
    there and a Settings-specific override has to be able to reach past them.
-   That split is historical rather than principled: .set-row is a Settings
-   shape that ended up in budget.css during the stylesheet split, and moving
-   it here is a reasonable later tidy-up.
 
    Every rule below that also carries .set-row is written as a compound
-   selector (.set-row.set-item, not .set-item) on purpose. The declarations
-   used to be inline, so they outranked everything budget.css could say about
-   .set-row, including its compound and :first-child rules. A bare class would
-   be (0,1,0) and could lose one of those; the compound is (0,2,0) and sits in
-   a later file, so it wins the same arguments the inline style used to win.
+   selector (.set-row.set-item, not .set-item) on purpose. A bare class would
+   be (0,1,0) and could lose to budget.css's own compound and :first-child
+   rules about .set-row; the compound is (0,2,0) and sits in a later file, so
+   it wins.
    ============================================================ */
 
 /* ---- the page's repeating row ------------------------------------------
@@ -32,10 +28,6 @@
 /* The "Add member" / "Add account" row that closes a list panel. */
 .set-row.set-row-add { padding: var(--space-5) 18px; }
 
-/* .btn-quiet moved to controls.css, beside the .btn-ghost it qualifies: the
-   shell migration had written the identical rule as .add-group-btn, so it was
-   stated twice in two files. */
-
 /* The two inline name fields (a member's name, an account's name). Both
    values match what .tinput already sets, so this class only exists to keep
    the call sites from restating them; it is a candidate for deletion once
@@ -47,22 +39,15 @@
    the auto-backup options under Data & backup. A radiogroup in a bordered
    --well strip.
 
-   These were two classes, .chip-tray and .seg, differing only in a border,
-   8px against 10px of radius and 6px against 4px of gap. Two controls built
-   on two screens by two hands, arriving at the same object and disagreeing
-   about three numbers - drift rather than decision, so it is one class now
-   and the backup control took the currency picker's values.
+   The border earns its place: it is what makes a tray read as a container
+   rather than as loose chips, and that matters most for the backup control,
+   whose chips are words. Glyphs in a row look like a set on their own;
+   "Off / On app close / Once a day" does not.
 
-   The bordered version won because the border is what makes a tray read as a
-   container rather than as loose chips, and that matters more for the backup
-   control, whose chips are words. Glyphs in a row look like a set on their
-   own; "Off / On app close / Once a day" does not.
-
-   What is NOT merged is the chips inside it. .currency-chip is a fixed 40px
-   square that fills solid with the accent when chosen; .seg-item is
+   The chips inside are deliberately NOT shared. .currency-chip is a fixed
+   40px square that fills solid with the accent when chosen; .seg-item is
    content-width and lifts into a --raised card. Those are two selection
-   languages, and picking one for both would be a design change rather than a
-   consolidation. */
+   languages, and picking one for both would be a design change. */
 .chip-tray {
   display: flex; gap: var(--space-2);
   background: var(--well); border: 1px solid var(--rule-faint);
@@ -131,17 +116,12 @@
 /* Selected: a 2px --ink ring with a 1px --on-ink hairline outside it, so the
    chosen swatch separates from both the row behind it and its five neighbours.
 
-   That hairline is a box-shadow and not an outline, which is the whole fix
-   here. It was an outline, and the resting state carried `outline: none` to
-   clear it - between them they took the outline property away from
-   :focus-visible, so tabbing through six colour buttons showed nothing at all
-   and the picker could not be operated from the keyboard. The comment above
-   these rules has always claimed the swatches are named for screen readers;
-   they were, and then there was no way to see where you were.
-
-   box-shadow at 0 offset and 0 blur paints exactly where the outline did, so
-   the selected swatch is unchanged to the pixel, and outline is free again for
-   the global :focus-visible ring in base.css. */
+   That hairline is a box-shadow and NOT an outline, and it has to stay one.
+   An outline here claims the outline property for the resting state and takes
+   it away from :focus-visible, leaving six colour buttons that show nothing at
+   all when tabbed through - the picker becomes unusable from the keyboard.
+   At 0 offset and 0 blur the shadow paints exactly where an outline would, so
+   nothing is given up by using it. */
 .swatch.is-on { border-color: var(--ink); box-shadow: 0 0 0 1px var(--on-ink); }
 /* The last member cannot be removed, so its button is disabled rather than
    hidden: the column keeps its width and the row does not reflow. */
@@ -168,8 +148,7 @@ select.account-select { padding-right: var(--space-3); }
 
 /* ---- Data & backup: the chips in the tray -------------------------------
    The tray itself is .chip-tray, shared with the currency picker; see its
-   comment for why these two controls stopped having a tray each. Only the
-   chips are particular to this control. */
+   comment. Only the chips are particular to this control. */
 .seg-item {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 7px var(--space-5); border-radius: 7px; border: none;
@@ -180,16 +159,11 @@ select.account-select { padding-right: var(--space-3); }
   font-weight: 600; background: var(--raised); color: var(--ink);
   box-shadow: var(--shadow-sm);
 }
-/* The unchosen two answer the pointer. They had no hover at all: three
-   clickable radios sitting inert under the cursor while every other chip in
-   the app lifts, which reads as "not a control" right up until you click one
-   and it turns out to be.
-
-   Scoped to :not(.is-on) because the chosen one is already a raised card and
-   has nowhere to lift to; a wash over its fill would only muddy it. Same wash
-   and same ink as .chip-radio:hover in controls.css, which is the currency
-   picker's tray - the two trays are near-twins and this is the one difference
-   between them that was a defect rather than a decision. */
+/* The unchosen two answer the pointer, so they read as controls rather than
+   as inert labels. Scoped to :not(.is-on) because the chosen one is already a
+   raised card and has nowhere to lift to; a wash over its fill would only
+   muddy it. Same wash and same ink as .chip-radio:hover in controls.css, which
+   is the currency picker's tray. */
 .seg-item:not(.is-on):hover {
   background: color-mix(in srgb, var(--ink) 7%, transparent);
   color: var(--ink);
@@ -205,11 +179,9 @@ select.account-select { padding-right: var(--space-3); }
 /* .alert in controls.css carries the box, its ink and its icon; these four are
    the whole of what is different about this copy. It is NOT .alert-banner,
    which the Dashboard and History banners take: this one pads 10px 12px
-   against their 11px 14px and closes with 14px against their 16px. Two near
-   misses, and normalising either would move pixels in the restore dialog, so
-   the difference is kept and stated rather than harmonised away.
-   The .restore-error-icon class is gone with it: `.alert > svg` reaches this
-   icon, as it does the other three. */
+   against their 11px 14px and closes with 14px against their 16px. Do NOT
+   normalise the two together; it would move pixels in the restore dialog.
+   The icon needs no class of its own: `.alert > svg` reaches it. */
 .restore-error {
   background: var(--breach-soft); border-radius: var(--radius-sm);
   padding: var(--space-4) var(--space-5); margin-bottom: 14px;
@@ -253,10 +225,7 @@ select.account-select { padding-right: var(--space-3); }
 .sc-group { border-top: 1px solid var(--rule-faint); padding: 14px var(--space-7) var(--space-6); }
 .sc-group.is-first { border-top: none; padding-top: var(--space-4); }
 /* .eyebrow carries the shape; this adds only the margin, which differs from
-   the Wallet panel's copy of the same label. This rule briefly restated all
-   five of .eyebrow's declarations, because .eyebrow was written at 11.5px
-   while every call site it was made for measures 11px. The utility was wrong,
-   not this label; it is 11px now and the duplication is gone. */
+   the Wallet panel's copy of the same label. */
 .sc-group-title { margin-bottom: var(--space-3); }
 .sc-row {
   display: flex; align-items: center; justify-content: space-between;

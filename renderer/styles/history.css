@@ -3,30 +3,15 @@
 
    The all-months table draws a six-column grid that is NOT the budget grid.
    It deliberately carries no .budget-row class: that class means
-   var(--budget-cols), five columns and 7px 8px padding, and it was inert here
-   only for as long as these declarations sat inline and outranked it. See the
-   comment at the row in History.jsx.
+   var(--budget-cols), five columns and 7px 8px padding, none of which this
+   table wants. See the comment at the row in History.jsx.
    ============================================================ */
 
-/* ---- the failed-read banner ----------------------------------------------
-   A trends read that failed is shown rather than swallowed, so an error does
-   not arrive looking like a household with nothing in it. The breach palette
-   because it is an error affordance, which is the second of --breach's two
-   roles (see the token's comment in tokens.css).
-
-   Both of those reasons now live at .alert in controls.css, along with the box
-   itself: this banner and Dashboard's were identical declaration for
-   declaration, so the pair is `alert alert-banner` and the .hist-error rule
-   and its `> svg` companion are gone. The detail dialog's error below takes
-   .alert too, for its own six declarations, and keeps only the padding that
-   makes it a line inside a dialog rather than a banner across a screen. */
-
 /* ---- the all-months table ------------------------------------------------
-   The card is `panel panel-clip`. Every row inside is a square-cornered button
-   running the full width of it, so without the clip the first and last of them
-   would paint straight through the card's own 20px corners. That was
-   .hist-months here, one of three one-declaration classes across three files
-   saying the same thing; the rule is .panel-clip in controls.css now. */
+   The card is `panel panel-clip` (controls.css). Every row inside is a
+   square-cornered button running the full width of it, so without the clip the
+   first and last of them would paint straight through the card's own 20px
+   corners. */
 
 /* The six tracks, stated once for the column strip and the rows that read
    against it. This is not the budget grid and must not be given .budget-row;
@@ -174,15 +159,8 @@
 /* ---- the Month Budget screen's income section ----------------------------
    The other half of this file: the income table that sits above the
    Allocations table, whose own rules live in styles/budget.css. */
-/* .income-total, .income-total-label and .income-total-value used to live here,
-   dressing a "Total income" figure in the section head. develop's redesign put
-   that figure in the summary strip at the top of the screen instead, so the
-   section head is a bare <h2> now and the three rules had no call site left.
-   Deleted rather than kept: the figure they styled is not on this screen at
-   all any more, so there is nothing for them to come back to. */
-/* The income card clips for the same reason the all-months table does:
-   full-width square rows inside a 20px-cornered card. That was .income-panel
-   here; both call sites take .panel-clip in controls.css now. */
+/* The income card takes .panel-clip for the same reason the all-months table
+   does: full-width square rows inside a 20px-cornered card. */
 /* Square rather than .empty's own 44px/20px: this empty state sits inside a
    card that is one section of a screen, not alone on a blank one. */
 .empty.income-empty { padding: var(--space-8); }
@@ -205,10 +183,7 @@
   display: grid; grid-template-columns: 200px 1fr 150px 40px;
   align-items: center; gap: var(--space-4); padding: 9px var(--space-6);
 }
-/* The divider between rows, which the first row does not get. This was an
-   index test in the JSX (`idx ? border : none`); a row only ever follows
-   another row, so the adjacent-sibling selector says the same thing without
-   the map's index reaching into the style prop. */
+/* The divider between rows, which the first row does not get. */
 .income-grid + .income-grid { border-top: 1px solid var(--rule-faint); }
 .income-who { display: flex; align-items: center; gap: var(--space-4); min-width: 0; }
 /* No padding shorthand: it would set padding-right too, and
@@ -222,25 +197,9 @@ select.income-member {
   cursor: pointer;
 }
 /* The source is free text and optional, so it sits a rung below the member
-   name it follows rather than matching .tinput's own weight and size.
-
-   These three declarations are develop's, and the merge nearly lost them.
-   develop's MonthBudget.jsx handed them to TextInline as a `style` prop, but
-   TextInline has had no `style` prop since Phase E2 removed it (see the
-   comment at TextInline in components.jsx) and it takes no rest spread, so
-   React silently dropped them and the source field rendered at plain
-   .tinput's 14px/500/--ink from the moment the merge landed. Nothing failed:
-   no build error, no test, and the post-merge screenshot recorded the wrong
-   rendering as the reference to hold everything else against.
-
-   That is the one thing this consolidation's "no visual change" rule must not
-   protect. The rule exists so a refactor does not quietly restyle the app; it
-   was never meant to freeze in a regression the refactor itself caused. So
-   the class is applied at the call site and develop's intent is restored.
-
-   The general shape is worth remembering: a component's props are an API, and
-   removing one is a breaking change that JSX arriving from another branch has
-   no way to notice. React drops an unknown prop without a word. */
+   name it follows rather than matching .tinput's own weight and size. These
+   three declarations are a class rather than a style prop because TextInline
+   takes none (see the comment at TextInline in components.jsx). */
 .tinput.income-label { font-weight: 400; color: var(--ink-2); font-size: var(--text-13); }
 .income-add {
   display: flex; gap: var(--space-2); padding: var(--space-4) var(--space-6);

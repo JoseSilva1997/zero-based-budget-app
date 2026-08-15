@@ -1,6 +1,7 @@
 /* ============================================================
    The shell: sidebar, brand, nav, household, update banner, main column,
-   topbar and page headings, plus the breakpoints and the canvas scrollbar.
+   topbar and page headings, plus the canvas scrollbar. The breakpoints that
+   narrow this layout are in breakpoints.css.
    ============================================================ */
 
 /* ============================================================
@@ -18,16 +19,16 @@
   transition: grid-template-columns .16s ease;
 }
 /* Collapsed: the panel is a rail of icons. The width lands on .app rather
-   than :root, which is what lets it beat the breakpoints at the foot of this
-   file - a declaration on the element itself wins over one inherited from an
+   than :root, which is what lets it beat the breakpoints in breakpoints.css -
+   a declaration on the element itself wins over one inherited from an
    ancestor, whatever media query wrote that one. The rail is 64px at every
    window size. See "Collapsed rail" below for what the panel does with it. */
 .app[data-panel="rail"] { --sidebar-w: 64px; }
 
-/* Sidebar. It is a panel now rather than a stripe of the canvas: --panel sits
-   a step off --board, and that value difference is what separates the two
-   columns. The right edge is demoted from --rule-strong to --rule because it
-   no longer has to do the separating on its own. */
+/* Sidebar. It reads as a panel rather than a stripe of the canvas: --panel
+   sits a step off --board, and that value difference is what separates the two
+   columns. The right edge is only --rule, not --rule-strong, because it does
+   not have to do the separating on its own. */
 .sidebar {
   border-right: 1px solid var(--rule);
   background: var(--panel);
@@ -38,10 +39,9 @@
   min-width: 0;
 }
 .brand { display: flex; align-items: center; gap: 12px; padding: 16px 8px 40px; }
-/* One flat statement of the accent, at full strength. This was a low-saturation
-   tint inside an accent hairline: two ways of saying the same thing on a 32px
-   square. The tile is now the only place in the panel the accent appears at
-   full strength, which is what lets the nav below it stay neutral. */
+/* One flat statement of the accent, at full strength. The tile is the only
+   place in the panel the accent appears at full strength, which is what lets
+   the nav below it stay neutral. */
 .brand-mark {
   width: 34px; height: 34px; border-radius: 8px; flex: none;
   background: var(--accent); box-shadow: var(--shadow-sm);
@@ -71,17 +71,14 @@ button.brand-mark:focus-visible { outline: 2px solid var(--ink); outline-offset:
 .brand-mark-chev { opacity: 0; }
 button.brand-mark:hover .brand-mark-hb, button.brand-mark:focus-visible .brand-mark-hb { opacity: 0; }
 button.brand-mark:hover .brand-mark-chev, button.brand-mark:focus-visible .brand-mark-chev { opacity: 1; }
-/* 16px, not the 20px the drawing is set at. Two reasons, and the second is the
-   binding one. Plus Jakarta Sans is a wider face than the Hanken Grotesk the
-   drawing uses, so it reads a size larger at the same size: 20px measures
-   137.5px against a 131px column and wraps the app's own name onto two lines,
-   and even 18px, which fits, sat too heavy next to the 14px nav. 16px measures
-   110px. nowrap is the guard that makes a future overrun show up as an
-   overflow rather than silently wrapping again. */
-/* margin: 0 was stated inline on the <h1> in main.jsx, where it carried this
-   note: "The app title, so the page has a level-one heading. 'margin: 0' only
-   cancels the UA default; the look comes from .brand-name." It is the same
-   cancellation here, next to the look it was already deferring to. */
+/* Smaller than the 20px the drawing is set at, because Plus Jakarta Sans is a
+   wider face than the drawing's Hanken Grotesk and reads a size larger at the
+   same size: 20px measures 137.5px against a 131px column and wraps the app's
+   own name onto two lines; 18px fits but sits too heavy next to the 14px nav.
+   This measures 110px. nowrap is the guard that makes a future overrun show up
+   as an overflow rather than silently wrapping.
+   The element is the <h1>, so margin: 0 cancels the UA default; the look is
+   everything else here. */
 .brand-name { font-weight: 500; font-size: var(--text-15); line-height: 22px; white-space: nowrap; margin: 0; }
 .brand-sub { font-size: var(--text-11); line-height: 16px; color: var(--muted); }
 
@@ -105,9 +102,9 @@ button.brand-mark:hover .brand-mark-chev, button.brand-mark:focus-visible .brand
   transition: background .14s, color .14s;
 }
 .nav-item:hover { background: var(--nav-hover); color: var(--ink); }
-/* A flat fill and a bolder label, nothing else. This carried a fill, a shadow
-   and a hairline border at once - three announcements of a state the weight
-   change already makes plain. */
+/* A flat fill and a bolder label, nothing else: a shadow or a border on top
+   would be a third announcement of a state the weight change already makes
+   plain. */
 .nav-item.active { background: var(--nav-active); color: var(--ink); font-weight: 700; }
 /* The icons take the item's own ink rather than a colour of their own, so the
    whole row lightens together on hover. Only the active icon breaks from that,
@@ -127,13 +124,10 @@ button.brand-mark:hover .brand-mark-chev, button.brand-mark:focus-visible .brand
   display: flex; align-items: center; gap: 12px;
   font-size: var(--text-12); color: var(--ink-2);
 }
-/* No width, height or font-size here. Avatar in components.jsx is this class's
-   only call site and always sets all three inline, derived from its size prop,
-   so the three this rule used to declare had never once applied - and they
-   disagreed with the component, saying 22px against a default of 26px. Anyone
-   reading the stylesheet to learn the resting avatar size got the wrong number.
-   Found by guard 2 of scripts/check-inline-styles.mjs, which exists for exactly
-   this: a class whose rules are dead because an inline style outranks them. */
+/* Do NOT add width, height or font-size here. Avatar in components.jsx is this
+   class's only call site and always sets all three inline, derived from its
+   size prop, so anything stated here is both dead and misleading to anyone
+   reading the stylesheet for the avatar's size. */
 .avatar {
   border-radius: 50%; flex: none;
   display: grid; place-items: center; font-weight: 600; color: #fff;
@@ -237,12 +231,11 @@ button.brand-mark:hover .brand-mark-chev, button.brand-mark:focus-visible .brand
   box-shadow: 0 0 0 2px var(--panel);
 }
 
-/* Main column. overflow-x was hidden, which clipped rather than scrolled: at a
-   narrow window the budget grid ran off the right edge and scrollWidth stayed
-   pinned, so there was no way to reach what had been cut off. The breakpoints
-   below mean this should almost never engage, but when content genuinely
-   cannot fit (deep zoom, a very long currency string) reaching it beats
-   losing it. */
+/* Main column. overflow-x is auto rather than hidden: hidden clips rather than
+   scrolls, leaving no way to reach content that ran off the right edge. The
+   breakpoints mean this should almost never engage, but when content genuinely
+   cannot fit (deep zoom, a very long currency string) reaching it beats losing
+   it. */
 /* The canvas. Its fill is the theme's --canvas-wash, which defaults to a flat
    --board; obsidian states a radial gradient instead. */
 .main { min-width: 0; overflow-y: auto; overflow-x: auto; height: 100%; background: var(--canvas-wash); }
@@ -312,15 +305,8 @@ button.brand-mark:hover .brand-mark-chev, button.brand-mark:focus-visible .brand
    name is a heading, and the row is far wider than one needs. */
 .tinput.new-group-input { max-width: 320px; font-weight: 600; }
 /* The quiet "+ Add group" affordance. Its ink comes from .btn-quiet in
-   controls.css, which this rule used to restate: the Settings migration had
-   written the same declaration under that name, so the two were merged. Only
-   the margin is particular to this button. */
+   controls.css; only the margin is particular to this button. */
 .add-group-btn { margin-top: var(--space-1); }
-
-/* The breakpoints used to sit here. They are in styles/breakpoints.css now,
-   imported last, because from shell.css's third place they came later in the
-   cascade than almost nothing and two of them had never applied. The reasoning
-   moved with them. */
 
 /* ============================================================
    The two screens that stand in for the shell rather than sit inside it.
@@ -358,7 +344,7 @@ button.brand-mark:hover .brand-mark-chev, button.brand-mark:focus-visible .brand
    are the last thing that should be pushed off the edge. */
 .startup-error-actions { display: flex; gap: var(--space-3); flex-wrap: wrap; }
 
-/* scrollbar. Height as well as width now, because .main can scroll sideways. */
+/* scrollbar. Height as well as width, because .main can scroll sideways. */
 .main::-webkit-scrollbar { width: 12px; height: 12px; }
 .main::-webkit-scrollbar-thumb { background: var(--rule-strong); border-radius: 99px; border: 3px solid var(--board); }
 .main::-webkit-scrollbar-track { background: transparent; }

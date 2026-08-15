@@ -1,12 +1,10 @@
 /* ============================================================
    Reduced motion.
 
-   Imported LAST, and it has to stay last. The two hover rules at the foot of
-   this block are not !important: they restate .btn:hover and
+   Imported LAST, and it has to stay last. The two hover rules in this block
+   are not !important: they restate .btn:hover and
    .month-step:hover:not(:disabled) at identical specificity and win only by
-   coming later in the cascade. In the single-file app.css this block sat near
-   the bottom of the file, after both of them; split across files, "after"
-   means the last @import.
+   coming later in the cascade.
    ============================================================ */
 
 /* Respect the OS "reduce motion" setting: drop the travel, keep the states. */
@@ -21,7 +19,7 @@
   /* The blanket rule above collapses every animation to 0.01ms, which would
      empty the toast's draining edge a frame after it appeared. It holds full
      instead: still the mark that says "this one goes on its own", minus the
-     countdown. Wins on specificity over the *::after it is overriding, so it
-     does not depend on sitting later in the file than that block. */
+     countdown. It outranks that *::after on specificity, so it does not depend
+     on sitting later in the file. */
   .toast::after { animation: none !important; }
 }

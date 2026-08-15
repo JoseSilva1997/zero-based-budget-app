@@ -11,10 +11,9 @@
    trusting import order alone. .acct-chip and .acct-row both carry
    pseudo-class rules in budget.css (:focus-within on the chip, an inset
    :focus-visible outline on the row), and a pseudo-class rule is (0,2,0),
-   which outranks a bare class no matter how late it is imported. The values
-   they carry used to sit inline, where nothing could outrank them, so the
-   selectors that inherit those values are written at (0,2,0) as well and win
-   on order. Every such rule is marked below.
+   which outranks a bare class no matter how late it is imported. The
+   selectors here that have to hold against them are therefore written at
+   (0,2,0) as well, so they win on order. Every such rule is marked below.
    ============================================================ */
 
 /* ---- the inline account chip's furniture --------------------------------
@@ -29,14 +28,9 @@
 
 /* ---- section labels -----------------------------------------------------
    The panel's three small-caps labels take .eyebrow for the shape; this adds
-   only the margin, which differs from Settings' copy of the same label.
-
-   These carried a font-size override for one round, on the belief that
-   .eyebrow was 11.5px and these were 11px. The size was never the difference:
-   all four call sites the utility was written for measure 11px, and 11.5px
-   was an error in the utility, since corrected. Recorded because two agents
-   independently hit this and each concluded the OTHER file was the odd one
-   out; the answer was that neither was. */
+   only the margin, which differs from Settings' copy of the same label. The
+   size is not a difference: every call site the utility was written for
+   measures 11px. */
 .wallet-eyebrow { margin-bottom: var(--space-4); }
 
 /* ---- who moves what -----------------------------------------------------
@@ -63,10 +57,8 @@
 .wallet-mover-amt { font-size: var(--text-17); font-weight: 600; flex: none; }
 
 /* ---- by account ---------------------------------------------------------
-   The card is `panel panel-clip`, so the rows inside it stop at its corners.
-   That was .wallet-list here, one of three one-declaration classes across
-   three files saying the same thing; the rule is .panel-clip in controls.css
-   now. */
+   The card is `panel panel-clip` (controls.css), so the rows inside it stop
+   at its corners. */
 /* Rules between rows, never above the first one. */
 .wallet-acct.is-divided,
 .wallet-alloc.is-divided,

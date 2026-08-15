@@ -2,41 +2,21 @@
    Breakpoints
 
    Imported LAST of the component files, immediately before motion.css, and
-   that position is the whole point.
-
-   These blocks used to live at the foot of shell.css, which is imported third.
-   A media query adds no specificity, so a breakpoint rule only beats the rule
-   it is narrowing by coming later in the cascade - and from third place it
-   came later than almost nothing. Two of the rules below had never once
-   applied:
-
-     .col-diff { display: none } lost to budget.css's unconditional
-     .item-diff-cell { display: flex }, so below 1200px the Difference cell
-     stayed on every item row while disappearing from the column header and
-     the group header above it. Five children in a four-track grid, so the
-     actions column wrapped to a row of its own.
-
-     .find-bar { right: 20px } and .app.find-open .main-inner
-     { padding-top: 76px } both lost to overlays.css's unconditional 30px and
-     84px, so the find bar never tightened toward the edge on a narrow window.
-
-   Both predate the stylesheet split, but the split is what made the shape
-   easy to hit: in one long file the breakpoints sat at the bottom and won by
-   position, and moving them into a file that gets imported early quietly took
-   that away. Anything that narrows a layout belongs after everything that
-   builds it, so this file has no neighbours below it but motion.css - which is
-   last for the same reason, and is about the user's setting rather than the
+   that position is the whole point. A media query adds no specificity, so a
+   breakpoint rule only beats the rule it narrows by coming later in the
+   cascade. Anything that narrows a layout belongs after everything that builds
+   it, so this file must keep its place: nothing below it but motion.css, which
+   is last for the same reason and is about the user's setting rather than the
    window's width.
 
    ------------------------------------------------------------
 
    Placed where this layout actually breaks, not at device sizes. Two things
-   have to give as the window narrows: the sidebar, which was a fixed 240px
-   that never collapsed, and the budget grid, whose four fixed columns plus
-   gaps, row padding, drag handle and card border came to 620px before the item
-   name got anything at all. At the old 960px window minimum that left the name
-   column 32px wide, 26px of it usable, and it also has to carry the funding
-   account chip underneath. That is not a narrow screen, it is an unusable one.
+   have to give as the window narrows: the sidebar, and the budget grid, whose
+   four fixed columns plus gaps, row padding, drag handle and card border come
+   to 620px before the item name gets anything at all. At a 960px window that
+   leaves the name column 32px wide, 26px of it usable, and it also has to
+   carry the funding account chip underneath.
 
    >= 1200px  five columns, full sidebar. Name column 272px at 1200.
    < 1200px   the Difference column is dropped. It is the only derived column
@@ -44,7 +24,7 @@
               screen next to it, and the mini bar beside it already says the
               same thing, so it is the one column that costs nothing to lose.
               Sidebar and page padding tighten with it. Name column 308px at
-              1024, which is more than the five-column layout ever gave.
+              1024, which is more than the five-column layout gives.
    < 1024px   the money columns give up their slack too. Below the window
               minimum this tier is reached only through the View menu's zoom,
               which shrinks the CSS viewport under the window, so it is a
@@ -63,8 +43,9 @@
   }
   .main-inner { padding: 26px 28px 72px; }
   /* Both halves of dropping the column: the header cell and the item row's
-     cell. .item-diff-cell is named explicitly because budget.css gives it a
-     display of its own, and one class cannot outrank another by wishing. */
+     cell. .item-diff-cell has to be named explicitly, because budget.css gives
+     it a display of its own at the same specificity; this only wins by being
+     imported later. */
   .col-diff, .item-diff-cell { display: none; }
 }
 @media (max-width: 1023px) {
