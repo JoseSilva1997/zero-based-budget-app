@@ -1,0 +1,60 @@
+/* ---- month bar -----------------------------------------------------------
+   Full-bleed and structural: it sits directly on the board, not inside a
+   .panel or a .raised, because it is neither flat furniture nor the one
+   lifted object on the screen. */
+.bar-wrap { position: relative; }
+.bar-track {
+  position: relative;
+  height: 34px;
+  /* A full pill, per the mockups: half the track height, so the ends are
+     semicircles. The fills inside are square; the track's own clip rounds
+     whichever fill reaches either end. */
+  border-radius: 17px;
+  background: var(--well);
+  /* The track is drawn, not merely implied. The unallocated remainder of the
+     month is now empty track rather than an amber fill (see the --breach
+     comment in layer 2), which only works if empty still reads as a vessel
+     with a shape: --well is within a percent of --board, so without this
+     outline an unallocated month rendered as a fill floating in nothing. It
+     is the "how much is left" boundary now that no fill marks it, so it takes
+     --rule-strong and its 3:1 rather than a decorative hairline. */
+  box-shadow: inset 0 0 0 1px var(--rule-strong);
+  overflow: hidden;
+  /* Isolates the region transitions (left/width, see MonthBar.jsx) from the
+     rest of the page, same reasoning as .update-banner-track's transform
+     transition above. */
+  contain: layout paint;
+}
+.bar-region { position: absolute; top: 0; bottom: 0; }
+/* The plan: money allocated but not yet spent. A wash inside an --accent
+   outline, so the span reads as an envelope with room left in it and the
+   solid fill to its left reads as what has already gone. The outline is what
+   carries WCAG 1.4.11 for the plan's extent; see --bar-plan in layer 3.
+   Inset rather than a border so the 1px lands inside the region's own width
+   and the spans still tile exactly. */
+.bar-region.is-plan { box-shadow: inset 0 0 0 1px var(--accent); }
+/* The income mark is two elements, not one, because .bar-track has to clip
+   (overflow: hidden keeps fills inside the rounded corners) and the mark
+   has to be visible against --board, and those two requirements cannot both
+   be met by one element inside the track.
+   .bar-mark-rule stays inside, a 1px line crossing the fills at whatever
+   contrast that fill happens to have against --rule-strong: as low as
+   1.01:1 in ocean. That is covered, not missed: it carries precision, not
+   visibility.
+   .bar-mark-tick is the sibling in .bar-wrap that carries visibility: two
+   4px ticks, one above and one below the track, landing on --board where
+   --rule-strong clears 3:1 in all four themes (worst measured: 3.47:1). The
+   middle of its box is left transparent so it does not paint a second,
+   redundant line over the rule already inside the track. */
+.bar-mark-rule {
+  position: absolute; top: 0; bottom: 0; width: 1px;
+  background: var(--rule-strong);
+}
+.bar-mark-tick { position: absolute; top: -4px; bottom: -4px; width: 1px; }
+.bar-mark-tick::before, .bar-mark-tick::after {
+  content: "";
+  position: absolute; left: 0; width: 1px; height: 4px;
+  background: var(--rule-strong);
+}
+.bar-mark-tick::before { top: 0; }
+.bar-mark-tick::after { bottom: 0; }

@@ -1,0 +1,176 @@
+/* ============================================================
+   The Month Budget screen: the Allocations table's three levels, the column
+   head, settings rows, drag handles, the new-month copy cards, the funding
+   account chip, hover row actions and the wallet trigger.
+   ============================================================ */
+
+/* ---- the Allocations table's three levels --------------------------------
+   Group header, item row, spending entry. All three were near-black bands
+   separated by hairlines, and the header was the darkest of them, so the
+   deepest level on the page looked like the shallowest. Depth is carried by
+   accent presence now (see the wash tokens in layer 3); the hairlines stay
+   and do the fine work.
+
+   Level 1. The group header, and the only washed band on the page. The top
+   highlight is the same inset .panel-feature uses, so a card that opens with
+   a header reads lit from above rather than merely tinted. */
+.group-head {
+  background: var(--wash-head);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--accent) 22%, transparent);
+  transition: background-color .14s;
+}
+/* A group whose spending has passed its plan. The wash swaps hue rather than
+   gaining a badge: the header is already the loudest surface in the card, so
+   the cheapest way to make the failing group findable in a long month is to
+   let that surface change colour. The DiffPill in the same row still says it
+   in words, so this is a second encoding and not the only one. */
+.group-head.is-over {
+  background: var(--wash-breach);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--breach) 18%, transparent);
+}
+/* Level 2, opened. An item with its entries showing takes a wash of its own,
+   and the tray below shares it: the pair reads as one opened object instead
+   of a row that happens to sit above an unrelated black strip. */
+.budget-row-open { background: var(--wash-open); }
+/* Level 3. The entry tray, one step deeper: the same hue, mixed into --board
+   rather than --raised, so it recedes from the row that owns it while still
+   belonging to it. */
+.entry-tray {
+  background: var(--wash-tray);
+  border-top: 1px solid color-mix(in srgb, var(--accent) 20%, var(--rule-faint));
+}
+
+/* The column labels over the Allocations table, and the rule that grounds
+   them. Both were absent: the labels floated over the first group card with
+   nothing tying them to the columns they name. The rule is the app's own
+   dissolving hairline (see ChartCard in components.jsx), accent-tinted at the
+   centre - it belongs to the table below it, not to the heading above. */
+.budget-colhead {
+  flex: 1; min-width: 0;
+  display: grid; grid-template-columns: 26px var(--budget-cols);
+  align-items: center; gap: 10px; padding: 7px 8px;
+  font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--faint); font-weight: 600;
+}
+/* "Actual" is the accent's word. In the month bar the solid accent is money
+   that actually moved, and this is the column of those figures, so naming it
+   in the same colour is the one place the table declares the mapping. The
+   label is 11.5px at weight 600 - large text by WCAG's definition it is not,
+   so --accent-text (a blend toward --ink, never below --accent-ink's own
+   floors) carries it rather than raw --accent. */
+.budget-colhead .col-actual { color: var(--accent-text); }
+.budget-rule {
+  height: 1px; margin: 0 2px 10px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 58%, transparent) 50%, transparent);
+}
+
+/* A row in a panel that stacks rows: Settings, mostly. The hairline goes
+   BETWEEN rows, which means the first row in a panel draws none. Every row set
+   this border inline, first row included, so six sections opened with a second
+   line one pixel inside the panel's own top edge, cutting the full width of the
+   container. Inline styles are unreachable from a :first-child rule, which is
+   why the border lives here now rather than at each call site. The second
+   selector reaches Shortcuts, whose rows sit one level further in, inside a
+   wrapper per section. */
+.set-row { border-top: 1px solid var(--rule-faint); }
+.panel > .set-row:first-child,
+.panel > :first-child > .set-row:first-child { border-top: none; }
+
+/* Drag handles are keyboard-operable, so they need resting, hover and focus
+   states of their own. Their colour is set inline in JSX, so this rule sticks
+   to the properties that leaves alone. The outline is inset because the handle
+   sits flush against the left edge of its row.
+
+   Square, because the rows are. An item row draws no radius of its own, so the
+   8px this used to carry made the hover fill the one rounded thing in a column
+   of square ones, floating inside a row it is meant to be part of. */
+.drag-handle { background: transparent; border-radius: 0; transition: background-color .12s; }
+.drag-handle:hover { background: var(--well); }
+.drag-handle:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; background: var(--well); }
+
+/* The group card's handle is a corner of that card rather than a control
+   floating inside it: it is filled with --board against the card's --raised,
+   and the card clips to --radius-lg. So it takes the card's own curve on the
+   corner it actually occupies and stays square on the three that are interior.
+   Rounded on all four, it left the card's fill showing through as a wedge at
+   each of those three and stopped short of the card's curve at the outer one.
+   The curve is 1px tighter than the card's: the border is drawn outside what
+   the card clips, so its inner edge is where the handle has to meet it.
+   A collapsed group's header IS the whole card, so its handle owns the
+   bottom-left corner too. */
+.drag-handle-group { border-radius: calc(var(--radius-lg) - 1px) 0 0 0; }
+.drag-handle-group.is-collapsed { border-bottom-left-radius: calc(var(--radius-lg) - 1px); }
+
+/* The group handle is part of the header band, so it wears the header's fill
+   (see .group-head above). It has to be declared here, after .drag-handle,
+   rather than up beside .group-head: the two selectors have identical
+   specificity, so the later one wins, and .drag-handle's transparent fill is
+   the one that would otherwise take it. Hover is spelled out for the same
+   reason - the handle used to carry its fill inline, where .drag-handle:hover
+   could not reach it at all. */
+.group-head-handle, .group-head-handle:hover { background: var(--wash-head); transition: background-color .14s; }
+.group-head-handle.is-over, .group-head-handle.is-over:hover { background: var(--wash-breach); }
+
+/* The copy / start-empty option cards in the new-month dialog. Their fill and
+   border are inline (they carry the selected state), so hover lifts them with
+   a shadow instead and focus gets a ring the label never had. */
+.copy-opt { border-radius: var(--radius); cursor: pointer; transition: box-shadow .12s; }
+.copy-opt:hover { box-shadow: var(--shadow-sm); }
+/* The focusable element is the off-screen radio inside the card, so the ring
+   has to come from the card that the user is actually looking at. */
+.copy-opt:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* account chip (item funding account) */
+.acct-chip {
+  position: relative; display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 8px 3px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 500;
+  color: var(--ink-2); background: var(--well); border: 1px solid var(--rule);
+  max-width: 100%; cursor: pointer;
+  transition: background-color .12s, border-color .12s, color .12s, box-shadow .12s;
+}
+.acct-chip:hover { border-color: var(--rule-strong); color: var(--ink); }
+/* The chip's real focus target is the invisible select stretched across it, so
+   the generic :focus-visible outline was being painted on an opacity: 0 box and
+   every funding-account chip in the budget was keyboard-reachable with nothing
+   to show for it. The ring goes on the chip instead, and the select's own
+   outline is dropped so there is exactly one indicator. */
+.acct-chip:focus-within { box-shadow: var(--ring); border-color: var(--accent); color: var(--ink); }
+.acct-chip-empty { color: var(--faint); background: transparent; border: 1px dashed var(--rule-strong); }
+.acct-chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px; }
+.acct-chip select {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  opacity: 0; cursor: pointer; border: none; -webkit-appearance: none; appearance: none;
+}
+.acct-chip select:focus-visible { outline: none; }
+
+/* Hidden row actions stay unreachable until the row is engaged: opacity alone
+   left a delete button focusable while invisible. Focus reveals them too, so
+   keyboard users can reach what the mouse reveals on hover. */
+.row-actions { display: flex; align-items: center; gap: 2px; opacity: 0; pointer-events: none; transition: opacity .14s; }
+.budget-row:hover .row-actions, .income-row:hover .row-actions, .set-row:hover .row-actions,
+.budget-row:focus-within .row-actions, .income-row:focus-within .row-actions, .set-row:focus-within .row-actions { opacity: 1; pointer-events: auto; }
+
+/* "By account" row in the Wallet drawer - expands to its allocations */
+.acct-row { transition: filter .12s; }
+.acct-row:not(:disabled):hover { filter: brightness(1.06); }
+.acct-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* wallet trigger button - the quiet half of the topbar pair. "New month" is
+   the solid primary beside it; two loud buttons side by side would shout over
+   each other, so this one is an ordinary outlined control whose accent lives
+   only in the glyph and the amount. */
+.wallet-btn {
+  gap: 8px; font-weight: 600;
+  background: var(--raised);
+  border-color: var(--rule-strong);
+  color: var(--ink);
+  box-shadow: var(--shadow-sm);
+}
+.wallet-btn svg { color: var(--accent-ink); }
+.wallet-btn .wallet-amt {
+  font-weight: 600; font-variant-numeric: tabular-nums lining-nums;
+  color: var(--accent-ink);
+  padding-left: 8px; margin-left: 2px;
+  border-left: 1px solid var(--rule);
+}
+.wallet-btn .wallet-warn { width: 7px; height: 7px; border-radius: 99px; background: var(--breach); flex: none; box-shadow: 0 0 0 3px var(--breach-soft); }

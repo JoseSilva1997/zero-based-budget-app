@@ -1,7 +1,8 @@
 /* ============================================================
    Contrast floors, for every theme the app ships.
 
-   Loads renderer/app.css into a real hidden window, wears each data-theme in
+   Loads renderer/app.css (and the styles/*.css files it imports) into a real
+   hidden window, wears each data-theme in
    turn, and asserts the contrast ratios the design depends on. This Chromium
    build keeps getComputedStyle().color in oklch() notation rather than
    converting it to rgb(), so tokens are resolved by painting them onto a 1x1
@@ -113,6 +114,17 @@ const CHECKS = [
 
 function assert(cond, msg) { if (!cond) throw new Error(msg); }
 
+/* renderer/app.css is a manifest of @imports over renderer/styles/*.css. This
+   suite injects the sheet as an inline <style> into a data: URL document,
+   where a relative @import has no file to resolve against, so the manifest is
+   followed here instead - in the browser's own order, depth first, each import
+   resolved against the file that names it. */
+function readCss(file) {
+  return fs
+    .readFileSync(file, 'utf8')
+    .replace(/@import\s+"([^"]+)";/g, (_m, rel) => readCss(path.join(path.dirname(file), rel)));
+}
+
 const PAGE = (css, themes, checks) => `
   const style = document.createElement('style');
   style.textContent = ${JSON.stringify(css)};
@@ -209,7 +221,7 @@ app.whenReady().then(async () => {
   let code = 0;
   const win = new BrowserWindow({ show: false, webPreferences: { offscreen: true } });
   try {
-    const css = fs.readFileSync(path.join(root, 'renderer', 'app.css'), 'utf8');
+    const css = readCss(path.join(root, 'renderer', 'app.css'));
     await win.loadURL('data:text/html,<!doctype html><html><body></body></html>');
     const results = await win.webContents.executeJavaScript(PAGE(css, THEMES, CHECKS));
 

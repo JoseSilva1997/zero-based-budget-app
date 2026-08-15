@@ -14,3 +14,13 @@ export {
 } from "./selectors.js";
 export { buildEmpty } from "./reducer.js";
 export * from "./bar.js";
+
+/* Declared here rather than given a module of its own, because a module would
+   be this line plus a header twice its length. It is the one piece of the
+   barrel that is not domain logic, and it earns the place: with state now
+   carried by is-* classes instead of by inline style objects, nearly every
+   component has to join a base class to a conditional one, and
+   `cx("row", open && "is-open")` is that expression. filter(Boolean) is what
+   lets the caller pass a bare `cond && "cls"`, whose false branch is `false`,
+   and `cond ? "cls" : null`, whose false branch is null: both drop out. */
+export const cx = (...parts) => parts.filter(Boolean).join(" ");

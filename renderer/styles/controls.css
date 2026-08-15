@@ -1,0 +1,200 @@
+/* ============================================================
+   Controls and containers: buttons, selects, cards, pills, inline fields,
+   the segmented chip, empty states, the divider and the keycap.
+   ============================================================ */
+
+/* Buttons. The resting border is --rule-strong, not --rule: a secondary
+   button's fill is only 1.17:1 against the page background, so the border is
+   the whole of what says "this is a control", and 1.4.11 asks 3:1 of it.
+   Hover then moves to an accent-tinted edge, matching .wallet-btn. */
+.btn {
+  display: inline-flex; align-items: center; gap: 7px; justify-content: center;
+  padding: 9px 15px; border-radius: var(--radius-sm); font-size: 13.5px; font-weight: 500;
+  border: 1px solid var(--rule-strong); background: var(--raised); color: var(--ink);
+  box-shadow: var(--shadow-sm);
+  transition: color .14s, background-color .14s, border-color .14s, box-shadow .14s, transform .14s;
+}
+.btn:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--rule-strong)); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.btn:active { transform: translateY(0); }
+/* Flat, not a gradient: the light end of the old gradient dropped the label
+   under AA in a quarter of the theme/accent pairs. Depth comes from the inset
+   highlight and the accent glow, and hover brightens the glow rather than the
+   fill. */
+.btn-primary { background: var(--accent-btn); color: var(--on-accent); border-color: transparent; box-shadow: var(--glow-sm), inset 0 1px 0 color-mix(in srgb, #fff 18%, transparent); font-weight: 600; }
+.btn-primary:hover { box-shadow: var(--glow-md), inset 0 1px 0 color-mix(in srgb, #fff 26%, transparent); }
+.btn-ghost { background: transparent; border-color: transparent; box-shadow: none; color: var(--ink-2); }
+.btn-ghost:hover { background: var(--well); box-shadow: none; color: var(--ink); }
+.btn-sm { padding: 6px 10px; font-size: 12.5px; }
+.btn-danger { color: var(--breach-ink); }
+.btn-danger:hover { background: var(--breach-soft); border-color: transparent; }
+.icon-btn {
+  width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center;
+  border: 1px solid transparent; background: transparent; color: var(--muted);
+  transition: background-color .14s, color .14s, border-color .14s;
+}
+.icon-btn:hover { background: var(--well); color: var(--ink); }
+.icon-btn.subtle { color: var(--faint); }
+/* Only for the item row's stacked delete/move pair: at the default 30px the
+   two buttons plus their gap (62px) out-measure the name+account column
+   (57px) and add 5px to every item row. 26px with no gap brings the stack
+   back to 73px, level with the row's other columns. */
+.icon-btn.compact { width: 26px; height: 26px; }
+
+/* Native <select> chrome was the one surface in this app the OS still drew
+   itself: a square-cornered box with its own border, its own arrow and its own
+   font, sitting inside a screen where every other control is drawn here. These
+   opt out of it and take the app's edge plus a chevron that matches Icons.down.
+   The stroke is a fixed mid-grey rather than currentColor, which a data URI
+   cannot read; it clears every one of the four backgrounds, all of which are
+   dark. The hover selectors are spelled out because .tinput:hover sets
+   `background` as a shorthand and would otherwise wipe the chevron off.
+   The funding-account chip's select is excluded on purpose: it is stretched
+   invisible across the chip and has to stay that way. */
+select.btn, select.tinput, select.sel,
+select.btn:hover, select.tinput:hover, select.sel:hover {
+  -webkit-appearance: none; appearance: none;
+  padding-right: 26px;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2394949f' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 7px center;
+  background-size: 13px;
+}
+/* An <option> list is painted by the OS, not by this stylesheet, so on a dark
+   theme it would otherwise open as white-on-white. */
+select.btn option, select.tinput option, select.sel option,
+select.btn optgroup, select.tinput optgroup, select.sel optgroup {
+  background: var(--raised); color: var(--ink);
+}
+
+/* Cards */
+/* Two recipes, not one, but the difference is carried by fill and elevation
+   rather than by border weight. Both take the --raised fill so cards read as
+   surfaces sitting on the darker board (colour-driven hierarchy, per the
+   mockups); the borders are demoted to hairlines. What separates them is
+   depth: .panel is flat furniture at the board's level (lists, tables,
+   forms, empty states) with the smallest shadow, while .raised is the single
+   lifted object on a screen (on Month Budget, the group envelope) and rests
+   at --shadow-md rather than only reaching it on hover. If everything is
+   raised, nothing is. */
+.panel {
+  background: var(--raised);
+  border: 1px solid var(--rule-faint);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+.raised {
+  background: var(--raised);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+/* A .panel with a bit more definition: the General and Appearance cards on
+   Settings, which sit alone at the top of the page rather than in a stack of
+   rows, read as flat furniture at --shadow-sm's faint border. This is
+   .panel plus a visible border and a soft top highlight, not a global bump -
+   the rest of Settings stays at the quieter chrome the rows share. */
+.panel-feature {
+  border-color: var(--rule);
+  box-shadow: var(--shadow-md), inset 0 1px 0 color-mix(in srgb, #fff 6%, transparent);
+}
+.section-head { display: flex; align-items: center; justify-content: space-between; margin: 30px 2px 14px; }
+.section-head h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); font-weight: 600; margin: 0; }
+
+/* A panel that cannot clip its children. Quick entry is the one of these: its
+   suggestion list hangs off the name field and past the card's bottom edge, so
+   the card keeps overflow: visible and the blocks inside it have to respect its
+   corners themselves. Whichever block ends up last - "Just logged", the "goes
+   under" strip, or the field row when neither is showing - carries the bottom
+   curve, so a --board fill stops following the card's square content box out
+   past its rounded border. Radius only, no clipping: the field row holds the
+   arithmetic preview chip, which is drawn above the field and outside the row. */
+.panel-unclipped > :last-child {
+  border-bottom-left-radius: calc(var(--radius-lg) - 1px);
+  border-bottom-right-radius: calc(var(--radius-lg) - 1px);
+}
+
+/* Pills / tags */
+.pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums lining-nums; }
+.pill-neutral { background: var(--well); color: var(--ink-2); }
+.pill-breach { background: var(--breach-soft); color: var(--breach-ink); }
+/* The Difference chip: an outlined caption ("ON TRACK" / "N LEFT"), per the
+   mockups, rather than a filled pill - the resting state of a budget row
+   should not carry a fill. Only a breach earns one. The border is
+   --rule-strong because it is the whole of what draws the chip. */
+.pill-diff {
+  background: transparent; border: 1px solid var(--rule-strong); color: var(--muted);
+  text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.06em; padding: 2px 8px;
+  white-space: nowrap;
+}
+.pill-diff.pill-diff-breach { background: var(--breach-soft); border-color: var(--breach); color: var(--breach-ink); }
+/* Reaching exactly on-track is the settled state, so its chip stops being an
+   outline and quietly fills: solid is fact, hollow is still-in-progress. No
+   colour arrives - the no-green rule holds - but the change of texture marks
+   the arrival. */
+.pill-diff.pill-diff-ontrack { background: var(--well); border-color: transparent; color: var(--ink-2); }
+
+/* Inline editable money and text fields. These deliberately keep :focus rather
+   than :focus-visible. They are borderless and look like plain text until they
+   are engaged, so the ring is not a keyboard affordance bolted onto an already
+   obvious control: it is the only thing that says which of forty cells in the
+   grid is now taking your typing, and that is as necessary after a click as
+   after a Tab. The hover state gains a border for the same reason: a background
+   change alone was 1.1:1 and could not be seen. */
+.minput {
+  font-family: var(--font-num); font-variant-numeric: tabular-nums lining-nums;
+  border: 1px solid transparent; background: transparent; color: var(--ink);
+  border-radius: 8px; padding: 5px 8px; text-align: right; width: 100%;
+  font-size: 14px;
+  transition: background-color .12s, border-color .12s, box-shadow .12s;
+}
+/* Tray variant: a field that rests visibly boxed on a --well tray (quick
+   entry, per the mockups) instead of reading as plain text until hovered.
+   Declared before the :hover/:focus rules below so those still win while the
+   field is engaged - the tray only owns the resting look. */
+.minput.tray, .tinput.tray { background: var(--well); border-color: var(--rule-faint); }
+.minput:hover { background: var(--well); border-color: var(--rule); }
+.minput:focus { outline: none; background: var(--raised); border-color: var(--accent); box-shadow: var(--ring); }
+.tinput {
+  border: 1px solid transparent; background: transparent; color: var(--ink);
+  border-radius: 8px; padding: 5px 8px; font-size: 14px; width: 100%; font-weight: 500;
+  transition: background-color .12s, border-color .12s, box-shadow .12s;
+}
+.tinput:hover { background: var(--well); border-color: var(--rule); }
+.tinput:focus { outline: none; background: var(--raised); border-color: var(--accent); box-shadow: var(--ring); }
+
+/* misc */
+.divider { height: 1px; background: var(--rule); border: none; margin: 0; }
+
+/* A chip inside a segmented radiogroup tray (the currency picker): the tray
+   is a bordered --well strip, the chips rest as quiet symbols on it, and the
+   chosen one is a solid accent square with its ink on top - the selection is
+   the single filled object in the group, per the mockups. */
+.chip-radio {
+  background: transparent; border: none; color: var(--muted);
+  border-radius: 6px; transition: background-color .12s, color .12s;
+}
+.chip-radio:hover { background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink); }
+.chip-radio[aria-checked="true"], .chip-radio[aria-checked="true"]:hover {
+  background: var(--accent-btn);
+  /* --on-accent is pure white; softened a touch toward the fill so the
+     selected glyph and its check badge don't outshine the rest of the tray. */
+  color: color-mix(in srgb, var(--on-accent) 88%, var(--accent-btn) 12%); border: 1px solid var(--faint);
+}
+.empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  padding: 44px 20px; text-align: center; color: var(--muted);
+}
+.empty-icon { width: 46px; height: 46px; border-radius: var(--radius); background: var(--well); display: grid; place-items: center; color: var(--faint); }
+
+.fade-in { animation: fade .26s ease; }
+@keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* keycap, for the Shortcuts section in Settings */
+kbd {
+  display: inline-block; min-width: 22px; text-align: center;
+  font-family: var(--font-mono); font-size: 11.5px; line-height: 1.5;
+  padding: 2px 7px; border-radius: 6px;
+  background: var(--well); color: var(--ink-2);
+  border: 1px solid var(--rule-strong); border-bottom-width: 2px;
+  white-space: nowrap;
+}

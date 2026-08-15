@@ -1,0 +1,104 @@
+/* ============================================================
+   Anything that floats above the page: the move-to-group menu, the modal,
+   the slide-over drawer, the find bar, and the keyframes they animate with.
+   ============================================================ */
+
+/* Move-to-group menu. Fixed and portalled to the body, because the group card
+   clips its own children to keep its rounded corners. */
+.move-menu {
+  position: fixed; z-index: 65; min-width: 190px; max-width: 260px; max-height: 280px;
+  overflow-y: auto; padding: 4px;
+  background: var(--raised); border: 1px solid var(--rule);
+  border-radius: var(--radius-sm); box-shadow: var(--shadow-md);
+}
+.move-menu-label {
+  padding: 6px 9px 5px; font-size: 11px; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--faint); font-weight: 600;
+}
+.move-menu-item {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  text-align: left; padding: 7px 9px; border: 0; border-radius: 7px;
+  background: transparent; color: var(--ink); font: inherit; font-size: 13.5px; cursor: pointer;
+}
+/* Hover and keyboard focus look the same: this menu is walked with arrow keys
+   as often as it is clicked. */
+.move-menu-item:hover, .move-menu-item:focus-visible { background: var(--well); }
+
+/* Modal */
+.modal-veil { position: fixed; inset: 0; background: rgba(0,0,0,0.62); backdrop-filter: blur(4px); display: grid; place-items: center; z-index: 60; animation: veil .18s ease; }
+@keyframes veil { from { opacity: 0; } }
+.modal { background: var(--raised); border: 1px solid var(--rule); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); width: 460px; max-width: calc(100vw - 40px); padding: 26px; animation: pop .22s; }
+/* The curve lives on the keyframe rather than on each caller, so the toast in
+   main.jsx inherits it through its own inline animation: a timing function
+   declared on a keyframe governs the segment starting there and overrides the
+   one on the element. It used to overshoot its resting position and settle
+   back. Every dialog and every message in a money app springing past where it
+   means to land is not a texture this app wants, so it is an exponential
+   ease-out: fast out of the gate, long settle, nothing to recover from. */
+@keyframes pop {
+  from { opacity: 0; transform: translateY(8px) scale(.98); animation-timing-function: cubic-bezier(.16, 1, .3, 1); }
+}
+.modal h3 { margin: 0 0 6px; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
+.modal p { margin: 0 0 18px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+
+/* slide-over drawer */
+.drawer-veil { position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(3px); z-index: 70; animation: veil .2s ease; }
+.drawer {
+  position: fixed; top: 0; right: 0; height: 100%; width: 480px; max-width: calc(100vw - 40px);
+  background: var(--raised); border-left: 1px solid var(--rule-strong); box-shadow: var(--shadow-lg);
+  z-index: 71; display: flex; flex-direction: column; animation: slidein .26s cubic-bezier(.2,.8,.2,1);
+}
+@keyframes slidein { from { transform: translateX(100%); } }
+.drawer-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 20px 22px 16px; border-bottom: 1px solid var(--rule); }
+.drawer-body { overflow-y: auto; padding: 18px 22px 30px; flex: 1; }
+.drawer-body::-webkit-scrollbar, .scroll-list::-webkit-scrollbar { width: 10px; }
+.drawer-body::-webkit-scrollbar-thumb, .scroll-list::-webkit-scrollbar-thumb { background: var(--rule-strong); border-radius: 99px; border: 3px solid var(--raised); }
+.drawer-body::-webkit-scrollbar-track, .scroll-list::-webkit-scrollbar-track { background: transparent; }
+
+/* ---- find (Ctrl+F) ------------------------------------------------------
+   The bar floats over the content rather than covering it, and sits outside
+   .main-inner so it is never part of what it searches. */
+.find-bar {
+  position: fixed; top: 16px; right: 30px; z-index: 90;
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 8px 7px 12px;
+  background: var(--board); border: 1px solid var(--rule-strong);
+  border-radius: var(--radius); box-shadow: var(--shadow-lg);
+  animation: pop .16s;
+}
+/* The bar floats, so the content it covers is pushed clear of it instead. */
+.app.find-open .main-inner { padding-top: 84px; }
+.find-input {
+  width: 210px; background: transparent; border: 0; border-radius: 6px;
+  color: var(--ink); font-family: inherit; font-size: 13.5px; padding: 3px 2px;
+}
+.find-input::placeholder { color: var(--faint); }
+.find-count {
+  font-variant-numeric: tabular-nums lining-nums; font-size: 11.5px; color: var(--muted);
+  /* Wide enough to hold "1000 of 1000" at 11.5px mono, so the count stops
+     resizing the whole bar as you type. 64px only covered single digits. */
+  min-width: 92px; text-align: right; flex: none; white-space: nowrap;
+}
+.find-count-none { color: var(--breach-ink); }
+
+/* Text-node matches. ::highlight() paints without touching the DOM, so React
+   keeps ownership of the tree. Only a few properties are honoured here.
+
+   The current match is the one word the user is hunting for, and it used to be
+   --on-accent on raw --accent, which measures 2.84:1 in sky and 2.86:1 in
+   sunset: the least legible text on screen was the thing being searched for.
+   It is a fixed pair now, deliberately outside the theme system, because a
+   found-match marker is a tool and not decoration, and because a pair that has
+   to hold across six accents cannot be derived from any of them. Amber on
+   near-black measures 13.67:1 in every theme, and it is the colour every
+   browser's own find already uses, so it reads as "here" instantly. The
+   non-current wash stays accent-tinted (that is where the theme belongs) and
+   goes from 34% to 40%, which lifts the tint against plain text while keeping
+   --ink on it at 5.17:1 in the worst case, cyan on --raised. */
+::highlight(find-match) { background-color: color-mix(in srgb, var(--accent) 40%, transparent); color: var(--ink); }
+::highlight(find-current) { background-color: #ffd84d; color: #161006; }
+
+/* Input matches: the value is not a text node, so the whole field lights up.
+   The current one borrows the same amber so "current" means one thing. */
+.find-hit { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent) !important; }
+.find-hit-current { box-shadow: 0 0 0 2px #ffd84d, 0 0 0 5px color-mix(in srgb, #ffd84d 26%, transparent) !important; }
