@@ -43,6 +43,28 @@
 
    And may override, from layers 2-3: --accent-btn, --canvas-wash, --bar-plan,
    the accent washes, the semantic colours, and the shadow ramp.
+
+   THE INLINE-STYLE RULE
+   ---------------------
+   An inline `style` prop in the renderer is permitted only for a value that
+   cannot be known until runtime: a percentage from barGeometry, a member's
+   own colour, a measured portal coordinate, a width from a size prop.
+   Everything else belongs in a class in this directory, taking a token if
+   one exists at that exact value and keeping its own literal otherwise.
+   Never invent a value, never snap to a near rung.
+
+   Two things enforce it, both run by `npm test` via `pretest`:
+
+     scripts/check-inline-styles.mjs guard 1  fails on an inline style holding
+       a literal, with one allowlisted exception documented in that file.
+     scripts/check-inline-styles.mjs guard 2  warns when an element carries a
+       class whose rules declare a property its inline style also sets. The
+       inline value wins, so those rules have never applied and the class is
+       dormant. Six such classes were found by hand while the renderer was
+       taken from 393 inline style objects to 23, including a .btn-ghost:hover
+       that had never once fired. Advisory only: masking is correct whenever
+       the inline value is runtime-derived, and nothing but a human can tell
+       the two apart.
    ============================================================ */
 
 /* Bundled, not fetched. The sidebar strapline says "local", and until now

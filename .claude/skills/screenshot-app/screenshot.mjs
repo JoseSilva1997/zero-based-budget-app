@@ -128,9 +128,29 @@ async function clickText(page, text) {
   }, text);
 }
 
+/* Park the pointer somewhere inert before every capture.
+
+   These are real OS windows, so CSS :hover follows the REAL mouse cursor into
+   the screenshot. Leave the physical pointer over the app while a run happens
+   and whatever sits under it is captured in its hover state - and it is stable
+   across runs, so it does not even look like flake. It cost real time once: a
+   month-budget.png that differed from its baseline in four consecutive runs,
+   with no renderer change that could explain it, turned out to be the cursor
+   resting on an income row's name field. .tinput:hover drew a border and
+   .income-row:hover revealed the row's delete button.
+
+   (0, 0) is the top-left of the sidebar, which carries no hover rule at any
+   depth. Moving there also clears the hover state the real cursor set, because
+   Chromium recomputes hover from the last input event it saw and this is one.
+   Nothing in an automated run generates a real mouse event afterwards. */
+async function parkPointer(page) {
+  try { await page.mouse.move(0, 0); } catch { /* a closed page is the caller's problem, not ours */ }
+}
+
 async function takeShot(app, page, outPath, opts) {
   const out = path.resolve(process.cwd(), outPath);
   fs.mkdirSync(path.dirname(out), { recursive: true });
+  await parkPointer(page);
   if (opts.fullpage) {
     // Playwright's own fullPage option grows the viewport to the
     // *document's* scroll size, but this app scrolls inside .main, not
