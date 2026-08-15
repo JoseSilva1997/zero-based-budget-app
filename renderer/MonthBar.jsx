@@ -23,7 +23,7 @@
    the breach alone.
    ============================================================ */
 import { Icons } from './components.jsx';
-import { barGeometry, barRegions, fmt, monthActual, monthAllocated, monthIncome, monthUnallocated, overBudgetItems, round2 } from './lib/index.js';
+import { barGeometry, barRegions, cx, fmt, monthActual, monthAllocated, monthIncome, monthUnallocated, overBudgetItems, round2 } from './lib/index.js';
 import { focusAllocated } from './MonthGroups.jsx';
 
 /* overBudgetItems reports names; routing to the row that fixes one needs its
@@ -82,17 +82,6 @@ const PAINT = {
    fill whose end pokes out from behind means the failure. */
 const STACK = ["beyond", "overspent", "allocated", "spent"];
 
-/* The bullets beside the figures echo the bar's own paint: a solid dot for
-   spent (PAINT.spent), a plain washed dot for allocated (PAINT.allocated),
-   and a hollow ring for left to allocate since the bar marks that money by
-   leaving the track bare and outlined in --rule-strong, not by filling it. */
-const dotBase = { display: "inline-block", width: 6, height: 6, borderRadius: "50%", marginRight: 6, verticalAlign: "middle" };
-const spentDot = { ...dotBase, background: PAINT.spent };
-const allocatedDot = { ...dotBase, background: PAINT.allocated };
-const leftDot = (overAllocated) => (overAllocated
-  ? { ...dotBase, background: "var(--breach)" }
-  : { ...dotBase, background: "transparent", boxShadow: "inset 0 0 0 1px var(--rule-strong)" });
-
 function MonthBar({ mo, currency }) {
   const income = monthIncome(mo), alloc = monthAllocated(mo), actual = monthActual(mo);
   const unalloc = monthUnallocated(mo);
@@ -101,9 +90,9 @@ function MonthBar({ mo, currency }) {
 
   if (g.empty) {
     return (
-      <div style={{ margin: "4px 0 38px" }}>
+      <div className="bar-block">
         <div className="bar-track" />
-        <div style={{ marginTop: 10, fontSize: 13, color: "var(--muted)" }}>
+        <div className="bar-note">
           Add this month's income to start allocating.
         </div>
       </div>
@@ -119,7 +108,9 @@ function MonthBar({ mo, currency }) {
      be conflated: that month shows the mark and still says "left to
      allocate". */
   const hasBeyond = regions.some((r) => r.key === "beyond");
-  const figureColor = g.overAllocated ? "var(--breach-ink)" : "var(--ink)";
+  /* All four money figures turn together, so the class is built once. The
+     colour itself is .bar-figure / .bar-figure.is-over in bar.css. */
+  const figureClass = cx("num bar-figure", g.overAllocated && "is-over");
   /* Concentric pills, all anchored at the track's left edge; see STACK. A
      key with no PAINT entry (that is 'gap') drops out here. */
   const byKey = new Map(regions.map((r) => [r.key, r]));
@@ -129,11 +120,11 @@ function MonthBar({ mo, currency }) {
      the bar as well would just duplicate. MiniBar is role="img" because it
      stands alone; this one does not. */
   return (
-    <div style={{ margin: "4px 0 38px" }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 16, fontSize: 12, color: "var(--muted)" }}>
-        <span style={{ fontSize: 12, color: "var(--muted)" }}>
-          <span style={spentDot} /><span className="num" style={{ fontSize: 16, fontWeight: 700, color: figureColor }}>{fmt(currency, actual)}</span> spent</span>
-        <span>income:<span className="num" style={{ marginLeft: 8, fontSize: 18, fontWeight: 700, color: figureColor }}>{fmt(currency, income)}</span></span>
+    <div className="bar-block">
+      <div className="bar-head">
+        <span>
+          <span className="bar-dot bar-dot-spent" /><span className={figureClass}>{fmt(currency, actual)}</span> spent</span>
+        <span>income:<span className={cx(figureClass, "bar-figure-income")}>{fmt(currency, income)}</span></span>
       </div>
 
       {/* Spec calls for transform: scaleX() so the fill transition never
@@ -145,12 +136,21 @@ function MonthBar({ mo, currency }) {
           paint. Deliberate deviation, not an oversight. */}
       <div className="bar-wrap" aria-hidden="true">
         <div className="bar-track">
+          {/* The two survivors of the inline-style rule on this file. The width
+              is the pill's extent from zero, a percentage only barGeometry
+              knows. The paint is the region's own entry in the PAINT table,
+              looked up by a key that is not known until the regions are
+              computed - and it has to stay a background-IMAGE set here rather
+              than a class, because .bar-region carries the track colour as its
+              background-COLOUR and that backing is what lets the pills stack
+              (see .bar-region in bar.css). tests/bar-electron.cjs reads these
+              back off the DOM to prove the stack order. The transition is a
+              constant and has moved to .bar-region. */}
           {rendered.map((key) => (
             <div key={key} className="bar-region"
               style={{
                 width: `${byKey.get(key).to * 100}%`,
                 backgroundImage: PAINT[key],
-                transition: "width .35s ease",
               }} />
           ))}
           {/* The rule: crosses the track at 1px, carries precision (exactly
@@ -167,15 +167,15 @@ function MonthBar({ mo, currency }) {
         {hasBeyond && <div className="bar-mark-tick" style={{ left: `${g.incomeX * 100}%` }} />}
       </div>
 
-      <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "baseline", gap: 20, marginTop: 16 }}>
-        <span style={{ fontSize: 12, color: "var(--muted)" }}>
-          <span style={allocatedDot} /><span className="num" style={{ fontSize: 16, fontWeight: 700, color: figureColor }}>{fmt(currency, alloc)}</span> allocated
+      <div className="bar-legend">
+        <span className="bar-legend-item">
+          <span className="bar-dot bar-dot-allocated" /><span className={figureClass}>{fmt(currency, alloc)}</span> allocated
         </span>
         <span>
-          <span style={leftDot(g.overAllocated)} /><span className="num" style={{ fontSize: 16, fontWeight: 700, color: figureColor }}>
+          <span className={cx("bar-dot bar-dot-left", g.overAllocated && "is-over")} /><span className={figureClass}>
             {fmt(currency, Math.abs(unalloc))}
           </span>{" "}
-          <span style={{ fontSize: 12, fontWeight: 400, color: "var(--muted)" }}>
+          <span className="bar-remainder-label">
             {g.overAllocated ? "over-allocated" : "remaining"}
           </span>
         </span>
@@ -187,25 +187,24 @@ function MonthBar({ mo, currency }) {
            this the worst moment on the screen. Once the gap closes this strip
            is the only coloured thing left, which is the point: for the 29 days
            after payday it is the only part that wants action. */
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14, padding: "11px 14px", borderRadius: 8, background: "var(--breach-soft)", color: "var(--breach-ink)", fontSize: 13 }}>
-          <Icons.alert size={16} style={{ flex: "none" }} />
-          <strong style={{ fontWeight: 600, flex: "none" }}>{over.length} item{over.length > 1 ? "s" : ""} over budget</strong>
-          <span style={{ opacity: 0.9, flex: "1 1 auto", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <div className="bar-over">
+          <Icons.alert size={16} />
+          <strong>{over.length} item{over.length > 1 ? "s" : ""} over budget</strong>
+          <span className="bar-over-items truncate">
             ·{" "}
             {over.slice(0, 3).map((o, i) => (
               <span key={`${o.id != null ? o.id : o.item}-${i}`}>
                 {i > 0 ? ", " : ""}
-                <button type="button" onClick={() => focusAllocated(o.id, o.groupId)}
+                <button type="button" className="link-btn" onClick={() => focusAllocated(o.id, o.groupId)}
                   title={`Go to ${o.item} in ${o.group}`}
-                  aria-label={`Go to ${o.item} in ${o.group}, ${fmt(currency, o.over)} over`}
-                  style={{ background: "transparent", border: 0, padding: 0, font: "inherit", color: "inherit", textDecoration: "underline", textUnderlineOffset: 2, cursor: "pointer" }}>
+                  aria-label={`Go to ${o.item} in ${o.group}, ${fmt(currency, o.over)} over`}>
                   {o.item}
                 </button>
               </span>
             ))}
             {over.length > 3 ? "…" : ""}
           </span>
-          <span className="num" style={{ marginLeft: "auto", fontWeight: 600, flex: "none" }}>{fmt(currency, sumOver(over))} over total</span>
+          <span className="num bar-over-total">{fmt(currency, sumOver(over))} over total</span>
         </div>
       )}
     </div>

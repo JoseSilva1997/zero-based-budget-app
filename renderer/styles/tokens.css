@@ -105,11 +105,18 @@
   --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
 
   /* ---- the type scale ----
-     Twenty-three rungs: one for every distinct size the renderer already sets,
+     Twenty-four rungs: one for every distinct size the renderer already sets,
      with no value merged into a neighbour. Complete coverage is the point. A
      scale that does not name a size in use forces whoever migrates that rule to
      invent a substitute, and inventing it inside a mechanical refactor is how a
      refactor starts changing what is on screen.
+
+     It started at twenty-three and gained --text-18 when develop's month bar
+     redesign merged in, which set a size the census below had never seen. That
+     is the scale working as intended rather than a hole in it: complete
+     coverage is a claim about a moment, and the answer to a new size arriving
+     is a new rung, never rounding it into the nearest old one. The census that
+     follows is the state at the consolidation, not a ceiling.
 
      The names are the pixel values, with "-" for the decimal point, so
      --text-13-5 is 13.5px and means nothing else. That is deliberate. This is a
@@ -180,6 +187,7 @@
   --text-12-5: 12.5px;  --text-13:   13px;    --text-13-5: 13.5px;
   --text-14:   14px;    --text-14-5: 14.5px;  --text-15:   15px;
   --text-15-5: 15.5px;  --text-16:   16px;    --text-17:   17px;
+  --text-18:   18px;
   --text-19:   19px;    --text-20:   20px;    --text-21:   21px;
   --text-22:   22px;    --text-28:   28px;    --text-30:   30px;
   --text-34:   34px;    --text-46:   46px;

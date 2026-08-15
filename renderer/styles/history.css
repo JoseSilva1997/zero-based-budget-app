@@ -174,9 +174,12 @@
 /* ---- the Month Budget screen's income section ----------------------------
    The other half of this file: the income table that sits above the
    Allocations table, whose own rules live in styles/budget.css. */
-.income-total { display: flex; align-items: center; gap: var(--space-5); }
-.income-total-label { font-size: var(--text-12-5); color: var(--muted); }
-.income-total-value { font-size: var(--text-15); font-weight: 600; }
+/* .income-total, .income-total-label and .income-total-value used to live here,
+   dressing a "Total income" figure in the section head. develop's redesign put
+   that figure in the summary strip at the top of the screen instead, so the
+   section head is a bare <h2> now and the three rules had no call site left.
+   Deleted rather than kept: the figure they styled is not on this screen at
+   all any more, so there is nothing for them to come back to. */
 /* The income card clips for the same reason the all-months table does:
    full-width square rows inside a 20px-cornered card. That was .income-panel
    here; both call sites take .panel-clip in controls.css now. */
@@ -219,7 +222,25 @@ select.income-member {
   cursor: pointer;
 }
 /* The source is free text and optional, so it sits a rung below the member
-   name it follows rather than matching .tinput's own weight and size. */
+   name it follows rather than matching .tinput's own weight and size.
+
+   These three declarations are develop's, and the merge nearly lost them.
+   develop's MonthBudget.jsx handed them to TextInline as a `style` prop, but
+   TextInline has had no `style` prop since Phase E2 removed it (see the
+   comment at TextInline in components.jsx) and it takes no rest spread, so
+   React silently dropped them and the source field rendered at plain
+   .tinput's 14px/500/--ink from the moment the merge landed. Nothing failed:
+   no build error, no test, and the post-merge screenshot recorded the wrong
+   rendering as the reference to hold everything else against.
+
+   That is the one thing this consolidation's "no visual change" rule must not
+   protect. The rule exists so a refactor does not quietly restyle the app; it
+   was never meant to freeze in a regression the refactor itself caused. So
+   the class is applied at the call site and develop's intent is restored.
+
+   The general shape is worth remembering: a component's props are an API, and
+   removing one is a breaking change that JSX arriving from another branch has
+   no way to notice. React drops an unknown prop without a word. */
 .tinput.income-label { font-weight: 400; color: var(--ink-2); font-size: var(--text-13); }
 .income-add {
   display: flex; gap: var(--space-2); padding: var(--space-4) var(--space-6);

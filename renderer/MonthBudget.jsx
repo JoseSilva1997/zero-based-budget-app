@@ -52,34 +52,31 @@ function IncomeSection({ mo, currency, members, dispatch, month }) {
       <div className="section-head">
         <h2>Income</h2>
       </div>
-      <div className="panel" style={{ overflow: "hidden" }}>
+      <div className="panel panel-clip">
         {mo.incomes.length === 0 && (
-          <div className="empty" style={{ padding: "30px" }}>
+          <div className="empty income-empty">
             <div className="empty-icon"><Icons.coins size={20} /></div>
-            <div style={{ fontSize: 14 }}>No income entered yet for this month.</div>
+            <div className="income-empty-text">No income entered yet for this month.</div>
           </div>
         )}
-        {mo.incomes.map((inc, idx) => {
+        {mo.incomes.map((inc) => {
           const m = members.find(x => x.id === inc.memberId) || members[0];
-          // The member cell is fixed rather than the flexible column: it only
-          // ever holds an avatar and a short name, and giving it the 1fr used
-          // to strand the source label in the dead air that left behind,
-          // nowhere near the member it describes. The label is the free-text
-          // field, so the slack belongs to it instead.
           return (
-            <div className="income-row" key={inc.id} style={{ display: "grid", gridTemplateColumns: "200px 1fr 150px 40px", alignItems: "center", gap: 10, padding: "9px 16px", borderTop: idx ? "1px solid var(--rule-faint)" : "none" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+            /* Two classes, and the geometry is on the second one. .income-row is
+               shared with QuickEntry's "Just logged" rows and exists only to
+               reveal .row-actions on hover; .income-grid is this table's own
+               tracks. The argument in full is at .income-grid in
+               styles/history.css, along with the divider that used to be an
+               index test on this element's style prop. */
+            <div className="income-row income-grid" key={inc.id}>
+              <div className="income-who">
                 <Avatar member={m} />
                 <select value={inc.memberId} aria-label="Who this income belongs to" onChange={(e) => dispatch({ type: "updateIncome", month, id: inc.id, patch: { memberId: e.target.value } })}
-                  className="sel"
-                  /* No padding shorthand: it would set padding-right too, and
-                     the .sel rule needs that side to hold the chevron it
-                     paints there. */
-                  style={{ minWidth: 0, border: "1px solid transparent", backgroundColor: "transparent", fontFamily: "inherit", fontSize: 13.5, fontWeight: 500, color: "var(--ink)", borderRadius: 6, paddingTop: 3, paddingBottom: 3, paddingLeft: 4, cursor: "pointer" }}>
+                  className="sel income-member">
                   {members.map(mm => <option key={mm.id} value={mm.id}>{mm.name}</option>)}
                 </select>
               </div>
-              <TextInline value={inc.label} col="incomeLabel" label="Income source" onCommit={(v) => dispatch({ type: "updateIncome", month, id: inc.id, patch: { label: v } })} placeholder="Source" style={{ fontWeight: 400, color: "var(--ink-2)", fontSize: 13 }} />
+              <TextInline value={inc.label} className="income-label" col="incomeLabel" label="Income source" onCommit={(v) => dispatch({ type: "updateIncome", month, id: inc.id, patch: { label: v } })} placeholder="Source" />
               <MoneyInput value={inc.amount} currency={currency} col="income" label="Income amount"
                 onCommit={(v) => dispatch({ type: "updateIncome", month, id: inc.id, patch: { amount: v } })} />
               <div className="row-actions">
@@ -89,7 +86,7 @@ function IncomeSection({ mo, currency, members, dispatch, month }) {
             </div>
           );
         })}
-        <div style={{ display: "flex", gap: 6, padding: "10px 16px", borderTop: "1px solid var(--rule-strong)", background: "var(--board)" }}>
+        <div className="income-add">
           {members.map(m => (
             <button key={m.id} className="btn btn-sm btn-ghost" onClick={() => dispatch({ type: "addIncome", month, memberId: m.id })}>
               <Icons.plus size={14} /> Income for {m.name}
