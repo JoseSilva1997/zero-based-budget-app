@@ -31,6 +31,27 @@ function focusInColumn(el, dir) {
   return true;
 }
 
+/* ---- the chip above a field ---------------------------------------------
+   Either the arithmetic preview of a sum being typed ("= $52.50") or the
+   reason a value was refused. Same box in both cases - same corner, same
+   offset, same shadow - so a field does not appear to change shape when a sum
+   turns out to be unreadable.
+
+   A preview holds a figure and takes the figure face; a refusal holds a
+   sentence and does not. `tight` is for the two amount fields that sit in a
+   32px row rather than a budget column.
+
+   It is a component and not just a class because three fields draw it and
+   only one of them is MoneyInput: the entry tray and quick entry both run
+   their own amount input and would otherwise each spell the chip out. */
+function FieldChip({ error = false, tight = false, children, ...rest }) {
+  return (
+    <span className={cx("field-chip", error ? "is-error" : "num", tight && "field-chip-tight")} {...rest}>
+      {children}
+    </span>
+  );
+}
+
 /* ---- money input -------------------------------------------------------- */
 /* `placeholder` defaults to null rather than "0.00" so it can pick up the
    household's currency: an unset row now reads "$0.00" and lines up with the
@@ -85,12 +106,10 @@ function MoneyInput({ value, onCommit, currency = "$", className = "", placehold
           }
           if (e.key === "Escape") { done.current = true; setInvalid(null); setEditing(false); e.target.blur(); }
         }} />
-      {/* One chip above the field, carrying either the arithmetic preview or the
-          reason the value was refused. */}
       {invalid ? (
-        <span id={noteId} role="alert" className="field-chip is-error">{invalid}</span>
+        <FieldChip error id={noteId} role="alert">{invalid}</FieldChip>
       ) : preview !== null && (
-        <span className="num field-chip">= {fmt(currency, preview)}</span>
+        <FieldChip>= {fmt(currency, preview)}</FieldChip>
       )}
     </div>
   );
@@ -161,4 +180,4 @@ function TextInline({ value, onCommit, className = "", placeholder = "", col, la
   );
 }
 
-export { MoneyInput, DayField, TextInline };
+export { MoneyInput, DayField, TextInline, FieldChip };

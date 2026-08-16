@@ -363,9 +363,6 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
 .chart-body { border-bottom: 1px solid color-mix(in srgb, var(--rule-faint) 55%, transparent); padding-bottom: var(--space-5); }
 .chart-card.is-stretch .chart-body { flex: 1; }
 
-/* misc */
-.divider { height: 1px; background: var(--rule); border: none; margin: 0; }
-
 /* A chip inside a segmented radiogroup tray (the currency picker): the tray
    is a bordered --well strip, the chips rest as quiet symbols on it, and the
    chosen one is a solid accent square with its ink on top - the selection is

@@ -4,7 +4,7 @@
    ============================================================ */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ConfirmDialog, DayField, DiffPill, Icons, MiniBar, Modal, MoneyInput, TextInline } from './ui/index.js';
+import { ConfirmDialog, DayField, DiffPill, FieldChip, Icons, MiniBar, Modal, MoneyInput, TextInline } from './ui/index.js';
 import { actualDay, cx, evalMoney, fmt, groupActual, groupAllocated, isExpr, itemActual, makeActualDate, monthLabel, nextMonthId, normalizeItemName, round2 } from './lib/index.js';
 import { useStore } from './store.jsx';
 import { AccountSelect } from './Accounts.jsx';
@@ -266,9 +266,7 @@ function EntriesDrawer({ item, group, currency, dispatch, month }) {
         </div>
         <div className="entry-amount-cell">
           <input ref={amtRef} className="minput entry-amount-input" aria-label="Amount spent" inputMode="text" value={amt} onChange={(e) => setAmt(e.target.value)} placeholder={`${currency}0.00`} onKeyDown={(e) => e.key === "Enter" && add()} />
-          {amtPreview !== null && (
-            <span className="num field-chip field-chip-tight">= {fmt(currency, amtPreview)}</span>
-          )}
+          {amtPreview !== null && <FieldChip tight>= {fmt(currency, amtPreview)}</FieldChip>}
         </div>
         {/* Add sits in the actions column, under the entries' remove buttons:
             the Difference column is the one that disappears on narrow windows,

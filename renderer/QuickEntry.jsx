@@ -8,7 +8,7 @@
    on. Everything written here lands in the normal item drawers below.
    ============================================================ */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { DayField, EmptyState, Icons, Section } from './ui/index.js';
+import { DayField, EmptyState, FieldChip, Icons, Section } from './ui/index.js';
 import { actualDay, cx, evalMoney, fmt, isExpr } from './lib/index.js';
 import { useStore } from './store.jsx';
 
@@ -294,9 +294,7 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
             <input ref={amtRef} className="minput tray qe-field qe-amt-input" aria-label="Amount spent" inputMode="text"
               value={amt} onChange={(e) => setAmt(e.target.value)} placeholder={`${currency}0.00`}
               onKeyDown={(e) => e.key === "Enter" && add()} />
-            {amtPreview !== null && (
-              <span className="num field-chip field-chip-tight">= {fmt(currency, amtPreview)}</span>
-            )}
+            {amtPreview !== null && <FieldChip tight>= {fmt(currency, amtPreview)}</FieldChip>}
           </div>
 
           <button className="btn btn-sm btn-primary qe-log-btn"

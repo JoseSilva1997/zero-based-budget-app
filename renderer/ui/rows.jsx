@@ -32,8 +32,11 @@ function ObjectRow({
   lead, name, chip, sub, meta, trail, figure, figureSub,
   as: Tag = "div", className, ...rest
 }) {
+  /* The two modifiers are spelled out rather than built from `size`: a class
+     assembled at runtime is a class no grep can find, and everything else in
+     this renderer can be found by searching for it. */
   return (
-    <Tag className={cx("object-row", size !== "md" && `is-${size}`, className)} {...rest}>
+    <Tag className={cx("object-row", size === "lg" && "is-lg", size === "sm" && "is-sm", className)} {...rest}>
       {lead}
       <div className="object-row-grow">
         {/* With a chip the name needs a flex row to sit the two on one
