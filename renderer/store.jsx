@@ -26,8 +26,7 @@ function treeToBlobMonth(tree) {
 }
 
 function settingsFromBootstrap(bs) {
-  // A persisted id from a theme that no longer ships (every pre-reset theme,
-  // and every legacy combined id before those) simply falls back.
+  // A persisted id the app does not ship falls back rather than failing.
   const theme = THEME_IDS.includes(bs.settings.theme) ? bs.settings.theme : DEFAULT_THEME_ID;
   return {
     currency: bs.settings.currency || "$",
@@ -151,11 +150,11 @@ export function StoreProvider({ children }) {
   const toastSeq = useRef(0);
   const toast = useCallback((message, tone = "success", action) => {
     // The lifetime is decided here and carried ON the message, because the
-    // toast now draws it: its bottom edge empties over exactly this long. A
-    // second copy of these numbers in the view would drift from this one, and
-    // the drift would show as an edge that runs out before the toast does.
-    // 0 means "never", which is what an error gets - a message you can miss is
-    // a message that lets a failed write read as a success.
+    // toast draws it: its bottom edge empties over exactly this long. A second
+    // copy of these numbers in the view would drift, and the drift would show
+    // as an edge that runs out before the toast does. 0 means "never", which is
+    // what an error gets - a message you can miss is a message that lets a
+    // failed write read as a success.
     const duration = tone === "error" ? 0 : action ? 6000 : 2600;
     setToastMsg({ id: (toastSeq.current += 1), message, tone, action, duration });
     clearTimeout(toastTimer.current);
@@ -176,8 +175,8 @@ export function StoreProvider({ children }) {
      The renderer is a view layer: it holds only the ACTIVE month's tree (plus
      settings + the month-key list). Other months are fetched on demand. */
   const reload = useCallback(async () => {
-    // 'finally', not a trailing call: a throw here used to leave 'loading' true
-    // forever, which showed as a loading screen that never resolved.
+    // 'finally', not a trailing call: a throw here would otherwise leave
+    // 'loading' true forever, showing as a loading screen that never resolves.
     try {
       if (!hasApi) {
         const empty = buildEmpty();

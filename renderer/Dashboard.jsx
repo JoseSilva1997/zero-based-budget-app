@@ -33,8 +33,7 @@ function DashboardScreen({ currency, onOpenMonth }) {
         <div>
           <div className="page-title">Dashboard</div>
           {/* The window is the only thing here the figures below don't already
-              say. "Overview of your spending & saving habits" described the
-              screen to someone already looking at it. */}
+              say. */}
           <div className="page-sub">{windowLabel || "No months tracked yet"}</div>
         </div>
       </div>
@@ -56,22 +55,13 @@ function DashboardScreen({ currency, onOpenMonth }) {
           <div className="dash-empty-note">Enter a month's actual spending and savings, and the dashboard will start charting your trends and habits over time.</div>
         </div>
       ) : (
-        /* Why the row is `align-items: start` and why the gaps are wider than
-           the old card grid needed moved with the rules onto .dash-grid in
-           styles/charts.css. */
         <div className="dash-grid">
-          {/* Each card's title now carries the whole of what the card is. The
-              explainer line under every one of them ("What you set aside each
-              month, and how much of your income that was", "Your nest egg
-              growing over time…") was six sentences of narration on one
-              screen, describing charts that are already labelled and already
-              legible. `sub` survives on the two cards where a real convention
-              needs stating: what the second series is, and what the row of
-              months underneath does. */}
+          {/* Each card's title carries the whole of what the card is, so `sub`
+              is only spent on the two conventions a title cannot state: what
+              the second series is, and what the row of months underneath
+              does. */}
 
-          {/* 2. savings over time. The month labels under these charts are
-              buttons: seeing a bad month and being able to open it are the
-              same gesture, so that one is worth saying once. */}
+          {/* 2. savings over time */}
           <ChartCard title="Saved each month" sub="Month labels open that month.">
             <SavingsChart series={series} currency={currency} onOpenMonth={onOpenMonth} />
           </ChartCard>

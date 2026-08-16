@@ -49,11 +49,8 @@ const MsIcons = {
 };
 
 const Icons = {
-  /* grid and calendar are the sidebar's former Dashboard and Month Budget
-     icons. The nav takes its four from MsIcons above now; these stay because
-     they are the app's own stroke language and the only two rounded-rect
-     drawings in it. Rounded rects need rx, which a stroke path cannot carry,
-     so both pass elements through Ic rather than d strings. */
+  /* Rounded rects need rx, which a stroke path cannot carry, so grid and
+     calendar pass elements through Ic rather than d strings. */
   grid: (p) => <Ic {...p}>
     <rect x="3" y="3" width="7.5" height="7.5" rx="1.8" />
     <rect x="13.5" y="3" width="7.5" height="7.5" rx="1.8" />
@@ -264,12 +261,11 @@ function MoneyInput({ value, onCommit, currency = "$", className = "", placehold
   // latch keeps that from writing the same value twice.
   const done = useRef(false);
   useEffect(() => { if (autoFocus && ref.current) ref.current.focus(); }, [autoFocus]);
-  /* The symbol used to be a separate span pinned to the left edge of the field
-     while the number stayed right-aligned, which in a 150px column left "$"
-     stranded ninety pixels from the amount it belonged to, on every row of the
-     budget. It is part of the value at rest instead, so it sits tight against
-     the first digit; while the field is being edited it drops away, because
-     what is typed there is a number (or a sum, "40+12.50") and not a price. */
+  /* The currency symbol is part of the value at rest, not a span pinned to the
+     left edge: in a 150px right-aligned column that would strand "$" ninety
+     pixels from its own amount. While the field is being edited it drops away,
+     because what is typed there is a number (or a sum, "40+12.50") and not a
+     price. */
   const display = editing ? txt : (value === 0 || value == null ? "" : `${currency}${Number(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
   const preview = editing && !invalid && isExpr(txt) ? evalMoney(txt) : null;
   // Returns whether the value went in: a refused commit keeps the field open,
@@ -357,12 +353,9 @@ function DayField({ day, monthId, onCommit, onEnter, inputRef, autoFocus = false
 /* ---- text input (inline rename) ---------------------------------------- */
 /* 'allowEmpty' is for genuinely optional text (an entry's note): without it a
    cleared field snaps back to its old value, so the field can never be emptied. */
-/* There is no `style` prop. There was one, and every caller used it to hand
-   this field a static rule that has since become a class; the last of them
-   went in Phase D, leaving a prop nobody passed and a door back to inline
-   styling standing open. MoneyInput, DayField and Avatar never had one:
-   Avatar's own inline style is computed from its size prop and its member's
-   colour, which is the runtime-value carve-out and not this. */
+/* No `style` prop, here or on MoneyInput and DayField: static rules belong in
+   a class. Inline styling is reserved for values only known at runtime, which
+   is what Avatar's own style is (its size prop and its member's colour). */
 function TextInline({ value, onCommit, className = "", placeholder = "", col, label, allowEmpty = false }) {
   const [txt, setTxt] = useState(value);
   useEffect(() => { setTxt(value); }, [value]);
@@ -385,10 +378,8 @@ function TextInline({ value, onCommit, className = "", placeholder = "", col, la
 /* ---- member avatar ------------------------------------------------------ */
 function Avatar({ member, size = 26 }) {
   const initials = (member?.name || "?").trim().slice(0, 1).toUpperCase();
-  /* Every one of these four is a runtime value - three read the size prop, the
-     fourth reads the member's own colour - so this is the inline-style rule's
-     carve-out rather than an exception to it. .avatar in shell.css owns the
-     rest. */
+  /* All four are runtime values: three read the size prop and the fourth the
+     member's own colour. .avatar owns the rest. */
   return <span className="avatar" style={{ width: size, height: size, background: member?.color || "var(--muted)", fontSize: size * 0.42 }}>{initials}</span>;
 }
 
@@ -409,17 +400,15 @@ function MiniBar({ actual, allocated }) {
   const over = actual > allocated + 0.001;
   // Beside an item row a DiffPill says "over" in words, but in the wallet drawer
   // the bar stands alone, so it has to say it itself: a name for screen readers,
-  // and a hatch for anyone who can't tell the breach red from the plain accent
-  // fill by colour alone, which matters more now that the fill is a per-theme
-  // accent rather than a fixed green. A bar that is over is always full, so the
+  // and a hatch for anyone who cannot tell the breach red from the per-theme
+  // accent fill by colour alone. A bar that is over is always full, so the
   // stripes never stretch out of shape.
   const share = allocated > 0 ? actual / allocated : (actual > 0 ? 1 : 0);
   const label = allocated > 0
     ? `${Math.round(share * 100)}% of the budget used${over ? ", over budget" : ""}`
     : (over ? "Over budget, nothing allocated" : "Nothing allocated");
-  // scaleX rather than width: animating width relayouts every row on each commit.
-  // It is the one thing here that cannot be known until the numbers are in, so
-  // it is the one thing left inline; the hatch is .mini-bar-fill.is-over.
+  // scaleX rather than width: animating width relayouts every row on each
+  // commit. Inline because the fraction is only known once the numbers are in.
   return (
     <div role="img" aria-label={label} className="mini-bar">
       <div className={cx("mini-bar-fill", over && "is-over")} style={{ transform: `scaleX(${pct})` }} />
@@ -506,8 +495,8 @@ function ConfirmDialog({ title, children, confirmLabel, onConfirm, onClose, busy
 /* No .panel, no box: a chart is ink on the board, not furniture in a frame.
    What frames it instead is a pair of horizontal rules: a top hairline that
    is strongest at the centre and dissolves toward both edges, and a flat
-   faint rule under the chart's own labels, standing in for the axis spines
-   the charts no longer draw. */
+   faint rule under the chart's own labels, standing in for the axis spines the
+   charts themselves do not draw. */
 /* `stretch` opts a card out of the grid's alignItems: start so it fills its
    row's full height, with the bordered content area absorbing the slack -
    used when a short list sits beside a fixed-height chart and their bottom

@@ -56,9 +56,6 @@ function announce(message) {
     el.id = "reorder-live";
     el.setAttribute("aria-live", "polite");
     el.setAttribute("role", "status");
-    // .sr-only, the same visually-hidden recipe the off-screen radios in the
-    // new-month dialog take. This node is built by hand rather than by React,
-    // so it sets className rather than carrying one in JSX.
     el.className = "sr-only";
     document.body.appendChild(el);
   }
@@ -91,13 +88,11 @@ function useMoveItem(month, dispatch) {
   const { state, toast } = useStore();
   const groups = (state && state.months[month] && state.months[month].groups) || [];
   // Keyboard focus after a menu-driven move (opts.restoreFocus): 'dispatch' is
-  // fire-and-forget, and the row that held focus unmounts here and remounts
-  // under the destination card, so there is no node to hand focus back to
-  // until the refetch actually lands it there. This mirrors IncomeSection's
-  // pending-ref-plus-effect (MonthBudget.jsx:120-130): wait for the item to
-  // show up under its new group in the refreshed tree, then send focus in,
-  // rather than guessing at a timeout. Drag drops never set this, so a mouse
-  // drag never yanks focus somewhere the pointer didn't ask it to go.
+  // fire-and-forget, and the row holding focus unmounts here and remounts under
+  // the destination card, so there is no node to hand focus back to until the
+  // refetch lands the item under its new group. Waiting for that beats guessing
+  // at a timeout. Drag drops never set this, so a mouse drag never yanks focus
+  // somewhere the pointer didn't ask it to go.
   const pendingFocus = useRef(null);
   useEffect(() => {
     const pending = pendingFocus.current;
@@ -291,9 +286,9 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [grabbed, setGrabbed] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
-  // Stable identity, not a fresh arrow every render: MoveMenu's own dismiss
-  // effect depends on this, and an unstable onClose tore its listeners down
-  // and rebuilt them on every keystroke elsewhere on the page.
+  // Stable identity, not a fresh arrow every render: MoveMenu's dismiss effect
+  // depends on this, and an unstable onClose would tear its listeners down and
+  // rebuild them on every keystroke elsewhere on the page.
   const closeMoveMenu = useCallback(() => setMoveOpen(false), []);
   const moveBtnRef = useRef(null);
   const otherGroups = (groups || []).filter((g) => g.id !== group.id);
@@ -316,9 +311,6 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
         onDrop();
       }}
       onDragEnd={() => { setGrabbed(false); onDragEnd(); }}
-      /* Why the first row draws no rule, and why a drop target overrides that
-         anyway, is written above .item-row in budget.css, next to the rules
-         that do it. */
       className={cx("item-row", index === 0 && "is-first", isDragging && "is-dragging", isDropTarget && "is-drop-target")}>
       <div className="item-row-main">
       <DragHandle label={`Reorder ${item.name}, item ${index + 1} of ${count} in ${group.name}`}
@@ -327,11 +319,7 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
         <div className="item-name-cell">
           {/* The title is on the wrapper because the field itself is an input:
               it cannot ellipsis, so the full name has to be reachable some
-              other way (hover here, or scroll inside the field). The accent
-              text is the mockups' sprinkle: the name is the one thing on the
-              row a person scans for, so it is the one thing that takes the
-              theme's colour - in the lighter --accent-text blend, not the
-              full-strength ink. */}
+              other way (hover here, or scroll inside the field). */}
           <span title={item.name} className="item-name-wrap">
             <TextInline value={item.name} col="itemName" label="Item name" className="item-name-input"
               onCommit={(v) => dispatch({ type: "renameItem", month, groupId: group.id, itemId: item.id, name: v })} />
@@ -344,7 +332,7 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
           <MoneyInput value={item.allocated} currency={currency} col="allocated" label={`Allocated for ${item.name}`}
             onCommit={(v) => dispatch({ type: "updateAllocated", month, groupId: group.id, itemId: item.id, value: v })} />
         </div>
-        {/* Named explicitly: read from its contents this button announced as
+        {/* Named explicitly: read from its contents it announces as
             "$120.00 3, button", which says nothing about which item it opens. */}
         <button onClick={onToggle} title="View / add spending entries" aria-expanded={open}
           aria-label={`${fmt(currency, actual)} spent on ${item.name} in ${item.actuals.length} ${item.actuals.length === 1 ? "entry" : "entries"}`}
@@ -357,11 +345,10 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
           <MiniBar actual={actual} allocated={item.allocated} />
         </div>
         {/* Stacked, not side by side: the actions column is 78px wide and drops
-            to 68px on narrow windows. The two buttons here are .compact (26px,
-            no gap) rather than the app's usual 30px .icon-btn: at 30px the
+            to 68px on narrow windows. The two buttons are .compact (26px, no
+            gap) rather than the app's usual 30px .icon-btn, because at 30px the
             stack (62px) out-measures the name+account column (57px) and grows
-            every item row by 5px, which adds up over a long month. Do not
-            "fix" this back to plain .icon-btn. */}
+            every item row by 5px. */}
         <div className={cx("row-actions", "row-actions-stack", moveOpen && "is-open")}>
           <button className="icon-btn compact" aria-label={`Delete item ${item.name} from this month`} title="Delete item (this month only)" onClick={() => setConfirmDelete(true)}><Icons.trash size={15} /></button>
           {/* No aria-haspopup: its non-false values are all synonyms for menu,
@@ -456,8 +443,6 @@ function AddItemSearch({ month, groupId, currency, dispatch, onClose, itemCount 
   };
   const shown = candidates.slice(0, 7);
   return (
-    /* Why an empty group's panel draws no top rule is written above
-       .add-item-panel in budget.css, next to the rule that does it. */
     <div ref={rootRef} className={cx("add-item-panel", itemCount === 0 && "is-first")}>
       <div className="add-item-controls">
         <input autoFocus ref={inputRef} className="tinput add-item-input" value={query} aria-label="Search previous items, or type a new item name" onChange={(e) => setQuery(e.target.value)} placeholder="Search previous items or type new..."
@@ -520,9 +505,8 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, dragItem
     document.addEventListener("pointerdown", handlePointerDown);
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [openItems]);
-  /* A drop on a row: within this group it is the reorder it always was, and
-     from another group it is a move that lands exactly where the drop-line
-     was drawn. */
+  /* A drop on a row is a reorder within this group, and from another group a
+     move that lands exactly where the drop-line was drawn. */
   const dropOnItem = (targetId) => {
     if (dragItem) {
       if (dragItem.groupId === group.id) {
@@ -593,11 +577,11 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, dragItem
       <DragHandle label={`Reorder group ${group.name}, ${groupIndex + 1} of ${groups.length}`}
         className={cx("drag-handle-group group-head-handle", over && "is-over", group.collapsed && "is-collapsed")}
         onGrab={() => setGrabbed(true)} onRelease={() => setGrabbed(false)} onMove={moveGroup} />
-      {/* .group-head is the page's one washed band (see the three-levels
-          comment in app.css): it is what makes a group header read as a
-          header rather than as the darkest, and so apparently deepest, strip
-          in its own card. A drop target still overrides it - that is a live
-          drag affordance and has to win over a resting surface. */}
+      {/* .group-head is the page's one washed band: it makes a group header
+          read as a header rather than as the darkest, and so apparently
+          deepest, strip in its own card. A drop target still overrides it -
+          that is a live drag affordance and has to win over a resting
+          surface. */}
       <div {...appendTargetProps} className={cx("budget-row group-head", over && "is-over", group.collapsed && "is-collapsed", appendHere && "is-append-target")}>
         <div className="group-name-cell">
           <button className={cx("icon-btn group-toggle", group.collapsed && "is-collapsed")} aria-expanded={!group.collapsed} aria-label={group.collapsed ? `Expand ${group.name}` : `Collapse ${group.name}`} onClick={() => dispatch({ type: "toggleCollapse", month, groupId: group.id })}><Icons.down size={16} /></button>
@@ -606,9 +590,6 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, dragItem
           </span>
           {group.isSavings && <span className="pill pill-neutral group-savings-pill"><Icons.plant size={12} /> Savings</span>}
         </div>
-        {/* Why the actual total is the accent one and the allocated total is
-            plain is written above .group-alloc in budget.css, next to the rules
-            that do it. */}
         <div className="num group-alloc">{fmt(currency, alloc, { cents: false })}</div>
         <div className={cx("num group-actual", over && "is-over")}>{fmt(currency, actual, { cents: false })}</div>
         <div className="col-diff group-diff-cell"><DiffPill diff={diff} currency={currency} /></div>
@@ -621,8 +602,6 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, dragItem
       {!group.collapsed && (
         <div>
           {group.items.length === 0 && !addingItem && (
-            /* Why this one draws no top rule either is written above
-               .group-empty in budget.css, next to the rules that do it. */
             <div {...appendTargetProps} className={cx("group-empty", appendHere && "is-append-target")}>No items yet.</div>
           )}
           {group.items.map((it, itemIndex) => (
@@ -633,10 +612,6 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, dragItem
               count={group.items.length}
               onMove={(dir) => moveItem(it.id, dir)}
               groups={groups}
-              // 'restoreFocus' only fires for this, the keyboard/Move-menu path;
-              // drag drops (dropOnItem/dropOnGroup below) never set it, so a
-              // mouse drag never yanks focus somewhere the pointer didn't ask
-              // it to go.
               onMoveToGroup={(toGroupId) => moveItemToGroup(it.id, toGroupId, null, { restoreFocus: true })}
               isDragging={!!dragItem && dragItem.id === it.id}
               isDropTarget={!!overItem && overItem.groupId === group.id && overItem.targetId === it.id && !(dragItem && dragItem.id === it.id)}
@@ -702,17 +677,15 @@ function NewMonthModal({ onClose, dispatch }) {
       <p>Create the next month's budget{hasPrev ? ` by carrying over your structure from ${prevLbl.short}.` : "."}</p>
       {hasPrev && (
         /* Real radios, because this is the only decision the dialog exists to
-           make: the styled divs it used to draw were not focusable, so Tab went
-           straight from Cancel to Create and Ctrl+N opened a dialog that could
-           not be answered from the keyboard. The card is no longer a <label>
-           either - the "also copy income" checkbox nests inside it, and a label
-           inside a label belongs to nothing in particular. */
+           make and it has to be answerable from the keyboard. The card is not
+           a <label> - the "also copy income" checkbox nests inside it, and a
+           label inside a label belongs to nothing in particular. */
         <div role="radiogroup" aria-label="What to put in the new month" className="copy-opts">
           <div className={cx("copy-opt", copy && "is-on")} onClick={() => setCopy(true)}>
             {/* Focusable but not seen: the drawn radio beside it is the visible
                 one. .sr-only rather than display:none or visibility:hidden,
-                which would take it out of the tab order (and out of Modal's
-                focus trap) all over again. Same for the second card below. */}
+                which would take it out of the tab order and out of Modal's
+                focus trap. Same for the second card below. */}
             <input type="radio" id="new-month-copy" name="new-month-source" checked={copy} className="sr-only"
               onChange={() => setCopy(true)} />
             <div aria-hidden="true" className={cx("copy-radio", copy && "is-on")}>{copy && <Icons.check size={13} />}</div>

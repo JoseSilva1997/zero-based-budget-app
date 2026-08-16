@@ -8,19 +8,14 @@
    that pill is money with no job. One hue at two weights, and no fill carries
    an edge: the only line is the track's own outline, running unbroken around
    the whole bar so the stretch with nothing behind it reads hollow. Solid
-   inside the plan, plan inside the
-   track, so both failure states are the same visual event at two scales:
-   something sticking out past what should contain it. That is why nothing
-   here is green - finishing is marked by the track filling up, not by a
-   colour arriving.
+   inside the plan, plan inside the track, so both failure states are the same
+   visual event at two scales: something sticking out past what should contain
+   it. That is why nothing here is green - finishing is marked by the track
+   filling up, not by a colour arriving.
 
-   Nor is anything here amber any more. The unallocated remainder used to be
-   painted --unsettled on the reasoning that money without a job is a nag,
-   which meant a month opened on the 1st as a bar that was almost entirely
-   warning about a budget nobody had had the chance to write yet. Absence is
-   the better signal: an empty vessel already reads as one that wants
-   filling, and it costs the page its loudest colour, which now belongs to
-   the breach alone.
+   Nothing here is amber either. The unallocated remainder is bare track, not
+   a warning wash: an empty vessel already reads as one that wants filling,
+   and it leaves the page's loudest colour to the breach alone.
    ============================================================ */
 import { Icons } from './components.jsx';
 import { barGeometry, barRegions, cx, fmt, monthActual, monthAllocated, monthIncome, monthUnallocated, overBudgetItems, round2 } from './lib/index.js';
@@ -29,7 +24,7 @@ import { focusAllocated } from './MonthGroups.jsx';
 /* overBudgetItems reports names; routing to the row that fixes one needs its
    id, so the reported rows are paired back to the tree by group and item name.
    Two items with the same name in one group route to the first of them, which
-   is the right kind of wrong. Moved here verbatim from SummaryHero. */
+   is the right kind of wrong. */
 function withRowIds(mo, over) {
   const byName = new Map();
   mo.groups.forEach((g) => g.items.forEach((it) => {
@@ -47,7 +42,7 @@ const hatch = (c) => `repeating-linear-gradient(-45deg, var(${c}) 0 3px, color-m
    as a background-image and leaves .bar-region's own --well backing intact
    underneath. That is what lets the fills stack: --bar-plan is a 20% wash,
    and a stack of translucent pills would show the breach hatch through the
-   plan. See .bar-region in app.css. */
+   plan. */
 const flat = (c) => `linear-gradient(var(${c}), var(${c}))`;
 
 /* barRegions emits 'spent', 'allocated', 'overspent', 'gap' and 'beyond'.
@@ -55,11 +50,11 @@ const flat = (c) => `linear-gradient(var(${c}), var(${c}))`;
    below), not a region key, and paints through 'beyond' like an overspend
    does.
 
-   'gap' is deliberately absent from this table. It is still real geometry -
-   barRegions computes and returns it, and the tests still hold it to
-   tiling - but it is the money with no job yet, and that is now said by
-   leaving the track bare rather than by painting anything at all. A key
-   with no entry here renders nothing; see the filter in the map below. */
+   'gap' is deliberately absent from this table. It is real geometry -
+   barRegions computes and returns it, and the tests hold it to tiling - but it
+   is the money with no job yet, which is said by leaving the track bare rather
+   than by painting anything at all. A key with no entry here renders nothing;
+   see the filter in the map below. */
 const PAINT = {
   spent: flat("--accent"),
   allocated: flat("--bar-plan"),
@@ -71,15 +66,14 @@ const PAINT = {
    breach behind everything with only its overhang showing, then the plan,
    then the solid spend nested inside it.
 
-   barRegions still returns tiled left-to-right spans, and it should - tiling
-   is what makes the geometry provable, and the tests hold it to that. But
-   tiled spans are the wrong thing to *draw*. Rendered as pills they gave
-   every pair of neighbours two facing semicircular caps with a crescent of
-   bare track between them, so the bar read as something that had been
-   interrupted rather than as one thing sitting inside another. Only the `to`
-   of each span is used here, as that pill's extent from zero, which is why a
-   fill ending short of the one behind it means money still contained and a
-   fill whose end pokes out from behind means the failure. */
+   barRegions returns tiled left-to-right spans, which is what makes the
+   geometry provable and what the tests hold it to, but tiled spans are the
+   wrong thing to *draw*: rendered as pills, every pair of neighbours gets two
+   facing semicircular caps with a crescent of bare track between them, and the
+   bar reads as interrupted rather than as one thing inside another. Only the
+   `to` of each span is used here, as that pill's extent from zero, which is
+   why a fill ending short of the one behind it means money still contained and
+   a fill whose end pokes out from behind means the failure. */
 const STACK = ["beyond", "overspent", "allocated", "spent"];
 
 function MonthBar({ mo, currency }) {
@@ -108,8 +102,7 @@ function MonthBar({ mo, currency }) {
      be conflated: that month shows the mark and still says "left to
      allocate". */
   const hasBeyond = regions.some((r) => r.key === "beyond");
-  /* All four money figures turn together, so the class is built once. The
-     colour itself is .bar-figure / .bar-figure.is-over in bar.css. */
+  /* All four money figures turn together, so the class is built once. */
   const figureClass = cx("num bar-figure", g.overAllocated && "is-over");
   /* Concentric pills, all anchored at the track's left edge; see STACK. A
      key with no PAINT entry (that is 'gap') drops out here. */
@@ -127,25 +120,21 @@ function MonthBar({ mo, currency }) {
         <span>income:<span className={cx(figureClass, "bar-figure-income")}>{fmt(currency, income)}</span></span>
       </div>
 
-      {/* Spec calls for transform: scaleX() so the fill transition never
-          triggers layout. Every fill now shares the track's left edge, which
-          is exactly the fixed origin scaleX wanted and could not have while
-          the spans tiled - but scaleX would stretch each pill's semicircular
-          caps into ellipses, and those caps are what carry the nesting. So
-          width is animated instead, inside a track that is contain: layout
-          paint. Deliberate deviation, not an oversight. */}
+      {/* Width is animated rather than transform: scaleX(), which would be the
+          cheaper transition: scaleX stretches each pill's semicircular caps
+          into ellipses, and those caps are what carry the nesting. The track is
+          contain: layout paint so the animation stays cheap anyway. */}
       <div className="bar-wrap" aria-hidden="true">
         <div className="bar-track">
-          {/* The two survivors of the inline-style rule on this file. The width
-              is the pill's extent from zero, a percentage only barGeometry
-              knows. The paint is the region's own entry in the PAINT table,
-              looked up by a key that is not known until the regions are
-              computed - and it has to stay a background-IMAGE set here rather
-              than a class, because .bar-region carries the track colour as its
-              background-COLOUR and that backing is what lets the pills stack
-              (see .bar-region in bar.css). tests/bar-electron.cjs reads these
-              back off the DOM to prove the stack order. The transition is a
-              constant and has moved to .bar-region. */}
+          {/* Both of these are inline because neither is knowable to CSS. The
+              width is the pill's extent from zero, a percentage only
+              barGeometry knows. The paint is the region's entry in PAINT,
+              looked up by a key not known until the regions are computed, and
+              it must stay a background-IMAGE rather than a class because
+              .bar-region carries the track colour as its background-COLOUR and
+              that backing is what lets the pills stack.
+              tests/bar-electron.cjs reads both back off the DOM to prove the
+              stack order. */}
           {rendered.map((key) => (
             <div key={key} className="bar-region"
               style={{

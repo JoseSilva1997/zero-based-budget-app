@@ -164,8 +164,8 @@ function FindBar({ onClose, focusToken }) {
     else setCurrent((c) => (next.length ? Math.min(c, next.length - 1) : 0));
   }, []);
 
-  // Typing is debounced: every keystroke re-walking the whole tab meant a
-  // typed word cost one full walk per letter.
+  // Typing is debounced, so a typed word costs one walk of the tab rather than
+  // one per letter.
   useEffect(() => {
     if (!query) { setMatches([]); setCurrent(0); return; }
     const t = setTimeout(() => scan(true), TYPE_MS);

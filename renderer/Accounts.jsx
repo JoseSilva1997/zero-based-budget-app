@@ -166,18 +166,15 @@ function AccountPanel({ mo, accounts, members, currency }) {
           </div>
           <div className="panel is-clipped">
             {savingsItems.map((it, i) => {
-              // A savings icon in the app's default green used to be a small
-              // "you're doing well" nudge; the same reasoning that retired the
-              // old positive token elsewhere applies here, so an account with
-              // no colour of its own falls back to the neutral avatar tint.
+              // Neutral, not green: saving is not a success state to be
+              // congratulated, so an account with no colour of its own falls
+              // back to the muted tint.
               const color = savingsAccount ? savingsAccount.color : "var(--muted)";
               return (
                 <div key={it.id} className={cx("wallet-savings-row", i && "is-divided")}>
-                  {/* Neutral pairing to match the icon colour above: #96a1b4 is
-                      --muted resolved to a literal hex (hexToSoft only takes one,
-                      it can't read a CSS var), so a savings wallet with no account
-                      colour of its own gets a grey tint under a grey icon rather
-                      than the old green tint under a now-grey icon. */}
+                  {/* #96a1b4 is --muted resolved to a literal hex, because
+                      hexToSoft cannot read a CSS var. It keeps the tint under
+                      the icon in step with the icon's own colour above. */}
                   <span className="wallet-tile" style={{ background: hexToSoft(savingsAccount ? savingsAccount.color : "#96a1b4"), color }}><Icons.plant size={17} /></span>
                   <div className="wallet-grow">
                     <div className="wallet-savings-name">{it.name}</div>
@@ -214,9 +211,8 @@ function hexToSoft(hex) {
 /* the Wallet drawer - slide-over holding the panel.
 
    The veil stops the mouse reaching the budget behind it, so the keyboard must
-   not be able to either: this is the same trap, initial focus and focus
-   restore that Modal does in components.jsx, applied to a drawer rather than
-   invented a second time. */
+   not be able to either: the same trap, initial focus and focus restore that
+   Modal does in components.jsx, applied to a drawer. */
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
 function WalletDrawer({ mo, accounts, members, currency, month, onClose }) {

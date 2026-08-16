@@ -73,15 +73,9 @@ function HistoryScreen({ currency, onOpenMonth }) {
             + `actual ${fmt(currency, s.actual, { cents: false })}, `
             + `saved ${fmt(currency, s.savings, { cents: false })}. `
             + (s.overCount > 0 ? `${s.overCount} item${s.overCount !== 1 ? "s" : ""} over budget.` : "Nothing over budget.");
-          // The row deliberately carries no .budget-row class. It has a grid
-          // of its own, six columns wide, and .budget-row means the Month
-          // Budget grid: var(--budget-cols), five columns, 7px 8px padding.
-          // The class was inert while these declarations were inline, since
-          // inline outranks it and the only rule .budget-row carried was a
-          // hover reveal for .row-actions, which this screen has none of. It
-          // stopped being inert once .budget-row gained the grid recipe, so it
-          // is dropped rather than left as a trap for whoever moves these
-          // declarations into CSS.
+          // No .budget-row here: this row has a six-column grid of its own, and
+          // .budget-row means the Month Budget grid (var(--budget-cols), five
+          // columns).
           return (
             <button key={s.id} onClick={() => setDetail(s.id)} aria-label={rowLabel} className="hist-row">
               <span className="hist-row-month">
@@ -118,10 +112,9 @@ function Comparison({ series, cmpA, cmpB, setCmpA, setCmpB, currency, groupNames
   // against itself with an arrow between two identical labels.
   if (series.length < 2) {
     return (
-      /* No panel around it. A full-width bordered box holding one sentence
-         draws a frame the size of the comparison that isn't there yet, and on
-         a one-month household that box was the largest object on the screen.
-         The sentence stands on its own under the section heading. */
+      /* No panel around it: a full-width bordered box holding one sentence
+         draws a frame the size of the comparison that isn't there yet. The
+         sentence stands on its own under the section heading. */
       <div className="hist-cmp-none">
         Comparing needs a second month. Once you've tracked another one, {series[0] ? series[0].label : "this month"} can be set against it here.
       </div>

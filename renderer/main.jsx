@@ -81,15 +81,10 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
 
       <QuickEntrySection mo={mo} month={mid} currency={currency} dispatch={dispatch} />
 
-      {/* The wider break above this heading is .section-head.allocations-head's,
-          in shell.css, which carries the note explaining why it is wider. */}
       <div className="section-head allocations-head">
         <h2>Allocations</h2>
         {/* Same grid as the rows below, plus a leading cell for their 26px drag
-            handle, so each label sits over the column it names. The layout
-            lives in .budget-colhead now, which is also where "Actual" picks
-            up the accent it shares with the month bar's solid fill, and where
-            .col-right right-aligns the three money labels. */}
+            handle, so each label sits over the column it names. */}
         <div className="eyebrow budget-colhead">
           <span />
           <span />
@@ -175,16 +170,14 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
    reports it also carries the way back, and the longer window an action earns
    is what that edge was drawn to make visible.
 
-   Everything visual lives in styles/overlays.css under ".toast". The one value
-   set here is --toast-life, which is the store's own timeout handed across to
-   CSS, so the countdown and the disappearance are the same number. */
+   The one value set here is --toast-life, the store's own timeout handed
+   across to CSS, so the countdown and the disappearance are the same
+   number. */
 function Toast({ msg, onDismiss }) {
   if (!msg) return null;
   const isError = msg.tone === "error";
   return (
-    // The dock spans the window and centres the toast in it; see the .toast-dock
-    // note in styles/overlays.css for why the centring cannot live on the toast
-    // itself.
+    // The dock spans the window and centres the toast in it.
     <div className="toast-dock">
       <div
         className={isError ? "toast is-error" : "toast"}
@@ -240,8 +233,8 @@ function StartupErrorScreen({ error, onRetry }) {
         <p className="startup-error-body">
           Your budget file is still on this device, and nothing has been changed or deleted. This usually means the app is already running in another window, or the file is being synced by another program.
         </p>
-        {/* A driver error string genuinely is code, so this one keeps the
-            mono face that the app's amounts have given up. */}
+        {/* A driver error string genuinely is code, so it takes the mono
+            face. */}
         <p className="code startup-error-detail">
           {error && error.message}
         </p>
@@ -368,19 +361,12 @@ function App() {
               {railed ? <Icons.right size={18} /> : <Icons.left size={18} />}
             </span>
           </button>
-          {/* The app title, so the page has a level-one heading. The 'margin: 0'
-              that used to be stated here is .brand-name's own declaration in
-              shell.css, which carries this note in full alongside it. */}
+          {/* The app title, so the page has a level-one heading. */}
           <div className="brand-text"><h1 className="brand-name">House Budget</h1><div className="brand-sub">Zero-based · local</div></div>
         </div>
-        {/* No section label over these four. "Workspace" was the word a SaaS
-            template uses for a tenant, and this is a household's own budget on
-            its own machine; four items directly under the app's name need no
-            header at all. "Household" below stays, because it labels a list of
-            people rather than the app's own sections. */}
-        {/* The nav's own box in the sidebar's column is .nav-list in shell.css,
-            where the note explaining why it repeats the column's gap now sits
-            with the rule. */}
+        {/* No section label over these four: they sit directly under the app's
+            name and need no header. "Household" below labels a list of people,
+            not one of the app's own sections, so that one stays. */}
         <nav aria-label="Sections" className="nav-list">
           {NAV.map(([id, label, Ico, IcoFill]) => {
             const on = tab === id;
@@ -423,12 +409,11 @@ function App() {
           confirmations in a row would otherwise reuse the same DOM node, and
           neither the entrance nor the draining edge would restart. */}
       <Toast key={toastMsg ? toastMsg.id : "none"} msg={toastMsg} onDismiss={dismissToast} />
-      {/* Dev only. The test is written inline, not as an imported IS_DEV
-          constant, because esbuild only substitutes process.env.NODE_ENV where
-          it literally appears: behind an import it stayed a runtime binding and
-          the whole DebugMenu module rode along into the production bundle. Like
-          this it folds to `false && …`, the reference disappears, and the module
-          is tree-shaken out entirely. Verified by grepping renderer/dist/app.js. */}
+      {/* Dev only. The test is written inline rather than as an imported IS_DEV
+          constant because esbuild only substitutes process.env.NODE_ENV where
+          it literally appears: behind an import it stays a runtime binding and
+          DebugMenu rides along into the production bundle. Like this it folds
+          to `false && …` and the module is tree-shaken out entirely. */}
       {process.env.NODE_ENV === 'development' && <DebugMenu />}
     </div>
   );

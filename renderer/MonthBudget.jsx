@@ -65,9 +65,7 @@ function IncomeSection({ mo, currency, members, dispatch, month }) {
             /* Two classes, and the geometry is on the second one. .income-row is
                shared with QuickEntry's "Just logged" rows and exists only to
                reveal .row-actions on hover; .income-grid is this table's own
-               tracks. The argument in full is at .income-grid in
-               styles/history.css, along with the divider that used to be an
-               index test on this element's style prop. */
+               tracks. */
             <div className="income-row income-grid" key={inc.id}>
               <div className="income-who">
                 <Avatar member={m} />

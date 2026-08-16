@@ -282,18 +282,17 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
   const COLOR_NAME = { "#2fbf87": "Green", "#f0894e": "Orange", "#5b8def": "Blue", "#a87bf0": "Purple", "#e0b84a": "Gold", "#fb5e7e": "Pink" };
 
   return (
-    /* Full width, like every other screen's .fade-in - a fixed maxWidth here
-       used to leave Settings' panels stranded short of the others' right
-       edge. Individual rows still cap their own prose (the `sub` line below
-       tops out at 460px) so a wide window doesn't stretch sentences thin. */
+    /* Full width, like every other screen's .fade-in, so these panels reach the
+       same right edge as the rest of the app. Individual rows cap their own
+       prose (the `sub` line tops out at 460px) so a wide window doesn't stretch
+       sentences thin. */
     <div className="fade-in">
       <div className="topbar"><div><div className="page-title">Settings</div><div className="page-sub">Preferences for this household. Everything stays on this device.</div></div></div>
 
       <div className="section-head"><h2>General</h2></div>
       <div className="panel is-feature">
         <Setting title="Currency symbol" sub="Shown before every amount across the app.">
-          {/* A radiogroup in a segmented tray; see .chip-tray in settings.css
-              for how the tray and its chosen chip are drawn. */}
+          {/* A radiogroup in a segmented tray. */}
           <div role="radiogroup" aria-label="Currency symbol" className="chip-tray">
             {CURRENCIES.map(c => {
               const on = s.currency === c;
@@ -321,10 +320,9 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
             appears here with no change to this file.
 
             Each card is painted with the theme it previews rather than the one
-            the app is currently wearing, which is why th.bg is the one thing
-            left inline here and why .theme-card's borders are fixed rgba()
-            values (see the note beside that rule). Selection is the accent
-            ring plus the ACTIVE caption in the corner. */}
+            the app is wearing, which is why th.bg is inline and why
+            .theme-card's borders are fixed rgba() values. Selection is the
+            accent ring plus the ACTIVE caption in the corner. */}
         <div role="radiogroup" aria-label="Theme" className="theme-grid">
           {BUDGET_THEMES.map((th) => {
             const on = s.theme === th.id;
@@ -349,10 +347,10 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
           <div key={m.id} className="set-row member-row">
             <Avatar member={m} size={32} />
             <TextInline value={m.name} col="memberName" label="Member name" onCommit={(v) => dispatch({ type: "updateMember", id: m.id, patch: { name: v } })} className="set-inline-name" />
-            {/* Hover-revealed (.row-actions now also answers inside .set-row):
-                six colour dots per member on every resting row was the
-                noisiest thing on the screen, and picking a colour is a
-                once-a-year act. Keyboard focus reveals them the same way. */}
+            {/* Hover-revealed: six colour dots per member on every resting row
+                would be the noisiest thing on the screen, and picking a colour
+                is a once-a-year act. Keyboard focus reveals them the same
+                way. */}
             <div className="row-actions member-actions">
               <div role="radiogroup" aria-label={`Colour for ${m.name}`} className="swatch-row">
                 {MEMBER_COLORS.map(c => {
@@ -363,9 +361,8 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
                       onClick={() => dispatch({ type: "updateMember", id: m.id, patch: { color: c } })}
                       className={cx("swatch", on && "is-on")}
                       style={{ background: c }}>
-                      {/* the swatches are fixed hex, not theme tokens, so a dark
-                          tick reads on every one of them - see .swatch's colour
-                          in settings.css, which is what the tick inherits */}
+                      {/* the swatches are fixed hex, not theme tokens, so the
+                          dark tick .swatch sets reads on every one of them */}
                       {on && <Icons.check size={11} />}
                     </button>
                   );
@@ -383,9 +380,6 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
       <div className="section-head"><h2>Funding accounts</h2></div>
       <div className="panel">
         <div className="set-row acct-note">
-          {/* Two sentences, no italic. The emphasis on "where" was carrying an
-              explanation the reader hadn't asked for yet, and naming Revolut
-              dated the copy to one product in one country. */}
           Where money actually sits: a current account, a joint one, a savings pot.
           Each budget item is funded from one of these, and the Wallet then shows who moves what.
         </div>

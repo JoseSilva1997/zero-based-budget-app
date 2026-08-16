@@ -22,8 +22,8 @@ function abbrMoney(v, c = "$") {
 const axisProps = { axisLine: false, tick: { fill: "var(--faint)", fontSize: 11 }, tickLine: false };
 const gridProps = { stroke: "color-mix(in srgb, var(--rule-faint) 30%, transparent)", strokeDasharray: "0", vertical: false };
 
-/* themed tooltip - mirrors the dark var(--ink) box from Charts.jsx.
-   Recharts injects { active, payload, label }; extra props are passed by us. */
+/* themed tooltip. Recharts injects { active, payload, label }; the rest are
+   passed by us. */
 function DashTooltip(props) {
   const { active, payload, label, currency = "$", heading, rows, hideZero } = props;
   if (!active || !payload || !payload.length) return null;
@@ -47,10 +47,8 @@ function DashTooltip(props) {
 }
 
 /* Placeholder for a card whose data is too thin to draw. Left-aligned and
-   short, not centred in a 120px well: a sentence floating in the middle of an
-   empty box reads as a chart that failed to load, and next to a card that IS
-   drawing something it left a large hole on the screen. It sits where the
-   chart's first row of ink would have been instead. */
+   short, sitting where the chart's first row of ink would be: a sentence
+   centred in an empty well reads as a chart that failed to load. */
 function ChartEmpty({ note }) {
   return <div className="chart-empty">{note}</div>;
 }
@@ -66,9 +64,8 @@ function ChartBody({ summary, children }) {
 
 /* ---- month axis ---------------------------------------------------------
    A month that looks wrong on a chart is exactly the month you then want to
-   open, and until now there was no way through: the marks were paint. The x
-   labels are therefore real buttons, focusable and operable from the keyboard,
-   and they take the app's focus ring for free.
+   open, so the x labels are real buttons rather than paint: focusable,
+   operable from the keyboard, and they take the app's focus ring for free.
 
    The row is padded to the chart's own plot area (the y-axis width on the
    left, the chart margin on the right) so each label still sits under its
@@ -78,11 +75,9 @@ const PLOT_LEFT = 48;  // YAxis width
 const PLOT_RIGHT = 8;  // chart margin.right
 const TICK_W = 40;     // fixed label width, so the edge labels can be centred
 
-/* The hover used to be React state driving two inline ternaries; it is
-   .month-tick:hover in charts.css now. fontSize stays here because it is the
-   same 11 axisProps hands recharts for its own ticks - one number with one
-   home - and it is a presentation attribute on that side, so it cannot be a
-   var(). */
+/* fontSize is inline because it is the same 11 axisProps hands recharts for
+   its own ticks - one number with one home - and it is a presentation
+   attribute on that side, so it cannot be a var(). */
 function MonthTick({ month, onOpenMonth, style }) {
   return (
     <button type="button" className="month-tick" onClick={() => onOpenMonth(month.id)}
@@ -125,16 +120,11 @@ const span = (series) => (series.length > 1
   : series[0] ? series[0].label : "");
 
 /* ---- 1. headline figures -----------------------------------------------
-   Not four equal tiles in a row. That layout says every number here matters
-   the same amount, which is never true, and it is the one arrangement every
-   generated dashboard reaches for first. There is a single number a household
-   actually opens this screen to see - what it has put aside - so that one is
-   set large and unboxed, and the figures that qualify it run beneath it in a
-   line, separated by rules rather than each sealed in its own card.
-
-   "Months tracked" is gone entirely. It counted the app's own rows rather
-   than the household's money, and the window it describes is already spelled
-   out in the page subtitle. */
+   Not four equal tiles in a row: that layout says every number here matters
+   the same amount. There is a single number a household actually opens this
+   screen to see - what it has put aside - so that one is set large and
+   unboxed, and the figures that qualify it run beneath it in a line,
+   separated by rules rather than each sealed in its own card. */
 function HeadlineStats({ allSeries, series, currency }) {
   const totalSaved = round2(allSeries.reduce((a, s) => a + s.savings, 0));
   const withIncome = allSeries.filter(s => s.income > 0);
@@ -152,9 +142,6 @@ function HeadlineStats({ allSeries, series, currency }) {
       {!hasActuals && (
         <div className="headline-note">Track a month to see your overview build up here.</div>
       )}
-      {/* The arrangement's reasoning - one line rather than a stack, the
-          hairline divider, the accent on the one figure that matters - moved
-          with the rules into styles/charts.css. */}
       <div className="headline-row">
         <div className="headline-lead">
           <span className="num headline-figure">
@@ -205,10 +192,9 @@ function SavingsChart({ series, currency, onOpenMonth }) {
                 ];
               }} />
             } />
-            {/* The accent, not a fixed green from the categorical palette. This
-                is one series with no categories in it, so borrowing a slot from
-                an eight-hue palette meant for group names only introduced a
-                colour the household never chose. */}
+            {/* The accent, not a slot from GROUP_PALETTE: this is one series
+                with no categories in it, and the eight-hue palette is for
+                group names. */}
             <Bar dataKey="saved" name="Saved" fill="var(--accent)" radius={[4, 4, 0, 0]} maxBarSize={56}>
               <LabelList dataKey="rateLabel" position="top" fill="var(--faint)" fontSize={10.5} />
             </Bar>
@@ -225,7 +211,7 @@ function CumulativeSavingsChart({ series, currency, onOpenMonth }) {
   const cats = [];
   series.forEach(s => Object.keys(s.savingsByCat).forEach(n => { if (!cats.includes(n)) cats.push(n); }));
   if (!cats.length) return <ChartEmpty note="Mark a group as savings to track your goals here." />;
-  /* An area needs two points to be an area. With one month recharts drew an
+  /* An area needs two points to be an area. With one month recharts draws an
      empty 280px grid with a single dot floating in it, which reads as a chart
      that failed rather than one that has nothing to draw yet. */
   if (series.length < 2) return <ChartEmpty note="A second tracked month will start the line." />;
@@ -294,15 +280,10 @@ function BudgetAccuracyChart({ series, currency, onOpenMonth }) {
                   <XAxis dataKey="name" {...axisFor(onOpenMonth)} />
                   <YAxis {...axisProps} tickFormatter={(v) => abbrMoney(v, currency)} width={PLOT_LEFT} />
                   <Tooltip cursor={{ fill: "var(--well)", opacity: 0.4 }} content={<DashTooltip currency={currency} />} />
-                  {/* One hue, two weights, rather than two unrelated hues. This
-                      used to be the accent against GROUP_PALETTE[1], a fixed
-                      orange, so the pair read as two arbitrary colours from two
-                      different systems sitting next to each other - the accent
-                      the household had chosen, and an orange nothing else on the
-                      screen used. Allocated is the plan and is drawn as an
-                      outline; actual is the money that moved and is drawn solid.
-                      That is the same "plan vs actual" encoding the item rows
-                      already use, and it costs no second hue. */}
+                  {/* One hue, two weights. Allocated is the plan and is drawn
+                      as an outline; actual is the money that moved and is drawn
+                      solid. Same "plan vs actual" encoding the item rows use,
+                      and it costs no second hue. */}
                   <Bar dataKey="alloc" name="Allocated" fill="var(--bar-plan)" stroke="var(--accent)" strokeWidth={1} radius={[3, 3, 0, 0]} maxBarSize={44} />
                   <Bar dataKey="actual" name="Actual" fill="var(--accent)" radius={[3, 3, 0, 0]} maxBarSize={44} />
                 </BarChart>
@@ -313,9 +294,8 @@ function BudgetAccuracyChart({ series, currency, onOpenMonth }) {
         ) : <ChartEmpty note="No months tracked yet." />}
       </div>
       <div>
-        {/* "Chronically over budget" was a diagnosis, and the thing being
-            diagnosed is the household reading it. This says the same thing
-            about the same rows without the verdict attached. */}
+        {/* Phrased as an observation, not a diagnosis: the thing being
+            diagnosed would be the household reading it. */}
         <div className="eyebrow offender-head">Runs over most often</div>
         {offenders.length === 0 ? (
           <div className="offender-none">
@@ -363,9 +343,6 @@ function CategoryTrends({ series, currency }) {
       {rows.map(row => {
         const up = row.isNew ? true : row.pct > 0;
         const flat = !row.isNew && row.pct === 0;
-        // Why a moved trend is not painted as a verdict, and why a flat 0%
-        // stays faint, moved with the colours onto .trend-delta in
-        // styles/charts.css.
         return (
           <div key={row.g} className="trend-row">
             <div className="trend-left">
