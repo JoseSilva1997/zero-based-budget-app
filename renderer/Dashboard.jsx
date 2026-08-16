@@ -3,7 +3,7 @@
    Trailing 12-month window; degrades gracefully with less data.
    ============================================================ */
 import { useEffect, useMemo, useState } from 'react';
-import { ChartCard, Icons } from './ui/index.js';
+import { Alert, ChartCard, EmptyState, Icons, PageHeader } from './ui/index.js';
 import { useStore } from './store.jsx';
 import { BudgetAccuracyChart, CategoryTrends, CumulativeSavingsChart, HeadlineStats, SavingsChart, SpendingTiming } from './DashboardCharts.jsx';
 
@@ -29,31 +29,21 @@ function DashboardScreen({ currency, onOpenMonth }) {
 
   return (
     <div className="fade-in">
-      <div className="topbar">
-        <div>
-          <div className="page-title">Dashboard</div>
-          {/* The window is the only thing here the figures below don't already
-              say. */}
-          <div className="page-sub">{windowLabel || "No months tracked yet"}</div>
-        </div>
-      </div>
+      {/* The window is the only thing in the sub-line the figures below don't
+          already say. */}
+      <PageHeader title="Dashboard" sub={windowLabel || "No months tracked yet"} />
 
       {loadError && (
-        <div role="alert" className="alert alert-banner">
-          <Icons.alert size={16} />
-          <span>Your months couldn't be read, so this overview is empty rather than complete. {loadError}</span>
-        </div>
+        <Alert banner>Your months couldn't be read, so this overview is empty rather than complete. {loadError}</Alert>
       )}
 
       {/* 1. headline stats */}
       <HeadlineStats allSeries={allSeries} series={series} currency={currency} />
 
       {!hasAnyData ? (
-        <div className="panel empty dash-empty">
-          <div className="empty-icon"><Icons.monitor size={22} /></div>
-          <div className="dash-empty-title">Your overview will appear here</div>
-          <div className="dash-empty-note">Enter a month's actual spending and savings, and the dashboard will start charting your trends and habits over time.</div>
-        </div>
+        <EmptyState icon={Icons.monitor} title="Your overview will appear here" className="dash-empty">
+          Enter a month's actual spending and savings, and the dashboard will start charting your trends and habits over time.
+        </EmptyState>
       ) : (
         <div className="dash-grid">
           {/* Each card's title carries the whole of what the card is, so `sub`

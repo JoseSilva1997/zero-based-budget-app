@@ -2,11 +2,11 @@
    Overlays: the things that float above the page and take the keyboard with
    them. A dialog that can be tabbed out of is a dialog that has not really
    opened, so the trap, the initial focus and the focus restore are as much a
-   part of these as the veil is.
+   part of these as the veil is - all three via useFocusTrap, which the Wallet
+   drawer in Accounts.jsx takes as well.
    ============================================================ */
-import { useState, useEffect, useLayoutEffect, useRef } from 'react';
-
-const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+import { useState, useLayoutEffect, useRef } from 'react';
+import { useFocusTrap } from './hooks.js';
 
 function Modal({ children, onClose, width, label }) {
   const boxRef = useRef(null);
@@ -24,30 +24,7 @@ function Modal({ children, onClose, width, label }) {
     setTitledBy(h.id);
   }, [label, titleId, children]);
 
-  // Escape closes; Tab is trapped inside the dialog so focus can never land on
-  // the page behind the veil.
-  useEffect(() => {
-    const h = (e) => {
-      if (e.key === "Escape") { onClose(); return; }
-      if (e.key !== "Tab" || !boxRef.current) return;
-      const items = Array.from(boxRef.current.querySelectorAll(FOCUSABLE)).filter((el) => el.offsetParent !== null);
-      if (items.length === 0) return;
-      const first = items[0], last = items[items.length - 1];
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-    };
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [onClose]);
-
-  // Move focus in on open, put it back where it came from on close.
-  useEffect(() => {
-    const returnTo = document.activeElement;
-    const box = boxRef.current;
-    const target = box && (box.querySelector("[data-autofocus]") || box.querySelector(FOCUSABLE));
-    if (target) target.focus();
-    return () => { if (returnTo && typeof returnTo.focus === "function") returnTo.focus(); };
-  }, []);
+  useFocusTrap(boxRef, onClose);
 
   return (
     <div className="modal-veil" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>

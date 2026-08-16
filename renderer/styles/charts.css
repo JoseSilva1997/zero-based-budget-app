@@ -25,10 +25,9 @@
 
 /* ---- the dashboard screen ----------------------------------------------- */
 
-/* The whole-screen empty state, on top of .panel .empty from controls.css. */
+/* The whole-screen empty state is EmptyState's page size; all this screen adds
+   is the gap between it and the headline stats above. */
 .dash-empty { margin-top: var(--space-6); }
-.dash-empty-title { font-weight: 600; color: var(--ink-2); }
-.dash-empty-note { font-size: var(--text-13); max-width: 340px; }
 
 /* `align-items: start` so a card sizes to its own content rather than
    stretching to the tallest in its row: "Category trends" is a single sentence

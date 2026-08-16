@@ -1,8 +1,8 @@
 /* ============================================================
    Accounts - per-item funding account selector + funding plan
    ============================================================ */
-import { useEffect, useRef, useState } from 'react';
-import { Avatar, DiffPill, Icons, MiniBar } from './ui/index.js';
+import { useRef, useState } from 'react';
+import { Avatar, DiffPill, Icons, MiniBar, useFocusTrap } from './ui/index.js';
 import { accountTotals, cx, fmt, hexToSoft, itemActual, monthLabel, round2, walletSummary } from './lib/index.js';
 
 const ACCT_ICON = { joint: "user", main: "budget", wallet: "coins", savings: "plant" };
@@ -205,33 +205,12 @@ function AccountPanel({ mo, accounts, members, currency }) {
 /* the Wallet drawer - slide-over holding the panel.
 
    The veil stops the mouse reaching the budget behind it, so the keyboard must
-   not be able to either: the same trap, initial focus and focus restore that
-   Modal does in ui/overlays.jsx, applied to a drawer. */
-const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
-
+   not be able to either: useFocusTrap gives a drawer the same guarantee a
+   modal has, which is the reason that behaviour is a hook and not something
+   each overlay writes out. */
 function WalletDrawer({ mo, accounts, members, currency, month, onClose }) {
   const boxRef = useRef(null);
-  useEffect(() => {
-    const h = (e) => {
-      if (e.key === "Escape") { onClose(); return; }
-      if (e.key !== "Tab" || !boxRef.current) return;
-      const items = Array.from(boxRef.current.querySelectorAll(FOCUSABLE)).filter((el) => el.offsetParent !== null);
-      if (items.length === 0) return;
-      const first = items[0], last = items[items.length - 1];
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-    };
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [onClose]);
-  // Move focus in on open, put it back on the Wallet button on close.
-  useEffect(() => {
-    const returnTo = document.activeElement;
-    const box = boxRef.current;
-    const target = box && box.querySelector(FOCUSABLE);
-    if (target) target.focus();
-    return () => { if (returnTo && typeof returnTo.focus === "function") returnTo.focus(); };
-  }, []);
+  useFocusTrap(boxRef, onClose);
   const { toFund, hasUnassigned } = walletSummary(mo, accounts);
   return (
     <>

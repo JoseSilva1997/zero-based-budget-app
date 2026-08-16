@@ -2,7 +2,7 @@
    Month Budget screen - the main working screen
    ============================================================ */
 import { useEffect, useRef, useState } from 'react';
-import { Avatar, Icons, MoneyInput, TextInline } from './ui/index.js';
+import { Avatar, EmptyState, Icons, MoneyInput, Section, TextInline } from './ui/index.js';
 import { fmt, monthIncome, round2 } from './lib/index.js';
 import { useStore } from './store.jsx';
 
@@ -49,15 +49,10 @@ function IncomeSection({ mo, currency, members, dispatch, month }) {
   };
   return (
     <>
-      <div className="section-head">
-        <h2>Income</h2>
-      </div>
+      <Section title="Income" />
       <div className="panel is-clipped">
         {mo.incomes.length === 0 && (
-          <div className="empty income-empty">
-            <div className="empty-icon"><Icons.coins size={20} /></div>
-            <div className="income-empty-text">No income entered yet for this month.</div>
-          </div>
+          <EmptyState icon={Icons.coins} inline panel={false}>No income entered yet for this month.</EmptyState>
         )}
         {mo.incomes.map((inc) => {
           const m = members.find(x => x.id === inc.memberId) || members[0];

@@ -20,11 +20,9 @@
 .qe-count { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-12); color: var(--muted); }
 .qe-count-num { font-size: var(--text-14); font-weight: 600; color: var(--ink); }
 
-/* ---- the empty state -----------------------------------------------------
-   Shown when the month has no items at all, so there is nothing to file a
-   spend under. Overrides .empty's own 44px 20px with an even 30px. */
-.qe-empty { padding: var(--space-8); }
-.qe-empty-text { font-size: var(--text-14); }
+/* The empty state - shown when the month has no items at all, so there is
+   nothing to file a spend under - is EmptyState's inline size and needs
+   nothing of its own here. */
 
 /* ---- the card ------------------------------------------------------------
    overflow: visible so the suggestion list can hang past the card's

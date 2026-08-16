@@ -287,13 +287,9 @@ button.brand-mark:hover .brand-mark-chev, button.brand-mark:focus-visible .brand
   background: var(--accent); margin: -9px 2px var(--space-3);
 }
 
-/* The empty Allocations table. .panel .empty carries the box; these three
-   only add what this particular emptiness needs. */
+/* The empty Allocations table is EmptyState's page size; all this screen adds
+   is the gap between it and the Add group button below. */
 .empty.no-groups { margin-bottom: 14px; }
-.no-groups-title { font-weight: 600; color: var(--ink-2); }
-/* A measure, not a width: the sentence wraps to about two lines rather than
-   running the full width of the card. */
-.no-groups-hint { font-size: var(--text-13); max-width: 300px; }
 
 /* The inline "name your new group" row, which replaces the Add group button
    while it is open. */

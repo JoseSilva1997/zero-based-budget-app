@@ -161,10 +161,9 @@
    Allocations table, whose own rules live in styles/budget.css. */
 /* The income card takes .panel-clip for the same reason the all-months table
    does: full-width square rows inside a 20px-cornered card. */
-/* Square rather than .empty's own 44px/20px: this empty state sits inside a
-   card that is one section of a screen, not alone on a blank one. */
-.empty.income-empty { padding: var(--space-8); }
-.income-empty-text { font-size: var(--text-14); }
+/* The empty income table is EmptyState's inline size - it sits inside a card
+   that is one section of a screen, not alone on a blank one - and needs
+   nothing of its own here. */
 
 /* One income row.
    The geometry deliberately does NOT live on .income-row, which this element

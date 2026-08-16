@@ -6,7 +6,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { THEME_IDS, DEFAULT_THEME_ID, fmt, monthLabel, walletSummary } from './lib/index.js';
 import { StoreProvider, useStore } from './store.jsx';
-import { Avatar, ConfirmDialog, Icons, MsIcons } from './ui/index.js';
+import { Avatar, ConfirmDialog, EmptyState, Icons, MsIcons, Section } from './ui/index.js';
 import { WalletDrawer } from './Accounts.jsx';
 import { GroupCard, NewMonthModal } from './MonthGroups.jsx';
 import { IncomeSection } from './MonthBudget.jsx';
@@ -81,8 +81,7 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
 
       <QuickEntrySection mo={mo} month={mid} currency={currency} dispatch={dispatch} />
 
-      <div className="section-head allocations-head">
-        <h2>Allocations</h2>
+      <Section title="Allocations" className="allocations-head">
         {/* Same grid as the rows below, plus a leading cell for their 26px drag
             handle, so each label sits over the column it names. */}
         <div className="eyebrow budget-colhead">
@@ -93,7 +92,7 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
           <span className="col-diff col-right">Difference</span>
           <span />
         </div>
-      </div>
+      </Section>
       {/* Grounds the labels on the table rather than leaving them floating
           over the first card. */}
       <div className="budget-rule" aria-hidden="true" />
@@ -124,11 +123,9 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
       })}
 
       {mo.groups.length === 0 && (
-        <div className="panel empty no-groups">
-          <div className="empty-icon"><Icons.budget size={22} /></div>
-          <div className="no-groups-title">No groups yet</div>
-          <div className="no-groups-hint">Add a group like House, Food, or Savings, then give it items to allocate toward.</div>
-        </div>
+        <EmptyState icon={Icons.budget} title="No groups yet" className="no-groups">
+          Add a group like House, Food, or Savings, then give it items to allocate toward.
+        </EmptyState>
       )}
 
       {addingGroup ? (

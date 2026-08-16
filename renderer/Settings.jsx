@@ -2,7 +2,7 @@
    Settings screen
    ============================================================ */
 import React, { useEffect, useRef, useState } from 'react';
-import { Avatar, ConfirmDialog, Icons, Modal, TextInline } from './ui/index.js';
+import { Alert, Avatar, ConfirmDialog, Icons, Modal, PageHeader, Section, TextInline } from './ui/index.js';
 import { BUDGET_THEMES, cx, hexToSoft } from './lib/index.js';
 import { ACCT_ICON, ACCT_TYPE_LABEL } from './Accounts.jsx';
 import { UpdateSettings } from './UpdateBanner.jsx';
@@ -188,9 +188,7 @@ function RestoreDialog({ onClose, onRestored }) {
       <p>Pick a snapshot to go back to. Nothing changes until you confirm on the next screen.</p>
 
       {err && (
-        <div className="alert restore-error">
-          <Icons.alert size={16} /> {err}
-        </div>
+        <Alert className="restore-error">{err}</Alert>
       )}
 
       <div className="scroll-list backup-list">
@@ -287,9 +285,9 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
        prose (the `sub` line tops out at 460px) so a wide window doesn't stretch
        sentences thin. */
     <div className="fade-in">
-      <div className="topbar"><div><div className="page-title">Settings</div><div className="page-sub">Preferences for this household. Everything stays on this device.</div></div></div>
+      <PageHeader title="Settings" sub="Preferences for this household. Everything stays on this device." />
 
-      <div className="section-head"><h2>General</h2></div>
+      <Section title="General" />
       <div className="panel is-feature">
         <Setting title="Currency symbol" sub="Shown before every amount across the app.">
           {/* A radiogroup in a segmented tray. */}
@@ -313,7 +311,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
         </Setting>
       </div>
 
-      <div className="section-head"><h2>Appearance</h2></div>
+      <Section title="Appearance" />
       <div className="panel is-feature theme-panel">
         <div className="theme-heading">Theme</div>
         {/* Driven entirely by BUDGET_THEMES: a theme added to that registry
@@ -341,7 +339,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
         </div>
       </div>
 
-      <div className="section-head"><h2>Household members</h2></div>
+      <Section title="Household members" />
       <div className="panel">
         {s.members.map(m => (
           <div key={m.id} className="set-row member-row">
@@ -377,7 +375,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
         </div>
       </div>
 
-      <div className="section-head"><h2>Funding accounts</h2></div>
+      <Section title="Funding accounts" />
       <div className="panel">
         <div className="set-row acct-note">
           Where money actually sits: a current account, a joint one, a savings pot.
@@ -409,7 +407,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
         </div>
       </div>
 
-      <div className="section-head"><h2>Data &amp; backup</h2></div>
+      <Section title="Data & backup" />
       <div className="panel">
         <Setting title="Manual backup" sub={`Save a snapshot of all your budget data to a file. Last backup: ${s.lastBackup || "never"}.`}>
           <button className="btn btn-primary" onClick={doBackup}><Icons.download size={15} /> Back up now</button>
@@ -445,10 +443,10 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
           }}><Icons.folder size={15} /> Open data folder</button>
         </Setting>
       </div>
-      <div className="section-head"><h2>Shortcuts</h2></div>
+      <Section title="Shortcuts" />
       <ShortcutsSection />
 
-      <div className="section-head"><h2>Updates</h2></div>
+      <Section title="Updates" />
       <div className="panel"><UpdateSettings /></div>
       <div className="settings-foot">
         <Icons.coins size={14} /> House Budget · local-first{version ? ` · v${version}` : ""}

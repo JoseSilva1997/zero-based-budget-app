@@ -8,7 +8,7 @@
    on. Everything written here lands in the normal item drawers below.
    ============================================================ */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { DayField, Icons } from './ui/index.js';
+import { DayField, EmptyState, Icons, Section } from './ui/index.js';
 import { actualDay, cx, evalMoney, fmt, isExpr } from './lib/index.js';
 import { useStore } from './store.jsx';
 
@@ -227,24 +227,20 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
   if (items.length === 0) {
     return (
       <>
-        <div className="section-head qe-head"><h2>Quick entry</h2></div>
-        <div className="panel empty qe-empty">
-          <div className="empty-icon"><Icons.coins size={20} /></div>
-          <div className="qe-empty-text">Add a group and some items below, then log your spending from here.</div>
-        </div>
+        <Section title="Quick entry" className="qe-head" />
+        <EmptyState icon={Icons.coins} inline>Add a group and some items below, then log your spending from here.</EmptyState>
       </>
     );
   }
 
   return (
     <>
-      <div className="section-head qe-head">
-        <h2>Quick entry</h2>
+      <Section title="Quick entry" className="qe-head">
         <div className="qe-count">
           <span className="num qe-count-num">{entryCount}</span>
           <span>{entryCount === 1 ? "entry" : "entries"} logged this month</span>
         </div>
-      </div>
+      </Section>
 
       <div ref={rootRef} className="panel is-unclipped qe-card">
         <div className="qe-fields">

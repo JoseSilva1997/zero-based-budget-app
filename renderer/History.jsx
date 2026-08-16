@@ -4,7 +4,7 @@
    ChartCard lives in ui/containers.jsx.
    ============================================================ */
 import { useEffect, useMemo, useState } from 'react';
-import { Icons, Modal } from './ui/index.js';
+import { Alert, Icons, Modal, PageHeader, Section } from './ui/index.js';
 import { useStore } from './store.jsx';
 import { cx, fmt, groupActual, groupAllocated, itemActual, monthLabel, round2 } from './lib/index.js';
 
@@ -39,22 +39,15 @@ function HistoryScreen({ currency, onOpenMonth }) {
 
   return (
     <div className="fade-in">
-      <div className="topbar">
-        <div>
-          <div className="page-title">History</div>
-          <div className="page-sub">{series.length} month{series.length !== 1 ? "s" : ""} tracked · {fmt(currency, series.reduce((a, s) => a + s.savings, 0), { cents: false })} saved in total</div>
-        </div>
-      </div>
+      <PageHeader title="History"
+        sub={`${series.length} month${series.length !== 1 ? "s" : ""} tracked · ${fmt(currency, series.reduce((a, s) => a + s.savings, 0), { cents: false })} saved in total`} />
 
       {loadError && (
-        <div role="alert" className="alert alert-banner">
-          <Icons.alert size={16} />
-          <span>Your month history couldn't be read, so this screen may be empty or out of date. {loadError}</span>
-        </div>
+        <Alert banner>Your month history couldn't be read, so this screen may be empty or out of date. {loadError}</Alert>
       )}
 
       {/* month list */}
-      <div className="section-head"><h2>All months</h2></div>
+      <Section title="All months" />
       <div className="panel is-clipped">
         {/* Not a table: every row is one button that opens a month, and a row
             cannot be both a control and a set of cells. The strip below is a
@@ -96,7 +89,7 @@ function HistoryScreen({ currency, onOpenMonth }) {
           to put under it, otherwise it is a title over empty space */}
       {series.length > 0 && (
         <>
-          <div className="section-head"><h2>Compare months</h2></div>
+          <Section title="Compare months" />
           <Comparison series={series} cmpA={cmpA} cmpB={cmpB} setCmpA={setCmpA} setCmpB={setCmpB} currency={currency} groupNames={groupNames} />
         </>
       )}
@@ -202,10 +195,7 @@ function MonthDetail({ series, getMonth, currency, onClose, onOpen, isCurrent })
       <div className="hist-detail-body">
         {!mo && !err && <div className="hist-detail-loading">Loading…</div>}
         {err && (
-          <div role="alert" className="alert hist-detail-error">
-            <Icons.alert size={16} />
-            <span>This month's breakdown couldn't be read. {err}</span>
-          </div>
+          <Alert className="hist-detail-error">This month's breakdown couldn't be read. {err}</Alert>
         )}
         {mo && mo.groups.map(g => (
           <div key={g.id} className="hist-detail-group">

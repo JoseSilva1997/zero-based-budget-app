@@ -350,11 +350,24 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
      selected glyph and its check badge don't outshine the rest of the tray. */
   color: color-mix(in srgb, var(--on-accent) 88%, var(--accent-btn) 12%); border: 1px solid var(--faint);
 }
+/* ---- the empty state -----------------------------------------------------
+   Two sizes, drawn by EmptyState in ui/notices.jsx, and the difference between
+   them is what the emptiness is of. The page size below is the whole of a
+   screen or a table standing empty. .is-inline is one section of a page that
+   happens to have nothing in it while the rest carries on around it, so it
+   loses the title, closes up to an even 30px, and sets its one line at the
+   size of the text it sits among rather than a rung below it. */
 .empty {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
   padding: 44px 20px; text-align: center; color: var(--muted);
 }
 .empty-icon { width: 46px; height: 46px; border-radius: var(--radius); background: var(--well); display: grid; place-items: center; color: var(--faint); }
+.empty-title { font-weight: 600; color: var(--ink-2); }
+/* A measure, not a width: the sentence wraps to about two lines rather than
+   running the full width of the card. */
+.empty-note { font-size: var(--text-13); max-width: 340px; }
+.empty.is-inline { padding: var(--space-8); }
+.empty.is-inline .empty-note { font-size: var(--text-14); max-width: none; }
 
 .fade-in { animation: fade .26s ease; }
 @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
