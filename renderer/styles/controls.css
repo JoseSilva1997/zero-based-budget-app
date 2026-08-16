@@ -315,6 +315,37 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
 .picker-option-text { min-width: 0; }
 .picker-option-name { display: block; font-size: var(--text-13); font-weight: 500; }
 
+/* ---- the object row ------------------------------------------------------
+   A thing and what is true of it, drawn by ObjectRow in ui/rows.jsx: a tile
+   on the left, a name with a line of detail under it, a figure on the right.
+   The slots are described at the component; these are the lengths.
+
+   The three sizes are a depth ladder, not an importance one - a summary
+   standing alone, a row in a list, a row nested inside a row - so the figure
+   steps 17 / 15 / 13 down it and the name follows.
+
+   What stays at the call sites is each row's own chrome: its padding, and
+   whatever fill, border or stripe belongs to that particular list. */
+.object-row { display: flex; align-items: center; gap: var(--space-5); }
+/* The text column. Its min-width: 0 is what lets the clipped lines inside it
+   actually clip. */
+.object-row-grow { min-width: 0; flex: 1; }
+.object-row-name { font-weight: 600; font-size: var(--text-13); }
+.object-row-name.has-chip { display: flex; align-items: center; gap: 7px; }
+.object-row-sub { font-size: var(--text-11); color: var(--faint); margin-top: 2px; }
+.object-row-meta {
+  font-size: var(--text-11); color: var(--faint); margin-top: var(--space-1);
+  display: flex; align-items: center; gap: var(--space-3);
+}
+.object-row-figs { text-align: right; flex: none; }
+.object-row-figure { font-size: var(--text-15); font-weight: 600; }
+.object-row-figure-sub { font-size: var(--text-10); color: var(--faint); margin-top: 2px; }
+
+.object-row.is-lg .object-row-figure { font-size: var(--text-17); }
+.object-row.is-sm .object-row-name { font-size: var(--text-12); font-weight: 500; }
+.object-row.is-sm .object-row-meta { margin-top: 3px; }
+.object-row.is-sm .object-row-figure { font-size: var(--text-13); }
+
 /* Chart card (Dashboard). The framing rules are described at ChartCard in
    ui/containers.jsx; these are the lengths that drawing needs. */
 .chart-card { grid-column: auto; min-width: 0; }

@@ -13,6 +13,7 @@
      layout       the page skeleton (title block, section headings)
      inputs       the editable primitives (amount, day, name)
      readouts     small components that show a value and take no input
+     rows         a thing and what is true of it, at three depths
      notices      what the app says when there is nothing, or something failed
      overlays     dialogs, and the focus handling that makes them dialogs
      containers   the boxes a screen puts its content inside
@@ -26,6 +27,7 @@ export { Icons, MsIcons } from "./icons.jsx";
 export { PageHeader, Section } from "./layout.jsx";
 export { MoneyInput, DayField, TextInline } from "./inputs.jsx";
 export { Avatar, DiffPill, MiniBar } from "./readouts.jsx";
+export { ObjectRow } from "./rows.jsx";
 export { EmptyState, Alert } from "./notices.jsx";
 export { Modal, ConfirmDialog } from "./overlays.jsx";
 export { ChartCard } from "./containers.jsx";

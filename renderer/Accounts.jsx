@@ -2,7 +2,7 @@
    Accounts - per-item funding account selector + funding plan
    ============================================================ */
 import { useRef, useState } from 'react';
-import { Avatar, DiffPill, Icons, MiniBar, useFocusTrap } from './ui/index.js';
+import { Avatar, DiffPill, Icons, MiniBar, ObjectRow, useFocusTrap } from './ui/index.js';
 import { accountTotals, cx, fmt, hexToSoft, itemActual, monthLabel, round2, walletSummary } from './lib/index.js';
 
 const ACCT_ICON = { joint: "user", main: "budget", wallet: "coins", savings: "plant" };
@@ -76,24 +76,19 @@ function AccountPanel({ mo, accounts, members, currency }) {
       <div className="eyebrow wallet-eyebrow">Who moves what</div>
       <div className="wallet-movers">
         {perPerson.map(p => (
-          <div key={p.member.id} className="wallet-mover" style={{ boxShadow: `inset 4px 0 0 0 ${p.member.color || "var(--accent)"}` }}>
-            <Avatar member={p.member} size={30} />
-            <div className="wallet-grow">
-              <div className="wallet-mover-name">{p.member.name} total</div>
-              <div className="wallet-mover-sub truncate">into {p.accts.map(t => t.account.name).join(" · ")}</div>
-            </div>
-            <div className="num wallet-mover-amt">{fmt(currency, p.amount)}</div>
-          </div>
+          <ObjectRow key={p.member.id} size="lg" className="wallet-mover"
+            style={{ boxShadow: `inset 4px 0 0 0 ${p.member.color || "var(--accent)"}` }}
+            lead={<Avatar member={p.member} size={30} />}
+            name={`${p.member.name} total`}
+            sub={`into ${p.accts.map(t => t.account.name).join(" · ")}`}
+            figure={fmt(currency, p.amount)} />
         ))}
         {shared.length > 0 && (
-          <div className="wallet-mover is-shared">
-            <span className="wallet-shared-icon"><Icons.user size={16} /></span>
-            <div className="wallet-grow">
-              <div className="wallet-mover-name">Shared total</div>
-              <div className="wallet-mover-sub truncate">into {shared.map(t => t.account.name).join(" · ")}</div>
-            </div>
-            <div className="num wallet-mover-amt">{fmt(currency, sharedAmt, { cents: false })}</div>
-          </div>
+          <ObjectRow size="lg" className="wallet-mover is-shared"
+            lead={<span className="wallet-shared-icon"><Icons.user size={16} /></span>}
+            name="Shared total"
+            sub={`into ${shared.map(t => t.account.name).join(" · ")}`}
+            figure={fmt(currency, sharedAmt, { cents: false })} />
         )}
       </div>
 
@@ -108,47 +103,42 @@ function AccountPanel({ mo, accounts, members, currency }) {
           const open = openAccts.has(t.account.id);
           const listId = `acct-items-${t.account.id}`;
           const tint = owner ? `color-mix(in srgb, ${owner.color} 3%, var(--board))` : `color-mix(in srgb, var(--info) 3%, var(--board))`;
+          /* The pill only appears when the account is over: the item rows
+             carry one permanently, but an "on track" pill on every row here
+             would bury the one row that is not. */
+          const overPill = t.actual > t.allocated + 0.001
+            ? <DiffPill diff={round2(t.allocated - t.actual)} currency={currency} />
+            : null;
           return (
             <div key={t.account.id} className={cx("wallet-acct", i && "is-divided")}>
-              <button className="acct-row wallet-acct-row" onClick={canOpen ? () => toggleAcct(t.account.id) : undefined} disabled={!canOpen}
+              <ObjectRow as="button" className="acct-row wallet-acct-row"
+                onClick={canOpen ? () => toggleAcct(t.account.id) : undefined} disabled={!canOpen}
                 aria-expanded={canOpen ? open : undefined} aria-controls={canOpen ? listId : undefined}
                 title={canOpen ? (open ? "Hide allocations" : "Show allocations") : undefined}
-                style={{ background: tint }}>
-                <span className="wallet-tile" style={{ background: hexToSoft(t.account.color), color: t.account.color }}><Icon size={17} /></span>
-                <div className="wallet-grow">
-                  <div className="wallet-acct-title">{t.account.name}
-                    {owner ? <span className="pill pill-neutral wallet-owner-pill">{owner.name}</span> : <span className="pill pill-neutral wallet-owner-pill">{ACCT_TYPE_LABEL[t.account.type] || "Shared"}</span>}
-                  </div>
-                  {/* The pill only appears when the account is over: the item
-                      rows carry one permanently, but a "on track" pill on every
-                      row here would bury the one row that is not. */}
-                  <div className="wallet-acct-meta">
-                    <span className="wallet-fixed">{t.count} item{t.count !== 1 ? "s" : ""}</span>
-                    <span className="wallet-meta-bar"><MiniBar actual={t.actual} allocated={t.allocated} /></span>
-                    <span className="num wallet-fixed">{fmt(currency, t.actual, { cents: false })} spent</span>
-                    {t.actual > t.allocated + 0.001 && <DiffPill diff={round2(t.allocated - t.actual)} currency={currency} />}
-                  </div>
-                </div>
-                {canOpen && <Icons.down size={16} className={cx("wallet-caret", open && "is-open")} />}
-                <div className="wallet-acct-figs">
-                  <div className="num wallet-figure">{fmt(currency, t.allocated)}</div>
-                  <div className="num wallet-acct-pct">{Math.round(pct * 100)}% of plan</div>
-                </div>
-              </button>
+                style={{ background: tint }}
+                lead={<span className="wallet-tile" style={{ background: hexToSoft(t.account.color), color: t.account.color }}><Icon size={17} /></span>}
+                name={t.account.name}
+                chip={<span className="pill pill-neutral wallet-owner-pill">{owner ? owner.name : (ACCT_TYPE_LABEL[t.account.type] || "Shared")}</span>}
+                meta={<>
+                  <span className="wallet-fixed">{t.count} item{t.count !== 1 ? "s" : ""}</span>
+                  <span className="wallet-meta-bar"><MiniBar actual={t.actual} allocated={t.allocated} /></span>
+                  <span className="num wallet-fixed">{fmt(currency, t.actual, { cents: false })} spent</span>
+                  {overPill}
+                </>}
+                trail={canOpen && <Icons.down size={16} className={cx("wallet-caret", open && "is-open")} />}
+                figure={fmt(currency, t.allocated)}
+                figureSub={`${Math.round(pct * 100)}% of plan`} />
               {canOpen && open && (
                 <div id={listId} className="fade-in wallet-acct-items" style={{ boxShadow: `inset 3px 0 0 0 ${t.account.color}` }}>
                   {t.items.map((it, j) => (
-                    <div key={it.id} className={cx("wallet-alloc", j && "is-divided")}>
-                      <div className="wallet-grow">
-                        <div className="wallet-alloc-name truncate">{it.name}</div>
-                        <div className="wallet-alloc-meta">
-                          <span className="wallet-alloc-group truncate">{it.group}</span>
-                          <span className="wallet-alloc-bar"><MiniBar actual={it.actual} allocated={it.allocated} /></span>
-                          <span className="num wallet-fixed">{fmt(currency, it.actual, { cents: false })} spent</span>
-                        </div>
-                      </div>
-                      <div className="num wallet-alloc-amt">{fmt(currency, it.allocated)}</div>
-                    </div>
+                    <ObjectRow key={it.id} size="sm" className={cx("wallet-alloc", j && "is-divided")}
+                      name={it.name}
+                      meta={<>
+                        <span className="wallet-alloc-group truncate">{it.group}</span>
+                        <span className="wallet-alloc-bar"><MiniBar actual={it.actual} allocated={it.allocated} /></span>
+                        <span className="num wallet-fixed">{fmt(currency, it.actual, { cents: false })} spent</span>
+                      </>}
+                      figure={fmt(currency, it.allocated)} />
                   ))}
                 </div>
               )}
@@ -171,21 +161,18 @@ function AccountPanel({ mo, accounts, members, currency }) {
               // back to the muted tint.
               const color = savingsAccount ? savingsAccount.color : "var(--muted)";
               return (
-                <div key={it.id} className={cx("wallet-savings-row", i && "is-divided")}>
-                  {/* #96a1b4 is --muted resolved to a literal hex, because
-                      hexToSoft cannot read a CSS var. It keeps the tint under
-                      the icon in step with the icon's own colour above. */}
-                  <span className="wallet-tile" style={{ background: hexToSoft(savingsAccount ? savingsAccount.color : "#96a1b4"), color }}><Icons.plant size={17} /></span>
-                  <div className="wallet-grow">
-                    <div className="wallet-savings-name">{it.name}</div>
-                    <div className="wallet-acct-meta">
-                      <span className="wallet-meta-bar"><MiniBar actual={it.actual} allocated={it.allocated} /></span>
-                      <span className="num wallet-fixed">{fmt(currency, it.actual, { cents: false })} moved</span>
-                      {it.actual > it.allocated + 0.001 && <DiffPill diff={round2(it.allocated - it.actual)} currency={currency} />}
-                    </div>
-                  </div>
-                  <div className="num wallet-savings-amt">{fmt(currency, it.allocated)}</div>
-                </div>
+                /* #96a1b4 is --muted resolved to a literal hex, because
+                   hexToSoft cannot read a CSS var. It keeps the tint under the
+                   icon in step with the icon's own colour above. */
+                <ObjectRow key={it.id} className={cx("wallet-savings-row", i && "is-divided")}
+                  lead={<span className="wallet-tile" style={{ background: hexToSoft(savingsAccount ? savingsAccount.color : "#96a1b4"), color }}><Icons.plant size={17} /></span>}
+                  name={it.name}
+                  meta={<>
+                    <span className="wallet-meta-bar"><MiniBar actual={it.actual} allocated={it.allocated} /></span>
+                    <span className="num wallet-fixed">{fmt(currency, it.actual, { cents: false })} moved</span>
+                    {it.actual > it.allocated + 0.001 && <DiffPill diff={round2(it.allocated - it.actual)} currency={currency} />}
+                  </>}
+                  figure={fmt(currency, it.allocated)} />
               );
             })}
           </div>

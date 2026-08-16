@@ -34,13 +34,14 @@
 .wallet-eyebrow { margin-bottom: var(--space-4); }
 
 /* ---- who moves what -----------------------------------------------------
-   One shape drawn once per person and once for the shared accounts. The
-   left-edge stripe is the only difference between the two, and on the
-   per-person rows it is the member's own colour, so it stays inline on those
-   and lives here for the shared row, whose colour is a token. */
+   An .object-row at its large size, drawn once per person and once for the
+   shared accounts. This is the chrome that makes it a card in a stack rather
+   than a row in a list; the left-edge stripe is the only difference between
+   the two, and on the per-person rows it is the member's own colour, so it
+   stays inline on those and lives here for the shared row, whose colour is a
+   token. */
 .wallet-movers { display: flex; flex-direction: column; gap: var(--space-3); margin-bottom: var(--space-7); }
 .wallet-mover {
-  display: flex; align-items: center; gap: var(--space-5);
   padding: 11px var(--space-6); border-radius: 11px;
   background: var(--well); border: 1px solid var(--rule-strong);
 }
@@ -52,9 +53,6 @@
   background: var(--info-soft); color: var(--info);
   display: grid; place-items: center; flex: none;
 }
-.wallet-mover-name { font-size: var(--text-13); font-weight: 600; }
-.wallet-mover-sub { font-size: var(--text-11); color: var(--faint); margin-top: 2px; }
-.wallet-mover-amt { font-size: var(--text-17); font-weight: 600; flex: none; }
 
 /* ---- by account ---------------------------------------------------------
    The card is `panel panel-clip` (controls.css), so the rows inside it stop
@@ -65,12 +63,13 @@
 .wallet-savings-row.is-divided { border-top: 1px solid var(--rule); }
 
 /* SPECIFICITY GUARD (see the file header): .acct-row lives in budget.css and
-   carries a :focus-visible rule there. The row's fill is the owner's colour
-   mixed into the board and stays inline; everything else is here. cursor
-   tracks [disabled], which is set from the same canOpen the pointer was. */
+   carries a :focus-visible rule there. An .object-row that is also a button,
+   so what is here is the padding plus the reset the user agent's own button
+   chrome needs. The row's fill is the owner's colour mixed into the board and
+   stays inline. cursor tracks [disabled], which is set from the same canOpen
+   the pointer was. */
 .acct-row.wallet-acct-row {
-  width: 100%; display: flex; align-items: center; gap: var(--space-5);
-  padding: var(--space-5) 15px; border: none; text-align: left;
+  width: 100%; padding: var(--space-5) 15px; border: none; text-align: left;
   color: var(--ink); cursor: pointer;
 }
 .acct-row.wallet-acct-row:disabled { cursor: default; }
@@ -82,31 +81,24 @@
   width: 34px; height: 34px; border-radius: 9px; flex: none;
   display: grid; place-items: center;
 }
-/* The text column between the tile and the figures. min-width: 0 is what lets
-   the truncating lines inside it actually truncate. */
-.wallet-grow { min-width: 0; flex: 1; }
-.wallet-acct-title { font-weight: 600; font-size: var(--text-13); display: flex; align-items: center; gap: 7px; }
 .wallet-owner-pill { font-size: var(--text-10); }
-.wallet-acct-meta { font-size: var(--text-11); color: var(--faint); margin-top: var(--space-1); display: flex; align-items: center; gap: var(--space-3); }
+/* Items inside an .object-row-meta: the ones that keep their own width, and
+   the progress bar that takes what is left up to a cap. */
 .wallet-fixed { flex: none; }
 .wallet-meta-bar { flex: 1; max-width: 90px; }
 /* Closed is the resting state, so the caret is drawn rotated and .is-open is
    what returns it to true. */
 .wallet-caret { flex: none; color: var(--faint); transform: rotate(-90deg); transition: transform .18s; }
 .wallet-caret.is-open { transform: none; }
-.wallet-acct-figs { text-align: right; flex: none; }
-.wallet-figure { font-size: var(--text-15); font-weight: 600; }
-.wallet-acct-pct { font-size: var(--text-10); color: var(--faint); margin-top: 2px; }
 
 /* ---- an account's allocations, revealed by opening its row --------------
-   The left-edge stripe is the account's own colour and stays inline. */
+   .object-row at its nested size, one rung down from the account rows above
+   it. The extra left padding is what sets it inside them. The left-edge
+   stripe on the group is the account's own colour and stays inline. */
 .wallet-acct-items { background: var(--well); border-top: 1px solid var(--rule); }
-.wallet-alloc { display: flex; align-items: center; gap: var(--space-5); padding: 9px 15px 9px 26px; }
-.wallet-alloc-name { font-size: var(--text-12); font-weight: 500; }
-.wallet-alloc-meta { font-size: var(--text-11); color: var(--faint); margin-top: 3px; display: flex; align-items: center; gap: var(--space-3); }
+.wallet-alloc { padding: 9px 15px 9px 26px; }
 .wallet-alloc-group { flex: none; max-width: 110px; }
 .wallet-alloc-bar { flex: 1; max-width: 70px; }
-.wallet-alloc-amt { font-size: var(--text-13); font-weight: 600; flex: none; }
 
 /* ---- savings wallets ----------------------------------------------------
    The label carries a total on its right, so it is the one eyebrow here that
@@ -114,9 +106,9 @@
 .wallet-savings-head { margin-top: var(--space-7); display: flex; align-items: center; justify-content: space-between; }
 /* The tracking is inherited from .eyebrow and unwanted on a figure. */
 .wallet-savings-total { color: var(--faint); letter-spacing: 0; }
-.wallet-savings-row { display: flex; align-items: center; gap: var(--space-5); padding: var(--space-5) 15px; }
-.wallet-savings-name { font-weight: 600; font-size: var(--text-13); }
-.wallet-savings-amt { text-align: right; flex: none; font-size: var(--text-15); font-weight: 600; }
+/* An .object-row at the same size and padding as the account rows above:
+   a savings wallet is a peer of an account, not something inside one. */
+.wallet-savings-row { padding: var(--space-5) 15px; }
 
 /* ---- the unassigned warning --------------------------------------------- */
 .wallet-unassigned {
