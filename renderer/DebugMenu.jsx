@@ -27,7 +27,7 @@ const DRAG_SLOP = 4;    // movement below this is a click, not a drag
 const POS_KEY = 'hb.debug.pos';
 
 /* ---- icons --------------------------------------------------------------
-   Local to this file rather than added to components.jsx's Icons: that set is
+   Local to this file rather than added to ui/icons.jsx's Icons: that set is
    the app's own language and has no business carrying dev-only art. Same
    stroke weight and canvas as Ic() there, so they don't look foreign. */
 function Glyph({ size = 18, children }) {

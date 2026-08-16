@@ -124,7 +124,7 @@ button.brand-mark:hover .brand-mark-chev, button.brand-mark:focus-visible .brand
   display: flex; align-items: center; gap: 12px;
   font-size: var(--text-12); color: var(--ink-2);
 }
-/* Do NOT add width, height or font-size here. Avatar in components.jsx is this
+/* Do NOT add width, height or font-size here. Avatar in ui/readouts.jsx is this
    class's only call site and always sets all three inline, derived from its
    size prop, so anything stated here is both dead and misleading to anyone
    reading the stylesheet for the avatar's size. */

@@ -71,7 +71,7 @@
 
 /* The column labels over the Allocations table, and the rule that grounds
    them. The rule is the app's own dissolving hairline (see ChartCard in
-   components.jsx), accent-tinted at the centre - it belongs to the table below
+   ui/containers.jsx), accent-tinted at the centre - it belongs to the table below
    it, not to the heading above. */
 .budget-colhead {
   flex: 1; min-width: 0;

@@ -2,9 +2,9 @@
    Settings screen
    ============================================================ */
 import React, { useEffect, useRef, useState } from 'react';
-import { Avatar, ConfirmDialog, Icons, Modal, TextInline } from './components.jsx';
-import { BUDGET_THEMES, cx } from './lib/index.js';
-import { ACCT_ICON, ACCT_TYPE_LABEL, hexToSoft } from './Accounts.jsx';
+import { Avatar, ConfirmDialog, Icons, Modal, TextInline } from './ui/index.js';
+import { BUDGET_THEMES, cx, hexToSoft } from './lib/index.js';
+import { ACCT_ICON, ACCT_TYPE_LABEL } from './Accounts.jsx';
 import { UpdateSettings } from './UpdateBanner.jsx';
 
 /* ---- shortcuts ----------------------------------------------------------

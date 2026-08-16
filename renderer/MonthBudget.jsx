@@ -2,7 +2,7 @@
    Month Budget screen - the main working screen
    ============================================================ */
 import { useEffect, useRef, useState } from 'react';
-import { Avatar, Icons, MoneyInput, TextInline } from './components.jsx';
+import { Avatar, Icons, MoneyInput, TextInline } from './ui/index.js';
 import { fmt, monthIncome, round2 } from './lib/index.js';
 import { useStore } from './store.jsx';
 

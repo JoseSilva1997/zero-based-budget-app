@@ -15,7 +15,7 @@
    before React is listening, then follow the pushed events.
    ============================================================ */
 import React, { useState, useEffect, useCallback } from 'react';
-import { Icons } from './components.jsx';
+import { Icons } from './ui/index.js';
 import { cx } from './lib/index.js';
 
 /** What went wrong with the last click, said in the banner that offered it. */

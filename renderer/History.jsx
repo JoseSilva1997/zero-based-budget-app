@@ -1,10 +1,10 @@
 /* ============================================================
    History screen - month list, comparison, trends (charts).
    The per-month series comes from the store's 'trends' read (SQL-computed);
-   ChartCard lives in components.jsx.
+   ChartCard lives in ui/containers.jsx.
    ============================================================ */
 import { useEffect, useMemo, useState } from 'react';
-import { Icons, Modal } from './components.jsx';
+import { Icons, Modal } from './ui/index.js';
 import { useStore } from './store.jsx';
 import { cx, fmt, groupActual, groupAllocated, itemActual, monthLabel, round2 } from './lib/index.js';
 

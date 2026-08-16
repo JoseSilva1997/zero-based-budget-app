@@ -1,10 +1,14 @@
 /* ============================================================
    Domain logic barrel. Pure, React-free modules that the UI imports from.
    Split by concern: format (currency/rounding), dates (month-id + entry-date
-   helpers), theme (palettes), selectors (active-month derivations over the
-   SQL-sourced tree), reducer (empty-state fallback only).
+   helpers), money (what a typed amount is worth), colour (values derived from
+   a record's own colour, which CSS cannot compute), theme (palettes),
+   selectors (active-month derivations over the SQL-sourced tree), reducer
+   (empty-state fallback only).
    ============================================================ */
 export { fmt, round2 } from "./format.js";
+export { parseMoney, evalMoney, isExpr } from "./money.js";
+export { hexToSoft } from "./color.js";
 export { MONTH_NAMES, monthLabel, prevMonthId, nextMonthId, daysInMonth, actualDay, makeActualDate } from "./dates.js";
 export { BUDGET_THEMES, THEME_IDS, DEFAULT_THEME_ID, GROUP_PALETTE } from "./theme.js";
 export {

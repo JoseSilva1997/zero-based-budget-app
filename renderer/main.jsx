@@ -6,7 +6,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { THEME_IDS, DEFAULT_THEME_ID, fmt, monthLabel, walletSummary } from './lib/index.js';
 import { StoreProvider, useStore } from './store.jsx';
-import { Avatar, ConfirmDialog, Icons, MsIcons } from './components.jsx';
+import { Avatar, ConfirmDialog, Icons, MsIcons } from './ui/index.js';
 import { WalletDrawer } from './Accounts.jsx';
 import { GroupCard, NewMonthModal } from './MonthGroups.jsx';
 import { IncomeSection } from './MonthBudget.jsx';

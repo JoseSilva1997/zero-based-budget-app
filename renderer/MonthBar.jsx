@@ -17,7 +17,7 @@
    a warning wash: an empty vessel already reads as one that wants filling,
    and it leaves the page's loudest colour to the breach alone.
    ============================================================ */
-import { Icons } from './components.jsx';
+import { Icons } from './ui/index.js';
 import { barGeometry, barRegions, cx, fmt, monthActual, monthAllocated, monthIncome, monthUnallocated, overBudgetItems, round2 } from './lib/index.js';
 import { focusAllocated } from './MonthGroups.jsx';
 

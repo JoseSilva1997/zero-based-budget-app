@@ -4,8 +4,8 @@
    ============================================================ */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ConfirmDialog, DayField, DiffPill, Icons, MiniBar, Modal, MoneyInput, TextInline, evalMoney, isExpr } from './components.jsx';
-import { actualDay, cx, fmt, groupActual, groupAllocated, itemActual, makeActualDate, monthLabel, nextMonthId, normalizeItemName, round2 } from './lib/index.js';
+import { ConfirmDialog, DayField, DiffPill, Icons, MiniBar, Modal, MoneyInput, TextInline } from './ui/index.js';
+import { actualDay, cx, evalMoney, fmt, groupActual, groupAllocated, isExpr, itemActual, makeActualDate, monthLabel, nextMonthId, normalizeItemName, round2 } from './lib/index.js';
 import { useStore } from './store.jsx';
 import { AccountSelect } from './Accounts.jsx';
 

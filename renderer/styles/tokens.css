@@ -119,7 +119,7 @@
      MonthTick is NOT one of those - it is a plain button in an HTML flex row -
      but its size has to stay equal to the value axisProps gives Recharts for
      its own ticks, and a number that must match another number belongs at the
-     same place as the number it matches. components.jsx computes the Avatar's
+     same place as the number it matches. ui/readouts.jsx computes the Avatar's
      size from its size prop at runtime and stays inline under the
      inline-style rule. */
   --text-10:   10px;    --text-11:   11px;    --text-12:   12px;

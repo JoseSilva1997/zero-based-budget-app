@@ -8,8 +8,8 @@
    on. Everything written here lands in the normal item drawers below.
    ============================================================ */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { DayField, Icons, evalMoney, isExpr } from './components.jsx';
-import { actualDay, cx, fmt } from './lib/index.js';
+import { DayField, Icons } from './ui/index.js';
+import { actualDay, cx, evalMoney, fmt, isExpr } from './lib/index.js';
 import { useStore } from './store.jsx';
 
 /* Every item in the month, flattened with its group, in screen order. */

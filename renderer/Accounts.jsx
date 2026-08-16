@@ -2,8 +2,8 @@
    Accounts - per-item funding account selector + funding plan
    ============================================================ */
 import { useEffect, useRef, useState } from 'react';
-import { Avatar, DiffPill, Icons, MiniBar } from './components.jsx';
-import { accountTotals, cx, fmt, itemActual, monthLabel, round2, walletSummary } from './lib/index.js';
+import { Avatar, DiffPill, Icons, MiniBar } from './ui/index.js';
+import { accountTotals, cx, fmt, hexToSoft, itemActual, monthLabel, round2, walletSummary } from './lib/index.js';
 
 const ACCT_ICON = { joint: "user", main: "budget", wallet: "coins", savings: "plant" };
 const ACCT_TYPE_LABEL = { joint: "Shared", main: "Main account", wallet: "Wallet", savings: "Savings" };
@@ -202,17 +202,11 @@ function AccountPanel({ mo, accounts, members, currency }) {
   );
 }
 
-function hexToSoft(hex) {
-  const h = hex.replace("#", "");
-  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
-  return `rgba(${r}, ${g}, ${b}, 0.20)`;
-}
-
 /* the Wallet drawer - slide-over holding the panel.
 
    The veil stops the mouse reaching the budget behind it, so the keyboard must
    not be able to either: the same trap, initial focus and focus restore that
-   Modal does in components.jsx, applied to a drawer. */
+   Modal does in ui/overlays.jsx, applied to a drawer. */
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
 function WalletDrawer({ mo, accounts, members, currency, month, onClose }) {
@@ -265,4 +259,4 @@ function WalletDrawer({ mo, accounts, members, currency, month, onClose }) {
   );
 }
 
-export { AccountSelect, AccountPanel, WalletDrawer, AccountDot, ACCT_TYPE_LABEL, ACCT_ICON, hexToSoft };
+export { AccountSelect, AccountPanel, WalletDrawer, AccountDot, ACCT_TYPE_LABEL, ACCT_ICON };

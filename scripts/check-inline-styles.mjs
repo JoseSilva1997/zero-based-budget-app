@@ -527,10 +527,24 @@ function guard2(files) {
 const arg = process.argv.find((a) => a.startsWith("--guard="));
 const which = arg ? arg.slice(8) : "all";
 
-const files = readdirSync(jsxDir)
-  .filter((n) => n.endsWith(".jsx"))
-  .sort()
-  .map((n) => [`renderer/${n}`, readFileSync(join(jsxDir, n), "utf8")]);
+/* Every .jsx under renderer/, at any depth: the screens sit at the top level
+   and the shared vocabulary in renderer/ui/, and a guard that only read one of
+   those would go quiet exactly where the components used by every screen live.
+   dist/ is build output, so it is skipped rather than scanned twice. */
+function jsxFiles(dir, rel = "renderer") {
+  const out = [];
+  for (const e of readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+    if (e.isDirectory()) {
+      if (e.name === "dist") continue;
+      out.push(...jsxFiles(join(dir, e.name), `${rel}/${e.name}`));
+    } else if (e.name.endsWith(".jsx")) {
+      out.push([`${rel}/${e.name}`, readFileSync(join(dir, e.name), "utf8")]);
+    }
+  }
+  return out;
+}
+
+const files = jsxFiles(jsxDir);
 
 let failed = false;
 

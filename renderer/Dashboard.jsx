@@ -3,7 +3,7 @@
    Trailing 12-month window; degrades gracefully with less data.
    ============================================================ */
 import { useEffect, useMemo, useState } from 'react';
-import { ChartCard, Icons } from './components.jsx';
+import { ChartCard, Icons } from './ui/index.js';
 import { useStore } from './store.jsx';
 import { BudgetAccuracyChart, CategoryTrends, CumulativeSavingsChart, HeadlineStats, SavingsChart, SpendingTiming } from './DashboardCharts.jsx';
 

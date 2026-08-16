@@ -199,7 +199,7 @@ select.income-member {
 /* The source is free text and optional, so it sits a rung below the member
    name it follows rather than matching .tinput's own weight and size. These
    three declarations are a class rather than a style prop because TextInline
-   takes none (see the comment at TextInline in components.jsx). */
+   takes none (see the comment at TextInline in ui/inputs.jsx). */
 .tinput.income-label { font-weight: 400; color: var(--ink-2); font-size: var(--text-13); }
 .income-add {
   display: flex; gap: var(--space-2); padding: var(--space-4) var(--space-6);

@@ -3,7 +3,7 @@
    ============================================================ */
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
          AreaChart, Area, ComposedChart, Line, LabelList } from 'recharts';
-import { Icons } from './components.jsx';
+import { Icons } from './ui/index.js';
 import { GROUP_PALETTE, cx, fmt, round2 } from './lib/index.js';
 
 /* short "Jan" style x-axis label from a "Jan 2025" series label */

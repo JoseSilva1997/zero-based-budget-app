@@ -16,7 +16,7 @@
    so moving focus through fields during a search would write values.
    ============================================================ */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Icons } from './components.jsx';
+import { Icons } from './ui/index.js';
 
 const SEARCH_ROOT = ".main-inner";
 const HL_MATCH = "find-match";

@@ -316,7 +316,7 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
 .picker-option-name { display: block; font-size: var(--text-13); font-weight: 500; }
 
 /* Chart card (Dashboard). The framing rules are described at ChartCard in
-   components.jsx; these are the lengths that drawing needs. */
+   ui/containers.jsx; these are the lengths that drawing needs. */
 .chart-card { grid-column: auto; min-width: 0; }
 .chart-card.is-wide { grid-column: span 2; }
 /* Opts the card out of the grid's align-items: start so it fills its row's
