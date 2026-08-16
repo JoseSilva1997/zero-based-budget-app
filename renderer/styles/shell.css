@@ -42,8 +42,11 @@
 /* One flat statement of the accent, at full strength. The tile is the only
    place in the panel the accent appears at full strength, which is what lets
    the nav below it stay neutral. */
+/* Not a .tile - it is the app's monogram, on the accent at full strength -
+   but it takes the tile ladder's middle rung so it measures the same as the
+   record tiles elsewhere. */
 .brand-mark {
-  width: 34px; height: 34px; border-radius: 8px; flex: none;
+  width: 34px; height: 34px; border-radius: 9px; flex: none;
   background: var(--accent); box-shadow: var(--shadow-sm);
   display: grid; place-items: center; color: var(--on-accent);
   position: relative;
@@ -321,11 +324,9 @@ button.brand-mark:hover .brand-mark-chev, button.brand-mark:focus-visible .brand
 /* Roomier than a .panel's usual padding: this is a page's worth of text in a
    card, not a row in a list of them. */
 .panel.startup-error-card { max-width: 480px; padding: var(--space-8) 32px; }
-.startup-error-icon {
-  width: 44px; height: 44px; border-radius: 13px;
-  background: var(--breach-soft); color: var(--breach-ink);
-  display: grid; place-items: center; margin-bottom: 18px;
-}
+/* A .tile at the large rung in the breach tone; only the gap under it is
+   this screen's own. */
+.startup-error-icon { margin-bottom: 18px; }
 .startup-error-title { margin: 0 0 var(--space-3); font-size: var(--text-21); font-weight: 600; letter-spacing: -0.02em; }
 .startup-error-body { margin: 0 0 var(--space-2); color: var(--ink-2); font-size: var(--text-14); line-height: 1.55; }
 /* The driver's own error string. It arrives as one unbroken token often

@@ -7,6 +7,7 @@
    ============================================================ */
 import { cx } from '../lib/index.js';
 import { Icons } from './icons.jsx';
+import { Tile } from './readouts.jsx';
 
 /* ---- nothing here yet ---------------------------------------------------
    Two sizes, and the difference between them is what the emptiness is of.
@@ -20,10 +21,10 @@ import { Icons } from './icons.jsx';
 
    `panel` draws the card. It is off for an emptiness that already sits inside
    one, which would otherwise be a card drawn inside a card. */
-function EmptyState({ icon: Icon, title, inline = false, panel = true, className, children }) {
+function EmptyState({ icon, title, inline = false, panel = true, className, children }) {
   return (
     <div className={cx(panel && "panel", "empty", inline && "is-inline", className)}>
-      <div className="empty-icon"><Icon size={inline ? 20 : 22} /></div>
+      <Tile icon={icon} size="lg" />
       {title && <div className="empty-title">{title}</div>}
       <div className="empty-note">{children}</div>
     </div>

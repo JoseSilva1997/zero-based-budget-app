@@ -129,10 +129,6 @@
   display: flex; align-items: flex-start; gap: 28px;
   padding-left: 28px; border-left: 1px solid var(--rule-faint);
 }
-.headline-stat-value { font-size: var(--text-20); font-weight: 600; line-height: 1.2; }
-.headline-stat-note {
-  font-size: var(--text-12); color: var(--faint); margin-top: 2px; max-width: 150px;
-}
 
 /* ---- 5. budget accuracy: the chart and the offenders list beside it ----- */
 .accuracy-split {

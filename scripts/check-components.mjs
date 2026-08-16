@@ -57,9 +57,11 @@ const OWNED = {
   "page-title": "PageHeader", "page-sub": "PageHeader",
   "section-head": "Section",
 
-  empty: "EmptyState", "empty-icon": "EmptyState",
-  "empty-title": "EmptyState", "empty-note": "EmptyState",
+  empty: "EmptyState", "empty-title": "EmptyState", "empty-note": "EmptyState",
   alert: "Alert", "alert-banner": "Alert",
+
+  tile: "Tile",
+  stat: "Stat", "stat-label": "Stat", "stat-figure": "Stat", "stat-note": "Stat",
 
   "object-row": "ObjectRow", "object-row-grow": "ObjectRow",
   "object-row-name": "ObjectRow", "object-row-sub": "ObjectRow",

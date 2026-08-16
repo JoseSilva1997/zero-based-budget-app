@@ -2,7 +2,7 @@
    Accounts - per-item funding account selector + funding plan
    ============================================================ */
 import { useRef, useState } from 'react';
-import { Avatar, DiffPill, Icons, MiniBar, ObjectRow, useFocusTrap } from './ui/index.js';
+import { Avatar, DiffPill, Icons, MiniBar, ObjectRow, Stat, Tile, useFocusTrap } from './ui/index.js';
 import { accountTotals, cx, fmt, hexToSoft, itemActual, monthLabel, round2, walletSummary } from './lib/index.js';
 
 const ACCT_ICON = { joint: "user", main: "budget", wallet: "coins", savings: "plant" };
@@ -85,7 +85,7 @@ function AccountPanel({ mo, accounts, members, currency }) {
         ))}
         {shared.length > 0 && (
           <ObjectRow size="lg" className="wallet-mover is-shared"
-            lead={<span className="wallet-shared-icon"><Icons.user size={16} /></span>}
+            lead={<Tile size="sm" icon={Icons.user} tone="info" />}
             name="Shared total"
             sub={`into ${shared.map(t => t.account.name).join(" · ")}`}
             figure={fmt(currency, sharedAmt, { cents: false })} />
@@ -116,7 +116,7 @@ function AccountPanel({ mo, accounts, members, currency }) {
                 aria-expanded={canOpen ? open : undefined} aria-controls={canOpen ? listId : undefined}
                 title={canOpen ? (open ? "Hide allocations" : "Show allocations") : undefined}
                 style={{ background: tint }}
-                lead={<span className="wallet-tile" style={{ background: hexToSoft(t.account.color), color: t.account.color }}><Icon size={17} /></span>}
+                lead={<Tile icon={Icon} tint={t.account.color} />}
                 name={t.account.name}
                 chip={<span className="pill pill-neutral wallet-owner-pill">{owner ? owner.name : (ACCT_TYPE_LABEL[t.account.type] || "Shared")}</span>}
                 meta={<>
@@ -165,7 +165,7 @@ function AccountPanel({ mo, accounts, members, currency }) {
                    hexToSoft cannot read a CSS var. It keeps the tint under the
                    icon in step with the icon's own colour above. */
                 <ObjectRow key={it.id} className={cx("wallet-savings-row", i && "is-divided")}
-                  lead={<span className="wallet-tile" style={{ background: hexToSoft(savingsAccount ? savingsAccount.color : "#96a1b4"), color }}><Icons.plant size={17} /></span>}
+                  lead={<Tile icon={Icons.plant} tint={savingsAccount ? savingsAccount.color : "#96a1b4"} />}
                   name={it.name}
                   meta={<>
                     <span className="wallet-meta-bar"><MiniBar actual={it.actual} allocated={it.allocated} /></span>
@@ -213,10 +213,7 @@ function WalletDrawer({ mo, accounts, members, currency, month, onClose }) {
           </div>
           <button className="icon-btn" onClick={onClose} aria-label="Close the Wallet" title="Close"><Icons.x size={18} /></button>
         </div>
-        <div className="wallet-total">
-          <div className="wallet-total-label">Total to move this month</div>
-          <span className="num wallet-total-figure">{fmt(currency, toFund)}</span>
-        </div>
+        <Stat size="lg" className="wallet-total" label="Total to move this month" figure={fmt(currency, toFund)} />
         <div className="drawer-body">
           <AccountPanel mo={mo} accounts={accounts} members={members} currency={currency} />
         </div>

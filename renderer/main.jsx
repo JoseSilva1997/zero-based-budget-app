@@ -6,7 +6,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { THEME_IDS, DEFAULT_THEME_ID, fmt, monthLabel, walletSummary } from './lib/index.js';
 import { StoreProvider, useStore } from './store.jsx';
-import { Avatar, ConfirmDialog, EmptyState, Icons, MsIcons, Section } from './ui/index.js';
+import { Avatar, ConfirmDialog, EmptyState, Icons, MsIcons, Section, Tile } from './ui/index.js';
 import { WalletDrawer } from './Accounts.jsx';
 import { GroupCard, NewMonthModal } from './MonthGroups.jsx';
 import { IncomeSection } from './MonthBudget.jsx';
@@ -223,9 +223,7 @@ function StartupErrorScreen({ error, onRetry }) {
   return (
     <div className="startup-error">
       <div className="panel startup-error-card">
-        <div className="startup-error-icon">
-          <Icons.alert size={22} />
-        </div>
+        <Tile icon={Icons.alert} size="lg" tone="breach" className="startup-error-icon" />
         <h3 className="startup-error-title">House Budget couldn't open your data</h3>
         <p className="startup-error-body">
           Your budget file is still on this device, and nothing has been changed or deleted. This usually means the app is already running in another window, or the file is being synced by another program.

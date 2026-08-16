@@ -2,8 +2,8 @@
    Settings screen
    ============================================================ */
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Avatar, ConfirmDialog, Icons, Modal, PageHeader, Section, TextInline } from './ui/index.js';
-import { BUDGET_THEMES, cx, hexToSoft } from './lib/index.js';
+import { Alert, Avatar, ConfirmDialog, Icons, Modal, PageHeader, Section, TextInline, Tile } from './ui/index.js';
+import { BUDGET_THEMES, cx } from './lib/index.js';
 import { ACCT_ICON, ACCT_TYPE_LABEL } from './Accounts.jsx';
 import { UpdateSettings } from './UpdateBanner.jsx';
 
@@ -385,9 +385,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
           const owner = s.members.find(m => m.id === a.owner);
           return (
             <div key={a.id} className="set-row account-row">
-              {/* hexToSoft() reads the account's own colour, so the fill and
-                  the glyph's ink are the two runtime values here. */}
-              <span className="account-icon" style={{ background: hexToSoft(a.color), color: a.color }}>{React.createElement(Icons[ACCT_ICON[a.type] || "coins"], { size: 16 })}</span>
+              <Tile size="sm" icon={Icons[ACCT_ICON[a.type] || "coins"]} tint={a.color} />
               <TextInline value={a.name} col="accountName" label="Account name" onCommit={(v) => dispatch({ type: "updateAccount", id: a.id, patch: { name: v } })} className="set-inline-name" />
               <select value={a.type} aria-label={`Account type for ${a.name}`} onChange={(e) => dispatch({ type: "updateAccount", id: a.id, patch: { type: e.target.value } })} className="btn btn-sm account-select">
                 {Object.entries(ACCT_TYPE_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}

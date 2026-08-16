@@ -3,7 +3,7 @@
    ============================================================ */
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
          AreaChart, Area, ComposedChart, Line, LabelList } from 'recharts';
-import { Icons } from './ui/index.js';
+import { Icons, Stat } from './ui/index.js';
 import { GROUP_PALETTE, cx, fmt, round2 } from './lib/index.js';
 
 /* short "Jan" style x-axis label from a "Jan 2025" series label */
@@ -151,10 +151,7 @@ function HeadlineStats({ allSeries, series, currency }) {
         </div>
         <div className="headline-secondary">
           {secondary.map((s) => (
-            <div key={s.label}>
-              <div className="num headline-stat-value">{s.value}</div>
-              <div className="headline-stat-note">{s.label} {s.note}</div>
-            </div>
+            <Stat key={s.label} figure={s.value} note={`${s.label} ${s.note}`} />
           ))}
         </div>
       </div>

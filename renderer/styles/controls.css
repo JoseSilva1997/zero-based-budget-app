@@ -315,6 +315,42 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
 .picker-option-text { min-width: 0; }
 .picker-option-name { display: block; font-size: var(--text-13); font-weight: 500; }
 
+/* ---- the tile ------------------------------------------------------------
+   A glyph in a rounded, tinted square, drawn by Tile in ui/readouts.jsx.
+
+   Three sizes and no more, with the radius following the box: sm is a tile in
+   a form row, md a tile in a list of records, lg a tile standing alone on an
+   empty screen. The glyph steps 16 / 17 / 22 with them, at the component.
+
+   The two brand marks - the sidebar's monogram and the Wallet drawer's - sit
+   on the md rung and take its 34px and 9px, but are not tiles: they carry a
+   gradient, a glow and a monogram that cross-fades, and none of that belongs
+   to a record's icon. See .brand-mark and .wallet-head-mark. */
+.tile { width: 34px; height: 34px; border-radius: 9px; flex: none; display: grid; place-items: center; }
+.tile.is-sm { width: 30px; height: 30px; border-radius: var(--radius-2xs); }
+.tile.is-lg { width: 46px; height: 46px; border-radius: var(--radius); }
+/* The three tones, for a tile that stands for a state rather than a record.
+   A record's own colour cannot be named here and arrives inline instead. */
+.tile.is-well { background: var(--well); color: var(--faint); }
+.tile.is-info { background: var(--info-soft); color: var(--info); }
+.tile.is-breach { background: var(--breach-soft); color: var(--breach-ink); }
+
+/* ---- the stat ------------------------------------------------------------
+   A figure with a caption, drawn by Stat in ui/readouts.jsx.
+
+   Three sizes, and only the figure moves between them: 15 in a dialog's
+   summary strip, 20 on a card, 30 at the head of a drawer. The label holds at
+   one size on every rung for the reason .eyebrow does - a caption is a
+   caption, and three sizes of it would be a vocabulary with nothing to say. */
+.stat-label { font-size: var(--text-11); color: var(--muted); margin-bottom: var(--space-2); }
+.stat-figure { font-size: var(--text-20); font-weight: 600; line-height: 1.2; }
+/* Prose under the figure rather than a caption over it, so it sets quieter
+   and takes a measure: these are sentences, not names. */
+.stat-note { font-size: var(--text-12); color: var(--faint); margin-top: 2px; max-width: 150px; }
+.stat.is-sm .stat-label { margin-bottom: 3px; }
+.stat.is-sm .stat-figure { font-size: var(--text-15); }
+.stat.is-lg .stat-figure { font-size: var(--text-30); letter-spacing: -0.025em; color: var(--ink); }
+
 /* ---- the object row ------------------------------------------------------
    A thing and what is true of it, drawn by ObjectRow in ui/rows.jsx: a tile
    on the left, a name with a line of detail under it, a figure on the right.
@@ -389,7 +425,6 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
   padding: 44px 20px; text-align: center; color: var(--muted);
 }
-.empty-icon { width: 46px; height: 46px; border-radius: var(--radius); background: var(--well); display: grid; place-items: center; color: var(--faint); }
 .empty-title { font-weight: 600; color: var(--ink-2); }
 /* A measure, not a width: the sentence wraps to about two lines rather than
    running the full width of the card. */

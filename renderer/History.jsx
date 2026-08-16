@@ -4,7 +4,7 @@
    ChartCard lives in ui/containers.jsx.
    ============================================================ */
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Icons, Modal, PageHeader, Section } from './ui/index.js';
+import { Alert, Icons, Modal, PageHeader, Section, Stat } from './ui/index.js';
 import { useStore } from './store.jsx';
 import { cx, fmt, groupActual, groupAllocated, itemActual, monthLabel, round2 } from './lib/index.js';
 
@@ -146,14 +146,12 @@ function Comparison({ series, cmpA, cmpB, setCmpA, setCmpB, currency, groupNames
           const positive = delta > 0;
           const neutral = Math.abs(delta) < 0.005;
           return (
-            <div key={r.label} className="hist-cmp-card">
-              <div className="hist-cmp-label">{r.label}</div>
-              <div className="num hist-cmp-value">{fmt(currency, r.b, { cents: false })}</div>
+            <Stat key={r.label} className="hist-cmp-card" label={r.label} figure={fmt(currency, r.b, { cents: false })}>
               <div className={cx("hist-cmp-delta", neutral && "is-neutral")}>
                 {!neutral && (positive ? <Icons.up size={13} /> : <Icons.down size={13} />)}
                 <span className="num">{neutral ? "no change" : `${fmt(currency, Math.abs(delta), { cents: false })}${pct !== null ? ` · ${Math.abs(pct)}%` : ""}`}</span>
               </div>
-            </div>
+            </Stat>
           );
         })}
       </div>
@@ -186,10 +184,7 @@ function MonthDetail({ series, getMonth, currency, onClose, onOpen, isCurrent })
       </div>
       <div className="hist-detail-stats">
         {[["Income", series.income], ["Allocated", series.alloc], ["Actual", series.actual], ["Saved", series.savings]].map(([l, v]) => (
-          <div key={l} className="hist-detail-stat">
-            <div className="hist-detail-stat-label">{l}</div>
-            <div className="num hist-detail-stat-value">{fmt(currency, v, { cents: false })}</div>
-          </div>
+          <Stat key={l} size="sm" className="hist-detail-stat" label={l} figure={fmt(currency, v, { cents: false })} />
         ))}
       </div>
       <div className="hist-detail-body">

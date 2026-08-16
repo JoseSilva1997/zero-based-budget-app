@@ -82,12 +82,14 @@
 .btn.hist-cmp-sel { padding-right: var(--space-3); }
 .hist-cmp-same { font-size: var(--text-13); color: var(--muted); line-height: 1.5; }
 .hist-cmp-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-5); }
+/* A .stat at the middle rung; this is the card it sits in. */
 .hist-cmp-card {
   padding: 14px var(--space-6); border-radius: 12px;
   background: var(--board); border: 1px solid var(--rule-faint);
 }
-.hist-cmp-label { font-size: var(--text-12); color: var(--muted); margin-bottom: var(--space-3); }
-.hist-cmp-value { font-size: var(--text-19); font-weight: 500; margin-bottom: var(--space-2); }
+/* The delta line closes the stack, so it takes the gap the figure used to
+   carry beneath itself. */
+.hist-cmp-card .hist-cmp-delta { margin-top: var(--space-2); }
 /* A month-over-month move is not itself good or bad in this domain
    (spending less isn't a win, income up isn't either), so no
    colour codes the direction: only a genuine breach earns one. */
@@ -115,12 +117,11 @@
   display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-3);
   margin-bottom: 18px;
 }
+/* Four .stat at the small rung, each in its own well. */
 .hist-detail-stat {
   padding: var(--space-4) var(--space-5); border-radius: var(--radius-sm);
   background: var(--board); border: 1px solid var(--rule-faint);
 }
-.hist-detail-stat-label { font-size: var(--text-11); color: var(--muted); }
-.hist-detail-stat-value { font-size: var(--text-15); font-weight: 600; margin-top: 3px; }
 /* The breakdown scrolls inside the dialog rather than the dialog growing past
    the window. The negative side margins let the scrollbar's lane sit in the
    dialog's own padding instead of eating four pixels off every row, and the

@@ -1,8 +1,55 @@
 /* ============================================================
    Readouts: small components that show a value and take no input.
    ============================================================ */
-import { cx, fmt } from '../lib/index.js';
+import { cx, fmt, hexToSoft } from '../lib/index.js';
 import { Icons } from './icons.jsx';
+
+/* ---- tile ---------------------------------------------------------------
+   A glyph in a rounded, tinted square: an account, a savings wallet, a person
+   with no avatar of their own, the thing an empty screen is missing.
+
+   Three sizes and no more - a tile in a form row, a tile in a list of
+   records, a tile standing alone on an empty screen - and the radius and the
+   glyph follow the box rather than being chosen per call site.
+
+   The fill is either `tint`, a record's own colour, which only JS can mix
+   into a wash and so arrives inline; or one of three tones for the tiles that
+   stand for a state rather than a record. */
+function Tile({ icon: Icon, size = "md", tint, tone = "well", className }) {
+  const glyph = size === "sm" ? 16 : size === "lg" ? 22 : 17;
+  /* Spelled out rather than built from `size` and `tone`, so a grep for any
+     of these classes finds the place that writes it. */
+  const toneClass = tint ? null : tone === "info" ? "is-info" : tone === "breach" ? "is-breach" : "is-well";
+  return (
+    <span className={cx("tile", size === "sm" && "is-sm", size === "lg" && "is-lg", toneClass, className)}
+      style={tint ? { background: hexToSoft(tint), color: tint } : undefined}>
+      <Icon size={glyph} />
+    </span>
+  );
+}
+
+/* ---- stat ---------------------------------------------------------------
+   A figure with a caption: the four totals in a month's detail, a card in the
+   History comparison, the amount at the head of the Wallet.
+
+   Three sizes, and only the figure moves between them - 15 in a dialog's
+   summary strip, 20 on a card, 30 at the head of a drawer. The label stays at
+   one size on every rung, for the reason .eyebrow does: a caption is a
+   caption, and three sizes of it would be a vocabulary with nothing to say.
+
+   `note` is prose UNDER the figure rather than a label over it, which is a
+   different job and the reason it is a second slot. `children` take whatever
+   else belongs in the stack, such as the comparison card's delta line. */
+function Stat({ label, figure, note, size = "md", className, children }) {
+  return (
+    <div className={cx("stat", size === "sm" && "is-sm", size === "lg" && "is-lg", className)}>
+      {label && <div className="stat-label">{label}</div>}
+      <div className="num stat-figure">{figure}</div>
+      {note && <div className="stat-note">{note}</div>}
+      {children}
+    </div>
+  );
+}
 
 /* ---- member avatar ------------------------------------------------------ */
 function Avatar({ member, size = 26 }) {
@@ -45,4 +92,4 @@ function MiniBar({ actual, allocated }) {
   );
 }
 
-export { Avatar, DiffPill, MiniBar };
+export { Tile, Stat, Avatar, DiffPill, MiniBar };

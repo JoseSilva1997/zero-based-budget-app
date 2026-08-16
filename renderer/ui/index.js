@@ -40,7 +40,7 @@
 export { Icons, MsIcons } from "./icons.jsx";
 export { PageHeader, Section } from "./layout.jsx";
 export { MoneyInput, DayField, TextInline, FieldChip } from "./inputs.jsx";
-export { Avatar, DiffPill, MiniBar } from "./readouts.jsx";
+export { Tile, Stat, Avatar, DiffPill, MiniBar } from "./readouts.jsx";
 export { ObjectRow } from "./rows.jsx";
 export { EmptyState, Alert } from "./notices.jsx";
 export { Modal, ConfirmDialog } from "./overlays.jsx";

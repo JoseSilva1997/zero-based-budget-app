@@ -46,13 +46,6 @@
   background: var(--well); border: 1px solid var(--rule-strong);
 }
 .wallet-mover.is-shared { box-shadow: inset 4px 0 0 0 var(--info); }
-/* The shared row has no member to draw an avatar for, so it takes a tile at
-   the avatar's size instead. */
-.wallet-shared-icon {
-  width: 30px; height: 30px; border-radius: var(--radius-2xs);
-  background: var(--info-soft); color: var(--info);
-  display: grid; place-items: center; flex: none;
-}
 
 /* ---- by account ---------------------------------------------------------
    The card is `panel panel-clip` (controls.css), so the rows inside it stop
@@ -74,13 +67,6 @@
 }
 .acct-row.wallet-acct-row:disabled { cursor: default; }
 
-/* The account and savings icon tiles. Both keep background and color inline:
-   the fill is hexToSoft() of the account's own colour and the glyph is that
-   colour at full strength. */
-.wallet-tile {
-  width: 34px; height: 34px; border-radius: 9px; flex: none;
-  display: grid; place-items: center;
-}
 .wallet-owner-pill { font-size: var(--text-10); }
 /* Items inside an .object-row-meta: the ones that keep their own width, and
    the progress bar that takes what is left up to a cap. */
@@ -122,8 +108,11 @@
    .drawer, .drawer-head and .drawer-body are in overlays.css; these are the
    Wallet's contents inside them. */
 .wallet-head-id { display: flex; align-items: center; gap: 11px; }
+/* Not a .tile - it carries a gradient and a glow rather than a record's own
+   tint - but it sits on the tile ladder's middle rung so it measures the same
+   as the account tiles below it. */
 .wallet-head-mark {
-  width: 36px; height: 36px; border-radius: var(--radius-sm);
+  width: 34px; height: 34px; border-radius: 9px;
   background: linear-gradient(150deg, var(--accent-btn), var(--accent));
   color: var(--on-accent); display: grid; place-items: center;
   box-shadow: var(--glow-sm), inset 0 1px 0 color-mix(in srgb, #fff 22%, transparent);
@@ -136,5 +125,4 @@
   border-bottom: 1px solid var(--rule);
   background: color-mix(in srgb, var(--accent) 8%, var(--board));
 }
-.wallet-total-label { font-size: var(--text-11); color: var(--muted); font-weight: 500; margin-bottom: var(--space-2); }
-.wallet-total-figure { font-size: var(--text-30); font-weight: 600; letter-spacing: -0.025em; color: var(--ink); }
+

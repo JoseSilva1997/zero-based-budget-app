@@ -136,10 +136,6 @@
   display: grid; grid-template-columns: auto 1fr 150px 130px auto;
   gap: var(--space-5); align-items: center; padding: var(--space-5) var(--space-7);
 }
-.account-icon {
-  width: 30px; height: 30px; border-radius: var(--radius-2xs); flex: none;
-  display: grid; place-items: center;
-}
 /* Spelled with the element, because select.btn in controls.css is (0,1,1) and
    reserves 26px on the right for the chevron it draws. These two selects sit
    in fixed 150px/130px tracks with a name beside them, so they take the
