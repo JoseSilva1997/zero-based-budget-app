@@ -1,49 +1,28 @@
 /* ============================================================
    Month Budget screen - the main working screen
    ============================================================ */
-import { useEffect, useRef, useState } from 'react';
 import { Avatar, EmptyState, Icons, MoneyInput, Section, TextInline } from './ui/index.js';
-import { fmt, monthIncome, round2 } from './lib/index.js';
+import { fmt } from './lib/index.js';
 import { useStore } from './store.jsx';
 
 /* ---- income section ----------------------------------------------------- */
 function IncomeSection({ mo, currency, members, dispatch, month }) {
   const { toast } = useStore();
-  const [addOpen, setAddOpen] = useState(false);
-  const total = monthIncome(mo);
-  const byMember = members.map(m => ({ m, total: round2(mo.incomes.filter(i => i.memberId === m.id).reduce((a, i) => a + i.amount, 0)) }));
-
-  /* Undoing a removed income row takes two writes: 'addIncome' only takes a
-     member, and dispatch cannot hand back the id it created. So the second
-     write waits for the row to appear - the one carrying that member that was
-     not there a moment ago - and then puts the source and the amount back. */
-  const incomesRef = useRef(mo.incomes);
-  const restoreRef = useRef(null);
-  useEffect(() => {
-    incomesRef.current = mo.incomes;
-    const pending = restoreRef.current;
-    if (!pending) return;
-    const fresh = mo.incomes.find(i => !pending.known.has(i.id) && String(i.memberId) === String(pending.memberId));
-    if (!fresh) return;
-    restoreRef.current = null;
-    dispatch({ type: "updateIncome", month, id: fresh.id, patch: { label: pending.label, amount: pending.amount } });
-  }, [mo.incomes, dispatch, month]);
 
   /* No confirm dialog here: a deleted income row is one member, one label and
-     one number, and the toast can put all three back. */
+     one number, and the toast can put all three back.
+
+     Undoing takes two writes, because 'addIncome' only takes a member and the
+     row it creates is blank. The store hands that row back, so the second
+     write puts the source and the amount onto it. */
   const removeIncome = (inc, memberName) => {
-    restoreRef.current = null;
     dispatch({ type: "removeIncome", month, id: inc.id });
     toast(`Removed ${inc.label ? `"${inc.label}"` : "income"} for ${memberName}.`, "success", {
       label: "Undo",
-      onAct: () => {
-        restoreRef.current = {
-          memberId: inc.memberId,
-          label: inc.label || "",
-          amount: inc.amount,
-          known: new Set(incomesRef.current.map(i => i.id)),
-        };
-        dispatch({ type: "addIncome", month, memberId: inc.memberId });
+      onAct: async () => {
+        const { ok, value } = await dispatch({ type: "addIncome", month, memberId: inc.memberId });
+        if (!ok || !value) return;
+        dispatch({ type: "updateIncome", month, id: value.id, patch: { label: inc.label || "", amount: inc.amount } });
       },
     });
   };

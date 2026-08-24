@@ -17,6 +17,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Icons } from './ui/index.js';
 import { cx } from './lib/index.js';
+import { api, can } from './lib/api.js';
 
 /** What went wrong with the last click, said in the banner that offered it. */
 function BannerFailure({ text }) {
@@ -33,10 +34,10 @@ function useUpdateStatus() {
   const [status, setStatus] = useState({ state: 'idle' });
 
   useEffect(() => {
-    if (!window.api || typeof window.api.onUpdateStatus !== 'function') return;
+    if (!can('onUpdateStatus')) return;
     let alive = true;
-    window.api.updateStatus().then((s) => { if (alive) setStatus(s); }).catch(() => {});
-    const off = window.api.onUpdateStatus((s) => setStatus(s));
+    api.updateStatus().then((s) => { if (alive) setStatus(s); }).catch(() => {});
+    const off = api.onUpdateStatus((s) => setStatus(s));
     return () => { alive = false; off(); };
   }, []);
 
@@ -58,14 +59,14 @@ export function UpdateBanner() {
   // cover the gap between the click and that arriving.
   const download = async () => {
     setBusy(true);
-    try { await window.api.updateDownload(); }
+    try { await api.updateDownload(); }
     catch (e) { console.error(e); setFailure(`The download couldn't be started. ${e.message || e}`); }
     finally { setBusy(false); }
   };
 
   const install = async () => {
     setBusy(true);
-    try { await window.api.updateInstall(); }
+    try { await api.updateInstall(); }
     catch (e) { console.error(e); setFailure(`The restart couldn't be started. ${e.message || e}`); setBusy(false); }
   };
 
@@ -135,14 +136,14 @@ export function UpdateSettings() {
 
   const check = useCallback(async () => {
     setChecking(true);
-    try { await window.api.updateCheck(); }
+    try { await api.updateCheck(); }
     catch (e) { console.error(e); setFailure(`Couldn't check for updates. ${e.message || e}`); }
     finally { setChecking(false); }
   }, []);
 
   const download = useCallback(async () => {
     setDownloading(true);
-    try { await window.api.updateDownload(); }
+    try { await api.updateDownload(); }
     catch (e) { console.error(e); setFailure(`The download couldn't be started. ${e.message || e}`); }
     finally { setDownloading(false); }
   }, []);

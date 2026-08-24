@@ -5,10 +5,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { THEME_IDS, DEFAULT_THEME_ID, fmt, monthLabel, walletSummary } from './lib/index.js';
+import { api, can } from './lib/api.js';
 import { StoreProvider, useStore } from './store.jsx';
 import { Avatar, ConfirmDialog, EmptyState, Icons, MsIcons, Section, Tile } from './ui/index.js';
 import { WalletDrawer } from './Accounts.jsx';
-import { GroupCard, NewMonthModal } from './MonthGroups.jsx';
+import { GroupCard, NewMonthModal, useBudgetDrag } from './MonthGroups.jsx';
 import { IncomeSection } from './MonthBudget.jsx';
 import { MonthBar } from './MonthBar.jsx';
 import { QuickEntrySection } from './QuickEntry.jsx';
@@ -30,25 +31,12 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
   const [confirmMonth, setConfirmMonth] = useState(false);
   // Deleting the last remaining month would leave the budget screen with
   // nothing to show, and the delete needs the desktop bridge to exist at all.
-  const canDeleteMonth = state.order.length > 1 && !!window.api && typeof window.api.monthDelete === "function";
+  const canDeleteMonth = state.order.length > 1 && can("monthDelete");
   const neighbourMonth = state.order[idx - 1] || state.order[idx + 1];
   const commitGroup = () => { if (newGroup.trim()) dispatch({ type: "addGroup", month: mid, name: newGroup.trim() }); setNewGroup(""); setAddingGroup(false); };
   const wallet = walletSummary(mo, state.settings.accounts);
-  const [dragGroupId, setDragGroupId] = useState(null);
-  const [overGroupId, setOverGroupId] = useState(null);
-  const [overGroupAfter, setOverGroupAfter] = useState(false);
-  const endGroupDrag = () => { setDragGroupId(null); setOverGroupId(null); };
-  const dropGroup = (targetId) => {
-    if (dragGroupId && targetId && dragGroupId !== targetId) dispatch({ type: "reorderGroup", month: mid, groupId: dragGroupId, targetId, after: overGroupAfter });
-    endGroupDrag();
-  };
+  const drag = useBudgetDrag(mid, dispatch);
   const GroupDropLine = () => <div className="group-drop-line" />;
-  /* Item drag lives here, not inside a group card, because an item that can
-     only be dragged within the card that owns its drag state is an item that
-     can never leave its group. */
-  const [dragItem, setDragItem] = useState(null);   // { id, groupId }
-  const [overItem, setOverItem] = useState(null);   // { groupId, targetId }; null targetId = append
-  const endItemDrag = () => { setDragItem(null); setOverItem(null); };
 
   return (
     <div className="fade-in">
@@ -98,26 +86,14 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
       <div className="budget-rule" aria-hidden="true" />
 
       {mo.groups.map((g) => {
-        const showLine = dragGroupId && dragGroupId !== g.id && overGroupId === g.id;
+        const showLine = !!drag.group && drag.group !== g.id && !!drag.overGroup && drag.overGroup.id === g.id;
+        const after = !!(drag.overGroup && drag.overGroup.after);
         return (
           <React.Fragment key={g.id}>
-            {showLine && !overGroupAfter && <GroupDropLine />}
-            <GroupCard group={g} currency={currency} dispatch={dispatch} month={mid} accounts={state.settings.accounts} state={state}
-              isDragging={dragGroupId === g.id}
-              // A row that unmounts mid-drag (rare, but the drag ends outside
-              // any listener that could clear it) never fires its own dragend,
-              // which would leave the other kind of drag state stuck set and a
-              // later drop of this kind misread as the wrong one.
-              onDragStart={() => { setDragItem(null); setDragGroupId(g.id); }}
-              onDragOverGroup={(after) => { if (dragGroupId) { setOverGroupId(g.id); setOverGroupAfter(after); } }}
-              onDrop={() => dropGroup(g.id)}
-              onDragEnd={endGroupDrag}
-              dragItem={dragItem}
-              overItem={overItem}
-              onItemDragStart={(groupId, itemId) => { setDragGroupId(null); setDragItem({ id: itemId, groupId }); }}
-              onItemDragOver={(groupId, targetId) => { if (dragItem) setOverItem({ groupId, targetId }); }}
-              onItemDragEnd={endItemDrag} />
-            {showLine && overGroupAfter && <GroupDropLine />}
+            {showLine && !after && <GroupDropLine />}
+            <GroupCard group={g} groups={mo.groups} currency={currency} dispatch={dispatch} month={mid}
+              accounts={state.settings.accounts} drag={drag} />
+            {showLine && after && <GroupDropLine />}
           </React.Fragment>
         );
       })}
@@ -216,9 +192,8 @@ function LoadingScreen() {
    things that actually recover it. */
 function StartupErrorScreen({ error, onRetry }) {
   const openFolder = async () => {
-    if (window.api && typeof window.api.revealDataFolder === "function") {
-      try { await window.api.revealDataFolder(); } catch (e) { console.error(e); }
-    }
+    if (!can("revealDataFolder")) return;
+    try { await api.revealDataFolder(); } catch (e) { console.error(e); }
   };
   return (
     <div className="startup-error">
@@ -244,7 +219,7 @@ function StartupErrorScreen({ error, onRetry }) {
 
 /* ---- app ---------------------------------------------------------------- */
 function App() {
-  const { state, loading, fatal, retry, dispatch, toast, toastMsg, dismissToast } = useStore();
+  const { state, loading, fatal, retry, dispatch, toast, toastMsg, dismissToast, backupNow } = useStore();
   const [tab, setTab] = useState("dashboard");
   const [newMonth, setNewMonth] = useState(false);
   // find: `token` bumps on every Ctrl+F so an already-open bar re-selects.
@@ -257,8 +232,8 @@ function App() {
   // Application-menu accelerators. The menu owns discoverability; this owns
   // the behaviour, because the state these commands change lives here.
   useEffect(() => {
-    if (!window.api || typeof window.api.onMenuCommand !== "function") return;
-    return window.api.onMenuCommand((command) => {
+    if (!can("onMenuCommand")) return;
+    return api.onMenuCommand((command) => {
       switch (command) {
         case "newMonth": setNewMonth(true); break;
         case "openFind": setFind((f) => ({ open: true, token: f.token + 1 })); break;
@@ -266,18 +241,9 @@ function App() {
         case "goBudget": setTab("budget"); break;
         case "goHistory": setTab("history"); break;
         case "goSettings": setTab("settings"); break;
-        case "backupNow": {
-          // A backup that reports itself in a toast has no reason to move the
-          // user; Settings is only where you go when there is nothing to run.
-          if (!window.api || typeof window.api.createBackup !== "function") { setTab("settings"); break; }
-          window.api.createBackup()
-            .then(() => {
-              dispatch({ type: "refreshSettings" }); // pick up the new lastBackup from SQL
-              toast("Backup saved to your data folder");
-            })
-            .catch((err) => { console.error("backup:create failed", err); toast(`Backup failed. ${err.message}`, "error"); });
-          break;
-        }
+        // A backup reports itself in a toast, so it has no reason to move the
+        // user to Settings.
+        case "backupNow": backupNow(); break;
         case "prevMonth": case "nextMonth": {
           const s = stateRef.current;
           if (!s) break;
@@ -286,7 +252,7 @@ function App() {
           break;
         }
         case "checkUpdates":
-          window.api.updateCheck().then((s) => {
+          api.updateCheck().then((s) => {
             if (s.state === "none") toast("You're on the latest version.");
             else if (s.state === "available") toast(`Version ${s.version} is ready to download.`);
             else if (s.state === "downloading") toast(`Downloading version ${s.version}…`);
@@ -299,7 +265,7 @@ function App() {
         default: break;
       }
     });
-  }, [dispatch, toast]);
+  }, [dispatch, toast, backupNow]);
 
   // The one place a theme is applied: the id from settings goes on <html>, and
   // app.css's [data-theme] block supplies the whole palette from there.

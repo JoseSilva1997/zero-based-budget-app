@@ -4,6 +4,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Avatar, ConfirmDialog, Icons, Modal, PageHeader, Section, TextInline, Tile } from './ui/index.js';
 import { BUDGET_THEMES, cx } from './lib/index.js';
+import { api, can } from './lib/api.js';
+import { useStore } from './store.jsx';
 import { ACCT_ICON, ACCT_TYPE_LABEL } from './Accounts.jsx';
 import { UpdateSettings } from './UpdateBanner.jsx';
 
@@ -78,9 +80,9 @@ function ShortcutsSection() {
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     let live = true;
-    if (!window.api || typeof window.api.shortcuts !== "function") { setFailed(true); return; }
+    if (!can("shortcuts")) { setFailed(true); return; }
     // channel: "shortcuts:list" - input {}, returns ShortcutDoc[].
-    window.api.shortcuts()
+    api.shortcuts()
       .then((rows) => { if (live) setMenuShortcuts(rows); })
       .catch((err) => { console.error("shortcuts:list failed", err); if (live) setFailed(true); });
     return () => { live = false; };
@@ -134,16 +136,15 @@ function RestoreDialog({ onClose, onRestored }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
   const fileRef = useRef(null);
-  const api = window.api;
 
   useEffect(() => {
     let live = true;
-    if (!api || typeof api.listBackups !== "function") { setBackups([]); return; }
+    if (!can("listBackups")) { setBackups([]); return; }
     api.listBackups()
       .then((list) => { if (live) setBackups(list); })
       .catch((e) => { if (live) { setBackups([]); setErr(e.message); } });
     return () => { live = false; };
-  }, [api]);
+  }, []);
 
   const choose = async (filePath) => {
     setErr(null);
@@ -155,7 +156,7 @@ function RestoreDialog({ onClose, onRestored }) {
     const f = e.target.files[0];
     e.target.value = "";
     if (!f) return;
-    const filePath = typeof api.pathForFile === "function" ? api.pathForFile(f) : f.path;
+    const filePath = can("pathForFile") ? api.pathForFile(f) : f.path;
     if (filePath) choose(filePath);
   };
 
@@ -238,6 +239,7 @@ function Setting({ title, sub, children }) {
 
 function SettingsScreen({ state, dispatch, currency, toast }) {
   const s = state.settings;
+  const { backupNow } = useStore();
   const [restoring, setRestoring] = useState(false);
   const [removeMember, setRemoveMember] = useState(null);
   const [removeAccount, setRemoveAccount] = useState(null);
@@ -245,26 +247,13 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
   const [version, setVersion] = useState(null);
   useEffect(() => {
     // channel: "app:version" - input {}, returns the string from app.getVersion().
-    if (!window.api || typeof window.api.appVersion !== "function") return;
+    if (!can("appVersion")) return;
     let live = true;
-    window.api.appVersion()
+    api.appVersion()
       .then((v) => { if (live) setVersion(v); })
       .catch((err) => console.error("app:version failed", err));
     return () => { live = false; };
   }, []);
-
-  const doBackup = async () => {
-    // channel: "backup:create" - no input (DB is already current), returns { path, savedAt }.
-    if (window.api && typeof window.api.createBackup === "function") {
-      try {
-        await window.api.createBackup();
-        dispatch({ type: "refreshSettings" }); // pick up the new lastBackup from SQL
-        toast("Backup saved to your data folder");
-      } catch (err) { console.error("backup:create failed", err); toast(`Backup failed. ${err.message}`, "error"); }
-      return;
-    }
-    toast("Backups need the desktop app", "error");
-  };
 
   const onRestored = (res) => {
     setRestoring(false);
@@ -408,7 +397,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
       <Section title="Data & backup" />
       <div className="panel">
         <Setting title="Manual backup" sub={`Save a snapshot of all your budget data to a file. Last backup: ${s.lastBackup || "never"}.`}>
-          <button className="btn btn-primary" onClick={doBackup}><Icons.download size={15} /> Back up now</button>
+          <button className="btn btn-primary" onClick={backupNow}><Icons.download size={15} /> Back up now</button>
         </Setting>
         <Setting title="Automatic backups" sub="When the app should quietly save a snapshot for you.">
           <div role="radiogroup" aria-label="Automatic backups" className="chip-tray">
@@ -432,12 +421,9 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
         <Setting title="Data folder" sub="Your budget file and its backups live in the app's private data folder on this device.">
           <button className="btn" onClick={async () => {
             // channel: "data:revealFolder" - input {}, returns { path }.
-            if (window.api && typeof window.api.revealDataFolder === "function") {
-              try { await window.api.revealDataFolder(); toast("Opening data folder…"); }
-              catch (err) { console.error("data:revealFolder failed", err); toast(`Couldn't open the data folder. ${err.message}`, "error"); }
-              return;
-            }
-            toast("Opening the data folder needs the desktop app", "error");
+            if (!can("revealDataFolder")) { toast("Opening the data folder needs the desktop app", "error"); return; }
+            try { await api.revealDataFolder(); toast("Opening data folder…"); }
+            catch (err) { console.error("data:revealFolder failed", err); toast(`Couldn't open the data folder. ${err.message}`, "error"); }
           }}><Icons.folder size={15} /> Open data folder</button>
         </Setting>
       </div>

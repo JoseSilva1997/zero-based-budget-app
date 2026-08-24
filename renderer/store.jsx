@@ -10,13 +10,25 @@
    'dispatch' maps the action objects the components emit to the matching
    granular IPC call, so screens issue, e.g., { type: "addItem", ... } and the
    store performs the corresponding 'item:add' write plus a refetch.
+
+   It resolves to { ok, value } once the write AND its refetch have landed, so
+   a screen that has to know the outcome can await it instead of watching the
+   month tree for its own edit to appear. It never rejects: a failed write is
+   already reported as an error toast here, and a rejection would make every
+   fire-and-forget call site an unhandled one. Following the preload's own
+   contract, 'value' carries the newly-inserted row for the add actions and is
+   undefined for the rest.
    ============================================================ */
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
-import { api, hasApi, spentOn, dayFromMonthDay } from "./lib/api.js";
+import { api, can, hasApi, spentOn, dayFromMonthDay } from "./lib/api.js";
 import { THEME_IDS, DEFAULT_THEME_ID, buildEmpty, monthLabel } from "./lib/index.js";
 
 const DEFAULT_COLOR = "#7a7a7a";
 const StoreContext = createContext(null);
+
+/* What a write that never reached SQL resolves to. Frozen and shared: every
+   refusal is the same answer, and nothing downstream may write into it. */
+const REFUSED = Object.freeze({ ok: false, value: undefined });
 
 /* ---------- shape adapters (SQL read models -> blob the UI expects) ------- */
 
@@ -178,7 +190,7 @@ export function StoreProvider({ children }) {
     // 'finally', not a trailing call: a throw here would otherwise leave
     // 'loading' true forever, showing as a loading screen that never resolves.
     try {
-      if (!hasApi) {
+      if (!hasApi()) {
         const empty = buildEmpty();
         monthListRef.current = empty.order.map((k) => ({ id: k, month: k }));
         setState(empty);
@@ -211,7 +223,7 @@ export function StoreProvider({ children }) {
   /* ---- targeted refreshes ---- */
   const refreshMonth = useCallback(async (key) => {
     const id = idForKey(key);
-    if (id == null || !hasApi) return;
+    if (id == null || !hasApi()) return;
     const tree = await api.getMonth(id);
     setState((s) => {
       if (!s) return s;
@@ -223,7 +235,7 @@ export function StoreProvider({ children }) {
   }, [idForKey]);
 
   const refreshSettings = useCallback(async () => {
-    if (!hasApi) return;
+    if (!hasApi()) return;
     const bs = await api.bootstrap();
     setState((s) => (s ? { ...s, settings: settingsFromBootstrap(bs) } : s));
   }, []);
@@ -247,9 +259,9 @@ export function StoreProvider({ children }) {
   /* ---- action dispatch: map each action to its granular IPC call ---- */
   const dispatch = useCallback(
     (action) => {
-      if (!hasApi) {
+      if (!hasApi()) {
         raise(new Error("This action needs the desktop app."));
-        return;
+        return Promise.resolve(REFUSED);
       }
       const A = action;
       const mk = A.month || (stateRef.current ? stateRef.current.activeMonth : "");
@@ -269,9 +281,11 @@ export function StoreProvider({ children }) {
             return;
           }
 
-          case "addIncome":
-            await api.incomeAdd(idForKey(mk), Number(A.memberId));
-            return refreshMonth(mk);
+          case "addIncome": {
+            const row = await api.incomeAdd(idForKey(mk), Number(A.memberId));
+            await refreshMonth(mk);
+            return row;
+          }
           case "updateIncome":
             await api.incomeUpdate(Number(A.id), normIncomePatch(A.patch));
             return refreshMonth(mk);
@@ -302,14 +316,16 @@ export function StoreProvider({ children }) {
             await api.groupUpdate(Number(A.groupId), { isSavings: !!A.value });
             return refreshMonth(mk);
 
-          case "addActual":
-            await api.actualAdd(Number(A.itemId), {
+          case "addActual": {
+            const row = await api.actualAdd(Number(A.itemId), {
               amount: A.amount,
               name: A.name || "",
               note: A.note || "",
               spent_on: spentOn(mk, A.day),
             });
-            return refreshMonth(mk);
+            await refreshMonth(mk);
+            return row;
+          }
           case "updateActual":
             await api.actualUpdate(Number(A.id), normActualPatch(mk, A.patch));
             return refreshMonth(mk);
@@ -317,19 +333,23 @@ export function StoreProvider({ children }) {
             await api.actualRemove(Number(A.id));
             return refreshMonth(mk);
 
-          case "addGroup":
-            await api.groupAdd(idForKey(mk), A.name);
-            return refreshMonth(mk);
+          case "addGroup": {
+            const row = await api.groupAdd(idForKey(mk), A.name);
+            await refreshMonth(mk);
+            return row;
+          }
           case "deleteGroup":
             await api.groupDelete(Number(A.groupId));
             return refreshMonth(mk);
-          case "addItem":
-            await api.itemAdd(Number(A.groupId), {
+          case "addItem": {
+            const row = await api.itemAdd(Number(A.groupId), {
               name: A.name,
               allocated: A.allocated,
               account: idify(A.account),
             });
-            return refreshMonth(mk);
+            await refreshMonth(mk);
+            return row;
+          }
           case "deleteItem":
             await api.itemDelete(Number(A.itemId));
             return refreshMonth(mk);
@@ -373,9 +393,11 @@ export function StoreProvider({ children }) {
             await api.settingsUpdate(A.patch);
             return;
 
-          case "addMember":
-            await api.memberAdd({ name: A.name, color: A.color });
-            return refreshSettings();
+          case "addMember": {
+            const row = await api.memberAdd({ name: A.name, color: A.color });
+            await refreshSettings();
+            return row;
+          }
           case "updateMember":
             await api.memberUpdate(Number(A.id), A.patch);
             return refreshSettings();
@@ -383,9 +405,11 @@ export function StoreProvider({ children }) {
             await api.memberRemove(Number(A.id));
             return refreshSettings();
 
-          case "addAccount":
-            await api.accountAdd({ name: A.name, color: A.color, kind: A.accType, owner: null });
-            return refreshSettings();
+          case "addAccount": {
+            const row = await api.accountAdd({ name: A.name, color: A.color, kind: A.accType, owner: null });
+            await refreshSettings();
+            return row;
+          }
           case "updateAccount":
             await api.accountUpdate(Number(A.id), normAccountPatch(A.patch));
             return refreshSettings();
@@ -403,14 +427,40 @@ export function StoreProvider({ children }) {
             return;
         }
       };
-      run().catch((err) => raise(err, A.type));
+      return run().then(
+        (value) => ({ ok: true, value }),
+        (err) => { raise(err, A.type); return REFUSED; }
+      );
     },
     [idForKey, refreshMonth, refreshSettings, reload, raise, toast]
   );
 
+  /* Backups are offered from two places, the Settings screen and the
+     application menu, so the sequence - write the snapshot, pick up the
+     'lastBackup' it set, say so - lives here rather than being spelled out at
+     both and drifting. */
+  const backupNow = useCallback(async () => {
+    // channel: "backup:create" - no input (the DB is already current), returns
+    // { path, savedAt }.
+    if (!can("createBackup")) {
+      toast("Backups need the desktop app", "error");
+      return false;
+    }
+    try {
+      await api.createBackup();
+      await refreshSettings();
+      toast("Backup saved to your data folder");
+      return true;
+    } catch (err) {
+      console.error("backup:create failed", err);
+      toast(`Backup failed. ${err.message}`, "error");
+      return false;
+    }
+  }, [refreshSettings, toast]);
+
   /* ---- on-demand SQL reads for cross-month views ---- */
   const trends = useCallback(async () => {
-    if (!hasApi) return [];
+    if (!hasApi()) return [];
     const points = await api.trends();
     // Key each point by its month string and attach a display label, matching
     // what the Dashboard/History components and charts expect.
@@ -418,7 +468,7 @@ export function StoreProvider({ children }) {
   }, []);
 
   const reusableItems = useCallback(async (query) => {
-    if (!hasApi || !stateRef.current) return [];
+    if (!hasApi() || !stateRef.current) return [];
     const id = idForKey(stateRef.current.activeMonth);
     if (id == null) return [];
     const list = await api.reusableItems(id, query || "");
@@ -428,7 +478,7 @@ export function StoreProvider({ children }) {
   /* Past spending-entry names for the central quick-entry field. The month is
      the ACTIVE one, because that is where a chosen suggestion has to land. */
   const entrySuggestions = useCallback(async (query) => {
-    if (!hasApi || !stateRef.current) return [];
+    if (!hasApi() || !stateRef.current) return [];
     const id = idForKey(stateRef.current.activeMonth);
     if (id == null) return [];
     const list = await api.entrySuggestions(id, query || "");
@@ -436,7 +486,7 @@ export function StoreProvider({ children }) {
   }, [idForKey]);
 
   const getMonth = useCallback(async (key) => {
-    if (!hasApi) return null;
+    if (!hasApi()) return null;
     const id = idForKey(key);
     if (id == null) return null;
     const tree = await api.getMonth(id);
@@ -454,6 +504,7 @@ export function StoreProvider({ children }) {
     dispatch,
     reload,
     refreshSettings,
+    backupNow,
     trends,
     reusableItems,
     entrySuggestions,

@@ -9,26 +9,8 @@
    ============================================================ */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DayField, EmptyState, FieldChip, Icons, Section } from './ui/index.js';
-import { actualDay, cx, evalMoney, fmt, isExpr } from './lib/index.js';
+import { actualDay, cx, evalMoney, flatItems, fmt, isExpr, recentEntries } from './lib/index.js';
 import { useStore } from './store.jsx';
-
-/* Every item in the month, flattened with its group, in screen order. */
-function flatItems(mo) {
-  const out = [];
-  mo.groups.forEach((g) =>
-    g.items.forEach((it) => out.push({ id: it.id, name: it.name, groupId: g.id, groupName: g.name }))
-  );
-  return out;
-}
-
-/* The month's entries, newest first. Entries read back in date order, so
-   "newest" is the highest id, not the last row. */
-function recentEntries(mo, limit) {
-  const out = [];
-  mo.groups.forEach((g) => g.items.forEach((it) => it.actuals.forEach((a) => out.push({ a, it, g }))));
-  out.sort((x, y) => y.a.id - x.a.id);
-  return limit ? out.slice(0, limit) : out;
-}
 
 /* One suggestion row. Unresolved ones (their item is not in this month) say so
    rather than looking identical to the ones that file themselves. */
@@ -56,7 +38,7 @@ function SuggestionRow({ s, active, currency, onPick, id }) {
 }
 
 function QuickEntrySection({ mo, month, currency, dispatch }) {
-  const { entrySuggestions, toastMsg, toast } = useStore();
+  const { entrySuggestions, toast } = useStore();
   const items = useMemo(() => flatItems(mo), [mo]);
   const recent = useMemo(() => recentEntries(mo, 3), [mo]);
   const entryCount = useMemo(() => recentEntries(mo).length, [mo]);
@@ -98,28 +80,11 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
     return () => { live = false; clearTimeout(timer); };
   }, [entrySuggestions, name, month, entryCount]);
 
-  /* A logged entry clears six fields at once so the next statement line can be
-     typed straight away, and 'dispatch' is fire-and-forget, so a rejected write
-     would take all six with it. The typing is held until the entry actually
-     appears in the month, and handed back if the write fails instead. A failed
-     write announces itself as an error toast, and every toast is a fresh
-     object, so a new one is one this entry has not seen before. */
-  const pendingRef = useRef(null);
-  const seenToast = useRef(null);
-  useEffect(() => {
-    const pending = pendingRef.current;
-    if (!pending) return;
-    if (entryCount !== pending.count) { pendingRef.current = null; return; } // it landed
-    if (!toastMsg || toastMsg === seenToast.current || toastMsg.tone !== "error") return;
-    pendingRef.current = null;
-    // Unless the next statement line is already being typed: putting the old
-    // one back on top of that would be a loss of its own.
-    if (name || note || amt || itemId != null) return;
-    setName(pending.name); setNote(pending.note); setAmt(pending.amt);
-    setItemId(pending.itemId); setPicked(pending.picked); setDay(pending.day);
-    setOpen(false); setHi(-1);
-    requestAnimationFrame(() => { if (amtRef.current) amtRef.current.focus(); });
-  }, [entryCount, toastMsg, name, note, amt, itemId]);
+  /* The live field values. 'add' clears all six the moment it fires, so by the
+     time its write answers, its own closure can no longer say whether the next
+     statement line is already being typed. */
+  const fieldsRef = useRef({ name, note, amt, itemId });
+  useEffect(() => { fieldsRef.current = { name, note, amt, itemId }; });
 
   // A half-typed entry belongs to the month it was started in.
   useEffect(() => {
@@ -168,24 +133,36 @@ function QuickEntrySection({ mo, month, currency, dispatch }) {
   // 'dayOverride' is for Enter pressed in the day field itself, whose new value
   // is not in 'day' yet. Missing pieces focus the field that is missing rather
   // than failing silently.
-  const add = (dayOverride) => {
+  /* A logged entry clears six fields at once so the next statement line can be
+     typed straight away, which means a refused write would take all six with
+     it. They are cleared optimistically and handed back if the store reports
+     the write did not land. */
+  const add = async (dayOverride) => {
     if (!trimmedName) { nameRef.current && nameRef.current.focus(); return; }
     if (!target) { itemRef.current && itemRef.current.focus(); return; }
     if (amtValue === null || amtValue <= 0) { amtRef.current && amtRef.current.focus(); return; }
     const entryDay = dayOverride === undefined ? day : dayOverride;
-    pendingRef.current = { count: entryCount, name, note, amt, itemId, picked, day: entryDay };
-    seenToast.current = toastMsg;
-    dispatch({
-      type: "addActual", month, groupId: target.groupId, itemId: target.id,
-      amount: amtValue, name: trimmedName, note: note.trim(),
-      day: entryDay,
-    });
+    const typed = { name, note, amt, itemId, picked, day: entryDay };
     setName(""); setNote(""); setAmt(""); setItemId(null); setPicked(null); setOpen(false); setHi(-1);
     // Back to the day, selected: the next statement line is usually the same
     // date (just press Enter through) or the next one (type over it).
     requestAnimationFrame(() => {
       if (dayRef.current) { dayRef.current.focus(); dayRef.current.select(); }
     });
+    const { ok } = await dispatch({
+      type: "addActual", month, groupId: target.groupId, itemId: target.id,
+      amount: amtValue, name: trimmedName, note: note.trim(),
+      day: entryDay,
+    });
+    if (ok) return;
+    // Unless the next statement line is already being typed: putting the old
+    // one back on top of that would be a loss of its own.
+    const live = fieldsRef.current;
+    if (live.name || live.note || live.amt || live.itemId != null) return;
+    setName(typed.name); setNote(typed.note); setAmt(typed.amt);
+    setItemId(typed.itemId); setPicked(typed.picked); setDay(typed.day);
+    setOpen(false); setHi(-1);
+    requestAnimationFrame(() => { if (amtRef.current) amtRef.current.focus(); });
   };
 
   /* Same trade as the item drawers: a single click on a hover-revealed icon,

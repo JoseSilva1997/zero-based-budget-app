@@ -18,6 +18,7 @@
    ============================================================ */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from './store.jsx';
+import { api, can } from './lib/api.js';
 
 const IS_DEV = process.env.NODE_ENV === 'development';
 
@@ -161,7 +162,7 @@ function DebugMenuPanel() {
 
   /* ---- tools ---- */
   const takeShot = useCallback(async () => {
-    if (!window.api || typeof window.api.debugScreenshot !== 'function') {
+    if (!can('debugScreenshot')) {
       toast('Screenshots need the desktop bridge, which is not available here.', 'error');
       return;
     }
@@ -178,11 +179,11 @@ function DebugMenuPanel() {
       const el = document.querySelector('.main') || document.documentElement;
       const extraW = Math.max(0, el.scrollWidth - el.clientWidth);
       const extraH = Math.max(0, el.scrollHeight - el.clientHeight);
-      const { path } = await window.api.debugScreenshot({ extraW, extraH });
+      const { path } = await api.debugScreenshot({ extraW, extraH });
       const name = path.split(/[\\/]/).pop();
       toast(`Screenshot saved as ${name}`, 'success', {
         label: 'Show in folder',
-        onAct: () => { window.api.debugReveal(path).catch((err) => console.error(err)); },
+        onAct: () => { api.debugReveal(path).catch((err) => console.error(err)); },
       });
     } catch (err) {
       console.error('debug screenshot failed', err);

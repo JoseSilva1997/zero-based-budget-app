@@ -2,21 +2,12 @@
    Groups & Items - collapsible groups, inline edit, quick-add,
    reorder, delete-this-month-only, and the New Month flow.
    ============================================================ */
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ConfirmDialog, DayField, DiffPill, FieldChip, Icons, MiniBar, Modal, MoneyInput, TextInline } from './ui/index.js';
-import { actualDay, cx, evalMoney, fmt, groupActual, groupAllocated, isExpr, itemActual, makeActualDate, monthLabel, nextMonthId, normalizeItemName, round2 } from './lib/index.js';
+import { actualDay, cx, evalMoney, fmt, groupActual, groupAllocated, isExpr, itemActual, makeActualDate, monthLabel, nextEntryDay, nextMonthId, normalizeItemName, round2 } from './lib/index.js';
 import { useStore } from './store.jsx';
 import { AccountSelect } from './Accounts.jsx';
-
-/* The day a new entry starts on: the one most recently added to this item (so a
-   run of receipts from the same day needs no re-typing), or the 1st when the
-   item has no entries yet. Entries read back in date order, so "most recent"
-   is the highest id, not the last row. */
-function nextEntryDay(item, month) {
-  if (!item.actuals.length) return 1;
-  return actualDay(item.actuals.reduce((a, b) => (b.id > a.id ? b : a)), month);
-}
 
 /* ---- routing to an item's allocated field -------------------------------
    The over-budget strip on the summary names offending items; naming them is
@@ -79,30 +70,56 @@ function DragHandle({ label, onGrab, onRelease, onMove, className = "" }) {
   );
 }
 
+/* ---- the drag protocol --------------------------------------------------
+   Groups reorder among themselves; items reorder inside a group and move
+   between groups. Both kinds live in one hook above the group cards, because
+   an item whose drag state belongs to the card it started in is an item that
+   can never leave its group.
+
+   One hook rather than five pieces of state threaded down as ten props: the
+   card and the rows inside it then read the same drag from the same place, and
+   every handler takes the id it acts on, so each caller binds itself instead
+   of being handed a pre-bound arrow per row.
+
+   'group' is the id being dragged; 'overGroup' is { id, after } for the card
+   the pointer is over and which half of it. 'item' is { id, groupId };
+   'overItem' is { groupId, targetId }, where a null targetId means append. */
+function useBudgetDrag(month, dispatch) {
+  const [group, setGroup] = useState(null);
+  const [overGroup, setOverGroup] = useState(null);
+  const [item, setItem] = useState(null);
+  const [overItem, setOverItem] = useState(null);
+
+  const endGroup = useCallback(() => { setGroup(null); setOverGroup(null); }, []);
+  const endItem = useCallback(() => { setItem(null); setOverItem(null); }, []);
+
+  return {
+    group, overGroup, item, overItem, endGroup, endItem,
+    /* Starting one kind clears the other. A row that unmounts mid-drag (rare,
+       but the drag ends outside any listener that could clear it) never fires
+       its own dragend, which would otherwise leave the other kind stuck set
+       and a later drop misread as the wrong one. */
+    startGroup: (id) => { setItem(null); setGroup(id); },
+    startItem: (groupId, id) => { setGroup(null); setItem({ id, groupId }); },
+    overGroupAt: (id, after) => { if (group) setOverGroup({ id, after }); },
+    overItemAt: (groupId, targetId) => { if (item) setOverItem({ groupId, targetId }); },
+    dropGroup: (targetId) => {
+      if (group && targetId && group !== targetId) {
+        dispatch({ type: "reorderGroup", month, groupId: group, targetId, after: !!(overGroup && overGroup.after) });
+      }
+      endGroup();
+    },
+  };
+}
+
 /* ---- moving an item to another group ------------------------------------
    Both ways in, the row's Move menu and a cross-group drag, come through here
    so they cannot report differently or lose the way back. Undo needs the item
    that FOLLOWED the moved one, because that is what restores its old slot
    rather than merely its old group. */
-function useMoveItem(month, dispatch) {
-  const { state, toast } = useStore();
-  const groups = (state && state.months[month] && state.months[month].groups) || [];
-  // Keyboard focus after a menu-driven move (opts.restoreFocus): 'dispatch' is
-  // fire-and-forget, and the row holding focus unmounts here and remounts under
-  // the destination card, so there is no node to hand focus back to until the
-  // refetch lands the item under its new group. Waiting for that beats guessing
-  // at a timeout. Drag drops never set this, so a mouse drag never yanks focus
-  // somewhere the pointer didn't ask it to go.
-  const pendingFocus = useRef(null);
-  useEffect(() => {
-    const pending = pendingFocus.current;
-    if (!pending) return;
-    const landed = groups.some((g) => g.id === pending.toGroupId && g.items.some((it) => it.id === pending.itemId));
-    if (!landed) return;
-    pendingFocus.current = null;
-    focusAllocated(pending.itemId, pending.toGroupId);
-  }, [groups]);
-  return (itemId, toGroupId, targetId = null, opts = {}) => {
+function useMoveItem(month, dispatch, groups) {
+  const { toast } = useStore();
+  return async (itemId, toGroupId, targetId = null, opts = {}) => {
     const from = groups.find((g) => g.items.some((it) => it.id === itemId));
     const to = groups.find((g) => g.id === toGroupId);
     if (!from || !to || from.id === toGroupId) return;
@@ -110,12 +127,18 @@ function useMoveItem(month, dispatch) {
     const name = from.items[idx].name;
     const backTo = from.id;
     const backBefore = idx + 1 < from.items.length ? from.items[idx + 1].id : null;
-    if (opts.restoreFocus) pendingFocus.current = { itemId, toGroupId };
-    dispatch({ type: "moveItem", month, itemId, toGroupId, targetId });
+    const { ok } = await dispatch({ type: "moveItem", month, itemId, toGroupId, targetId });
+    if (!ok) return; // the failure has already been reported as an error toast
     toast(`Moved "${name}" to ${to.name}.`, "success", {
       label: "Undo",
       onAct: () => dispatch({ type: "moveItem", month, itemId, toGroupId: backTo, targetId: backBefore }),
     });
+    // Keyboard focus after a menu-driven move: the row holding focus unmounts
+    // here and remounts under the destination card, so there is nothing to hand
+    // focus back to until the refetch has landed the item and React has
+    // committed it - hence the frame. Drag drops never ask for this, so a mouse
+    // drag never yanks focus somewhere the pointer didn't put it.
+    if (opts.restoreFocus) requestAnimationFrame(() => focusAllocated(itemId, toGroupId));
   };
 }
 
@@ -280,10 +303,13 @@ function EntriesDrawer({ item, group, currency, dispatch, month }) {
   );
 }
 
-function ItemRow({ item, group, currency, dispatch, month, accounts, open, onToggle, onMove, index, count, groups, onMoveToGroup, onDragStart, onDragOverItem, onDrop, onDragEnd, isDragging, isDropTarget, itemDragActive }) {
+function ItemRow({ item, group, currency, dispatch, month, accounts, open, onToggle, onMove, index, count, groups, onMoveToGroup, drag, onDrop }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [grabbed, setGrabbed] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
+  const isDragging = !!drag.item && drag.item.id === item.id;
+  const isDropTarget = !!drag.overItem && drag.overItem.groupId === group.id
+    && drag.overItem.targetId === item.id && !isDragging;
   // Stable identity, not a fresh arrow every render: MoveMenu's dismiss effect
   // depends on this, and an unstable onClose would tear its listeners down and
   // rebuild them on every keystroke elsewhere on the page.
@@ -296,19 +322,19 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
   return (
     <div
       draggable={grabbed}
-      onDragStart={(e) => { e.stopPropagation(); e.dataTransfer.effectAllowed = "move"; onDragStart(); }}
-      onDragEnter={(e) => { e.preventDefault(); onDragOverItem(); }}
+      onDragStart={(e) => { e.stopPropagation(); e.dataTransfer.effectAllowed = "move"; drag.startItem(group.id, item.id); }}
+      onDragEnter={(e) => { e.preventDefault(); drag.overItemAt(group.id, item.id); }}
       onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
       /* Only claim the drop when an item is actually being dragged: otherwise
          this is a group drop landing on a row, and it must bubble up to the
          card's own onDrop, which performs the group reorder. */
       onDrop={(e) => {
-        if (!itemDragActive) return;
+        if (!drag.item) return;
         e.preventDefault();
         e.stopPropagation();
         onDrop();
       }}
-      onDragEnd={() => { setGrabbed(false); onDragEnd(); }}
+      onDragEnd={() => { setGrabbed(false); drag.endItem(); }}
       className={cx("item-row", index === 0 && "is-first", isDragging && "is-dragging", isDropTarget && "is-drop-target")}>
       <div className="item-row-main">
       <DragHandle label={`Reorder ${item.name}, item ${index + 1} of ${count} in ${group.name}`}
@@ -383,14 +409,12 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
 }
 
 function AddItemSearch({ month, groupId, currency, dispatch, onClose, itemCount }) {
-  const { reusableItems, toastMsg } = useStore();
+  const { reusableItems } = useStore();
   const [query, setQuery] = useState("");
   const [candidates, setCandidates] = useState([]);
   const [saving, setSaving] = useState(false);
   const rootRef = useRef(null);
   const inputRef = useRef(null);
-  const countAtSubmit = useRef(itemCount);
-  const seenToast = useRef(null);
   // Candidates come from SQL (items in other months not present in this one).
   // Debounced: 'live' already keeps results in order, but a query per keystroke
   // is still N queries for an N-character term.
@@ -412,24 +436,16 @@ function AddItemSearch({ month, groupId, currency, dispatch, onClose, itemCount 
     document.addEventListener("pointerdown", handlePointerDown);
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, [onClose]);
-  /* 'dispatch' is fire-and-forget, so this panel cannot await its own write.
-     Closing on the click would unmount the typed name before the write is
-     known to have landed. It waits for the group to actually gain an item
-     instead, and a failure (an error toast this panel has not seen before)
-     hands the text back rather than losing it behind that toast. */
-  useEffect(() => {
-    if (!saving) return;
-    if (itemCount !== countAtSubmit.current) { setQuery(""); setSaving(false); onClose(); return; }
-    if (toastMsg && toastMsg !== seenToast.current && toastMsg.tone === "error") {
-      setSaving(false);
-      if (inputRef.current) inputRef.current.focus();
-    }
-  }, [saving, itemCount, toastMsg, onClose]);
-  const submit = (action) => {
-    countAtSubmit.current = itemCount;
-    seenToast.current = toastMsg;
+  /* Closing on the click would unmount the typed name before the write is
+     known to have landed, so the panel waits for the store's answer: the item
+     is really in the group by the time this resolves, and a refusal hands the
+     text back rather than losing it behind the error toast. */
+  const submit = async (action) => {
     setSaving(true);
-    dispatch(action);
+    const { ok } = await dispatch(action);
+    setSaving(false);
+    if (ok) { setQuery(""); onClose(); return; }
+    if (inputRef.current) inputRef.current.focus();
   };
   const selectCandidate = (candidate) => {
     submit({ type: "addItem", month, groupId, name: candidate.name, allocated: candidate.allocated, account: candidate.account });
@@ -474,7 +490,7 @@ function AddItemSearch({ month, groupId, currency, dispatch, onClose, itemCount 
   );
 }
 
-function GroupCard({ group, currency, dispatch, month, accounts, state, dragItem, overItem, onItemDragStart, onItemDragOver, onItemDragEnd, onDragStart, onDragOverGroup, onDrop, onDragEnd, isDragging }) {
+function GroupCard({ group, groups, currency, dispatch, month, accounts, drag }) {
   const alloc = groupAllocated(group), actual = groupActual(group);
   const diff = round2(alloc - actual);
   // Same half-penny tolerance the item rows use, so a group and the item
@@ -485,7 +501,8 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, dragItem
   const [openItems, setOpenItems] = useState(() => new Set());
   const [confirmDelete, setConfirmDelete] = useState(false);
   const cardRef = useRef(null);
-  const moveItemToGroup = useMoveItem(month, dispatch);
+  const isDragging = drag.group === group.id;
+  const moveItemToGroup = useMoveItem(month, dispatch, groups);
   // A group takes its items and their spending with it - count both so the
   // confirm can say exactly what is about to go.
   const itemCount = group.items.length;
@@ -506,6 +523,7 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, dragItem
   /* A drop on a row is a reorder within this group, and from another group a
      move that lands exactly where the drop-line was drawn. */
   const dropOnItem = (targetId) => {
+    const dragItem = drag.item;
     if (dragItem) {
       if (dragItem.groupId === group.id) {
         if (dragItem.id !== targetId) dispatch({ type: "reorderItem", month, groupId: group.id, itemId: dragItem.id, targetId });
@@ -513,29 +531,29 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, dragItem
         moveItemToGroup(dragItem.id, group.id, targetId);
       }
     }
-    onItemDragEnd();
+    drag.endItem();
   };
   /* A drop on the header or the footer appends. The header is what makes a
      COLLAPSED group droppable, since it is all such a group renders. */
   const dropOnGroup = () => {
-    if (dragItem && dragItem.groupId !== group.id) moveItemToGroup(dragItem.id, group.id, null);
-    onItemDragEnd();
+    if (drag.item && drag.item.groupId !== group.id) moveItemToGroup(drag.item.id, group.id, null);
+    drag.endItem();
   };
-  const appendHere = !!(dragItem && dragItem.groupId !== group.id && overItem
-    && overItem.groupId === group.id && overItem.targetId === null);
+  const appendHere = !!(drag.item && drag.item.groupId !== group.id && drag.overItem
+    && drag.overItem.groupId === group.id && drag.overItem.targetId === null);
   /* Attached to the header and footer specifically, never to the whole card: a
      card-level dragover fires on every mouse move over a row and would wipe out
      the targetId that row's own dragenter has just set. */
   const appendTargetProps = {
     onDragOver: (e) => {
-      if (!dragItem) return;
+      if (!drag.item) return;
       e.preventDefault();
       e.stopPropagation();
       e.dataTransfer.dropEffect = "move";
-      onItemDragOver(group.id, null);
+      drag.overItemAt(group.id, null);
     },
     onDrop: (e) => {
-      if (!dragItem) return;
+      if (!drag.item) return;
       e.preventDefault();
       e.stopPropagation();
       dropOnGroup();
@@ -552,9 +570,6 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, dragItem
     dispatch({ type: "reorderItem", month, groupId: group.id, itemId, targetId: target.id });
     announce(`${name} moved to position ${from + dir + 1} of ${group.items.length} in ${group.name}.`);
   };
-  // The sibling groups are only knowable from the month tree, which is what the
-  // 'state' prop is for.
-  const groups = (state && state.months[month] ? state.months[month].groups : []);
   const groupIndex = groups.findIndex(g => g.id === group.id);
   const moveGroup = (dir) => {
     const target = groupIndex < 0 ? null : groups[groupIndex + dir];
@@ -564,10 +579,10 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, dragItem
   };
   return (
     <div ref={cardRef} id={groupCardId(group.id)} className={cx("panel is-raised fade-in group-card", isDragging && "is-dragging")} draggable={grabbed}
-      onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; onDragStart(); }}
-      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; const r = e.currentTarget.getBoundingClientRect(); onDragOverGroup(e.clientY > r.top + r.height / 2); }}
-      onDrop={(e) => { e.preventDefault(); onDrop(); }}
-      onDragEnd={() => { setGrabbed(false); onDragEnd(); }}>
+      onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; drag.startGroup(group.id); }}
+      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; const r = e.currentTarget.getBoundingClientRect(); drag.overGroupAt(group.id, e.clientY > r.top + r.height / 2); }}
+      onDrop={(e) => { e.preventDefault(); drag.dropGroup(group.id); }}
+      onDragEnd={() => { setGrabbed(false); drag.endGroup(); }}>
       <div className="group-head-row">
       {/* 'is-collapsed' is what tells the stylesheet this handle is the card's
           bottom-left corner as well as its top-left one: a collapsed group
@@ -611,13 +626,8 @@ function GroupCard({ group, currency, dispatch, month, accounts, state, dragItem
               onMove={(dir) => moveItem(it.id, dir)}
               groups={groups}
               onMoveToGroup={(toGroupId) => moveItemToGroup(it.id, toGroupId, null, { restoreFocus: true })}
-              isDragging={!!dragItem && dragItem.id === it.id}
-              isDropTarget={!!overItem && overItem.groupId === group.id && overItem.targetId === it.id && !(dragItem && dragItem.id === it.id)}
-              itemDragActive={!!dragItem}
-              onDragStart={() => onItemDragStart(group.id, it.id)}
-              onDragOverItem={() => { if (dragItem) onItemDragOver(group.id, it.id); }}
-              onDrop={() => dropOnItem(it.id)}
-              onDragEnd={onItemDragEnd} />
+              drag={drag}
+              onDrop={() => dropOnItem(it.id)} />
           ))}
           {addingItem ? (
             <AddItemSearch month={month} groupId={group.id} currency={currency} dispatch={dispatch} itemCount={itemCount} onClose={() => setAddingItem(false)} />
@@ -719,4 +729,4 @@ function NewMonthModal({ onClose, dispatch }) {
   );
 }
 
-export { GroupCard, NewMonthModal, allocFieldId, focusAllocated };
+export { GroupCard, NewMonthModal, useBudgetDrag, allocFieldId, focusAllocated };

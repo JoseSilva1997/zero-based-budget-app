@@ -14,7 +14,8 @@ export { BUDGET_THEMES, THEME_IDS, DEFAULT_THEME_ID, GROUP_PALETTE } from "./the
 export {
   itemActual, monthIncome, monthAllocated, monthActual, monthSavings,
   groupAllocated, groupActual, monthUnallocated, overBudgetItems,
-  accountTotals, walletSummary, normalizeItemName,
+  accountTotals, walletSummary, walletPlan, normalizeItemName,
+  flatItems, recentEntries, nextEntryDay,
 } from "./selectors.js";
 export { buildEmpty } from "./reducer.js";
 export * from "./bar.js";

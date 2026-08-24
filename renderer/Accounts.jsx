@@ -3,7 +3,7 @@
    ============================================================ */
 import { useRef, useState } from 'react';
 import { Avatar, DiffPill, Icons, MiniBar, ObjectRow, Stat, Tile, useFocusTrap } from './ui/index.js';
-import { accountTotals, cx, fmt, hexToSoft, itemActual, monthLabel, round2, walletSummary } from './lib/index.js';
+import { cx, fmt, monthLabel, round2, walletPlan, walletSummary } from './lib/index.js';
 
 const ACCT_ICON = { joint: "user", main: "budget", wallet: "coins", savings: "plant" };
 const ACCT_TYPE_LABEL = { joint: "Shared", main: "Main account", wallet: "Wallet", savings: "Savings" };
@@ -39,36 +39,10 @@ function AccountPanel({ mo, accounts, members, currency }) {
   // ids of the "By account" rows expanded to show their allocations
   const [openAccts, setOpenAccts] = useState(() => new Set());
   const toggleAcct = (id) => setOpenAccts(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
-  const totals = accountTotals(mo, accounts);
-  const assigned = totals.filter(t => t.account);
-  const unassigned = totals.find(t => !t.account);
-  const totalToFund = round2(assigned.reduce((a, t) => a + t.allocated, 0));
-
-  // per-person rollup
-  const perPerson = members.map(m => ({
-    member: m,
-    amount: round2(assigned.filter(t => t.account.owner === m.id).reduce((a, t) => a + t.allocated, 0)),
-    accts: assigned.filter(t => t.account.owner === m.id),
-  })).filter(p => p.accts.length > 0);
-  const shared = assigned.filter(t => !t.account.owner);
-  const sharedAmt = round2(shared.reduce((a, t) => a + t.allocated, 0));
-
-  // savings wallets - each item in the savings group is a "wallet" of the (single) savings account
-  const savingsAccount = accounts.find(a => a.type === "savings");
-  const savingsItems = [];
-  mo.groups.filter(g => g.isSavings).forEach(g => g.items.forEach(it => {
-    if (it.allocated > 0 || itemActual(it) > 0) savingsItems.push({ id: it.id, name: it.name, allocated: it.allocated, actual: itemActual(it) });
-  }));
-  const savingsTotal = round2(savingsItems.reduce((a, it) => a + it.allocated, 0));
-
-  // "By account" order: group by owner (in member order), joint/shared accounts last.
-  // Savings accounts are excluded - they get their own per-wallet breakdown below.
-  const ownerRank = owner => { const i = members.findIndex(m => m.id === owner); return i < 0 ? members.length : i; };
-  const byAccount = assigned.filter(t => t.account.type !== "savings").sort((a, b) => {
-    const ao = a.account.owner, bo = b.account.owner;
-    if (!ao !== !bo) return ao ? -1 : 1;
-    return ownerRank(ao) - ownerRank(bo);
-  });
+  const {
+    totalToFund, perPerson, shared, sharedAmt, byAccount,
+    savingsAccount, savingsItems, savingsTotal, unassigned,
+  } = walletPlan(mo, accounts, members);
 
   return (
     <div className="fade-in">
