@@ -8,7 +8,7 @@ import { THEME_IDS, DEFAULT_THEME_ID, fmt, monthLabel, walletSummary } from './l
 import { api, can } from './lib/api.js';
 import { StoreProvider, useStore } from './store.jsx';
 import { Avatar, ConfirmDialog, EmptyState, Icons, MsIcons, Section, Tile } from './ui/index.js';
-import { WalletDrawer } from './Accounts.jsx';
+import { WalletSheet } from './Accounts.jsx';
 import { GroupCard, NewMonthModal, useBudgetDrag } from './MonthGroups.jsx';
 import { IncomeSection } from './MonthBudget.jsx';
 import { MonthBar } from './MonthBar.jsx';
@@ -118,7 +118,7 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
         <button className="btn btn-ghost btn-quiet add-group-btn" onClick={() => setAddingGroup(true)}><Icons.plus size={16} /> Add group</button>
       )}
 
-      {walletOpen && <WalletDrawer mo={mo} accounts={state.settings.accounts} members={state.settings.members} currency={currency} month={mid} onClose={() => setWalletOpen(false)} />}
+      {walletOpen && <WalletSheet mo={mo} accounts={state.settings.accounts} members={state.settings.members} currency={currency} month={mid} onClose={() => setWalletOpen(false)} />}
 
       {confirmMonth && (
         <ConfirmDialog title={`Delete ${lbl.mo} ${lbl.yr}?`} width={440}

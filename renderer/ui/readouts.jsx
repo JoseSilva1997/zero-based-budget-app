@@ -15,7 +15,7 @@ import { Icons } from './icons.jsx';
    The fill is either `tint`, a record's own colour, which only JS can mix
    into a wash and so arrives inline; or one of three tones for the tiles that
    stand for a state rather than a record. */
-function Tile({ icon: Icon, size = "md", tint, tone = "well", className }) {
+function Tile({ icon: Icon, size = "lg", tint, tone = "well", className }) {
   const glyph = size === "sm" ? 16 : size === "lg" ? 22 : 17;
   /* Spelled out rather than built from `size` and `tone`, so a grep for any
      of these classes finds the place that writes it. */
@@ -33,7 +33,8 @@ function Tile({ icon: Icon, size = "md", tint, tone = "well", className }) {
    History comparison, the amount at the head of the Wallet.
 
    Three sizes, and only the figure moves between them - 15 in a dialog's
-   summary strip, 20 on a card, 30 at the head of a drawer. The label stays at
+   summary strip, 20 on a card, 30 where the figure is the whole of a surface.
+   The label stays at
    one size on every rung, for the reason .eyebrow does: a caption is a
    caption, and three sizes of it would be a vocabulary with nothing to say.
 
@@ -74,7 +75,7 @@ function DiffPill({ diff, currency }) {
 function MiniBar({ actual, allocated }) {
   const pct = allocated > 0 ? Math.min(actual / allocated, 1) : (actual > 0 ? 1 : 0);
   const over = actual > allocated + 0.001;
-  // Beside an item row a DiffPill says "over" in words, but in the wallet drawer
+  // Beside an item row a DiffPill says "over" in words, but in the Wallet
   // the bar stands alone, so it has to say it itself: a name for screen readers,
   // and a hatch for anyone who cannot tell the breach red from the per-theme
   // accent fill by colour alone. A bar that is over is always full, so the

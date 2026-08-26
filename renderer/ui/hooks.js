@@ -14,7 +14,7 @@ const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:n
    is already stopped by the veil and the keyboard has to be stopped by code:
    an overlay that forgets a third of this is a page the keyboard silently
    falls through, and nothing about the screen says so. There are two of these
-   surfaces (the modal and the Wallet drawer) and they cannot be one component,
+   surfaces (the modal and the Wallet sheet) and they cannot be one component,
    since one is centred and one slides in from the edge.
 
    `ref` is the box to trap inside. `onClose` is what Escape calls.

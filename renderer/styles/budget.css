@@ -361,11 +361,6 @@
    for as long as the menu is open. */
 .row-actions.is-open { opacity: 1; pointer-events: auto; }
 
-/* "By account" row in the Wallet drawer - expands to its allocations */
-.acct-row { transition: filter .12s; }
-.acct-row:not(:disabled):hover { filter: brightness(1.06); }
-.acct-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-
 /* wallet trigger button - the quiet half of the topbar pair. "New month" is
    the solid primary beside it; two loud buttons side by side would shout over
    each other, so this one is an ordinary outlined control whose accent lives

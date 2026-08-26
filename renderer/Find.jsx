@@ -207,7 +207,7 @@ function FindBar({ onClose, focusToken }) {
     if (e.key === "Enter") { e.preventDefault(); go(e.shiftKey ? -1 : 1); }
     else if (e.key === "ArrowDown") { e.preventDefault(); go(1); }
     else if (e.key === "ArrowUp") { e.preventDefault(); go(-1); }
-    // Modal and WalletDrawer both listen for Escape on window, which is the
+    // Modal and WalletSheet both listen for Escape on window, which is the
     // last stop on the way up. Stopping the event here means one Escape
     // closes one thing: this bar, and not the dialog behind it as well.
     else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); onClose(); }

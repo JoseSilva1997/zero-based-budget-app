@@ -1,19 +1,17 @@
 /* ============================================================
-   The Wallet: the funding-plan panel and the drawer that holds it.
+   The Wallet: the funding-plan panel and the sheet that holds it.
 
    Imported after budget.css, which owns .acct-chip (the per-item funding
-   chip on a budget row), .acct-row and .wallet-btn. Those three stay there:
-   they are budget-screen furniture that happens to name an account. What
-   lands here is the panel's own shapes, which only ever render inside the
-   drawer.
+   chip on a budget row) and .wallet-btn. Both stay there: they are
+   budget-screen furniture that happens to name an account. What lands here
+   is the panel's own shapes, which only ever render inside the sheet.
 
-   Two rules below deliberately reach for extra specificity rather than
-   trusting import order alone. .acct-chip and .acct-row both carry
-   pseudo-class rules in budget.css (:focus-within on the chip, an inset
-   :focus-visible outline on the row), and a pseudo-class rule is (0,2,0),
-   which outranks a bare class no matter how late it is imported. The
-   selectors here that have to hold against them are therefore written at
-   (0,2,0) as well, so they win on order. Every such rule is marked below.
+   One rule below deliberately reaches for extra specificity rather than
+   trusting import order alone. .acct-chip carries a :focus-within rule in
+   budget.css, and a pseudo-class rule is (0,2,0), which outranks a bare
+   class no matter how late it is imported. The selectors here that have to
+   hold against it are therefore written at (0,2,0) as well, so they win on
+   order. Every such rule is marked below.
    ============================================================ */
 
 /* ---- the inline account chip's furniture --------------------------------
@@ -27,86 +25,16 @@
 .acct-chip .wallet-chip-caret { opacity: 0.5; margin-left: -2px; }
 
 /* ---- section labels -----------------------------------------------------
-   The panel's three small-caps labels take .eyebrow for the shape; this adds
-   only the margin, which differs from Settings' copy of the same label. The
-   size is not a difference: every call site the utility was written for
-   measures 11px. */
+   The panel's small-caps labels take .eyebrow for the shape; this adds only
+   the margin, which differs from Settings' copy of the same label. The size
+   is not a difference: every call site the utility was written for measures
+   11px. */
 .wallet-eyebrow { margin-bottom: var(--space-4); }
 
-/* ---- who moves what -----------------------------------------------------
-   An .object-row at its large size, drawn once per person and once for the
-   shared accounts. This is the chrome that makes it a card in a stack rather
-   than a row in a list; the left-edge stripe is the only difference between
-   the two, and on the per-person rows it is the member's own colour, so it
-   stays inline on those and lives here for the shared row, whose colour is a
-   token. */
-.wallet-movers { display: flex; flex-direction: column; gap: var(--space-3); margin-bottom: var(--space-7); }
-.wallet-mover {
-  padding: 11px var(--space-6); border-radius: 11px;
-  background: var(--well); border: 1px solid var(--rule-strong);
-}
-.wallet-mover.is-shared { box-shadow: inset 4px 0 0 0 var(--info); }
-
-/* ---- by account ---------------------------------------------------------
-   The card is `panel panel-clip` (controls.css), so the rows inside it stop
-   at its corners. */
-/* Rules between rows, never above the first one. */
-.wallet-acct.is-divided,
-.wallet-alloc.is-divided,
-.wallet-savings-row.is-divided { border-top: 1px solid var(--rule); }
-
-/* SPECIFICITY GUARD (see the file header): .acct-row lives in budget.css and
-   carries a :focus-visible rule there. An .object-row that is also a button,
-   so what is here is the padding plus the reset the user agent's own button
-   chrome needs. The row's fill is the owner's colour mixed into the board and
-   stays inline. cursor tracks [disabled], which is set from the same canOpen
-   the pointer was. */
-.acct-row.wallet-acct-row {
-  width: 100%; padding: var(--space-5) 15px; border: none; text-align: left;
-  color: var(--ink); cursor: pointer;
-}
-.acct-row.wallet-acct-row:disabled { cursor: default; }
-
-.wallet-owner-pill { font-size: var(--text-10); }
-/* Items inside an .object-row-meta: the ones that keep their own width, and
-   the progress bar that takes what is left up to a cap. */
-.wallet-fixed { flex: none; }
-.wallet-meta-bar { flex: 1; max-width: 90px; }
-/* Closed is the resting state, so the caret is drawn rotated and .is-open is
-   what returns it to true. */
-.wallet-caret { flex: none; color: var(--faint); transform: rotate(-90deg); transition: transform .18s; }
-.wallet-caret.is-open { transform: none; }
-
-/* ---- an account's allocations, revealed by opening its row --------------
-   .object-row at its nested size, one rung down from the account rows above
-   it. The extra left padding is what sets it inside them. The left-edge
-   stripe on the group is the account's own colour and stays inline. */
-.wallet-acct-items { background: var(--well); border-top: 1px solid var(--rule); }
-.wallet-alloc { padding: 9px 15px 9px 26px; }
-.wallet-alloc-group { flex: none; max-width: 110px; }
-.wallet-alloc-bar { flex: 1; max-width: 70px; }
-
-/* ---- savings wallets ----------------------------------------------------
-   The label carries a total on its right, so it is the one eyebrow here that
-   is also a row. */
-.wallet-savings-head { margin-top: var(--space-7); display: flex; align-items: center; justify-content: space-between; }
-/* The tracking is inherited from .eyebrow and unwanted on a figure. */
-.wallet-savings-total { color: var(--faint); letter-spacing: 0; }
-/* An .object-row at the same size and padding as the account rows above:
-   a savings wallet is a peer of an account, not something inside one. */
-.wallet-savings-row { padding: var(--space-5) 15px; }
-
-/* ---- the unassigned warning --------------------------------------------- */
-.wallet-unassigned {
-  display: flex; align-items: center; gap: 11px;
-  padding: var(--space-5) 15px; border-radius: 11px; margin-top: 14px;
-  background: var(--breach-soft); color: var(--breach-ink);
-}
-.wallet-unassigned-text { font-size: var(--text-13); font-weight: 500; }
-
-/* ---- the drawer's own head and total band -------------------------------
-   .drawer, .drawer-head and .drawer-body are in overlays.css; these are the
-   Wallet's contents inside them. */
+/* ---- the sheet's head ---------------------------------------------------
+   .sheet, .sheet-head and .sheet-body are in overlays.css; these are the
+   Wallet's contents inside them: an identity block, the month's total beside
+   it behind a hairline, and the close button pushed to the far end. */
 .wallet-head-id { display: flex; align-items: center; gap: 11px; }
 /* Not a .tile - it carries a gradient and a glow rather than a record's own
    tint - but it sits on the tile ladder's middle rung so it measures the same
@@ -120,9 +48,149 @@
 }
 .wallet-head-title { font-weight: 600; font-size: var(--text-16); }
 .wallet-head-sub { font-size: var(--text-12); color: var(--muted); }
-.wallet-total {
-  padding: var(--space-6) var(--space-7) 18px;
-  border-bottom: 1px solid var(--rule);
-  background: color-mix(in srgb, var(--accent) 8%, var(--board));
+/* The one figure the sheet is opened for, so it is the one thing in the head
+   the accent is spent on. `auto` on the right margin is what puts the close
+   button at the far edge without a spacer element between them. */
+.wallet-head-total { margin-right: auto; padding-left: var(--space-7); border-left: 1px solid var(--rule); }
+.wallet-head-total .stat-label { text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+.wallet-head-total .stat-figure { color: var(--accent-ink); }
+
+/* ---- who moves what -----------------------------------------------------
+   An .object-row at its large size, drawn once per person and once for the
+   shared accounts, laid side by side rather than stacked: three totals that
+   are read against each other belong on one line. They wrap to their own
+   rows before any of them is narrower than a name and a figure can sit on. */
+.wallet-movers {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-4); margin-bottom: var(--space-7);
+}
+.wallet-mover {
+  padding: 11px var(--space-6); border-radius: 11px;
+  background: var(--raised); border: 1px solid var(--rule-faint);
 }
 
+/* ---- wallets & details --------------------------------------------------
+   The section is a pair: every account as a card on the left, and whichever
+   one is selected opened out on the right. The left track takes the larger
+   share because it holds two cards across; the right one only ever holds a
+   column of rows. */
+.wallet-split {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-6); align-items: start;
+}
+.wallet-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-5); }
+
+/* ---- a wallet ------------------------------------------------------------
+   The app's wallet silhouette, from docs/wallet.svg: a card with a
+   semicircular cut in its bottom edge and a slot broken through the hairline
+   beside it. The cut and the slot are the whole of what says "wallet" here -
+   there is no wallet drawing on the card, and the tile at the top-left is
+   free to carry the account's own glyph instead.
+
+   It is an ordinary card on the sheet's board - Lamplit Slate, furniture
+   shadow - and departs from the card rules in one place only: its corner is a
+   control's 10px rather than a card's 20px, because it is a button in a grid
+   of buttons. Its edge takes the Drawn Edge grade for the same reason. */
+.wallet-card {
+  position: relative; text-align: left; cursor: pointer;
+  /* Tile, then the name over the amount beside it, both held at the top: what
+     is under them is not empty space but the room the cut needs. The
+     min-height is what keeps that room from closing up on a short name. */
+  display: flex; align-items: flex-start; gap: var(--space-5);
+  min-height: 116px;
+  padding: var(--space-5) var(--space-5) var(--space-8);
+  background-color: var(--raised);
+  /* The corner wash: a light source at the card's top-right, which is the one
+     piece of depth the flat silhouette gets. It is a background layer rather
+     than an overlaid box so it fades out inside the card's own corner instead
+     of at an edge of its own, and it goes accent on the selected card, so the
+     two states differ by fill as well as by edge. */
+  background-image: radial-gradient(90% 120% at 100% 0%, color-mix(in srgb, #fff 8%, transparent), transparent 60%);
+  border: 1px solid var(--rule-strong); border-radius: var(--radius-sm);
+  color: var(--ink); box-shadow: var(--shadow-sm);
+  transition: border-color .14s, background-color .14s;
+}
+.wallet-card:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--rule-strong)); }
+/* A button, so the ring stands off 3px rather than the bare 2px, per the
+   focus rule in base.css. */
+.wallet-card:focus-visible { outline-offset: 3px; }
+.wallet-card.is-selected {
+  border-color: var(--accent);
+  background-image: radial-gradient(90% 120% at 100% 0%, color-mix(in srgb, var(--accent) 38%, transparent), transparent 60%);
+}
+/* The slot: 46px of the bottom hairline painted out in the card's own fill,
+   so the edge reads as an opening rather than a line. */
+.wallet-card::after {
+  content: ""; position: absolute; bottom: -1px; left: 76px; width: 46px; height: 1px;
+  background: var(--raised);
+}
+/* The cut: a half-disc of the surface BEHIND the card, laid over its bottom
+   edge and carrying the card's own hairline round the arc. Drawn 1px below
+   the card so it covers the border it replaces. */
+.wallet-card-notch {
+  position: absolute; left: var(--space-6); bottom: -1px; width: 44px; height: 23px;
+  background: var(--board);
+  border: 1px solid var(--rule-strong); border-bottom: 0;
+  border-radius: var(--radius-pill) var(--radius-pill) 0 0;
+  transition: border-color .14s;
+}
+.wallet-card:hover .wallet-card-notch { border-color: color-mix(in srgb, var(--accent) 45%, var(--rule-strong)); }
+.wallet-card.is-selected .wallet-card-notch { border-color: var(--accent); }
+/* Not a .stat: a stat is a figure with a caption over it, and here the line
+   above is the record's name, not a label. */
+.wallet-card-id { display: flex; flex-direction: column; min-width: 0; }
+.wallet-card-name { font-size: var(--text-13); font-weight: 600; }
+.wallet-card-figure { font-size: var(--text-20); font-weight: 600; margin-top: 3px; }
+
+/* ---- the selected wallet, opened out -------------------------------------
+   A .panel, which is where its fill, corner, edge and shadow come from: this
+   one is read rather than pressed, so unlike the cards in the grid it is
+   furniture and takes a card's corner. Only the padding is its own. */
+.wallet-detail { padding: var(--space-6); }
+.wallet-detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-4);}
+.wallet-detail-id { display: flex; align-items: center; gap: var(--space-4); min-width: 0; }
+.wallet-detail-title { font-size: var(--text-16); font-weight: 600; }
+.wallet-detail-sub { font-size: var(--text-12); color: var(--muted); flex: none; }
+.wallet-owner-pill { font-size: var(--text-10); flex: none; }
+/* The progress inset: the one well inside the card, holding the account's
+   share of the month as a sentence, a bar and a figure. */
+.wallet-progress {
+  margin: var(--space-6) 0; padding: var(--space-5);
+  background: var(--well); border-radius: var(--radius-2xs);
+}
+.wallet-progress-head {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-4);
+  font-size: var(--text-12); font-weight: 600; margin-bottom: var(--space-4);
+}
+.wallet-progress-pct { color: var(--muted); }
+.wallet-progress-foot { font-size: var(--text-12); color: var(--faint); margin-top: var(--space-4); }
+/* Rules between rows, never above the first one. */
+.wallet-alloc.is-divided,
+.wallet-savings-row.is-divided { border-top: 1px solid var(--rule-faint); }
+.wallet-alloc { padding: var(--space-4) 0; }
+.wallet-alloc-group { flex: none; max-width: 110px; }
+.wallet-alloc-bar { flex: 1; max-width: 70px; }
+/* Items inside an .object-row-meta: the ones that keep their own width, and
+   the progress bar that takes what is left up to a cap. */
+.wallet-fixed { flex: none; }
+.wallet-meta-bar { flex: 1; max-width: 90px; }
+.wallet-detail-btn { width: 100%; margin-top: var(--space-6); }
+.wallet-detail-empty { font-size: var(--text-12); color: var(--faint); padding: var(--space-4) 0; }
+
+/* ---- savings wallets ----------------------------------------------------
+   The label carries a total on its right, so it is the one eyebrow here that
+   is also a row. */
+.wallet-savings-head { margin-top: var(--space-7); display: flex; align-items: center; justify-content: space-between; }
+/* The tracking is inherited from .eyebrow and unwanted on a figure. */
+.wallet-savings-total { color: var(--faint); letter-spacing: 0; }
+/* An .object-row at the same size as the wallets above: a savings wallet is a
+   peer of an account, not something inside one. */
+.wallet-savings-row { padding: var(--space-5) 15px; }
+
+/* ---- the unassigned warning --------------------------------------------- */
+.wallet-unassigned {
+  display: flex; align-items: center; gap: 11px;
+  padding: var(--space-5) 15px; border-radius: 11px; margin-top: 14px;
+  background: var(--breach-soft); color: var(--breach-ink);
+}
+.wallet-unassigned-text { font-size: var(--text-13); font-weight: 500; }

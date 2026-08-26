@@ -3,7 +3,7 @@
    them. A dialog that can be tabbed out of is a dialog that has not really
    opened, so the trap, the initial focus and the focus restore are as much a
    part of these as the veil is - all three via useFocusTrap, which the Wallet
-   drawer in Accounts.jsx takes as well.
+   sheet in Accounts.jsx takes as well.
    ============================================================ */
 import { useState, useLayoutEffect, useRef } from 'react';
 import { useFocusTrap } from './hooks.js';

@@ -56,7 +56,7 @@ On first launch the app creates an empty SQLite database under your user data fo
 The app has four screens, reachable from the sidebar:
 
 - **Dashboard** — an at-a-glance overview with charts (powered by Recharts).
-- **Month Budget** — the core view: income by member, then allocation groups and items, with allocated / actual / difference columns. Open the **Wallet** drawer to plan funding by bank account.
+- **Month Budget** — the core view: income by member, then allocation groups and items, with allocated / actual / difference columns. Open the **Wallet** sheet to plan funding by bank account.
 - **History** — browse and reopen previous months.
 - **Settings** — manage household members, bank accounts, currency, theme, and backups.
 

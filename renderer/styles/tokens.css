@@ -310,7 +310,7 @@
 
    Rules are graded by what they carry. --rule-strong is the boundary or the
    state of something interactive (buttons, the month steppers, the active nav
-   item, the "Assign account" chip, keycaps, the sidebar and drawer edges), so
+   item, the "Assign account" chip, keycaps, the sidebar and sheet edges), so
    it is solved to 3:1 against --raised per WCAG 1.4.11. --rule is structure
    (card outlines, dividers, the progress track) and --rule-faint is a row rule
    between rows that are already self-identifying; both are decorative and carry

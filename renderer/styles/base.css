@@ -52,7 +52,7 @@ input { font-family: inherit; }
    Keep the selector bare. At (0,1,0) the per-class :focus-visible overrides
    below it can win; adding a :not() chain would lift this to (0,3,0) and
    silently beat every one of them, including the outline-offset line that
-   follows and the inset outline on .acct-row. */
+   follows. */
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .btn:focus-visible, .nav-item:focus-visible, .icon-btn:focus-visible,
 .month-step:focus-visible, .find-input:focus-visible { outline-offset: 3px; }

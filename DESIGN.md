@@ -225,7 +225,7 @@ A single-theme palette (`obsidian`), built as a black room with one violet lamp 
 
 ### Neutral
 - **Midnight Board** (`board`): the canvas, true black. Under it sits **The Night Gradient** (`canvas-wash`), a faint violet-tinted radial lightest at the top.
-- **Lamplit Slate** (`raised`): cards, popovers, drawers and modals. The busiest text backdrop in the app, and the surface the ink ramp is measured against.
+- **Lamplit Slate** (`raised`): cards, popovers, sheets and modals. The busiest text backdrop in the app, and the surface the ink ramp is measured against.
 - **Inkwell** (`well`): insets. Trays, progress tracks, input fills, quiet chips. Darker than the board, so an inset genuinely reads as cut into the surface.
 - **Nightstand Grey** (`panel`): the sidebar's own surface, deliberately off the board ramp and lighter than the cards, because a true-black canvas has nowhere to go but up. **Nightstand Lift** (`nav-hover`) and **Nightstand Hold** (`nav-active`) are its two states.
 - **Page White** (`ink`) and **Pencil Grey** (`ink-2`): primary and secondary text.
@@ -259,11 +259,11 @@ Both faces are bundled as woff2 and subset, never fetched: the app makes no outb
 ### Hierarchy
 - **Display** (600, 34px, line-height 1, -0.025em): the month numeral in the topbar and the page title. One per screen.
 - **Headline** (600, 22px, -0.02em): a modal's own title. The startup error screen sets 21px for the same job.
-- **Title** (600, 15px): a card heading, a settings row's name, a group name, a chart title. 16px at the head of a drawer.
+- **Title** (600, 15px): a card heading, a settings row's name, a group name, a chart title. 16px at the head of a sheet.
 - **Body** (500, 13px, line-height 1.45): the app's default reading size. Prose in dialogs sets 14px with a 1.5 line-height and a measure of roughly 460px.
 - **Label** (600, 11px, uppercase, 0.06em): the micro-label over a list, a column, a nav group or a popover.
 - **Section label** (600, 13px, uppercase, 0.09em): the heading over a whole section of a page.
-- **Figure** (600, tabular lining figures): every amount in the app, at whatever rung its context sets (10px in a nested sub-figure, 13-15px in a row, 20px on a card, 30px at the head of a drawer, 16-18px on the month bar).
+- **Figure** (600, tabular lining figures): every amount in the app, at whatever rung its context sets (10px in a nested sub-figure, 13-15px in a row, 20px on a card, 30px where the figure is the whole of a surface, 16-18px on the month bar).
 - **Mono** (400, 11px): keycaps and raw error strings only.
 
 ### Named Rules
@@ -310,7 +310,7 @@ Accent presence is the second, independent depth channel, and it is what makes t
 ### Shadow Vocabulary
 - **Furniture** (`box-shadow: 0 1px 2px rgba(0,0,0,0.4), 0 1px 1px rgba(0,0,0,0.3)`): the resting shadow of ordinary cards, buttons, month steppers, tiles and chips.
 - **Ranked** (`0 8px 24px -10px rgba(0,0,0,0.6), 0 2px 8px -4px rgba(0,0,0,0.45)`): the one lifted object on a screen, a button under the pointer, a popover menu, the feature cards at the top of Settings.
-- **Floating** (`0 30px 70px -22px rgba(0,0,0,0.75), 0 10px 28px -14px rgba(0,0,0,0.55)`): anything genuinely off the page, which is the modal, the drawer, the find bar, the toast and the suggestion list.
+- **Floating** (`0 30px 70px -22px rgba(0,0,0,0.75), 0 10px 28px -14px rgba(0,0,0,0.55)`): anything genuinely off the page, which is the modal, the sheet, the find bar, the toast and the suggestion list.
 - **Accent glow** (`--glow-sm` / `--glow-md`): reserved for surfaces filled with the accent, where a black shadow would do nothing. The primary button rests at the small glow and brightens to the medium one on hover.
 - **Inset highlight** (`inset 0 1px 0` at 6-26% white): a top-edge lift on filled and feature surfaces, so depth comes from light rather than from a gradient.
 
@@ -326,14 +326,14 @@ Accent presence is the second, independent depth channel, and it is what makes t
 
 Corners follow the box rather than the call site, on a five-step ramp read smallest-first: 6px, 8px, 10px, 14px, 20px, plus a pill.
 
-- **20px** frames a card: any `.panel`, a modal, a drawer's contents.
+- **20px** frames a card: any `.panel`, a modal, a sheet.
 - **14px** is the app's base radius, for objects that float over the page: the toast and the find bar.
 - **10px** is a control: buttons, banners, alert banners, the move menu, theme cards, restore alerts.
 - **8px** is a small control or an inset: icon buttons, nav items, inline fields, chip trays, tiles at the small size.
 - **6px** is a chip or a badge: the arithmetic preview, keycaps, segmented chips.
 - **999px** is a pill: the month bar's track and fills, the difference chip, the account chip, progress tracks, avatars, the group drop line.
 
-Borders are a graded set of three, and the grade is chosen by what the line carries rather than by taste. **Drawn Edge** (3:1 on Lamplit Slate) is the boundary or the state of something interactive, which per WCAG 1.4.11 has a real floor: buttons, month steppers, the active nav item, the account chip, keycaps, the sidebar and drawer edges. **Ruled Line** (2.30:1) is structure: card outlines, dividers, the progress track. **Ghost Rule** (1.90:1) is a rule between rows that already identify themselves. The lower two carry no WCAG floor but sit where they sit rather than lower, below which a hairline is invisible rather than subtle.
+Borders are a graded set of three, and the grade is chosen by what the line carries rather than by taste. **Drawn Edge** (3:1 on Lamplit Slate) is the boundary or the state of something interactive, which per WCAG 1.4.11 has a real floor: buttons, month steppers, the active nav item, the account chip, keycaps, the sidebar and sheet edges. **Ruled Line** (2.30:1) is structure: card outlines, dividers, the progress track. **Ghost Rule** (1.90:1) is a rule between rows that already identify themselves. The lower two carry no WCAG floor but sit where they sit rather than lower, below which a hairline is invisible rather than subtle.
 
 Two recurring geometries are worth naming. The **dissolving hairline** is a horizontal rule strongest at its centre and dissolving toward both edges, accent-tinted: it frames a chart on the Dashboard and grounds the Allocations column labels, standing in for axis spines the charts do not draw. The **drawn vessel** is the month bar's track, a full pill outlined by a pseudo-element rather than an inset shadow, so the ring runs unbroken around the whole bar and the fills are simply what is inside it.
 
@@ -385,8 +385,17 @@ Full-bleed and structural, sitting directly on the board rather than inside a ca
 ### The toast (signature)
 A floating strip on the board with a Drawn Edge border and the floating shadow, docked centred over the main column rather than the viewport. Its bottom hairline is consumed left to right over exactly the lifetime the store granted the message (2.6s for a confirmation, 6s when there is an Undo to catch), spanning precisely the straight run of the border between the two corner arcs, so what is revealed as it drains is the toast's own edge being eaten. Errors never expire and so carry no draining edge at all, which gives the two states a second, non-colour channel.
 
+### The wallet (signature)
+The Wallet opens as a **sheet**: a centred surface capped at 1120px and at the viewport less 56px, as tall as its own contents until it needs to scroll. It is the app's third overlay shape, between the modal (a question with two buttons under it) and nothing at all, and it exists because planning a month's transfers is a screen's worth of work rather than a dialog's. It takes the modal's veil, its `pop` keyframe and its focus trap unchanged.
+
+Inside it, an account is drawn as the **wallet silhouette**: a card with a semicircular cut in its bottom edge, at a fixed 16px in from the left, and a 46px slot broken through the hairline beside it. The cut is a half-disc of the surface behind the card, laid over the card's own bottom border and carrying that border round the arc, so the shape is a real cut rather than a drawn circle. Together the cut and the slot are the whole of what says "wallet": there is no wallet drawing on the card, which leaves the tile at the top-left free to carry the account's own glyph.
+
+The sheet is a **board**, not a card: what it holds is a screen's worth of cards, so the ramp inside it is the one a page uses (Midnight Board, Lamplit Slate cards, Inkwell insets) and the veil behind is what separates it from the page it floats over. A sheet filled as a card would leave every surface inside it a step up the ramp with nowhere to go, and every hairline grade a step below its own floor.
+
+A wallet card therefore departs from the card rules above in exactly one place: its corner is a control's 10px rather than a card's 20px, because it is a button in a grid of buttons. It is a button in the other respect too, so its edge takes the Drawn Edge grade rather than a card's Ghost Rule. The detail panel beside it is read rather than pressed, so it is a plain `.panel` at a card's 20px. A single radial wash at a card's top-right is the only depth on it, and that wash is what turns accent on the selected wallet, so selection is carried by a fill as well as by the accent edge.
+
 ### Motion
-Transitions are short and property-scoped: 120-140ms on state (colour, background, border, transform), 180ms on a rotation, 300-350ms on a quantity settling into place. The three overlays (modal, find bar, toast) share one keyframe, an exponential ease-out with no overshoot (`cubic-bezier(.16, 1, .3, 1)`): fast out of the gate, long settle, nothing to recover from, because a dialog in a money app springing past where it means to land is not a texture this app wants. Reduced motion collapses every animation and transition, drops the two hover lifts, and holds the toast's edge full rather than emptying it a frame after it appears.
+Transitions are short and property-scoped: 120-140ms on state (colour, background, border, transform), 180ms on a rotation, 300-350ms on a quantity settling into place. The four overlays (modal, sheet, find bar, toast) share one keyframe, an exponential ease-out with no overshoot (`cubic-bezier(.16, 1, .3, 1)`): fast out of the gate, long settle, nothing to recover from, because a dialog in a money app springing past where it means to land is not a texture this app wants. Reduced motion collapses every animation and transition, drops the two hover lifts, and holds the toast's edge full rather than emptying it a frame after it appears.
 
 ### Named Rules
 
@@ -422,5 +431,5 @@ Transitions are short and property-scoped: 120-140ms on state (colour, backgroun
 - **Don't** write a length or a colour inline in JSX unless it genuinely cannot be known until runtime.
 - **Don't** snap an unrunged value to a near rung, and don't invent a token to cover it. Leave the literal in CSS where it is greppable.
 - **Don't** normalise two near-identical rules into one without checking the pixels: several pairs in this system differ by two or three declarations on purpose, and each of those differences is documented at the rule.
-- **Don't** use blur or translucency as decoration. It appears twice, on the modal and drawer veils, and nowhere else.
+- **Don't** use blur or translucency as decoration. It appears twice, on the modal and sheet veils, and nowhere else.
 - **Don't** add a third tier of small-caps label, or a fourth tile size, or a fourth shadow rung. Each of those ladders is closed on purpose.

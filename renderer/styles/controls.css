@@ -322,7 +322,7 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
    a form row, md a tile in a list of records, lg a tile standing alone on an
    empty screen. The glyph steps 16 / 17 / 22 with them, at the component.
 
-   The two brand marks - the sidebar's monogram and the Wallet drawer's - sit
+   The two brand marks - the sidebar's monogram and the Wallet's - sit
    on the md rung and take its 34px and 9px, but are not tiles: they carry a
    gradient, a glow and a monogram that cross-fades, and none of that belongs
    to a record's icon. See .brand-mark and .wallet-head-mark. */
@@ -339,7 +339,8 @@ select.btn optgroup, select.tinput optgroup, select.sel optgroup {
    A figure with a caption, drawn by Stat in ui/readouts.jsx.
 
    Three sizes, and only the figure moves between them: 15 in a dialog's
-   summary strip, 20 on a card, 30 at the head of a drawer. The label holds at
+   summary strip, 20 on a card, 30 where the figure is the whole of a
+   surface. The label holds at
    one size on every rung for the reason .eyebrow does - a caption is a
    caption, and three sizes of it would be a vocabulary with nothing to say. */
 .stat-label { font-size: var(--text-11); color: var(--muted); margin-bottom: var(--space-2); }

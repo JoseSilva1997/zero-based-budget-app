@@ -4,7 +4,7 @@
    Never reaches a production bundle - the component is compiled out - but the
    rules live here rather than inline so the button obeys the same tokens as
    everything else, and so this file stays the one place a surface colour is
-   decided. z-index sits above the toast (80) and the drawer veil (70): a debug
+   decided. z-index sits above the toast (80) and the sheet veil (70): a debug
    tool that a dialog can bury is a debug tool you cannot reach when a dialog
    is the thing you are debugging.
    ============================================================ */
