@@ -10,13 +10,25 @@
    'dispatch' maps the action objects the components emit to the matching
    granular IPC call, so screens issue, e.g., { type: "addItem", ... } and the
    store performs the corresponding 'item:add' write plus a refetch.
+
+   It resolves to { ok, value } once the write AND its refetch have landed, so
+   a screen that has to know the outcome can await it instead of watching the
+   month tree for its own edit to appear. It never rejects: a failed write is
+   already reported as an error toast here, and a rejection would make every
+   fire-and-forget call site an unhandled one. Following the preload's own
+   contract, 'value' carries the newly-inserted row for the add actions and is
+   undefined for the rest.
    ============================================================ */
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
-import { api, hasApi, spentOn, dayFromMonthDay } from "./lib/api.js";
-import { THEME_IDS, buildEmpty, monthLabel } from "./lib/index.js";
+import { api, can, hasApi, spentOn, dayFromMonthDay } from "./lib/api.js";
+import { THEME_IDS, DEFAULT_THEME_ID, buildEmpty, monthLabel } from "./lib/index.js";
 
 const DEFAULT_COLOR = "#7a7a7a";
 const StoreContext = createContext(null);
+
+/* What a write that never reached SQL resolves to. Frozen and shared: every
+   refusal is the same answer, and nothing downstream may write into it. */
+const REFUSED = Object.freeze({ ok: false, value: undefined });
 
 /* ---------- shape adapters (SQL read models -> blob the UI expects) ------- */
 
@@ -26,12 +38,14 @@ function treeToBlobMonth(tree) {
 }
 
 function settingsFromBootstrap(bs) {
-  const theme = THEME_IDS.includes(bs.settings.theme) ? bs.settings.theme : "indigo";
+  // A persisted id the app does not ship falls back rather than failing.
+  const theme = THEME_IDS.includes(bs.settings.theme) ? bs.settings.theme : DEFAULT_THEME_ID;
   return {
     currency: bs.settings.currency || "$",
     theme,
     autoBackup: bs.settings.autoBackup || "onclose",
     lastBackup: bs.settings.lastBackup || null,
+    sidebarCollapsed: bs.settings.sidebarCollapsed === true,
     members: (bs.settings.members || []).map((m) => ({
       id: m.id,
       name: m.name,
@@ -97,6 +111,9 @@ function humanError(raw, actionType) {
     }
     return "That can't be removed while something else still refers to it.";
   }
+  if (/UNIQUE constraint failed/i.test(m)) {
+    return "That month is already in your budget. Step to it with the month arrows, or open it from History, rather than creating it again.";
+  }
   if (/SQLITE_BUSY|database is locked/i.test(m)) {
     return "Your budget file is busy. If House Budget is open in another window, close it and try again.";
   }
@@ -114,8 +131,8 @@ function humanError(raw, actionType) {
 export function StoreProvider({ children }) {
   const [state, setState] = useState(null); // { settings, months, order, activeMonth }
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null); // { message, id } - recoverable, shown as a toast
   const [fatal, setFatal] = useState(null); // Error - the app never came up
+  const [toastMsg, setToastMsg] = useState(null); // { message, tone, action } - the one live toast
 
   const stateRef = useRef(state);
   const monthListRef = useRef([]); // [{ id, month }]
@@ -131,20 +148,49 @@ export function StoreProvider({ children }) {
     []
   );
 
+  /* ---- toast ----
+     The store owns it because the store is where failures are found: 'raise'
+     can then report one without a round trip through the app shell. Errors
+     never expire, since a message you can miss is a message that lets a failed
+     write read as a success. An offered action gets longer than a bare
+     confirmation, because it has to be read and then acted on. */
+  const toastTimer = useRef(null);
+  // 'seq' exists so the view can key on it. Two identical messages in a row
+  // produce two equal strings, React keeps the same DOM node, and the entrance
+  // and the draining edge never restart: the second confirmation arrives
+  // already half expired. A counter makes every toast a distinct object.
+  const toastSeq = useRef(0);
+  const toast = useCallback((message, tone = "success", action) => {
+    // The lifetime is decided here and carried ON the message, because the
+    // toast draws it: its bottom edge empties over exactly this long. A second
+    // copy of these numbers in the view would drift, and the drift would show
+    // as an edge that runs out before the toast does. 0 means "never", which is
+    // what an error gets - a message you can miss is a message that lets a
+    // failed write read as a success.
+    const duration = tone === "error" ? 0 : action ? 6000 : 2600;
+    setToastMsg({ id: (toastSeq.current += 1), message, tone, action, duration });
+    clearTimeout(toastTimer.current);
+    if (duration) toastTimer.current = setTimeout(() => setToastMsg(null), duration);
+  }, []);
+  const dismissToast = useCallback(() => {
+    clearTimeout(toastTimer.current);
+    setToastMsg(null);
+  }, []);
+
   const raise = useCallback((err, actionType) => {
     const raw = err instanceof Error ? err.message : String(err);
     console.error("[store]", actionType || "", raw);
-    setError({ message: humanError(raw, actionType), id: Date.now() + Math.random() });
-  }, []);
+    toast(humanError(raw, actionType), "error");
+  }, [toast]);
 
   /* ---- full (re)hydrate from SQL ----
      The renderer is a view layer: it holds only the ACTIVE month's tree (plus
      settings + the month-key list). Other months are fetched on demand. */
   const reload = useCallback(async () => {
-    // 'finally', not a trailing call: a throw here used to leave 'loading' true
-    // forever, which showed as a loading screen that never resolved.
+    // 'finally', not a trailing call: a throw here would otherwise leave
+    // 'loading' true forever, showing as a loading screen that never resolves.
     try {
-      if (!hasApi) {
+      if (!hasApi()) {
         const empty = buildEmpty();
         monthListRef.current = empty.order.map((k) => ({ id: k, month: k }));
         setState(empty);
@@ -177,7 +223,7 @@ export function StoreProvider({ children }) {
   /* ---- targeted refreshes ---- */
   const refreshMonth = useCallback(async (key) => {
     const id = idForKey(key);
-    if (id == null || !hasApi) return;
+    if (id == null || !hasApi()) return;
     const tree = await api.getMonth(id);
     setState((s) => {
       if (!s) return s;
@@ -189,7 +235,7 @@ export function StoreProvider({ children }) {
   }, [idForKey]);
 
   const refreshSettings = useCallback(async () => {
-    if (!hasApi) return;
+    if (!hasApi()) return;
     const bs = await api.bootstrap();
     setState((s) => (s ? { ...s, settings: settingsFromBootstrap(bs) } : s));
   }, []);
@@ -213,9 +259,9 @@ export function StoreProvider({ children }) {
   /* ---- action dispatch: map each action to its granular IPC call ---- */
   const dispatch = useCallback(
     (action) => {
-      if (!hasApi) {
+      if (!hasApi()) {
         raise(new Error("This action needs the desktop app."));
-        return;
+        return Promise.resolve(REFUSED);
       }
       const A = action;
       const mk = A.month || (stateRef.current ? stateRef.current.activeMonth : "");
@@ -235,9 +281,11 @@ export function StoreProvider({ children }) {
             return;
           }
 
-          case "addIncome":
-            await api.incomeAdd(idForKey(mk), Number(A.memberId));
-            return refreshMonth(mk);
+          case "addIncome": {
+            const row = await api.incomeAdd(idForKey(mk), Number(A.memberId));
+            await refreshMonth(mk);
+            return row;
+          }
           case "updateIncome":
             await api.incomeUpdate(Number(A.id), normIncomePatch(A.patch));
             return refreshMonth(mk);
@@ -268,14 +316,16 @@ export function StoreProvider({ children }) {
             await api.groupUpdate(Number(A.groupId), { isSavings: !!A.value });
             return refreshMonth(mk);
 
-          case "addActual":
-            await api.actualAdd(Number(A.itemId), {
+          case "addActual": {
+            const row = await api.actualAdd(Number(A.itemId), {
               amount: A.amount,
               name: A.name || "",
               note: A.note || "",
               spent_on: spentOn(mk, A.day),
             });
-            return refreshMonth(mk);
+            await refreshMonth(mk);
+            return row;
+          }
           case "updateActual":
             await api.actualUpdate(Number(A.id), normActualPatch(mk, A.patch));
             return refreshMonth(mk);
@@ -283,19 +333,23 @@ export function StoreProvider({ children }) {
             await api.actualRemove(Number(A.id));
             return refreshMonth(mk);
 
-          case "addGroup":
-            await api.groupAdd(idForKey(mk), A.name);
-            return refreshMonth(mk);
+          case "addGroup": {
+            const row = await api.groupAdd(idForKey(mk), A.name);
+            await refreshMonth(mk);
+            return row;
+          }
           case "deleteGroup":
             await api.groupDelete(Number(A.groupId));
             return refreshMonth(mk);
-          case "addItem":
-            await api.itemAdd(Number(A.groupId), {
+          case "addItem": {
+            const row = await api.itemAdd(Number(A.groupId), {
               name: A.name,
               allocated: A.allocated,
               account: idify(A.account),
             });
-            return refreshMonth(mk);
+            await refreshMonth(mk);
+            return row;
+          }
           case "deleteItem":
             await api.itemDelete(Number(A.itemId));
             return refreshMonth(mk);
@@ -306,6 +360,13 @@ export function StoreProvider({ children }) {
           case "reorderItem":
             await api.itemReorder(Number(A.groupId), Number(A.itemId), Number(A.targetId));
             return refreshMonth(mk);
+          case "moveItem":
+            await api.itemMove(
+              Number(A.itemId),
+              Number(A.toGroupId),
+              A.targetId == null ? null : Number(A.targetId)
+            );
+            return refreshMonth(mk);
 
           case "createMonth":
             await api.monthCreate({
@@ -315,14 +376,28 @@ export function StoreProvider({ children }) {
             });
             return reload();
 
+          case "deleteMonth": {
+            const monthId = idForKey(A.id);
+            if (monthId == null || typeof api.monthDelete !== "function") return;
+            await api.monthDelete(monthId);
+            // Land on the neighbour before rehydrating, so the user is returned
+            // to a month that still exists rather than whichever one is last.
+            if (A.next) await api.monthSetActive(A.next);
+            await reload();
+            toast(`${monthLabel(A.id).short} deleted.`);
+            return;
+          }
+
           case "updateSettings":
             setState((s) => (s ? { ...s, settings: { ...s.settings, ...A.patch } } : s));
             await api.settingsUpdate(A.patch);
             return;
 
-          case "addMember":
-            await api.memberAdd({ name: A.name, color: A.color });
-            return refreshSettings();
+          case "addMember": {
+            const row = await api.memberAdd({ name: A.name, color: A.color });
+            await refreshSettings();
+            return row;
+          }
           case "updateMember":
             await api.memberUpdate(Number(A.id), A.patch);
             return refreshSettings();
@@ -330,9 +405,11 @@ export function StoreProvider({ children }) {
             await api.memberRemove(Number(A.id));
             return refreshSettings();
 
-          case "addAccount":
-            await api.accountAdd({ name: A.name, color: A.color, kind: A.accType, owner: null });
-            return refreshSettings();
+          case "addAccount": {
+            const row = await api.accountAdd({ name: A.name, color: A.color, kind: A.accType, owner: null });
+            await refreshSettings();
+            return row;
+          }
           case "updateAccount":
             await api.accountUpdate(Number(A.id), normAccountPatch(A.patch));
             return refreshSettings();
@@ -350,14 +427,40 @@ export function StoreProvider({ children }) {
             return;
         }
       };
-      run().catch((err) => raise(err, A.type));
+      return run().then(
+        (value) => ({ ok: true, value }),
+        (err) => { raise(err, A.type); return REFUSED; }
+      );
     },
-    [idForKey, refreshMonth, refreshSettings, reload, raise]
+    [idForKey, refreshMonth, refreshSettings, reload, raise, toast]
   );
+
+  /* Backups are offered from two places, the Settings screen and the
+     application menu, so the sequence - write the snapshot, pick up the
+     'lastBackup' it set, say so - lives here rather than being spelled out at
+     both and drifting. */
+  const backupNow = useCallback(async () => {
+    // channel: "backup:create" - no input (the DB is already current), returns
+    // { path, savedAt }.
+    if (!can("createBackup")) {
+      toast("Backups need the desktop app", "error");
+      return false;
+    }
+    try {
+      await api.createBackup();
+      await refreshSettings();
+      toast("Backup saved to your data folder");
+      return true;
+    } catch (err) {
+      console.error("backup:create failed", err);
+      toast(`Backup failed. ${err.message}`, "error");
+      return false;
+    }
+  }, [refreshSettings, toast]);
 
   /* ---- on-demand SQL reads for cross-month views ---- */
   const trends = useCallback(async () => {
-    if (!hasApi) return [];
+    if (!hasApi()) return [];
     const points = await api.trends();
     // Key each point by its month string and attach a display label, matching
     // what the Dashboard/History components and charts expect.
@@ -365,7 +468,7 @@ export function StoreProvider({ children }) {
   }, []);
 
   const reusableItems = useCallback(async (query) => {
-    if (!hasApi || !stateRef.current) return [];
+    if (!hasApi() || !stateRef.current) return [];
     const id = idForKey(stateRef.current.activeMonth);
     if (id == null) return [];
     const list = await api.reusableItems(id, query || "");
@@ -375,7 +478,7 @@ export function StoreProvider({ children }) {
   /* Past spending-entry names for the central quick-entry field. The month is
      the ACTIVE one, because that is where a chosen suggestion has to land. */
   const entrySuggestions = useCallback(async (query) => {
-    if (!hasApi || !stateRef.current) return [];
+    if (!hasApi() || !stateRef.current) return [];
     const id = idForKey(stateRef.current.activeMonth);
     if (id == null) return [];
     const list = await api.entrySuggestions(id, query || "");
@@ -383,7 +486,7 @@ export function StoreProvider({ children }) {
   }, [idForKey]);
 
   const getMonth = useCallback(async (key) => {
-    if (!hasApi) return null;
+    if (!hasApi()) return null;
     const id = idForKey(key);
     if (id == null) return null;
     const tree = await api.getMonth(id);
@@ -393,12 +496,15 @@ export function StoreProvider({ children }) {
   const value = {
     state,
     loading,
-    error,
     fatal,
     retry,
+    toast,
+    toastMsg,
+    dismissToast,
     dispatch,
     reload,
     refreshSettings,
+    backupNow,
     trends,
     reusableItems,
     entrySuggestions,

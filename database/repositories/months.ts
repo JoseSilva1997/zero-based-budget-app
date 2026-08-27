@@ -28,7 +28,7 @@ import type {
   EntrySuggestion,
 } from '../../shared/types';
 import { centsToDollars, toMonthDay } from '../conversions';
-import { setMeta } from './meta';
+import { getMeta, setMeta } from './meta';
 import { patchById, nextSortOrder } from './_sql';
 import { listAccounts } from './accounts';
 
@@ -243,6 +243,70 @@ export function reorderItems(
   const dest = ids.indexOf(targetId);
   ids.splice(dest + (from < to ? 1 : 0), 0, id);
   writeOrder(db, 'budget_items', ids);
+}
+
+/**
+ * Move an item into another group in the same month. 'targetId' is the item in
+ * the destination to land BEFORE; null appends. Both groups have their
+ * sort_order rewritten: the destination so the item lands where the drop-line
+ * promised, the source so it stays dense and a later insert cannot land in the
+ * gap the move left behind.
+ */
+export function moveItem(
+  db: Database.Database,
+  id: number,
+  toGroupId: number,
+  targetId: number | null
+): void {
+  const tx = db.transaction(() => {
+    const item = db.prepare(`SELECT budget_group_id FROM budget_items WHERE id = ?`).get(id) as
+      | { budget_group_id: number }
+      | undefined;
+    // A drop can land after its own row was deleted elsewhere. Nothing to move
+    // is not a failure worth reporting.
+    if (!item) return;
+    const fromGroupId = item.budget_group_id;
+
+    // Staying put is a reorder, and reorder already owns the rules for which
+    // side of the target the row lands on. Delegating keeps one copy of them.
+    if (fromGroupId === toGroupId) {
+      if (targetId != null) reorderItems(db, toGroupId, id, targetId);
+      return;
+    }
+
+    const where = db
+      .prepare(
+        `SELECT (SELECT budget_month_id FROM budget_groups WHERE id = ?) AS src,
+                (SELECT budget_month_id FROM budget_groups WHERE id = ?) AS dest`
+      )
+      .get(fromGroupId, toGroupId) as { src: number | null; dest: number | null };
+    if (where.dest == null) {
+      throw new Error('That group is no longer in your budget, so the item could not be moved.');
+    }
+    // The UI cannot produce this. A silent no-op would hide the bug that did,
+    // and a silent success would put an item in a month it does not belong to.
+    if (where.src !== where.dest) {
+      throw new Error('An item can only be moved to a group in the same month.');
+    }
+
+    db.prepare(`UPDATE budget_items SET budget_group_id = ? WHERE id = ?`).run(toGroupId, id);
+
+    const destIds = listItems(db, toGroupId)
+      .map((r) => r.id)
+      .filter((x) => x !== id);
+    // An unknown target (deleted mid-drag) falls back to the end rather than
+    // dropping the item at the front by accident.
+    const at = targetId == null ? -1 : destIds.indexOf(targetId);
+    destIds.splice(at < 0 ? destIds.length : at, 0, id);
+    writeOrder(db, 'budget_items', destIds);
+
+    writeOrder(
+      db,
+      'budget_items',
+      listItems(db, fromGroupId).map((r) => r.id)
+    );
+  });
+  tx();
 }
 
 /* ---------- month copy --------------------------------------------------- */
@@ -832,6 +896,59 @@ export function actualEntrySuggestions(
 }
 
 /* ---------- destructive helpers ------------------------------------------ */
+
+/**
+ * Deletes a month, but only an empty one. budget_groups and budget_incomes
+ * cascade from budget_months, so an unguarded delete would take a year of
+ * entries with it; the only month worth removing is one nobody has used yet
+ * (typically a mis-pressed Ctrl+N). The guards live here rather than in the IPC
+ * handler so the invariant holds for every caller. Returns the active month key
+ * as it stands afterwards.
+ */
+export function deleteMonth(db: Database.Database, id: number): string | null {
+  const tx = db.transaction(() => {
+    const month = db.prepare(`SELECT * FROM budget_months WHERE id = ?`).get(id) as
+      | BudgetMonth
+      | undefined;
+    if (!month) {
+      throw new Error('That month is no longer in your budget, so there is nothing to delete.');
+    }
+
+    const remaining = listMonths(db).filter((m) => m.id !== id); // month key ascending
+    if (remaining.length === 0) {
+      throw new Error(
+        "That's the only month in your budget, so it can't be deleted. Create the month you want to keep first, then delete this one."
+      );
+    }
+
+    const used = db
+      .prepare(
+        `SELECT (SELECT COUNT(*) FROM budget_groups  WHERE budget_month_id = ?) AS groups,
+                (SELECT COUNT(*) FROM budget_incomes WHERE budget_month_id = ?) AS incomes`
+      )
+      .get(id, id) as { groups: number; incomes: number };
+    if (used.groups > 0 || used.incomes > 0) {
+      throw new Error(
+        "That month still has income or groups in it, so it can't be deleted. Only an empty month can be removed, so clear it out first if you really want it gone."
+      );
+    }
+
+    db.prepare(`DELETE FROM budget_months WHERE id = ?`).run(id);
+
+    // The active month is stored as a key, not an id, so deleting the month the
+    // user is sitting on would leave app_meta pointing at nothing. Step to the
+    // nearest surviving month (the one before it where there is one) instead of
+    // leaving the next launch to guess.
+    const active = getMeta(db, 'activeMonth');
+    if (active !== month.month) return active;
+
+    const earlier = remaining.filter((m) => m.month < month.month);
+    const neighbour = earlier.length ? earlier[earlier.length - 1] : remaining[0];
+    setActiveMonth(db, neighbour.month);
+    return neighbour.month;
+  });
+  return tx();
+}
 
 /** Deletes all months (cascades to incomes, groups, items, actual entries). */
 export function deleteAllMonths(db: Database.Database): void {

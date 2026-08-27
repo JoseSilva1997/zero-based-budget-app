@@ -1,0 +1,72 @@
+/* ============================================================
+   Breakpoints
+
+   Imported LAST of the component files, immediately before motion.css, and
+   that position is the whole point. A media query adds no specificity, so a
+   breakpoint rule only beats the rule it narrows by coming later in the
+   cascade. Anything that narrows a layout belongs after everything that builds
+   it, so this file must keep its place: nothing below it but motion.css, which
+   is last for the same reason and is about the user's setting rather than the
+   window's width.
+
+   ------------------------------------------------------------
+
+   Placed where this layout actually breaks, not at device sizes. Two things
+   have to give as the window narrows: the sidebar, and the budget grid, whose
+   four fixed columns plus gaps, row padding, drag handle and card border come
+   to 620px before the item name gets anything at all. At a 960px window that
+   leaves the name column 32px wide, 26px of it usable, and it also has to
+   carry the funding account chip underneath.
+
+   >= 1200px  five columns, full sidebar. Name column 272px at 1200.
+   < 1200px   the Difference column is dropped. It is the only derived column
+              on the row (allocated minus actual), both of its inputs stay on
+              screen next to it, and the mini bar beside it already says the
+              same thing, so it is the one column that costs nothing to lose.
+              Sidebar and page padding tighten with it. Name column 308px at
+              1024, which is more than the five-column layout gives.
+   < 1024px   the money columns give up their slack too. Below the window
+              minimum this tier is reached only through the View menu's zoom,
+              which shrinks the CSS viewport under the window, so it is a
+              graceful-degradation tier rather than a window size. Name column
+              250px at 880 CSS px, 138px at 768.
+
+   The rail is deliberately NOT here. .app[data-panel="rail"] sets --sidebar-w
+   on .app itself, and a declaration on the element beats one inherited from
+   :root whatever media query wrote it, so a collapsed panel stays 64px at
+   every width without this file having to know about it.
+   ============================================================ */
+@media (max-width: 1199px) {
+  :root {
+    --sidebar-w: 208px;
+    --budget-cols: 1fr 150px 158px 78px;
+  }
+  .main-inner { padding: 26px 28px 72px; }
+  /* Both halves of dropping the column: the header cell and the item row's
+     cell. .item-diff-cell has to be named explicitly, because budget.css gives
+     it a display of its own at the same specificity; this only wins by being
+     imported later. */
+  .col-diff, .item-diff-cell { display: none; }
+}
+@media (max-width: 1023px) {
+  :root {
+    --sidebar-w: 184px;
+    --budget-cols: 1fr 136px 144px 68px;
+  }
+  .main-inner { padding: 22px 20px 64px; }
+  .sidebar { padding: 16px 12px; }
+  /* The brand shrinks with the column: at 184px the tile and the name cannot
+     both keep their full size on one line (see .brand-name in shell.css). */
+  .brand { gap: 10px; padding: 8px 4px 24px; }
+  .brand-mark { width: 32px; height: 32px; font-size: var(--text-12); }
+  .brand-name { font-size: var(--text-14); line-height: 20px; }
+  .brand-sub { font-size: var(--text-11); line-height: 15px; }
+  /* The nav items give up their slack here so the longest label still fits on
+     the one line .nav-item holds it to: at 184px, "Month Budget" set at 14px
+     and weight 700 is wider than the room left beside a 20px icon. */
+  .nav-item { padding: 10px 12px; gap: 10px; font-size: var(--text-13); }
+  .nav-item svg { width: 18px; height: 18px; }
+  .month-title .mo, .page-title { font-size: var(--text-28); }
+  .find-bar { right: 20px; }
+  .app.find-open .main-inner { padding-top: 76px; }
+}

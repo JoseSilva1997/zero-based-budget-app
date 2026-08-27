@@ -5,6 +5,9 @@ release/
 *.log
 .DS_Store
 
+# captures from the dev-only debug menu (main/ipc/debug.ts writes here)
+screenshots/
+
 # local SQLite artefacts if a DB is ever created in-tree during testing
 *.sqlite
 *.sqlite-wal
@@ -14,3 +17,7 @@ docs/
 
 # skills
 .impeccable/
+.claude/skills/screenshot-app/.sandbox-userdata/
+# private fixture DBs from screenshot.mjs --sandbox (parallel or data-mutating runs)
+.claude/skills/screenshot-app/.sandbox-*/
+.claude/skills/screenshot-app/out/

@@ -3,15 +3,24 @@
    Trailing 12-month window; degrades gracefully with less data.
    ============================================================ */
 import { useEffect, useMemo, useState } from 'react';
-import { ChartCard, Icons } from './components.jsx';
+import { Alert, ChartCard, EmptyState, Icons, PageHeader } from './ui/index.js';
 import { useStore } from './store.jsx';
 import { BudgetAccuracyChart, CategoryTrends, CumulativeSavingsChart, HeadlineStats, SavingsChart, SpendingTiming } from './DashboardCharts.jsx';
 
 function DashboardScreen({ currency, onOpenMonth }) {
   const { trends } = useStore();
   const [allSeries, setAllSeries] = useState([]);
+  // An empty dashboard and a failed read look identical, so the failure is
+  // kept and said out loud rather than passed off as "no data yet".
+  const [loadError, setLoadError] = useState(null);
   // SQL-computed per-month series; refetched whenever this screen mounts.
-  useEffect(() => { let live = true; trends().then((s) => { if (live) setAllSeries(s); }); return () => { live = false; }; }, [trends]);
+  useEffect(() => {
+    let live = true;
+    trends()
+      .then((s) => { if (live) { setAllSeries(s); setLoadError(null); } })
+      .catch((err) => { console.error("trends:series failed", err); if (live) setLoadError(err.message || String(err)); });
+    return () => { live = false; };
+  }, [trends]);
   const series = useMemo(() => allSeries.slice(-12), [allSeries]);
   const hasAnyData = allSeries.some(s => s.actual > 0 || s.savings > 0);
   const windowLabel = series.length >= 2
@@ -20,48 +29,51 @@ function DashboardScreen({ currency, onOpenMonth }) {
 
   return (
     <div className="fade-in">
-      <div className="topbar">
-        <div>
-          <div className="page-title">Dashboard</div>
-          <div className="page-sub">
-            Overview of your spending &amp; saving habits{windowLabel ? ` · ${windowLabel}` : ""}
-          </div>
-        </div>
-      </div>
+      {/* The window is the only thing in the sub-line the figures below don't
+          already say. */}
+      <PageHeader title="Dashboard" sub={windowLabel || "No months tracked yet"} />
+
+      {loadError && (
+        <Alert banner>Your months couldn't be read, so this overview is empty rather than complete. {loadError}</Alert>
+      )}
 
       {/* 1. headline stats */}
       <HeadlineStats allSeries={allSeries} series={series} currency={currency} />
 
       {!hasAnyData ? (
-        <div className="card empty" style={{ marginTop: 16 }}>
-          <div className="empty-icon"><Icons.monitor size={22} /></div>
-          <div style={{ fontWeight: 600, color: "var(--ink-2)" }}>Your overview will appear here</div>
-          <div style={{ fontSize: 13, maxWidth: 340 }}>Enter a month's actual spending and savings, and the dashboard will start charting your trends and habits over time.</div>
-        </div>
+        <EmptyState icon={Icons.monitor} title="Your overview will appear here" className="dash-empty">
+          Enter a month's actual spending and savings, and the dashboard will start charting your trends and habits over time.
+        </EmptyState>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 16 }}>
+        <div className="dash-grid">
+          {/* Each card's title carries the whole of what the card is, so `sub`
+              is only spent on the two conventions a title cannot state: what
+              the second series is, and what the row of months underneath
+              does. */}
+
           {/* 2. savings over time */}
-          <ChartCard title="Savings over time" sub="What you set aside each month, and how much of your income that was.">
-            <SavingsChart series={series} currency={currency} />
+          <ChartCard title="Saved each month" sub="Month labels open that month.">
+            <SavingsChart series={series} currency={currency} onOpenMonth={onOpenMonth} />
           </ChartCard>
 
-          {/* 6. category trends (compact, sits beside savings) */}
-          <ChartCard title="Category trends" sub="Direction & size of change, recent months vs earlier.">
+          {/* 6. category trends. Stretched to the savings chart's row height
+              so the two cards' bottom rules land on the same line. */}
+          <ChartCard title="Category trends" stretch>
             <CategoryTrends series={series} currency={currency} />
           </ChartCard>
 
           {/* 4. cumulative savings by goal */}
-          <ChartCard title="Cumulative savings by goal" sub="Your nest egg growing over time, split by what you're saving toward." wide>
-            <CumulativeSavingsChart series={series} currency={currency} />
+          <ChartCard title="Savings by goal, adding up" wide>
+            <CumulativeSavingsChart series={series} currency={currency} onOpenMonth={onOpenMonth} />
           </ChartCard>
 
           {/* 5. budget accuracy */}
-          <ChartCard title="Budget accuracy" sub="Allocated vs actual each month, and which categories chronically run over." wide>
-            <BudgetAccuracyChart series={series} currency={currency} />
+          <ChartCard title="Planned against spent" sub="Outlined bar is the plan, solid is what went out." wide>
+            <BudgetAccuracyChart series={series} currency={currency} onOpenMonth={onOpenMonth} />
           </ChartCard>
 
           {/* 7. spending timing (de-emphasised) */}
-          <ChartCard title="Spending timing" sub="Average spend by day of the month - does money tend to go out early or late?" wide>
+          <ChartCard title="When money leaves in the month" wide>
             <SpendingTiming series={series} currency={currency} />
           </ChartCard>
         </div>

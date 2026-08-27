@@ -2,25 +2,30 @@
    Auto-update (electron-updater), driven from the main process.
 
    Checks the GitHub releases feed named by the `publish` block in
-   package.json, downloads a newer installer in the background, and tells the
-   renderer what is happening so it can show a banner. Nothing here ever blocks
-   startup, opens a dialog, or throws: an offline machine, a rate-limited
-   GitHub or a release with no latest.yml all resolve to an 'error' status that
-   the UI is free to ignore.
+   package.json and tells the renderer what is happening so it can show a
+   banner. Nothing is downloaded until the user asks for it: the check only
+   reports that a version is available, and downloadUpdate() starts the
+   transfer. Nothing here ever blocks startup, opens a dialog, or throws: an
+   offline machine, a rate-limited GitHub or a release with no latest.yml all
+   resolve to an 'error' status that the UI is free to ignore.
 
    The latest status is cached because the renderer mounts after the first
    check can fire. A late listener calls getUpdateStatus() to catch up.
 
    Disabled unless the app is packaged, unless a dev-app-update.yml sits in the
-   app root, which forces the real feed on for local testing.
+   app root, which forces the real feed on for local testing, or an update
+   simulation is requested (see updater-sim.ts) to look at the UI in dev.
    ============================================================ */
 import { app, BrowserWindow } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import * as path from 'path';
 import * as fs from 'fs';
 import type { UpdateStatus } from '../shared/types';
+import { requestedScenario, createUpdateSim, type UpdateSim } from './updater-sim';
 
 let enabled = false;
+/** Non-null only in dev with --update-sim; replaces every electron-updater call. */
+let sim: UpdateSim | null = null;
 let lastStatus: UpdateStatus = { state: 'idle' };
 /** Set on 'update-available'; download-progress events do not carry a version. */
 let pendingVersion = '';
@@ -47,6 +52,16 @@ export function getUpdateStatus(): UpdateStatus {
  * exists. Safe to call in dev: it simply does nothing.
  */
 export function initUpdater(): void {
+  // Simulation short-circuits the whole thing: no feed, no listeners, no
+  // installer. checkForUpdates/downloadUpdate/installUpdate route to the sim.
+  const scenario = requestedScenario();
+  if (scenario) {
+    enabled = true;
+    sim = createUpdateSim(scenario, broadcast);
+    console.log(`[updater] SIMULATION "${scenario}": faking the feed, nothing will be downloaded`);
+    return;
+  }
+
   const devConfig = path.join(app.getAppPath(), 'dev-app-update.yml');
   if (!app.isPackaged) {
     if (!fs.existsSync(devConfig)) {
@@ -60,10 +75,11 @@ export function initUpdater(): void {
 
   enabled = true;
 
-  // Download in the background as soon as something is available, then let the
-  // user choose when to restart. A pending update also installs on quit, so
-  // dismissing the banner delays the restart rather than skipping the update.
-  autoUpdater.autoDownload = true;
+  // Never download behind the user's back: a check that finds something stops
+  // at 'available' and waits for downloadUpdate(). Once a download has
+  // finished, the user still chooses when to restart, and the update installs
+  // on quit either way.
+  autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
 
   autoUpdater.on('checking-for-update', () => {
@@ -104,8 +120,8 @@ export function initUpdater(): void {
 
 /**
  * Ask GitHub whether a newer version exists. Resolves to the status reached by
- * the time the check settles ('available' or 'none'); the download that may
- * follow reports itself through the pushed events.
+ * the time the check settles ('available' or 'none'). Nothing is fetched here;
+ * an 'available' result is an offer the user accepts via downloadUpdate().
  */
 export async function checkForUpdates(): Promise<UpdateStatus> {
   if (!enabled) return lastStatus;
@@ -117,6 +133,11 @@ export async function checkForUpdates(): Promise<UpdateStatus> {
     lastStatus.state === 'downloading' ||
     lastStatus.state === 'downloaded'
   ) {
+    return lastStatus;
+  }
+
+  if (sim) {
+    await sim.check();
     return lastStatus;
   }
 
@@ -132,6 +153,35 @@ export async function checkForUpdates(): Promise<UpdateStatus> {
 }
 
 /**
+ * Start downloading the update the last check found. Only meaningful from the
+ * 'available' state: a download already running, or one that finished, is left
+ * alone so a double-click cannot stack up two transfers. Progress and the
+ * final 'downloaded' status arrive through the pushed events.
+ */
+export async function downloadUpdate(): Promise<UpdateStatus> {
+  if (!enabled || lastStatus.state !== 'available') return lastStatus;
+
+  // Taken from the offer rather than pendingVersion, which only the real feed
+  // fills in. download-progress can take a moment to fire, and the banner
+  // should react to the click straight away rather than sitting on "Download".
+  const version = lastStatus.version;
+  broadcast({ state: 'downloading', version, percent: 0 });
+
+  if (sim) {
+    await sim.download();
+    return lastStatus;
+  }
+
+  try {
+    await autoUpdater.downloadUpdate();
+  } catch (err) {
+    console.error('[updater] download failed:', messageOf(err));
+    broadcast({ state: 'error', message: messageOf(err) });
+  }
+  return lastStatus;
+}
+
+/**
  * Quit and install a downloaded update. Silent (no NSIS wizard, keeps the
  * existing install location) and relaunches afterwards. Both arguments matter:
  * the build uses `oneClick: false`, so the default would walk the user through
@@ -139,5 +189,9 @@ export async function checkForUpdates(): Promise<UpdateStatus> {
  */
 export function installUpdate(): void {
   if (lastStatus.state !== 'downloaded') return;
+  if (sim) {
+    sim.install();
+    return;
+  }
   autoUpdater.quitAndInstall(true, true);
 }

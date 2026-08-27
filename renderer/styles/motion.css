@@ -1,0 +1,25 @@
+/* ============================================================
+   Reduced motion.
+
+   Imported LAST, and it has to stay last. The two hover rules in this block
+   are not !important: they restate .btn:hover and
+   .month-step:hover:not(:disabled) at identical specificity and win only by
+   coming later in the cascade.
+   ============================================================ */
+
+/* Respect the OS "reduce motion" setting: drop the travel, keep the states. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .btn:hover, .month-step:hover:not(:disabled) { transform: none; }
+  /* The blanket rule above collapses every animation to 0.01ms, which would
+     empty the toast's draining edge a frame after it appeared. It holds full
+     instead: still the mark that says "this one goes on its own", minus the
+     countdown. It outranks that *::after on specificity, so it does not depend
+     on sitting later in the file. */
+  .toast::after { animation: none !important; }
+}

@@ -1,0 +1,347 @@
+/* ============================================================
+   The shell: sidebar, brand, nav, household, update banner, main column,
+   topbar and page headings, plus the canvas scrollbar. The breakpoints that
+   narrow this layout are in breakpoints.css.
+   ============================================================ */
+
+/* ============================================================
+   App shell
+   ============================================================ */
+.app {
+  height: 100%;
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  background: var(--board);
+  overflow: hidden;
+  /* The collapse animates the column itself rather than a transform on the
+     panel, so the main column is genuinely laid out at each width along the
+     way and nothing has to be corrected at the end. */
+  transition: grid-template-columns .16s ease;
+}
+/* Collapsed: the panel is a rail of icons. The width lands on .app rather
+   than :root, which is what lets it beat the breakpoints in breakpoints.css -
+   a declaration on the element itself wins over one inherited from an
+   ancestor, whatever media query wrote that one. The rail is 64px at every
+   window size. See "Collapsed rail" below for what the panel does with it. */
+.app[data-panel="rail"] { --sidebar-w: 64px; }
+
+/* Sidebar. It reads as a panel rather than a stripe of the canvas: --panel
+   sits a step off --board, and that value difference is what separates the two
+   columns. The right edge is only --rule, not --rule-strong, because it does
+   not have to do the separating on its own. */
+.sidebar {
+  border-right: 1px solid var(--rule);
+  background: var(--panel);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.brand { display: flex; align-items: center; gap: 12px; padding: 16px 8px 40px; }
+/* One flat statement of the accent, at full strength. The tile is the only
+   place in the panel the accent appears at full strength, which is what lets
+   the nav below it stay neutral. */
+/* Not a .tile - it is the app's monogram, on the accent at full strength -
+   but it takes the tile ladder's middle rung so it measures the same as the
+   record tiles elsewhere. */
+.brand-mark {
+  width: 34px; height: 34px; border-radius: 9px; flex: none;
+  background: var(--accent); box-shadow: var(--shadow-sm);
+  display: grid; place-items: center; color: var(--on-accent);
+  position: relative;
+  /* The mark is the "HB" monogram, set in the app's own face rather than
+     drawn as a glyph: the brand asset and the type carry the same voice. */
+  font-size: var(--text-14); font-weight: 700; letter-spacing: 0.02em;
+  user-select: none;
+}
+/* In the panel the tile is also the collapse control, and it is a button
+   because it does something. Everything interactive is scoped to that element:
+   the loading shell draws the same tile as a plain div, and a splash screen
+   should not answer the cursor. */
+button.brand-mark {
+  border: none; padding: 0; cursor: pointer;
+  transition: filter .14s;
+}
+button.brand-mark:hover { filter: brightness(1.1); }
+button.brand-mark:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+/* The monogram and the chevron share one grid cell and cross-fade, so the
+   tile's size never changes and the row beneath it never moves. */
+.brand-mark-hb, .brand-mark-chev {
+  grid-area: 1 / 1; display: grid; place-items: center;
+  transition: opacity .12s;
+}
+.brand-mark-chev { opacity: 0; }
+button.brand-mark:hover .brand-mark-hb, button.brand-mark:focus-visible .brand-mark-hb { opacity: 0; }
+button.brand-mark:hover .brand-mark-chev, button.brand-mark:focus-visible .brand-mark-chev { opacity: 1; }
+/* Smaller than the 20px the drawing is set at, because Plus Jakarta Sans is a
+   wider face than the drawing's Hanken Grotesk and reads a size larger at the
+   same size: 20px measures 137.5px against a 131px column and wraps the app's
+   own name onto two lines; 18px fits but sits too heavy next to the 14px nav.
+   This measures 110px. nowrap is the guard that makes a future overrun show up
+   as an overflow rather than silently wrapping.
+   The element is the <h1>, so margin: 0 cancels the UA default; the look is
+   everything else here. */
+.brand-name { font-weight: 500; font-size: var(--text-15); line-height: 22px; white-space: nowrap; margin: 0; }
+.brand-sub { font-size: var(--text-11); line-height: 16px; color: var(--muted); }
+
+/* Shape from .eyebrow in base.css; only the ink is this label's own.
+   --muted, not --faint. This label sits on --panel rather than --raised, and
+   the drawing sets it in the same ink as the names beneath it. */
+.nav-label { color: var(--muted); }
+/* The <nav> holding the four section buttons.
+   The nav is its own box in the sidebar's column, so it repeats the
+   column's gap rather than inheriting it through a fragment. */
+.nav-list { display: flex; flex-direction: column; gap: var(--space-3); padding-bottom: var(--space-3); }
+.nav-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px; border-radius: 8px;
+  color: var(--ink-2); font-size: var(--text-12); font-weight: 500;
+  border: none; background: none; width: 100%; text-align: left;
+  /* The active label is 700. At the narrow breakpoint that extra width is
+     enough to wrap "Month Budget" onto a second line and change the item's
+     height as you click it, so the label is held on one line. */
+  white-space: nowrap;
+  transition: background .14s, color .14s;
+}
+.nav-item:hover { background: var(--nav-hover); color: var(--ink); }
+/* A flat fill and a bolder label, nothing else: a shadow or a border on top
+   would be a third announcement of a state the weight change already makes
+   plain. */
+.nav-item.active { background: var(--nav-active); color: var(--ink); font-weight: 700; }
+/* The icons take the item's own ink rather than a colour of their own, so the
+   whole row lightens together on hover. Only the active icon breaks from that,
+   and only where the theme asks it to (see --nav-active-ink). */
+.nav-item svg { color: inherit; flex: none; }
+.nav-item.active svg { color: var(--nav-active-ink); }
+
+.sidebar-foot { margin-top: auto; padding: 0 8px; }
+/* The rule belongs to the household group, not to .sidebar-foot: the update
+   banner is also a child of the foot, and it reads as a notice about the app
+   rather than part of the list of people. */
+.household {
+  padding-top: 18px; border-top: 1px solid var(--rule);
+  display: flex; flex-direction: column; gap: 12px;
+}
+.member-chip {
+  display: flex; align-items: center; gap: 12px;
+  font-size: var(--text-12); color: var(--ink-2);
+}
+/* Do NOT add width, height or font-size here. Avatar in ui/readouts.jsx is this
+   class's only call site and always sets all three inline, derived from its
+   size prop, so anything stated here is both dead and misleading to anyone
+   reading the stylesheet for the avatar's size. */
+.avatar {
+  border-radius: 50%; flex: none;
+  display: grid; place-items: center; font-weight: 600; color: #fff;
+}
+
+/* Update notice, at the foot of the sidebar above the household list.
+   Filled with the panel's own lift rather than --raised: --raised is a step up
+   from the canvas, and against obsidian's lighter panel it would have made the
+   banner read as recessed instead of raised. --nav-hover is the same colour
+   the nav items lift to, so the notice sits at the panel's first rung. */
+.update-banner {
+  margin-bottom: 20px; padding: 11px 12px;
+  border: 1px solid var(--rule-strong); border-radius: var(--radius-sm);
+  background: var(--nav-hover); box-shadow: var(--shadow-sm);
+  animation: pop .2s ease;
+}
+.update-banner-line {
+  display: flex; align-items: flex-start; gap: 8px;
+  font-size: var(--text-12); line-height: 1.4; color: var(--ink-2);
+}
+.update-banner-line strong { color: var(--ink); font-weight: 600; }
+/* The line that reports a click that went nowhere (BannerFailure). It swaps
+   the line's ink for the breach ramp and nothing else: the shape of a failure
+   notice and the shape of an offer are the same shape. */
+.update-banner-line.is-failure { color: var(--breach-ink); }
+/* The leading glyph on all three lines. margin-top: 1px optically seats a
+   15px icon against the line's first row of text. */
+.update-banner-line > svg { flex: none; margin-top: 1px; color: var(--accent); }
+/* The failure line's alert takes the line's own --breach-ink instead: an
+   accent tick on a red sentence would name the wrong outcome. */
+.update-banner-line.is-failure > svg { color: inherit; }
+.update-banner-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+/* A download pushes progress every few hundred kilobytes. Filling the bar by
+   its width would make each push a layout pass on the sidebar around it, so
+   UpdateBanner hands the fraction down as --pct and the fill is a scale on the
+   x axis: the bar is out of flow inside a contained track, and the only
+   property that transitions is the transform. The fallback of 1 keeps the bar
+   full if the fraction is ever missing, which reads better than empty. */
+.update-banner-track {
+  position: relative; contain: layout paint;
+  height: 4px; margin-top: 9px; border-radius: 999px;
+  background: var(--rule); overflow: hidden;
+}
+.update-banner-bar {
+  position: absolute; top: 0; bottom: 0; left: 0; width: 100%;
+  border-radius: 999px; background: var(--accent);
+  transform: scaleX(var(--pct, 1)); transform-origin: left center;
+  transition: transform .3s cubic-bezier(.16, 1, .3, 1);
+}
+
+/* UpdateSettings, the banner's opposite number inside the Settings page: one
+   row of status text with the button that acts on it. It renders into a
+   Settings card but belongs to UpdateBanner.jsx, so its rules sit with the
+   banner's rather than in settings.css. */
+.update-setting-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-6); padding: 14px 18px;
+}
+.update-setting-line { font-size: var(--text-13); color: var(--ink); }
+/* Same swap the banner makes, for the errors this half is obliged to show. */
+.update-setting-line.is-failure { color: var(--breach-ink); }
+
+/* ============================================================
+   Collapsed rail
+
+   Everything the 64px state changes, in one place. The rule is that nothing
+   is re-laid-out and nothing is re-rendered: the same markup is here in both
+   states, the labels are simply not drawn, and each item that loses its label
+   keeps the name on aria-label and title, so the icon is still identified to
+   a screen reader and still names itself on hover.
+
+   The labels go at once rather than fading with the column. Text that shrinks
+   with the panel spends the whole animation being crushed against an edge;
+   text that is gone leaves the icons sliding into place on their own.
+   ============================================================ */
+[data-panel="rail"] .sidebar { padding: 16px 8px; }
+[data-panel="rail"] .brand { justify-content: center; gap: 0; padding: 8px 0 28px; }
+[data-panel="rail"] .brand-text { display: none; }
+[data-panel="rail"] .nav-item { justify-content: center; gap: 0; padding: 10px 0; }
+[data-panel="rail"] .nav-item-label { display: none; }
+/* The "Household" heading. Nothing else uses .nav-label inside the panel. */
+[data-panel="rail"] .sidebar .nav-label { display: none; }
+[data-panel="rail"] .household { align-items: center; padding-top: 14px; }
+[data-panel="rail"] .member-chip { justify-content: center; gap: 0; }
+[data-panel="rail"] .member-chip-name { display: none; }
+[data-panel="rail"] .sidebar-foot { padding: 0; }
+
+/* The update notice does not fit a 64px column, so the rail carries a dot on
+   the monogram instead and expanding reveals the notice itself. The banner
+   stays mounted and hidden rather than unmounted, which is what lets :has()
+   see it: UpdateBanner already renders nothing at all when there is no update
+   to act on, so its mere presence in the panel is the condition, and no state
+   has to be lifted out of it to light the dot. */
+[data-panel="rail"] .update-banner { display: none; }
+[data-panel="rail"] .sidebar:has(.update-banner) .brand-mark::after {
+  content: ""; position: absolute; top: -3px; right: -3px;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--ink);
+  /* Ringed in the panel's own fill, so the dot separates from the accent tile
+     underneath it without a border colour of its own. */
+  box-shadow: 0 0 0 2px var(--panel);
+}
+
+/* Main column. overflow-x is auto rather than hidden: hidden clips rather than
+   scrolls, leaving no way to reach content that ran off the right edge. The
+   breakpoints mean this should almost never engage, but when content genuinely
+   cannot fit (deep zoom, a very long currency string) reaching it beats losing
+   it. */
+/* The canvas. Its fill is the theme's --canvas-wash, which defaults to a flat
+   --board; obsidian states a radial gradient instead. */
+.main { min-width: 0; overflow-y: auto; overflow-x: auto; height: 100%; background: var(--canvas-wash); }
+.main-inner { max-width: var(--maxw); margin: 0 auto; padding: 30px 38px 80px; }
+
+/* Topbar with month nav */
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: var(--gap); margin-bottom: 42px; }
+.month-nav { display: flex; align-items: flex-end; gap: 14px; }
+.month-nav .icon-btn { align-items: flex-end; }
+.month-step {
+  width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
+  background: var(--raised); border: 1px solid var(--rule-strong); color: var(--ink-2);
+  box-shadow: var(--shadow-sm);
+  transition: color .14s, border-color .14s, box-shadow .14s, transform .14s;
+}
+.month-step:hover:not(:disabled) { color: var(--ink); border-color: color-mix(in srgb, var(--accent) 45%, var(--rule-strong)); transform: translateY(-1px); }
+.month-step:disabled { opacity: .4; cursor: default; }
+.month-title { display: flex; flex-direction: column; line-height: 1; }
+.month-title .yr { font-size: var(--text-12); color: var(--muted); letter-spacing: 0.06em; margin-bottom: 4px; font-weight: 500; }
+.month-title .mo { font-size: var(--text-34); font-weight: 600; letter-spacing: -0.025em; }
+.page-title { font-size: var(--text-34); font-weight: 600; letter-spacing: -0.025em; }
+.page-sub { color: var(--muted); font-size: var(--text-14); margin-top: 4px; }
+/* The Wallet / New month pair at the right of the topbar. */
+.topbar-actions { display: flex; gap: var(--space-3); }
+
+/* ============================================================
+   Month Budget screen furniture that main.jsx composes itself: the
+   Allocations heading, the column-label alignment, the group drop line, and
+   the two states of "this month has no groups yet". The table these sit over
+   is budget.css's; only the pieces MonthBudgetScreen renders directly are
+   here, so the two files stay one-owner-each.
+   ============================================================ */
+
+/* Wider than the default section-head gap, and wider than the gap
+   Income and Quick entry share above it: this is the page's actual
+   work surface, not one more strip of setup, and the break says so
+   before a single row of it is on screen. */
+.section-head.allocations-head { margin-top: 42px; }
+/* The three money columns' labels sit over right-aligned figures, so they are
+   right-aligned too. Scoped to .budget-colhead because "col-right" says
+   nothing about which table it belongs to. */
+.budget-colhead .col-right { text-align: right; }
+
+/* Where a dragged group will land. A bar rather than a hairline: it has to be
+   findable at a glance mid-drag. The negative top margin pulls it into the
+   gap above the card it precedes instead of adding one. */
+.group-drop-line {
+  height: 3px; border-radius: var(--radius-pill);
+  background: var(--accent); margin: -9px 2px var(--space-3);
+}
+
+/* The empty Allocations table is EmptyState's page size; all this screen adds
+   is the gap between it and the Add group button below. */
+.empty.no-groups { margin-bottom: 14px; }
+
+/* The inline "name your new group" row, which replaces the Add group button
+   while it is open. */
+.panel.new-group-row {
+  display: flex; align-items: center;
+  gap: var(--space-3); padding: var(--space-5) var(--space-6);
+}
+/* Heavier than .tinput's own 500, and capped rather than stretched: a group
+   name is a heading, and the row is far wider than one needs. */
+.tinput.new-group-input { max-width: 320px; font-weight: 600; }
+/* The quiet "+ Add group" affordance. Its ink comes from .btn-quiet in
+   controls.css; only the margin is particular to this button. */
+.add-group-btn { margin-top: var(--space-1); }
+
+/* ============================================================
+   The two screens that stand in for the shell rather than sit inside it.
+   Neither renders alongside .app: LoadingScreen is what is on screen until
+   the store resolves, and StartupErrorScreen is what replaces it when the
+   store never comes up at all. Both are fixed and centred over the whole
+   viewport for that reason.
+   ============================================================ */
+.loading-screen {
+  position: fixed; inset: 0; display: grid; place-items: center;
+  color: var(--muted); font-size: var(--text-14);
+}
+.loading-screen-inner { display: flex; flex-direction: column; align-items: center; gap: var(--space-5); }
+
+.startup-error { position: fixed; inset: 0; display: grid; place-items: center; padding: var(--space-8); }
+/* Roomier than a .panel's usual padding: this is a page's worth of text in a
+   card, not a row in a list of them. */
+.panel.startup-error-card { max-width: 480px; padding: var(--space-8) 32px; }
+/* A .tile at the large rung in the breach tone; only the gap under it is
+   this screen's own. */
+.startup-error-icon { margin-bottom: 18px; }
+.startup-error-title { margin: 0 0 var(--space-3); font-size: var(--text-21); font-weight: 600; letter-spacing: -0.02em; }
+.startup-error-body { margin: 0 0 var(--space-2); color: var(--ink-2); font-size: var(--text-14); line-height: 1.55; }
+/* The driver's own error string. It arrives as one unbroken token often
+   enough (a file path, a lock name) that it has to be allowed to break
+   mid-word, or it pushes the card wider than the viewport. Pairs with .code
+   in main.jsx, which is what keeps it in the mono face. */
+.startup-error-detail {
+  margin: 0 0 var(--space-7); color: var(--muted);
+  font-size: var(--text-12); line-height: 1.5; word-break: break-word;
+}
+/* Wraps rather than overflows: at a narrow window the two recovery buttons
+   are the last thing that should be pushed off the edge. */
+.startup-error-actions { display: flex; gap: var(--space-3); flex-wrap: wrap; }
+
+/* scrollbar. Height as well as width, because .main can scroll sideways. */
+.main::-webkit-scrollbar { width: 12px; height: 12px; }
+.main::-webkit-scrollbar-thumb { background: var(--rule-strong); border-radius: 99px; border: 3px solid var(--board); }
+.main::-webkit-scrollbar-track { background: transparent; }

@@ -10,6 +10,7 @@
    ============================================================ */
 import { Menu, BrowserWindow, app, shell } from 'electron';
 import type { MenuItemConstructorOptions } from 'electron';
+import type { ShortcutDoc } from '../shared/types';
 import { userDataDir } from './paths';
 
 export type MenuCommand =
@@ -21,26 +22,71 @@ export type MenuCommand =
   | 'goBudget'
   | 'goHistory'
   | 'goSettings'
-  | 'checkUpdates';
+  | 'checkUpdates'
+  | 'openFind';
+
+/**
+ * Every accelerator the app defines, in one place. The menu is built from
+ * this and so is the Shortcuts section in Settings, so the two cannot drift.
+ * Menu entries without a keystroke (Open Data Folder, Check for Updates…)
+ * are not accelerators and stay inline in the template below.
+ */
+type Accelerator = {
+  group: string;
+  label: string;
+  accelerator: string;
+  command: MenuCommand;
+};
+
+const ACCELERATORS: Accelerator[] = [
+  { group: 'Actions', label: 'New Month…', accelerator: 'CmdOrCtrl+N', command: 'newMonth' },
+  { group: 'Actions', label: 'Back Up Now', accelerator: 'CmdOrCtrl+S', command: 'backupNow' },
+  { group: 'Actions', label: 'Find…', accelerator: 'CmdOrCtrl+F', command: 'openFind' },
+  { group: 'Navigation', label: 'Dashboard', accelerator: 'CmdOrCtrl+1', command: 'goDashboard' },
+  { group: 'Navigation', label: 'Month Budget', accelerator: 'CmdOrCtrl+2', command: 'goBudget' },
+  { group: 'Navigation', label: 'History', accelerator: 'CmdOrCtrl+3', command: 'goHistory' },
+  { group: 'Navigation', label: 'Settings', accelerator: 'CmdOrCtrl+4', command: 'goSettings' },
+  { group: 'Navigation', label: 'Previous Month', accelerator: 'CmdOrCtrl+Left', command: 'prevMonth' },
+  { group: 'Navigation', label: 'Next Month', accelerator: 'CmdOrCtrl+Right', command: 'nextMonth' },
+];
 
 function send(command: MenuCommand): void {
   BrowserWindow.getFocusedWindow()?.webContents.send('menu:command', command);
 }
 
-const item = (
-  label: string,
-  accelerator: string,
-  command: MenuCommand
-): MenuItemConstructorOptions => ({ label, accelerator, click: () => send(command) });
+/** Menu entry for an accelerator, looked up by the command it posts. */
+const item = (command: MenuCommand): MenuItemConstructorOptions => {
+  const a = ACCELERATORS.find((x) => x.command === command);
+  if (!a) throw new Error(`No accelerator defined for menu command "${command}"`);
+  return { label: a.label, accelerator: a.accelerator, click: () => send(command) };
+};
+
+/**
+ * The same accelerators, ready to render: Electron's platform-agnostic tokens
+ * resolved to what this machine's keyboard actually says. The renderer has no
+ * access to process.platform, so the conversion belongs here.
+ */
+export function shortcutDocs(): ShortcutDoc[] {
+  const mod = process.platform === 'darwin' ? '⌘' : 'Ctrl';
+  return ACCELERATORS.map((a) => ({
+    group: a.group,
+    label: a.label,
+    keys: a.accelerator
+      .replace('CmdOrCtrl', mod)
+      .replace('Left', '←')
+      .replace('Right', '→')
+      .split('+'),
+  }));
+}
 
 export function buildAppMenu(): void {
   const template: MenuItemConstructorOptions[] = [
     {
       label: '&File',
       submenu: [
-        item('New Month…', 'CmdOrCtrl+N', 'newMonth'),
+        item('newMonth'),
         { type: 'separator' },
-        item('Back Up Now', 'CmdOrCtrl+S', 'backupNow'),
+        item('backupNow'),
         {
           label: 'Open Data Folder',
           click: () => { void shell.openPath(userDataDir()); },
@@ -52,6 +98,8 @@ export function buildAppMenu(): void {
     {
       label: '&Edit',
       submenu: [
+        item('openFind'),
+        { type: 'separator' },
         { role: 'undo' },
         { role: 'redo' },
         { type: 'separator' },
@@ -64,13 +112,13 @@ export function buildAppMenu(): void {
     {
       label: '&Go',
       submenu: [
-        item('Dashboard', 'CmdOrCtrl+1', 'goDashboard'),
-        item('Month Budget', 'CmdOrCtrl+2', 'goBudget'),
-        item('History', 'CmdOrCtrl+3', 'goHistory'),
-        item('Settings', 'CmdOrCtrl+4', 'goSettings'),
+        item('goDashboard'),
+        item('goBudget'),
+        item('goHistory'),
+        item('goSettings'),
         { type: 'separator' },
-        item('Previous Month', 'CmdOrCtrl+Left', 'prevMonth'),
-        item('Next Month', 'CmdOrCtrl+Right', 'nextMonth'),
+        item('prevMonth'),
+        item('nextMonth'),
       ],
     },
     {

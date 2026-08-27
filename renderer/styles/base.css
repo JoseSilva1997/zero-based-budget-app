@@ -1,0 +1,110 @@
+/* ============================================================
+   Base: the document reset, the element defaults and the two type utilities
+   every screen leans on. Nothing here owns a component.
+   ============================================================ */
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--board);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* No "tnum" here: it would force tabular figures on every word of running
+     prose ("1 month tracked", "over in 1 of 12 months") and leave gaps around
+     every digit in a sentence. Tabular figures are for columns that have to
+     line up, so they live on .num and nowhere else. */
+  font-feature-settings: "ss01", "cv01";
+}
+#root { height: 100%; }
+button { font-family: inherit; cursor: pointer; }
+input { font-family: inherit; }
+::selection { background: color-mix(in srgb, var(--accent) 32%, transparent); color: var(--ink); }
+
+/* ---- the figure face ----------------------------------------------------
+   Every amount in this app. It is NOT the mono face, because IBM Plex Mono is
+   a code face and money is not code:
+
+     - it gives the comma and the full stop a full character cell, so
+       "$1,500.00" sets as "$1 , 500 . 00" and the separators read as spaces
+       rather than as marks binding the digits together;
+     - its zero is slashed, and at the 12-14px this app sets amounts in, that
+       slash lands as a line struck through the number, so "$500" reads as a
+       cancelled figure rather than a saved one.
+
+   Plus Jakarta Sans carries true tabular lining figures (verified in this
+   renderer: five 1s and five 0s both measure exactly 300px at 100px size
+   under tabular-nums, and differ by 2:1 without it), so a column of amounts
+   aligns to the pixel while the amount reads as money and sits in the same
+   voice as the label beside it. --font-mono is kept for the two things that
+   genuinely are code: keycaps and an error string (.code). */
+.num {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+.code { font-family: var(--font-mono); }
+
+/* Keyboard focus must be visible everywhere. Text fields keep their own ring
+   treatment: .minput:focus / .tinput:focus set outline: none and outrank this.
+
+   Keep the selector bare. At (0,1,0) the per-class :focus-visible overrides
+   below it can win; adding a :not() chain would lift this to (0,3,0) and
+   silently beat every one of them, including the outline-offset line that
+   follows. */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn:focus-visible, .nav-item:focus-visible, .icon-btn:focus-visible,
+.month-step:focus-visible, .find-input:focus-visible { outline-offset: 3px; }
+
+/* ---- utilities ----------------------------------------------------------
+   Four shapes with no component identity: the answer to "make this one line",
+   "hide this from eyes but not from a screen reader", "this button is not a
+   button", "this is a small caps label". Anything with an opinion about a
+   specific component belongs in that component's file, not here. */
+
+/* The ellipsis stack, which is four properties and is wrong without any one of
+   them. min-width: 0 is the one that gets forgotten: inside a flex or grid
+   child the default min-width: auto refuses to shrink below the text's own
+   width, so overflow never triggers and the ellipsis never appears. */
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+/* Visually hidden, still announced. clip-path rather than the older
+   clip: rect() (deprecated) or width/height alone, and NOT display: none or
+   visibility: hidden, which remove the element from the accessibility tree and
+   would silence exactly the text this class exists to have read aloud.
+   white-space: nowrap stops a 1px box from wrapping its contents into a tall
+   column that some screen readers then read a character at a time. */
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+
+/* A control that has to be a <button> for the keyboard and the screen reader
+   but reads as a link. The reset exists because a <button> arrives with a
+   background, a border, padding and a font of the user agent's choosing, none
+   of them inherited. text-underline-offset: 2px keeps the rule off the
+   descenders at the sizes this app sets. */
+.link-btn {
+  background: transparent; border: 0; padding: 0; font: inherit; color: inherit;
+  text-decoration: underline; text-underline-offset: 2px; cursor: pointer;
+}
+
+/* The app's small-caps label, stated once. The tracking is what makes it
+   legible: uppercase at 11px sets tight, and 0.06em opens it back up.
+
+   There are two tiers of small-caps heading in this app and this is the lower
+   one - the micro-label over a list, a column, a nav group or a popover. The
+   upper tier is .section-head h2 in controls.css, at 13px and 0.09em, which
+   heads a whole section of a page rather than one object inside it. Two tiers
+   and no more: they are far enough apart to read as different jobs, and a
+   third rung between them would be a size without a meaning.
+
+   It carries shape only. Ink stays with each call site, because ink here is a
+   contrast decision: --muted on the sidebar's --panel, --faint inside a
+   popover or over a column of figures on --raised, --ink-2 where the label
+   leads a block of text. */
+.eyebrow {
+  font-size: var(--text-11); text-transform: uppercase; letter-spacing: 0.06em;
+  font-weight: 600; color: var(--ink-2);
+}

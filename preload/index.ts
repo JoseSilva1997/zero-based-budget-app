@@ -13,6 +13,7 @@ import type {
   BootstrapData,
   MonthTree,
   MonthTotals,
+  MonthDeleteResult,
   FundingPlanRow,
   OverBudgetRow,
   TrendPoint,
@@ -29,6 +30,7 @@ import type {
   BackupInfo,
   RestorePreview,
   UpdateStatus,
+  ShortcutDoc,
 } from '../shared/types';
 
 type Ok = { ok: true };
@@ -57,6 +59,8 @@ const api = {
     invoke<ReusableCandidate[]>('items:reusable', { monthId, query }),
   entrySuggestions: (monthId: number, query: string) =>
     invoke<EntrySuggestion[]>('actuals:suggestions', { monthId, query }),
+  shortcuts: () => invoke<ShortcutDoc[]>('shortcuts:list'),
+  appVersion: () => invoke<string>('app:version'),
 
   /* ---------- income ---------- */
   incomeAdd: (monthId: number, memberId: number) =>
@@ -85,6 +89,8 @@ const api = {
   itemDelete: (id: number) => invoke<Ok>('item:delete', { id }),
   itemReorder: (groupId: number, id: number, targetId: number) =>
     invoke<Ok>('item:reorder', { groupId, id, targetId }),
+  itemMove: (id: number, toGroupId: number, targetId: number | null) =>
+    invoke<Ok>('item:move', { id, toGroupId, targetId }),
 
   /* ---------- actuals ---------- */
   actualAdd: (
@@ -100,6 +106,7 @@ const api = {
   /* ---------- months ---------- */
   monthCreate: (opts: { month: string; copyFrom?: number; copyIncome?: boolean }) =>
     invoke<{ id: number; month: string }>('month:create', opts),
+  monthDelete: (id: number) => invoke<MonthDeleteResult>('month:delete', { id }),
   monthSetActive: (month: string) => invoke<Ok>('month:setActive', { month }),
 
   /* ---------- members ---------- */
@@ -119,7 +126,12 @@ const api = {
   accountRemove: (id: number) => invoke<Ok>('account:remove', { id }),
 
   /* ---------- settings ---------- */
-  settingsUpdate: (patch: { currency?: string; theme?: string; autoBackup?: AutoBackupMode }) =>
+  settingsUpdate: (patch: {
+    currency?: string;
+    theme?: string;
+    autoBackup?: AutoBackupMode;
+    sidebarCollapsed?: boolean;
+  }) =>
     invoke<Ok>('settings:update', { patch }),
 
   /* ---------- backup / data ---------- */
@@ -145,12 +157,24 @@ const api = {
       React has subscribed. */
   updateStatus: () => invoke<UpdateStatus>('updater:status:get'),
   updateCheck: () => invoke<UpdateStatus>('updater:check'),
+  updateDownload: () => invoke<UpdateStatus>('updater:download'),
   updateInstall: () => invoke<Ok>('updater:install'),
   onUpdateStatus: (handler: (status: UpdateStatus) => void): (() => void) => {
     const listener = (_e: unknown, status: UpdateStatus) => handler(status);
     ipcRenderer.on('updater:status', listener);
     return () => { ipcRenderer.off('updater:status', listener); };
   },
+
+  /* ---------- dev tools ----------
+     Only registered in the main process when the app is unpackaged, so in a
+     shipped build these two reject rather than doing anything. The renderer's
+     only caller (renderer/DebugMenu.jsx) is compiled out of production
+     bundles, so that never happens in practice. `extraW`/`extraH` are how much
+     of .main is currently hidden by its own overflow; main grows the window by
+     that much before capturing, then restores it. */
+  debugScreenshot: (size: { extraW: number; extraH: number }) =>
+    invoke<{ path: string }>('debug:screenshot', size),
+  debugReveal: (filePath: string) => invoke<Ok>('debug:reveal', { path: filePath }),
 
   // Not an IPC channel - resolves a picked File's absolute path (replaces the
   // removed File.path), used by the restore flow.

@@ -1,0 +1,447 @@
+/* ============================================================
+   Controls and containers: buttons, selects, cards, pills, inline fields,
+   the segmented chip, empty states, the divider and the keycap.
+   ============================================================ */
+
+/* Buttons. The resting border is --rule-strong, not --rule: a secondary
+   button's fill is only 1.17:1 against the page background, so the border is
+   the whole of what says "this is a control", and 1.4.11 asks 3:1 of it.
+   Hover then moves to an accent-tinted edge, matching .wallet-btn. */
+.btn {
+  display: inline-flex; align-items: center; gap: 7px; justify-content: center;
+  padding: 9px 15px; border-radius: var(--radius-sm); font-size: var(--text-13); font-weight: 500;
+  border: 1px solid var(--rule-strong); background: var(--raised); color: var(--ink);
+  box-shadow: var(--shadow-sm);
+  transition: color .14s, background-color .14s, border-color .14s, box-shadow .14s, transform .14s;
+}
+.btn:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--rule-strong)); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.btn:active { transform: translateY(0); }
+/* Flat, not a gradient: a gradient's light end drops the label under AA in a
+   quarter of the theme/accent pairs. Depth comes from the inset highlight and
+   the accent glow, and hover brightens the glow rather than the fill. */
+.btn-primary { background: var(--accent-btn); color: var(--on-accent); border-color: transparent; box-shadow: var(--glow-sm), inset 0 1px 0 color-mix(in srgb, #fff 18%, transparent); font-weight: 600; }
+.btn-primary:hover { box-shadow: var(--glow-md), inset 0 1px 0 color-mix(in srgb, #fff 26%, transparent); }
+.btn-ghost { background: transparent; border-color: transparent; box-shadow: none; color: var(--ink-2); }
+.btn-ghost:hover { background: var(--well); box-shadow: none; color: var(--ink); }
+/* A .btn-ghost that rests a rung quieter than the class's own --ink-2: the
+   "add member / add account / add group / choose a file" buttons are
+   afterthoughts under a list, not peers of the list.
+
+   The :hover half of the selector is not redundant: .btn-ghost:hover above is
+   (0,2,0) and would otherwise lift the label to --ink. Written as a compound
+   so it wins on weight rather than on which file happens to be imported
+   later. */
+.btn-ghost.btn-quiet, .btn-ghost.btn-quiet:hover { color: var(--muted); }
+.btn-sm { padding: 6px 10px; font-size: var(--text-12); }
+.btn-danger { color: var(--breach-ink); }
+.btn-danger:hover { background: var(--breach-soft); border-color: transparent; }
+.icon-btn {
+  width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center;
+  border: 1px solid transparent; background: transparent; color: var(--muted);
+  transition: background-color .14s, color .14s, border-color .14s;
+}
+.icon-btn:hover { background: var(--well); color: var(--ink); }
+.icon-btn.subtle { color: var(--faint); }
+/* Only for the item row's stacked delete/move pair: at the default 30px the
+   two buttons plus their gap (62px) out-measure the name+account column
+   (57px) and add 5px to every item row. 26px with no gap brings the stack
+   back to 73px, level with the row's other columns. */
+.icon-btn.compact { width: 26px; height: 26px; }
+
+/* The OS draws native <select> chrome itself: a square-cornered box with its
+   own border, arrow and font, inside a screen where every other control is
+   drawn here. These opt out of it and take the app's edge plus a chevron that
+   matches Icons.down. The stroke is a fixed mid-grey rather than currentColor,
+   which a data URI cannot read; it clears every one of the four backgrounds,
+   all of which are dark. The hover selectors are spelled out because
+   .tinput:hover sets `background` as a shorthand and would otherwise wipe the
+   chevron off.
+   The funding-account chip's select is excluded on purpose: it is stretched
+   invisible across the chip and has to stay that way. */
+select.btn, select.tinput, select.sel,
+select.btn:hover, select.tinput:hover, select.sel:hover {
+  -webkit-appearance: none; appearance: none;
+  padding-right: 26px;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2394949f' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 7px center;
+  background-size: 13px;
+}
+/* An <option> list is painted by the OS, not by this stylesheet, so on a dark
+   theme it would otherwise open as white-on-white. */
+select.btn option, select.tinput option, select.sel option,
+select.btn optgroup, select.tinput optgroup, select.sel optgroup {
+  background: var(--raised); color: var(--ink);
+}
+
+/* ---- cards --------------------------------------------------------------
+   One card, three modifiers, and each modifier answers one question.
+
+   .is-raised and .is-feature are elevation; .is-clipped and .is-unclipped are
+   what the card does with children that reach its corners. Two axes, named
+   apart, so a call site can take one from each without either implying the
+   other. Each modifier states only what it changes; the base .panel below
+   carries everything they share.
+
+   Every card takes the --raised fill, so cards read as surfaces sitting on
+   the darker board (colour-driven hierarchy, per the mockups) and the borders
+   stay hairlines. Depth is what separates them. */
+.panel {
+  background: var(--raised);
+  border: 1px solid var(--rule-faint);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+/* The single lifted object on a screen - on Month Budget, the group envelope.
+   It rests at --shadow-md rather than only reaching it on hover. If
+   everything is raised, nothing is. */
+.panel.is-raised {
+  border-color: var(--rule);
+  box-shadow: var(--shadow-md);
+}
+/* A .panel with a bit more definition: the General and Appearance cards on
+   Settings, which sit alone at the top of the page rather than in a stack of
+   rows, read as flat furniture at --shadow-sm's faint border. This is
+   .panel plus a visible border and a soft top highlight, not a global bump -
+   the rest of Settings stays at the quieter chrome the rows share. */
+.panel.is-feature {
+  border-color: var(--rule);
+  box-shadow: var(--shadow-md), inset 0 1px 0 color-mix(in srgb, #fff 6%, transparent);
+}
+.section-head { display: flex; align-items: center; justify-content: space-between; margin: 30px 2px 14px; }
+.section-head h2 { font-size: var(--text-13); text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); font-weight: 600; margin: 0; }
+
+/* A panel that cannot clip its children. Quick entry is the one of these: its
+   suggestion list hangs off the name field and past the card's bottom edge, so
+   the card keeps overflow: visible and the blocks inside it have to respect its
+   corners themselves. Whichever block ends up last - "Just logged", the "goes
+   under" strip, or the field row when neither is showing - carries the bottom
+   curve, so a --board fill stops following the card's square content box out
+   past its rounded border. Radius only, no clipping: the field row holds the
+   arithmetic preview chip, which is drawn above the field and outside the row. */
+.panel.is-unclipped > :last-child {
+  border-bottom-left-radius: calc(var(--radius-lg) - 1px);
+  border-bottom-right-radius: calc(var(--radius-lg) - 1px);
+}
+
+/* The other side of that coin, and by far the commoner one: a .panel whose
+   children have to stop at its corners. Every row inside these cards is a
+   square-cornered element running the full width of the card - a button in the
+   all-months table and the Wallet's account list, a grid row in the income
+   table - so without the clip the first and last of them paint straight
+   through the card's own 20px curve. */
+.panel.is-clipped { overflow: hidden; }
+
+/* Pills / tags */
+.pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: var(--text-12); font-weight: 600; font-variant-numeric: tabular-nums lining-nums; }
+.pill-neutral { background: var(--well); color: var(--ink-2); }
+.pill-breach { background: var(--breach-soft); color: var(--breach-ink); }
+/* The Difference chip: an outlined caption ("ON TRACK" / "N LEFT"), per the
+   mockups, rather than a filled pill - the resting state of a budget row
+   should not carry a fill. Only a breach earns one. The border is
+   --rule-strong because it is the whole of what draws the chip. */
+.pill-diff {
+  background: transparent; border: 1px solid var(--rule-strong); color: var(--muted);
+  text-transform: uppercase; font-size: var(--text-10); letter-spacing: 0.06em; padding: 2px 8px;
+  white-space: nowrap;
+}
+.pill-diff.pill-diff-breach { background: var(--breach-soft); border-color: var(--breach); color: var(--breach-ink); }
+/* Reaching exactly on-track is the settled state, so its chip stops being an
+   outline and quietly fills: solid is fact, hollow is still-in-progress. No
+   colour arrives - the no-green rule holds - but the change of texture marks
+   the arrival. */
+.pill-diff.pill-diff-ontrack { background: var(--well); border-color: transparent; color: var(--ink-2); }
+
+/* Inline editable money and text fields. These deliberately keep :focus rather
+   than :focus-visible. They are borderless and look like plain text until they
+   are engaged, so the ring is not a keyboard affordance bolted onto an already
+   obvious control: it is the only thing that says which of forty cells in the
+   grid is now taking your typing, and that is as necessary after a click as
+   after a Tab. The hover state gains a border for the same reason: a background
+   change alone is 1.1:1 and cannot be seen. */
+.minput {
+  font-family: var(--font-num); font-variant-numeric: tabular-nums lining-nums;
+  border: 1px solid transparent; background: transparent; color: var(--ink);
+  border-radius: 8px; padding: 5px 8px; text-align: right; width: 100%;
+  font-size: var(--text-14);
+  transition: background-color .12s, border-color .12s, box-shadow .12s;
+}
+/* Tray variant: a field that rests visibly boxed on a --well tray (quick
+   entry, per the mockups) instead of reading as plain text until hovered.
+   Declared before the :hover/:focus rules below so those still win while the
+   field is engaged - the tray only owns the resting look. */
+.minput.tray, .tinput.tray { background: var(--well); border-color: var(--rule-faint); }
+/* The day-of-month field. A .minput that is not a money column: it holds one or
+   two digits, so it is sized to its content and centred rather than stretched
+   to the column and right-aligned, and it sits a rung quieter than the amount
+   beside it. */
+.minput.day {
+  width: 44px; height: 26px; flex: none;
+  padding: 0 var(--space-1); text-align: center;
+  font-size: var(--text-12); color: var(--ink-2);
+}
+.minput:hover { background: var(--well); border-color: var(--rule); }
+.minput:focus { outline: none; background: var(--raised); border-color: var(--accent); box-shadow: var(--ring); }
+/* A money field holding a value the parser refused. Declared AFTER :focus on
+   purpose: the two have equal specificity, and the refusal has to survive the
+   field still being focused - which it always is, because a refused commit
+   keeps the field open. The ring goes with the accent border, since a red edge
+   plus a violet halo reads as two states at once. */
+.minput.is-invalid { border-color: var(--breach); box-shadow: none; }
+.tinput {
+  border: 1px solid transparent; background: transparent; color: var(--ink);
+  border-radius: 8px; padding: 5px 8px; font-size: var(--text-14); width: 100%; font-weight: 500;
+  transition: background-color .12s, border-color .12s, box-shadow .12s;
+}
+.tinput:hover { background: var(--well); border-color: var(--rule); }
+.tinput:focus { outline: none; background: var(--raised); border-color: var(--accent); box-shadow: var(--ring); }
+
+/* The positioning context a money field's chip hangs off. It is the field's own
+   wrapper rather than the row, so the chip tracks the field it belongs to even
+   where several sit on one line. */
+.field-wrap { position: relative; display: flex; align-items: center; }
+
+/* The chip drawn above a money field, in its two skins: the resting one carries
+   the arithmetic preview ("= $52.50") on an --ink fill, and .is-error carries
+   the reason a value was refused. Same box in both cases - same corner, same
+   offset, same shadow - so the field does not appear to change shape when a sum
+   turns out to be unreadable. It is drawn ABOVE the field rather than below
+   because below is where the next row is. */
+.field-chip {
+  position: absolute; right: var(--space-2); bottom: 100%; margin-bottom: 3px;
+  background: var(--ink); color: var(--on-ink);
+  font-size: var(--text-11); font-weight: 600;
+  padding: 2px 7px; border-radius: var(--radius-3xs);
+  white-space: nowrap;
+  box-shadow: var(--shadow-sm); z-index: 4;
+}
+/* The refusal wraps where the preview does not: a preview is one short number
+   and must never be broken across lines, while a reason is a sentence, so it
+   takes a width to wrap inside and a line height to wrap comfortably at. */
+.field-chip.is-error {
+  background: var(--breach-soft); color: var(--breach-ink);
+  border: 1px solid var(--breach);
+  max-width: 230px; line-height: 1.35; text-align: right;
+  white-space: normal;
+}
+/* The same chip over the two amount fields that sit in a 32px row: the
+   add-spend field in an item's entry tray, and quick entry's own. These two
+   declarations are the whole of the difference from .field-chip.
+
+   The 4px offset and the absent shadow are deliberately NOT harmonised to
+   .field-chip's 6px and --shadow-sm: doing so would move the chip on two
+   screens. Whether the three should agree is an open design question. */
+.field-chip-tight { right: var(--space-1); box-shadow: none; }
+
+/* Mini progress bar (an item's actual against its allocation). The track clips,
+   so the fill can be a full-width box scaled down rather than a narrow one -
+   see the scaleX note in MiniBar. */
+.mini-bar { height: 5px; border-radius: var(--radius-pill); background: var(--well); overflow: hidden; width: 100%; }
+.mini-bar-fill {
+  height: 100%; width: 100%; transform-origin: left;
+  background: var(--accent); transition: transform .3s ease;
+}
+/* The hatch is why this is a class and not just a colour swap: it means colour
+   is never the only signal that a bar is over. See the comment in MiniBar for
+   the whole of that argument. */
+.mini-bar-fill.is-over {
+  background: repeating-linear-gradient(-45deg, var(--breach) 0 2px, color-mix(in srgb, var(--breach) 45%, var(--well)) 2px 4px);
+}
+
+/* A dialog's button row: right-aligned, because the confirming action belongs
+   under the reader's thumb at the end of the sentence they just read. */
+.dialog-actions { display: flex; gap: var(--space-3); justify-content: flex-end; margin-top: 18px; }
+
+/* ---- the failed-read alert ----------------------------------------------
+   The message box four screens draw when a read fails: Dashboard's month
+   series, History's month list, the month-detail dialog's breakdown, and the
+   restore dialog's backup list.
+
+   Shown rather than swallowed, so an error does not arrive looking like a
+   household with nothing in it. The breach palette because this is an error
+   affordance, which is the second of --breach's two roles (see the token's
+   comment in tokens.css): the ordinary red of a failure, not a budget state.
+   align-items: flex-start is what keeps the icon at the top of a sentence that
+   has wrapped to three lines rather than centred against all of them. */
+.alert {
+  display: flex; gap: 9px; align-items: flex-start;
+  color: var(--breach-ink);
+  font-size: var(--text-13); line-height: 1.45;
+}
+/* The icon keeps its size while the sentence beside it takes the width, and
+   sits 1px down so it lands on that sentence's first line rather than above
+   it. A child combinator rather than a class of its own, which is safe because
+   every one of the four call sites holds exactly one svg. */
+.alert > svg { flex: none; margin-top: 1px; }
+/* For the two alerts that are banners across the top of a screen (Dashboard's
+   and History's) rather than a line inside a dialog.
+
+   The restore dialog's alert deliberately does NOT take this class: it pads
+   10px 12px against these 11px 14px and closes with 14px against these 16px,
+   and reconciling either would move pixels, so it keeps those declarations of
+   its own in settings.css and takes only .alert. .hist-detail-error stays out
+   for the same reason and one more: it carries no fill and no corner at all,
+   being a line inside a dialog that already has both. */
+.alert-banner {
+  background: var(--breach-soft); border-radius: var(--radius-sm);
+  padding: 11px 14px; margin-bottom: var(--space-6);
+}
+
+/* ---- an option in a list of candidates -----------------------------------
+   The row inside a list of things you can pick: quick entry's suggestion list
+   (.qe-sugg, hanging off the name field) and the add-item panel's list of
+   previous items (.add-item-option). The candidates carry a min-height the
+   suggestions do not, so that one stays at its own call site rather than being
+   pushed onto both.
+
+   It is a <button> at both sites, which is what the reset is for: the user
+   agent arrives with its own border, fill, alignment and font on every one of
+   these. The two tracks are the text on the left and the figure on the right,
+   the figure sized to itself so the text takes what is left.
+
+   What the two lists do NOT share, and what deliberately stays split: their
+   containers (.qe-sugg-list floats over the page on a --rule-strong edge and a
+   --raised fill, .add-item-results sits in the flow on --rule-faint and
+   --well, and no value in either matches the other), their sub-lines, and
+   their amounts. See the notes at those rules. */
+.picker-option {
+  width: 100%;
+  display: grid; grid-template-columns: 1fr auto; gap: var(--space-5);
+  align-items: center; text-align: left; padding: 7px var(--space-4);
+  border: 0; background: transparent; color: var(--ink); cursor: pointer; font: inherit;
+}
+/* The text column. Its min-width: 0 is what lets the .truncate on the name
+   inside it actually truncate. */
+.picker-option-text { min-width: 0; }
+.picker-option-name { display: block; font-size: var(--text-13); font-weight: 500; }
+
+/* ---- the tile ------------------------------------------------------------
+   A glyph in a rounded, tinted square, drawn by Tile in ui/readouts.jsx.
+
+   Three sizes and no more, with the radius following the box: sm is a tile in
+   a form row, md a tile in a list of records, lg a tile standing alone on an
+   empty screen. The glyph steps 16 / 17 / 22 with them, at the component.
+
+   The two brand marks - the sidebar's monogram and the Wallet's - sit
+   on the md rung and take its 34px and 9px, but are not tiles: they carry a
+   gradient, a glow and a monogram that cross-fades, and none of that belongs
+   to a record's icon. See .brand-mark and .wallet-head-mark. */
+.tile { width: 34px; height: 34px; border-radius: 9px; flex: none; display: grid; place-items: center; }
+.tile.is-sm { width: 30px; height: 30px; border-radius: var(--radius-2xs); }
+.tile.is-lg { width: 46px; height: 46px; border-radius: var(--radius); }
+/* The three tones, for a tile that stands for a state rather than a record.
+   A record's own colour cannot be named here and arrives inline instead. */
+.tile.is-well { background: var(--well); color: var(--faint); }
+.tile.is-info { background: var(--info-soft); color: var(--info); }
+.tile.is-breach { background: var(--breach-soft); color: var(--breach-ink); }
+
+/* ---- the stat ------------------------------------------------------------
+   A figure with a caption, drawn by Stat in ui/readouts.jsx.
+
+   Three sizes, and only the figure moves between them: 15 in a dialog's
+   summary strip, 20 on a card, 30 where the figure is the whole of a
+   surface. The label holds at
+   one size on every rung for the reason .eyebrow does - a caption is a
+   caption, and three sizes of it would be a vocabulary with nothing to say. */
+.stat-label { font-size: var(--text-11); color: var(--muted); margin-bottom: var(--space-2); }
+.stat-figure { font-size: var(--text-20); font-weight: 600; line-height: 1.2; }
+/* Prose under the figure rather than a caption over it, so it sets quieter
+   and takes a measure: these are sentences, not names. */
+.stat-note { font-size: var(--text-12); color: var(--faint); margin-top: 2px; max-width: 150px; }
+.stat.is-sm .stat-label { margin-bottom: 3px; }
+.stat.is-sm .stat-figure { font-size: var(--text-15); }
+.stat.is-lg .stat-figure { font-size: var(--text-30); letter-spacing: -0.025em; color: var(--ink); }
+
+/* ---- the object row ------------------------------------------------------
+   A thing and what is true of it, drawn by ObjectRow in ui/rows.jsx: a tile
+   on the left, a name with a line of detail under it, a figure on the right.
+   The slots are described at the component; these are the lengths.
+
+   The three sizes are a depth ladder, not an importance one - a summary
+   standing alone, a row in a list, a row nested inside a row - so the figure
+   steps 17 / 15 / 13 down it and the name follows.
+
+   What stays at the call sites is each row's own chrome: its padding, and
+   whatever fill, border or stripe belongs to that particular list. */
+.object-row { display: flex; align-items: center; gap: var(--space-5); }
+/* The text column. Its min-width: 0 is what lets the clipped lines inside it
+   actually clip. */
+.object-row-grow { min-width: 0; flex: 1; }
+.object-row-name { font-weight: 600; font-size: var(--text-13); }
+.object-row-name.has-chip { display: flex; align-items: center; gap: 7px; }
+.object-row-sub { font-size: var(--text-11); color: var(--faint); margin-top: 2px; }
+.object-row-meta {
+  font-size: var(--text-11); color: var(--faint); margin-top: var(--space-1);
+  display: flex; align-items: center; gap: var(--space-3);
+}
+.object-row-figs { text-align: right; flex: none; }
+.object-row-figure { font-size: var(--text-15); font-weight: 600; }
+.object-row-figure-sub { font-size: var(--text-10); color: var(--faint); margin-top: 2px; }
+
+.object-row.is-lg .object-row-figure { font-size: var(--text-17); }
+.object-row.is-sm .object-row-name { font-size: var(--text-12); font-weight: 500; }
+.object-row.is-sm .object-row-meta { margin-top: 3px; }
+.object-row.is-sm .object-row-figure { font-size: var(--text-13); }
+
+/* Chart card (Dashboard). The framing rules are described at ChartCard in
+   ui/containers.jsx; these are the lengths that drawing needs. */
+.chart-card { grid-column: auto; min-width: 0; }
+.chart-card.is-wide { grid-column: span 2; }
+/* Opts the card out of the grid's align-items: start so it fills its row's
+   height, with .chart-body absorbing the slack. */
+.chart-card.is-stretch { align-self: stretch; display: flex; flex-direction: column; }
+.chart-rule {
+  height: 1px; margin-bottom: 18px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--rule) 65%, transparent) 50%, transparent);
+}
+.chart-head { margin-bottom: 14px; }
+.chart-title { font-weight: 600; font-size: var(--text-15); }
+.chart-sub { font-size: var(--text-12); color: var(--muted); margin-top: 2px; }
+.chart-body { border-bottom: 1px solid color-mix(in srgb, var(--rule-faint) 55%, transparent); padding-bottom: var(--space-5); }
+.chart-card.is-stretch .chart-body { flex: 1; }
+
+/* A chip inside a segmented radiogroup tray (the currency picker): the tray
+   is a bordered --well strip, the chips rest as quiet symbols on it, and the
+   chosen one is a solid accent square with its ink on top - the selection is
+   the single filled object in the group, per the mockups. */
+.chip-radio {
+  background: transparent; border: none; color: var(--muted);
+  border-radius: 6px; transition: background-color .12s, color .12s;
+}
+.chip-radio:hover { background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink); }
+.chip-radio[aria-checked="true"], .chip-radio[aria-checked="true"]:hover {
+  background: var(--accent-btn);
+  /* --on-accent is pure white; softened a touch toward the fill so the
+     selected glyph and its check badge don't outshine the rest of the tray. */
+  color: color-mix(in srgb, var(--on-accent) 88%, var(--accent-btn) 12%); border: 1px solid var(--faint);
+}
+/* ---- the empty state -----------------------------------------------------
+   Two sizes, drawn by EmptyState in ui/notices.jsx, and the difference between
+   them is what the emptiness is of. The page size below is the whole of a
+   screen or a table standing empty. .is-inline is one section of a page that
+   happens to have nothing in it while the rest carries on around it, so it
+   loses the title, closes up to an even 30px, and sets its one line at the
+   size of the text it sits among rather than a rung below it. */
+.empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  padding: 44px 20px; text-align: center; color: var(--muted);
+}
+.empty-title { font-weight: 600; color: var(--ink-2); }
+/* A measure, not a width: the sentence wraps to about two lines rather than
+   running the full width of the card. */
+.empty-note { font-size: var(--text-13); max-width: 340px; }
+.empty.is-inline { padding: var(--space-8); }
+.empty.is-inline .empty-note { font-size: var(--text-14); max-width: none; }
+
+.fade-in { animation: fade .26s ease; }
+@keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* keycap, for the Shortcuts section in Settings */
+kbd {
+  display: inline-block; min-width: 22px; text-align: center;
+  font-family: var(--font-mono); font-size: var(--text-11); line-height: 1.5;
+  padding: 2px 7px; border-radius: 6px;
+  background: var(--well); color: var(--ink-2);
+  border: 1px solid var(--rule-strong); border-bottom-width: 2px;
+  white-space: nowrap;
+}

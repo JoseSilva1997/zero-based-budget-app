@@ -29,9 +29,17 @@ export function loadBootstrap(db: Database.Database): BootstrapData {
   return {
     settings: {
       currency: getMeta(db, 'currency') || '$',
-      theme: getMeta(db, 'theme') || 'indigo',
+      // Passed through raw. Every id this app has ever persisted is a theme
+      // that no longer ships (the pre-reset backgrounds, and the combined
+      // background+accent ids before those), so validating here would mean
+      // teaching the main process the theme registry for no gain: the renderer
+      // already falls back to DEFAULT_THEME_ID for anything it does not know.
+      theme: getMeta(db, 'theme') || '',
       autoBackup: (getMeta(db, 'autoBackup') as AutoBackupMode) || 'onclose',
       lastBackup: getMeta(db, 'lastBackup'),
+      // Absent means expanded: an install that has never touched the toggle
+      // opens with the panel showing its labels.
+      sidebarCollapsed: getMeta(db, 'sidebarCollapsed') === '1',
       members: listMembers(db),
       accounts: listAccounts(db),
     },

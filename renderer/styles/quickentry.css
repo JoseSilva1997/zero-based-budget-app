@@ -1,0 +1,163 @@
+/* ============================================================
+   Quick entry: the log-a-spend card at the top of Month Budget.
+
+   Its card is .panel-unclipped (controls.css), which exists solely for this
+   screen: the suggestion list hangs off the name field and past the card's
+   bottom edge, so the card keeps overflow: visible and whichever block ends
+   up last has to carry the bottom curve itself.
+   ============================================================ */
+
+/* ---- the section head ----------------------------------------------------
+   Tighter than the default section-head gap: Income and Quick entry
+   are both low-stakes "money in / log a spend" strips ahead of the
+   real work surface, and reading as a pair says so. Allocations,
+   what the page is actually for, gets the generous gap instead. */
+.qe-head { margin-top: 20px; }
+
+/* The number is the live figure, so it reads as one: full ink at 600,
+   with the label staying muted beside it - same recipe as Income's
+   "Combined" figure. */
+.qe-count { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-12); color: var(--muted); }
+.qe-count-num { font-size: var(--text-14); font-weight: 600; color: var(--ink); }
+
+/* The empty state - shown when the month has no items at all, so there is
+   nothing to file a spend under - is EmptyState's inline size and needs
+   nothing of its own here. */
+
+/* ---- the card ------------------------------------------------------------
+   overflow: visible so the suggestion list can hang past the card's
+   bottom edge; .panel-unclipped is what pays for that, rounding the
+   bottom of whichever block ends up last in here. */
+.qe-card { overflow: visible; }
+
+/* ---- the field row -------------------------------------------------------
+   Six fields cannot hold their widths in a narrow window, and a Log
+   button pushed outside the card is a button you cannot press. They
+   wrap as two halves rather than one at a time, so a break always
+   lands between "goes under" and the note - never mid-sequence. */
+.qe-fields {
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: var(--space-4); padding: var(--space-5) var(--space-6);
+}
+.qe-half { display: flex; align-items: center; gap: var(--space-4); min-width: 0; }
+/* The two halves a break lands between: day + name + destination, then note +
+   amount + Log. */
+.qe-half-what { flex: 1.1 1 360px; }
+.qe-half-amount { flex: 1 1 340px; }
+
+/* Every field in the row: one height and one size for all four, a rung below
+   .tinput's and .minput's own 14px. */
+.qe-field { height: 32px; font-size: var(--text-13); }
+
+/* ---- the name field and its suggestion list ------------------------------
+   The wrapper is the positioning context rather than the row, so the list
+   tracks the field it belongs to. */
+.qe-name-wrap { position: relative; flex: 1.3 1 150px; min-width: 0; }
+/* The list leaves the flow, outranks what is under it, and clips its own
+   children so the first and last rows take its corners. It stretches to the
+   name field (left: 0; right: 0) but not below 280px. */
+.qe-sugg-list {
+  position: absolute; top: calc(100% + var(--space-1)); left: 0; right: 0;
+  min-width: 280px; z-index: 30;
+  border: 1px solid var(--rule-strong); border-radius: var(--radius-sm);
+  overflow: hidden; background: var(--raised); box-shadow: var(--shadow-lg);
+}
+/* The hairline goes BETWEEN suggestions, so the first one draws none and does
+   not double up with the list's own top edge. */
+.qe-sugg-row + .qe-sugg-row { border-top: 1px solid var(--rule-faint); }
+/* The suggestion button itself is .picker-option in controls.css, shared with
+   the add-item panel's candidate rows in budget.css; its text and name are
+   .picker-option-text and .picker-option-name. The .qe-sugg class stays on the
+   element for the state rule below, and because .add-item-option's 40px
+   min-height is not wanted here - a suggestion row is sized by its contents.
+
+   .qe-sugg-sub and .qe-sugg-amt below are the two near-misses. They are NOT
+   merged with .add-item-sub and .add-item-amt, which look like the same lines:
+   this sub is a flex row with a gap, an overflow and a nowrap because it holds
+   an icon beside its text, while the candidate's is a plain block; and this
+   amount is a block that wraps where the candidate's is inline and does not.
+   Each pair differs by three declarations, which is a difference, not noise. */
+
+/* The highlighted row, which is the keyboard's and only the keyboard's: the
+   list has no :hover rule. (0,2,0), so it outranks .picker-option's
+   transparent fill. */
+.qe-sugg.is-active { background: var(--well); }
+/* Deliberately NOT the .truncate stack: this line clips with no ellipsis and
+   no min-width: 0, and adding either would change what is drawn. */
+.qe-sugg-sub {
+  display: flex; align-items: center; gap: 5px;
+  font-size: var(--text-11); margin-top: 2px; color: var(--muted);
+  overflow: hidden; white-space: nowrap;
+}
+/* Unresolved: the suggestion's item is not in this month, so it cannot file
+   itself. The breach ink is the second half of saying so; the row's own text
+   says the first half. */
+.qe-sugg-sub.is-unresolved { color: var(--breach-ink); }
+.qe-sugg-meta { text-align: right; white-space: nowrap; }
+.qe-sugg-amt { display: block; font-size: var(--text-12); color: var(--ink-2); }
+.qe-sugg-when { display: block; font-size: var(--text-11); color: var(--faint); margin-top: 2px; }
+
+/* ---- the destination select ---------------------------------------------- */
+.qe-item-select { flex: 1 1 140px; min-width: 0; cursor: pointer; font-family: inherit; color: var(--ink); }
+/* Nothing picked, so the field is showing its "Goes under…" placeholder and
+   takes placeholder ink rather than the ink of a chosen value. */
+.qe-item-select.is-empty { color: var(--muted); }
+/* The chosen name's old item is gone from this month. Declared with the same
+   specificity as .tinput's hover and focus borders in controls.css and after
+   them, so it holds through both. */
+.qe-item-select.is-orphaned { border: 1px solid var(--breach); }
+
+/* ---- the note and amount fields ------------------------------------------ */
+.qe-note { flex: 1 1 120px; min-width: 0; color: var(--ink-2); }
+/* The amount field's own positioning context, so the preview chip above it
+   tracks the field rather than the row. */
+.qe-amt-cell { position: relative; height: 32px; flex: 0 0 140px; }
+/* .minput already pads 8px on both sides, so this restates the left one it
+   already has; .entry-amount-input in budget.css carries the same line for the
+   same field. */
+.qe-amt-input { padding-left: var(--space-3); }
+/* Level with the fields beside it rather than at .btn's own height. The
+   justify-content restates what .btn already sets. */
+.qe-log-btn { height: 32px; justify-content: center; flex: 0 0 auto; }
+
+/* ---- "goes under" --------------------------------------------------------
+   The strip under the field row, saying where the chosen name is filing
+   itself or why it cannot file itself yet. */
+.qe-target {
+  display: flex; align-items: center; gap: 7px;
+  padding: 7px var(--space-6); border-top: 1px solid var(--rule-faint);
+  font-size: var(--text-12); color: var(--muted); background: var(--board);
+}
+.qe-target.is-orphaned { color: var(--breach-ink); background: var(--breach-soft); }
+.qe-target-ok { color: var(--accent); }
+.qe-target-name { font-weight: 600; color: var(--ink-2); }
+
+/* ---- "Just logged" -------------------------------------------------------
+   The three most recent entries in the month, recapped under the field row. */
+.qe-recent { border-top: 1px solid var(--rule-strong); background: var(--board); }
+.qe-recent-head {
+  padding: var(--space-3) var(--space-6) var(--space-1);
+  /* Shape from .eyebrow in base.css; the ink and the padding are this one's. */
+  color: var(--faint);
+}
+/* Five tracks: the day, what it was, where it filed itself, the amount, and
+   the remove button. The two minmax(0, …) tracks are what let the name and
+   the destination chip shrink far enough to ellipsis instead of pushing the
+   amount out of the card. */
+.qe-recent-row {
+  display: grid; grid-template-columns: 44px minmax(0, 1fr) minmax(0, auto) 120px 34px;
+  align-items: center; gap: var(--space-4); padding: 5px var(--space-6);
+}
+.qe-recent-day { font-size: var(--text-12); color: var(--faint); text-align: center; }
+.qe-recent-name { font-size: var(--text-13); }
+.qe-recent-unnamed, .qe-recent-note { color: var(--faint); }
+.qe-recent-note { font-size: var(--text-12); }
+/* Where it filed itself, as a quiet chip aligned against the
+   amount - the destination is metadata, not the entry. */
+.qe-recent-dest {
+  justify-self: end; max-width: 100%;
+  font-size: var(--text-11); font-weight: 500; color: var(--ink-2);
+  background: var(--well); border: 1px solid var(--rule-faint);
+  border-radius: var(--radius-pill); padding: 2px 9px;
+}
+.qe-recent-amt { font-size: var(--text-13); text-align: right; }

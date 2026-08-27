@@ -110,6 +110,7 @@ export type AutoBackupMode = 'off' | 'onclose' | 'daily';
 
 export interface BlobSettings {
   currency: string;
+  /** A [data-theme] id from renderer/lib/theme.js. */
   theme: string;
   members: BlobMember[];
   accounts: BlobAccount[];
@@ -267,9 +268,15 @@ export interface EntrySuggestion {
 
 export interface BootstrapSettings {
   currency: string;
+  /** As persisted: may name a theme that no longer ships. The renderer
+   *  validates it against THEME_IDS and falls back. */
   theme: string;
   autoBackup: AutoBackupMode;
   lastBackup: string | null;
+  /** Sidebar collapsed to the icon rail. Not part of BlobSettings: a backup
+   *  carries the household's budget, not the shape of the window it was last
+   *  looked at in. */
+  sidebarCollapsed: boolean;
   members: HouseholdMember[];
   accounts: BankAccount[];
 }
@@ -284,6 +291,27 @@ export interface BootstrapData {
 /* ---------- 4. IPC envelope + payloads ----------------------------------- */
 
 export type IpcResult<T> = { data: T } | { error: string };
+
+/**
+ * One documented keyboard shortcut, as the Settings section renders it.
+ * `keys` is already resolved for this platform ("Ctrl" or "⌘", "←"/"→"),
+ * so the renderer only has to draw the chips.
+ */
+export interface ShortcutDoc {
+  group: string;
+  label: string;
+  keys: string[];
+}
+
+/**
+ * The outcome of 'month:delete'. The active month key is echoed back because
+ * the delete may have had to repoint it, and the renderer should settle on the
+ * month the database now considers active rather than one of its own choosing.
+ */
+export interface MonthDeleteResult {
+  ok: true;
+  activeMonth: string | null;
+}
 
 export interface BackupInfo {
   path: string;

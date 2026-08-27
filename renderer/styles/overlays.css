@@ -1,0 +1,192 @@
+/* ============================================================
+   Anything that floats above the page: the move-to-group menu, the modal,
+   the centred sheet, the find bar, and the keyframes they animate with.
+   ============================================================ */
+
+/* Move-to-group menu. Fixed and portalled to the body, because the group card
+   clips its own children to keep its rounded corners. */
+.move-menu {
+  position: fixed; z-index: 65; min-width: 190px; max-width: 260px; max-height: 280px;
+  overflow-y: auto; padding: 4px;
+  background: var(--raised); border: 1px solid var(--rule);
+  border-radius: var(--radius-sm); box-shadow: var(--shadow-md);
+}
+/* Shape from .eyebrow in base.css; the padding and the ink are this label's
+   own. --faint because it sits inside a popover on --raised, where --ink-2
+   would read as one of the rows rather than as the heading over them. */
+.move-menu-label { padding: 6px 9px 5px; color: var(--faint); }
+.move-menu-item {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  text-align: left; padding: 7px 9px; border: 0; border-radius: 7px;
+  background: transparent; color: var(--ink); font: inherit; font-size: var(--text-13); cursor: pointer;
+}
+/* Hover and keyboard focus look the same: this menu is walked with arrow keys
+   as often as it is clicked. */
+.move-menu-item:hover, .move-menu-item:focus-visible { background: var(--well); }
+
+/* Modal */
+.modal-veil { position: fixed; inset: 0; background: rgba(0,0,0,0.62); backdrop-filter: blur(4px); display: grid; place-items: center; z-index: 60; animation: veil .18s ease; }
+@keyframes veil { from { opacity: 0; } }
+.modal { background: var(--raised); border: 1px solid var(--rule); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); width: 460px; max-width: calc(100vw - 40px); padding: 26px; animation: pop .22s; }
+/* The curve lives on the keyframe rather than on each caller, so every user of
+   it inherits the same settle: a timing function declared on a keyframe
+   governs the segment starting there and overrides the one on the element.
+   Four things pop, and they are the app's four overlays: this modal, the
+   Wallet sheet, the find bar and the toast. The curve is an exponential
+   ease-out with no overshoot - fast out of the gate, long settle, nothing to
+   recover from - because a dialog or a message in a money app springing past
+   where it means to land is not a texture this app wants. */
+@keyframes pop {
+  from { opacity: 0; transform: translateY(8px) scale(.98); animation-timing-function: cubic-bezier(.16, 1, .3, 1); }
+}
+.modal h3 { margin: 0 0 6px; font-size: var(--text-22); font-weight: 600; letter-spacing: -0.02em; }
+.modal p { margin: 0 0 18px; color: var(--muted); font-size: var(--text-14); line-height: 1.5; }
+
+/* The sheet: a centred surface holding a screen's worth of work, sized in
+   viewport units so it keeps its margin at every window size. The modal above
+   is a question with two buttons under it; this is a place to read and to
+   choose, and the Wallet is the one thing in the app that needs it.
+
+   It takes the modal's `pop` rather than a keyframe of its own: a centred
+   surface arriving from an edge would travel further than it settles. */
+.sheet-veil { position: fixed; inset: 0; background: rgba(0,0,0,0.62); backdrop-filter: blur(4px); display: grid; place-items: center; z-index: 70; animation: veil .2s ease; }
+/* Centred by the veil's own grid rather than by margins, so the height can
+   stay auto: a sheet with two wallets in it is as tall as two wallets, and
+   only a sheet with more than a screenful takes the cap and scrolls. */
+.sheet {
+  width: min(1120px, calc(100vw - 56px)); max-height: calc(100vh - 56px);
+  /* A board rather than a card, because what it holds is a screen's worth of
+     cards: the surface ramp inside a sheet is the same one a page uses, and
+     the veil behind is what separates it from the page it floats over. */
+  background: var(--board); border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+  display: flex; flex-direction: column; overflow: hidden; animation: pop .24s;
+}
+.sheet-head { display: flex; align-items: center; gap: var(--space-6); padding: 18px var(--space-7); border-bottom: 1px solid var(--rule); }
+.sheet-body { overflow-y: auto; padding: var(--space-7) var(--space-7) var(--space-8); flex: 1; }
+.sheet-body::-webkit-scrollbar, .scroll-list::-webkit-scrollbar { width: 10px; }
+/* The thumb is ringed in the surface behind it, which is the one thing that
+   differs between these two: a sheet scrolls a board, a list scrolls a card. */
+.sheet-body::-webkit-scrollbar-thumb, .scroll-list::-webkit-scrollbar-thumb { background: var(--rule-strong); border-radius: 99px; border: 3px solid var(--raised); }
+.sheet-body::-webkit-scrollbar-thumb { border-color: var(--board); }
+.sheet-body::-webkit-scrollbar-track, .scroll-list::-webkit-scrollbar-track { background: transparent; }
+
+/* ===========================================================================
+   Toasts
+   1. The dock is fixed to the viewport, so it is always visible and never clipped.
+   2. The toast itself is a flex item, so it can shrink below its content width if
+      the panel is narrower than the gutters allow for.
+   3. The toast's edge is eaten by a bottom accent that drains over its lifetime,
+      so the user can see how long they have to act on it.
+   4. Errors never expire, so they have no edge at all, which gives the two states
+      a second, non-colour channel.
+*/
+.toast-dock {
+  position: fixed; left: var(--sidebar-w); right: 0; bottom: 26px; z-index: 80;
+  display: flex; justify-content: center;
+  /* The gutter that keeps a full-width toast off the panel edges lives here
+     rather than as a viewport calc on the toast, so it is measured against the
+     panel the toast is centred in. */
+  padding: 0 30px;
+  pointer-events: none;
+}
+.toast {
+  position: relative; pointer-events: auto;
+  /* About 70 characters at 13px, which is as wide as a wrapped line can be and
+     still be tracked back from comfortably. min-width lets the flex item fall
+     below its content width if the panel is ever narrower than the gutters
+     allow for. */
+  max-width: 440px; min-width: 0;
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 16px;
+  background: var(--board);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  color: var(--ink);
+  /* 13px, the app's body size. */
+  font-size: var(--text-13); font-weight: 500; line-height: 1.45;
+  animation: pop .2s;
+}
+.toast.is-error { background: var(--wash-breach); border-color: var(--breach); }
+.toast-msg { min-width: 0; }
+.toast-icon { flex: none; color: var(--breach-ink); }
+/* An .icon-btn is a 30px square with its glyph inset, so it needs pulling
+   back toward the edge to sit on the same optical margin as the text. */
+.toast-dismiss { flex: none; margin-right: -6px; }
+.toast .btn-sm { flex: none; }
+
+/* The signature: the bottom hairline is consumed left to right over exactly
+   the lifetime the store granted this message. The 6s an action gets and the
+   2.6s a bare confirmation gets are real numbers with real consequences: miss
+   the window and the Undo is gone.
+
+   The length of a horizontal accent run already reads as a quantity on the
+   month bar and on the dashboard's planned-against-spent bars; here the
+   quantity is time left. It is also the only place the accent is spent on
+   this component.
+
+   It overlays the border rather than sitting inside it, and spans precisely
+   the straight run of that border from one corner arc to the other, so what
+   is revealed behind it as it empties is --rule-strong: the toast's own edge,
+   being eaten. Errors never expire and so have no edge at all, which gives
+   the two states a second, non-colour channel. --toast-life is set on the
+   element from the store's timeout, so the edge cannot drift out of step with
+   the disappearance it is counting down to. */
+.toast::after {
+  content: "";
+  position: absolute; bottom: -1px; left: var(--radius); right: var(--radius);
+  height: 2px; background: var(--accent);
+  transform-origin: left center;
+  animation: toast-drain var(--toast-life, 2600ms) linear forwards;
+}
+@keyframes toast-drain { to { transform: scaleX(0); } }
+.toast.is-error::after { content: none; }
+
+/* ---- find (Ctrl+F) ------------------------------------------------------
+   The bar floats over the content rather than covering it, and sits outside
+   .main-inner so it is never part of what it searches. */
+.find-bar {
+  position: fixed; top: 16px; right: 30px; z-index: 90;
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 8px 7px 12px;
+  background: var(--board); border: 1px solid var(--rule-strong);
+  border-radius: var(--radius); box-shadow: var(--shadow-lg);
+  animation: pop .16s;
+}
+/* The bar floats, so the content it covers is pushed clear of it instead. */
+.app.find-open .main-inner { padding-top: 84px; }
+/* The leading magnifier. A direct child, so the three .icon-btn glyphs at the
+   other end of the bar keep their own colour rules. */
+.find-bar > svg { color: var(--faint); flex: none; }
+.find-input {
+  width: 210px; background: transparent; border: 0; border-radius: 6px;
+  color: var(--ink); font-family: inherit; font-size: var(--text-13); padding: 3px 2px;
+}
+.find-input::placeholder { color: var(--faint); }
+.find-count {
+  font-variant-numeric: tabular-nums lining-nums; font-size: var(--text-11); color: var(--muted);
+  /* Wide enough to hold "1000 of 1000" at 11.5px mono, so the count does not
+     resize the whole bar as you type. */
+  min-width: 92px; text-align: right; flex: none; white-space: nowrap;
+}
+.find-count-none { color: var(--breach-ink); }
+
+/* Text-node matches. ::highlight() paints without touching the DOM, so React
+   keeps ownership of the tree. Only a few properties are honoured here.
+
+   The current match is a fixed pair, deliberately outside the theme system: a
+   found-match marker is a tool and not decoration, and a pair that has to hold
+   across six accents cannot be derived from any of them. Amber on near-black
+   measures 13.67:1 in every theme, and it is the colour every browser's own
+   find already uses, so it reads as "here" instantly. The non-current wash
+   stays accent-tinted, which is where the theme belongs; 40% is what lifts the
+   tint against plain text while keeping --ink on it at 5.17:1 in the worst
+   case, cyan on --raised. */
+::highlight(find-match) { background-color: color-mix(in srgb, var(--accent) 40%, transparent); color: var(--ink); }
+::highlight(find-current) { background-color: #ffd84d; color: #161006; }
+
+/* Input matches: the value is not a text node, so the whole field lights up.
+   The current one borrows the same amber so "current" means one thing. */
+.find-hit { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent) !important; }
+.find-hit-current { box-shadow: 0 0 0 2px #ffd84d, 0 0 0 5px color-mix(in srgb, #ffd84d 26%, transparent) !important; }
