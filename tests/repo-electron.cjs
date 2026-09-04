@@ -34,6 +34,7 @@ function throws(fn, needle, msg) {
 }
 
 app.whenReady().then(() => {
+  let code = 0;
   try {
     const Database = require('better-sqlite3');
     const b = (...p) => require(path.join(__dirname, '..', 'build', 'database', ...p));
@@ -321,11 +322,12 @@ app.whenReady().then(() => {
 
     console.log('REPO_OK aggregates+writes verified, months=' + series.length);
     db.close();
-    process.exitCode = 0;
   } catch (err) {
     console.error('REPO_FAIL', err && err.stack ? err.stack : err);
-    process.exitCode = 1;
+    code = 1;
   } finally {
-    app.quit();
+    // app.exit, not process.exitCode + app.quit: quitting resets the code to 0,
+    // which would let a failure here pass silently in the npm test chain.
+    app.exit(code);
   }
 });

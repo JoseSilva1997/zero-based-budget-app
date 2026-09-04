@@ -1,5 +1,27 @@
 name: CI
 
+# Where each suite runs, and why it is split.
+#
+# Five of the ten suites open a real BrowserWindow and measure what Chromium
+# actually did with app.css - the sidebar's grid column, the contrast floors,
+# the month bar, the debug capture. Those need a real display, and the
+# GitHub-hosted Windows runner does not have one worth the name:
+#
+#   * its screen is 1024x768, and Windows clamps a window to the work area, so
+#     the 1280x860 window tests/sidebar-electron.cjs asks for came back 1008px
+#     wide and tripped the < 1024px breakpoint. show:false, offscreen:true and
+#     enableLargerThanScreen:true were all tried and all clamped the same way.
+#   * even with the resolution raised to 1920x1080 (Set-DisplayResolution does
+#     work there), the session still could not resolve the theme's custom
+#     properties: every colour in [data-theme="obsidian"] fell back to its
+#     inherited value, failing all 23 contrast checks.
+#
+# Under Xvfb on Linux the same suites pass unmodified, so that is where they
+# run. The Windows job stays for the half that is genuinely about Windows: the
+# better-sqlite3 native rebuild and the database layer standing on it, which is
+# what would break a release installer. Those suites open no window and pass
+# there today.
+
 on:
     push:
         branches: [ "main" ]
@@ -15,7 +37,51 @@ concurrency:
     cancel-in-progress: true
 
 jobs:
-    build-and-test:
+    test:
+        name: Test (Linux, Xvfb)
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: actions/setup-node@v4
+              with:
+                node-version: 24
+                cache: npm
+
+            - name: Cache Electron binaries
+              uses: actions/cache@v4
+              with:
+                path: |
+                    ~/.cache/electron
+                    ~/.cache/electron-builder
+                key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+                restore-keys: electron-${{ runner.os }}-
+
+            - name: Install Xvfb
+              run: sudo apt-get update && sudo apt-get install -y xvfb
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Rebuild native modules for Electron
+              run: npm run rebuild
+
+            - name: Compile main process
+              run: npm run build
+
+            # 1920x1080 so a window larger than the app's own 1280x860 default
+            # still fits: a window clamped to the screen is what broke this
+            # suite on the Windows runner. ELECTRON_DISABLE_SANDBOX because the
+            # runner image restricts unprivileged user namespaces, which the
+            # Chromium sandbox needs.
+            - name: Run tests
+              env:
+                ELECTRON_DISABLE_SANDBOX: 1
+              run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" npm test
+
+    windows-native:
+        name: Native modules (Windows)
         runs-on: windows-latest
         timeout-minutes: 30
         steps:
@@ -25,7 +91,7 @@ jobs:
               with:
                 node-version: 24
                 cache: npm
-            
+
             - name: Cache Electron binaries
               uses: actions/cache@v4
               with:
@@ -34,15 +100,15 @@ jobs:
                     ~\AppData\Local\electron-builder\Cache
                 key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
                 restore-keys: electron-${{ runner.os }}-
-            
+
             - name: Install dependencies
               run: npm ci
-            
+
             - name: Rebuild native modules for Electron
               run: npm run rebuild
-            
+
             - name: Compile main process
               run: npm run build
-            
-            - name: Run tests
-              run: npm test
+
+            - name: Run the suites that need no display
+              run: npm run test:core

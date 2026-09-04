@@ -151,6 +151,7 @@ window.__runTests = async () => {
 
 app.whenReady().then(async () => {
   let win = null;
+  let code = 0;
   try {
     /* ---- placement: sidebar foot, not a floating card ------------------- */
     const mainJsx = fs.readFileSync(path.join(root, 'renderer', 'main.jsx'), 'utf8');
@@ -216,13 +217,14 @@ app.whenReady().then(async () => {
     assert(pageErrors.length === 0, `console errors in the renderer: ${pageErrors.join(' | ')}`);
 
     console.log(`BANNER_OK ${results.length} assertions`);
-    process.exitCode = 0;
   } catch (err) {
     console.error('BANNER_FAIL', err && err.message ? err.message : err);
-    process.exitCode = 1;
+    code = 1;
   } finally {
     if (win && !win.isDestroyed()) win.destroy();
     fs.rmSync(outDir, { recursive: true, force: true });
-    app.quit();
+    // app.exit, not process.exitCode + app.quit: quitting resets the code to 0,
+    // which would let a failure here pass silently in the npm test chain.
+    app.exit(code);
   }
 });

@@ -98,6 +98,7 @@ const FIXTURE = `<!doctype html><html><body>
 
 app.whenReady().then(async () => {
   let win = null;
+  let code = 0;
   try {
     /* ---- 1. the setting survives the database ---------------------------- */
     const Database = require('better-sqlite3');
@@ -260,12 +261,13 @@ app.whenReady().then(async () => {
     assert(/className="nav-item-label"/.test(navItem), 'the visible label needs its own element to hide');
 
     console.log(`SIDEBAR_OK ${count} assertions`);
-    process.exitCode = 0;
   } catch (err) {
     console.error('SIDEBAR_FAIL', err && err.message ? err.message : err);
-    process.exitCode = 1;
+    code = 1;
   } finally {
     if (win && !win.isDestroyed()) win.destroy();
-    app.quit();
+    // app.exit, not process.exitCode + app.quit: quitting resets the code to 0,
+    // which would let a failure here pass silently in the npm test chain.
+    app.exit(code);
   }
 });

@@ -17,7 +17,41 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # The full suite, on the only runner that can actually render it; see the
+  # header of ci.yml for why the Windows one cannot. The installer is not built
+  # unless this passes.
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install Xvfb
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Rebuild native modules for Electron
+        run: npm run rebuild
+
+      - name: Compile main process
+        run: npm run build
+
+      - name: Run tests
+        env:
+          ELECTRON_DISABLE_SANDBOX: 1
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" npm test
+
   release:
+    needs: test
     runs-on: windows-latest
     timeout-minutes: 45
     environment: release
@@ -58,8 +92,11 @@ jobs:
       - name: Build renderer
         run: npm run build:renderer
 
-      - name: Run tests
-        run: npm test
+      # The display-dependent suites already ran in the `test` job above. What
+      # is left is the half this runner is here for: the native rebuild the
+      # installer will ship, exercised against the real database layer.
+      - name: Run the suites that need no display
+        run: npm run test:core
 
       - name: Ensure a single draft release exists
         shell: bash

@@ -42,6 +42,7 @@ function assert(cond, msg) {
 }
 
 app.whenReady().then(() => {
+  let code = 0;
   try {
     const Database = require('better-sqlite3');
     const db = new Database(':memory:');
@@ -80,11 +81,12 @@ app.whenReady().then(() => {
       `SMOKE_OK sqlite=${v} tables=${tables.length} electron=${process.versions.electron} abi=${process.versions.modules}`
     );
     db.close();
-    process.exitCode = 0;
   } catch (err) {
     console.error('SMOKE_FAIL', err && err.message ? err.message : err);
-    process.exitCode = 1;
+    code = 1;
   } finally {
-    app.quit();
+    // app.exit, not process.exitCode + app.quit: quitting resets the code to 0,
+    // which would let a failure here pass silently in the npm test chain.
+    app.exit(code);
   }
 });
