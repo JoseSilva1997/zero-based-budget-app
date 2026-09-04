@@ -92,6 +92,7 @@ require.cache[updaterModule] = {
 };
 
 app.whenReady().then(async () => {
+  let code = 0;
   try {
     const buildDir = path.join(__dirname, '..', 'build');
     const updater = require(path.join(buildDir, 'main', 'updater.js'));
@@ -271,11 +272,12 @@ app.whenReady().then(async () => {
     eq(JSON.stringify(fake.calls), callsBefore, 'the simulation must never touch electron-updater');
 
     console.log(`UPDATER_OK checks=${fake.calls.check} downloads=${fake.calls.download} installs=${fake.calls.install.length}`);
-    process.exitCode = 0;
   } catch (err) {
     console.error('UPDATER_FAIL', err && err.message ? err.message : err);
-    process.exitCode = 1;
+    code = 1;
   } finally {
-    app.quit();
+    // app.exit, not process.exitCode + app.quit: quitting resets the code to 0,
+    // which would let a failure here pass silently in the npm test chain.
+    app.exit(code);
   }
 });
