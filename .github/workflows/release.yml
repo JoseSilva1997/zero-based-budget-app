@@ -135,3 +135,72 @@ jobs:
             release/*.blockmap
             release/latest.yml
           if-no-files-found: warn
+
+  # The Linux AppImage, uploaded to the same draft release as the Windows
+  # installer so electron-updater finds latest-linux.yml beside latest.yml.
+  release-linux:
+    # After the Windows job, not beside it: that job creates the draft release,
+    # and two jobs racing to create it would collide. The suites already ran in
+    # `test`, which `release` waits on, so they are not repeated here.
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Verify tag matches package.json
+        run: npm run check:version -- ${{ inputs.tag || github.ref_name }}
+
+      - name: Cache Electron binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+          key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: electron-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Rebuild native modules for Electron
+        run: npm run rebuild
+
+      - name: Compile main process
+        run: npm run build
+
+      - name: Build renderer
+        run: npm run build:renderer
+
+      - name: Package AppImage
+        run: npm run dist -- --linux --publish never
+
+      - name: Upload assets to the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          # nullglob: an unmatched pattern expands to nothing rather than being
+          # passed through literally (the blockmap is not always emitted).
+          shopt -s nullglob
+          gh release upload "$TAG" release/*.AppImage release/*.blockmap release/latest-linux.yml --clobber
+
+      - name: Upload AppImage as workflow artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: house-budget-appimage
+          path: |
+            release/*.AppImage
+            release/*.blockmap
+            release/latest-linux.yml
+          if-no-files-found: warn
