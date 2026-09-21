@@ -1,75 +1,149 @@
 name: Release
 
+# Every pull request merged into main is a release. The version is not kept in
+# package.json: the git tags are the ledger. The `version` job reads the
+# highest vX.Y.Z tag, bumps it by the merged PR's title, tags the merge commit
+# and opens a draft release. Both platforms then build in parallel against that
+# tag, stamp the version into package.json on the runner only, and upload to
+# the draft. `publish` flips it live once both have uploaded, so electron-updater
+# never sees a release with latest.yml present and latest-linux.yml missing.
+#
+# PR title prefix -> bump (case-insensitive, an optional "(scope)" is allowed):
+#   maj: ...   1.4.2 -> 2.0.0
+#   med: ...   1.4.2 -> 1.5.0
+#   min: ...   1.4.2 -> 1.4.3
+#
+# pr-title.yml is a required check that will not let a PR merge without one of
+# these. A title that somehow has none still releases, as a patch.
+#
+# The suites are not run here. ci.yml ran them on the pull request, and the
+# branch ruleset requires that branch to be up to date with main before it can
+# merge, so the commit being released is the one that passed.
+
 on:
   push:
-    tags: ['v*.*.*']
+    branches: [ "main" ]
+    # A merge that touches only these ships nothing new to users, so it does
+    # not cut a release. Run the workflow by hand to release one anyway.
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - '.github/**'
+      - 'tests/**'
   workflow_dispatch:
     inputs:
-      tag:
-        description: 'Existing tag to build (e.g. v1.0.0)'
-        required: true
+      bump:
+        description: 'Bump to apply to the latest tag. Ignored if the head of main is already tagged, in which case that release is rebuilt.'
+        type: choice
+        options: [ min, med, maj ]
+        default: min
 
 permissions:
   contents: read
 
+# One release at a time, never cancelled: a second merge waits for the first to
+# finish tagging, so the two cannot compute the same version.
 concurrency:
-  group: release-${{ inputs.tag || github.ref }}
+  group: release
   cancel-in-progress: false
 
 jobs:
-  # The full suite, on the only runner that can actually render it; see the
-  # header of ci.yml for why the Windows one cannot. The installer is not built
-  # unless this passes.
-  test:
+  version:
+    # A manual run can be started from any branch; only main is ever released.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.tag || github.ref }}
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-
-      - name: Install Xvfb
-        run: sudo apt-get update && sudo apt-get install -y xvfb
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Rebuild native modules for Electron
-        run: npm run rebuild
-
-      - name: Compile main process
-        run: npm run build
-
-      - name: Run tests
-        env:
-          ELECTRON_DISABLE_SANDBOX: 1
-        run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" npm test
-
-  release:
-    needs: test
-    runs-on: windows-latest
-    timeout-minutes: 45
-    environment: release
+    timeout-minutes: 5
     permissions:
       contents: write
+      pull-requests: read
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      version: ${{ steps.tag.outputs.version }}
+    steps:
+      # Full history, which brings every tag with it.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
+      - name: Tag the commit
+        id: tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHA: ${{ github.sha }}
+          EVENT: ${{ github.event_name }}
+          BUMP_INPUT: ${{ inputs.bump }}
+        run: |
+          # A commit that already carries a release tag is being re-run: rebuild
+          # that release rather than burning a new number on the same code.
+          tag=$(git tag --points-at "$SHA" --list 'v*.*.*' | sort -V | tail -n1)
+
+          if [[ -n $tag ]]; then
+            echo "$SHA is already tagged $tag; rebuilding that release."
+          else
+            latest=$(git tag --list 'v*.*.*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n1 || true)
+            IFS=. read -r major minor patch <<< "${latest:-v0.0.0}"
+            major=${major#v}
+
+            if [[ $EVENT == workflow_dispatch ]]; then
+              bump=$BUMP_INPUT
+              echo "Manual run, bump: $bump"
+            else
+              title=$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/pulls" \
+                --jq '[.[] | select(.merged_at != null and .base.ref == "main")][0].title // ""')
+              # In a variable so bash reads the pattern as a regex, not a glob.
+              # Same pattern as pr-title.yml; change both together.
+              prefix='^[[:space:]]*(maj|med|min)[[:space:]]*(\([^)]*\))?[[:space:]]*:'
+              shopt -s nocasematch
+              if [[ $title =~ $prefix ]]; then bump=${BASH_REMATCH[1],,}; else bump=min; fi
+              shopt -u nocasematch
+              echo "PR title: ${title:-<no merged PR found>}"
+              echo "Bump: $bump"
+            fi
+
+            case $bump in
+              maj) tag="v$((major + 1)).0.0" ;;
+              med) tag="v$major.$((minor + 1)).0" ;;
+              *)   tag="v$major.$minor.$((patch + 1))" ;;
+            esac
+
+            echo "${latest:-no previous tag} -> $tag"
+            git tag "$tag" "$SHA"
+            git push origin "refs/tags/$tag"
+          fi
+
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+          echo "### Releasing $tag" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Ensure a single draft release exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release already exists for $TAG"
+          else
+            gh release create "$TAG" --draft --verify-tag --title "$TAG" --generate-notes
+          fi
+
+  release-windows:
+    needs: version
+    runs-on: windows-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ needs.version.outputs.tag }}
+      VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ needs.version.outputs.tag }}
 
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
-
-      - name: Verify tag matches package.json
-        run: npm run check:version -- ${{ inputs.tag || github.ref_name }}
 
       - name: Cache Electron binaries
         uses: actions/cache@v4
@@ -86,29 +160,17 @@ jobs:
       - name: Rebuild native modules for Electron
         run: npm run rebuild
 
+      # On the runner only, never committed. The installer's filename,
+      # latest.yml and app.getVersion() all read it from here.
+      - name: Stamp the version into package.json
+        shell: bash
+        run: npm version "$VERSION" --no-git-tag-version --allow-same-version
+
       - name: Compile main process
         run: npm run build
 
       - name: Build renderer
         run: npm run build:renderer
-
-      # The display-dependent suites already ran in the `test` job above. What
-      # is left is the half this runner is here for: the native rebuild the
-      # installer will ship, exercised against the real database layer.
-      - name: Run the suites that need no display
-        run: npm run test:core
-
-      - name: Ensure a single draft release exists
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ inputs.tag || github.ref_name }}
-        run: |
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Draft already exists for $TAG"
-          else
-            gh release create "$TAG" --draft --title "$TAG" --generate-notes
-          fi
 
       - name: Package installer
         run: npm run dist -- --publish never
@@ -117,7 +179,6 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           # nullglob: an unmatched pattern expands to nothing rather than being
           # passed through literally, which would fail the upload on a file
@@ -136,29 +197,28 @@ jobs:
             release/latest.yml
           if-no-files-found: warn
 
-  # The Linux AppImage, uploaded to the same draft release as the Windows
-  # installer so electron-updater finds latest-linux.yml beside latest.yml.
+  # The Linux AppImage, uploaded to the same release as the Windows installer so
+  # electron-updater finds latest-linux.yml beside latest.yml. It runs beside
+  # the Windows job rather than after it: `version` already created the draft,
+  # so there is nothing for the two to race over.
   release-linux:
-    # After the Windows job, not beside it: that job creates the draft release,
-    # and two jobs racing to create it would collide. The suites already ran in
-    # `test`, which `release` waits on, so they are not repeated here.
-    needs: release
+    needs: version
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
       contents: write
+    env:
+      TAG: ${{ needs.version.outputs.tag }}
+      VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ needs.version.outputs.tag }}
 
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
-
-      - name: Verify tag matches package.json
-        run: npm run check:version -- ${{ inputs.tag || github.ref_name }}
 
       - name: Cache Electron binaries
         uses: actions/cache@v4
@@ -175,6 +235,9 @@ jobs:
       - name: Rebuild native modules for Electron
         run: npm run rebuild
 
+      - name: Stamp the version into package.json
+        run: npm version "$VERSION" --no-git-tag-version --allow-same-version
+
       - name: Compile main process
         run: npm run build
 
@@ -187,7 +250,6 @@ jobs:
       - name: Upload assets to the draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           # nullglob: an unmatched pattern expands to nothing rather than being
           # passed through literally (the blockmap is not always emitted).
@@ -204,3 +266,17 @@ jobs:
             release/*.blockmap
             release/latest-linux.yml
           if-no-files-found: warn
+
+  publish:
+    needs: [ version, release-windows, release-linux ]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.version.outputs.tag }}
+        run: gh release edit "$TAG" --draft=false --latest

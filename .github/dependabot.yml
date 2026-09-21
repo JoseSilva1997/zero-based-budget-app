@@ -1,0 +1,13 @@
+# Only here to title Dependabot's security-update PRs so they pass the
+# "PR title" check (.github/workflows/pr-title.yml): a dependency bump ships as
+# a patch release. open-pull-requests-limit: 0 keeps this from switching on
+# routine version-update PRs; security updates are unaffected by the limit.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    commit-message:
+      prefix: min

@@ -88,6 +88,27 @@ npm run pack   # unpacked build into release/ (for testing)
 npm run dist   # full installer (Windows NSIS) into release/
 ```
 
+A local build is versioned `0.0.0`: the real version is stamped in by CI (see below), so `package.json` never needs bumping by hand.
+
+## Releasing
+
+`main` only changes through pull requests, and every merged pull request is released automatically. You do not bump a version, push a tag or re-run anything:
+
+1. Open a pull request against `main`, titled with a version prefix (below). CI runs the suites on it; the branch must pass them and be up to date with `main` before it can merge.
+2. Merge it. The **Release** workflow tags the merge commit, builds the Windows installer and the Linux AppImage in parallel, and publishes the GitHub release once both are uploaded. Installed copies then offer the update.
+
+The pull request's title picks the version bump (case-insensitive; a scope like `med (ui):` is fine). A title without one of these fails the **PR title** check, and the pull request cannot merge until it is renamed:
+
+| Title starts with | Bump | Example |
+|-------------------|------|---------|
+| `maj:` | major | 1.4.2 → 2.0.0 |
+| `med:` | minor | 1.4.2 → 1.5.0 |
+| `min:` | patch | 1.4.2 → 1.4.3 |
+
+Dependabot's security-update pull requests are titled `min:` by `.github/dependabot.yml`.
+
+The git tags are the record of what has shipped: the next version is the highest `vX.Y.Z` tag, bumped. A merge that only touches Markdown, `LICENSE`, `tests/` or `.github/` is not released. To release one anyway, or to retry a failed release, run the **Release** workflow by hand from the Actions tab.
+
 ## Development
 
 | Command | Description |

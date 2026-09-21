@@ -1,0 +1,41 @@
+name: PR title
+
+# The merged PR's title is what release.yml reads to pick the version bump, so a
+# PR without a bump prefix cannot merge. GitHub has no hook to stop a PR being
+# opened; a required check that fails is the closest thing, and it blocks the
+# merge button until the title is fixed.
+#
+# Kept apart from ci.yml so that retitling a PR re-runs this in seconds instead
+# of re-running every suite. `edited` fires on a title or description change.
+
+on:
+  pull_request:
+    branches: [ "main" ]
+    types: [ opened, edited, reopened, synchronize ]
+
+permissions: {}
+
+concurrency:
+  group: pr-title-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  title:
+    name: Version prefix
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Check the title starts with maj, med or min
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          # Same pattern as release.yml; change both together.
+          prefix='^[[:space:]]*(maj|med|min)[[:space:]]*(\([^)]*\))?[[:space:]]*:'
+          shopt -s nocasematch
+          if [[ $TITLE =~ $prefix ]]; then
+            echo "Title picks a ${BASH_REMATCH[1],,} release."
+            exit 0
+          fi
+
+          echo "::error title=PR title needs a version prefix::Start the title with maj:, med: or min: (a scope is fine, e.g. \"med (ui): ...\"). maj = 1.4.2 -> 2.0.0, med = 1.4.2 -> 1.5.0, min = 1.4.2 -> 1.4.3."
+          exit 1

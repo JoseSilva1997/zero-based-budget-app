@@ -22,9 +22,12 @@ name: CI
 # what would break a release installer. Those suites open no window and pass
 # there today.
 
+# No push trigger. main only moves by merging a pull request, and the branch
+# ruleset will not merge one until these checks pass on a branch that is up to
+# date with main, so the merge commit is the tree that was already tested.
+# Running them again on the push would repeat the same run; release.yml builds
+# from that commit without re-testing it.
 on:
-    push:
-        branches: [ "main" ]
     pull_request:
         branches: [ "main" ]
     workflow_dispatch:
