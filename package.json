@@ -42,6 +42,7 @@
       "build/**/*",
       "renderer/dist/**/*",
       "assets/icon.ico",
+      "assets/budget.png",
       "database/schema.sql",
       "database/triggers.sql"
     ],
@@ -51,6 +52,12 @@
     "win": {
       "target": "nsis",
       "signAndEditExecutable": true
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/budget.png",
+      "category": "Office",
+      "artifactName": "${name}-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,

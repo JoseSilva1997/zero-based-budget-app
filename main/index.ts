@@ -70,7 +70,7 @@ function createWindow(): void {
     minHeight: 640,
     backgroundColor: '#0d1016',
     show: false,
-    icon: path.join(app.getAppPath(), 'assets', 'icon.ico'),
+    icon: path.join(app.getAppPath(), 'assets', process.platform === 'win32' ? 'icon.ico' : 'budget.png'),
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload', 'index.js'),
       contextIsolation: true,
