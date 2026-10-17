@@ -8,11 +8,11 @@
 import { app, BrowserWindow } from 'electron';
 import * as path from 'path';
 import { initDb, getDb, closeDb } from './db';
-import { backupsDir, userDataDir } from './paths';
+import { userDataDir } from './paths';
 import { registerIpcHandlers } from './ipc';
 import { buildAppMenu } from './menu';
-import { createDbBackup } from '../database/repositories/backups';
-import { readAutoBackupMode, setMeta } from '../database/repositories/meta';
+import { readAutoBackupMode } from '../database/repositories/meta';
+import { backupNow, catchUpCloud } from './cloudBackup';
 import { initUpdater, checkForUpdates } from './updater';
 
 let mainWindow: BrowserWindow | null = null;
@@ -113,6 +113,9 @@ app.whenReady().then(() => {
   // own failures, so an offline start is a no-op.
   initUpdater();
   setTimeout(() => { void checkForUpdates(); }, 5_000);
+  // Copy any snapshots the cloud folder missed while it was unreachable. Held
+  // back for the same reason as the update check; never throws.
+  setTimeout(() => { void catchUpCloud(); }, 8_000);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -141,8 +144,9 @@ app.on('before-quit', (event) => {
   }
 
   event.preventDefault();
-  createDbBackup(db, backupsDir())
-    .then((info) => setMeta(db, 'lastBackup', info.savedAt))
+  // backupNow copies to the cloud folder after the local snapshot, under a
+  // timeout, so a hung mount delays quitting by seconds at most.
+  backupNow(db)
     .catch((err) => console.error('[backup] auto-backup on close failed:', err))
     .finally(() => {
       didCloseTasks = true;

@@ -203,6 +203,13 @@ select.account-select { padding-right: var(--space-3); }
 .backup-item-date { display: block; font-size: var(--text-13); font-weight: 500; }
 .backup-item-file { display: block; font-size: var(--text-11); color: var(--muted); margin-top: 2px; }
 .backup-item-size { font-size: var(--text-12); color: var(--faint); white-space: nowrap; }
+/* .eyebrow carries the shape. Shown only when the list has both local and
+   cloud backups, to say which is which. */
+.backup-group { padding: var(--space-5) 14px var(--space-2); color: var(--faint); }
+.backup-group.is-ruled { border-top: 1px solid var(--rule); }
+
+/* A folder path has no spaces to wrap at, and would push the row wide. */
+.cloud-path { overflow-wrap: anywhere; color: var(--ink-2); }
 
 .restore-foot {
   display: flex; align-items: center; justify-content: space-between;

@@ -441,15 +441,20 @@ export function StoreProvider({ children }) {
      both and drifting. */
   const backupNow = useCallback(async () => {
     // channel: "backup:create" - no input (the DB is already current), returns
-    // { path, savedAt }.
+    // { path, savedAt, cloud }.
     if (!can("createBackup")) {
       toast("Backups need the desktop app", "error");
       return false;
     }
     try {
-      await api.createBackup();
+      // The local snapshot is the backup; 'cloud' only says whether the copy
+      // to the cloud folder also went through. A failed copy is not a failed
+      // backup, so it is a plain toast with the reason, not an error.
+      const { cloud } = await api.createBackup();
       await refreshSettings();
-      toast("Backup saved to your data folder");
+      if (cloud && cloud.state === "copied") toast("Backup saved and copied to your cloud folder");
+      else if (cloud && cloud.state === "failed") toast(`Backup saved on this device. ${cloud.error}`);
+      else toast("Backup saved to your data folder");
       return true;
     } catch (err) {
       console.error("backup:create failed", err);

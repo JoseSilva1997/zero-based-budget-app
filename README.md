@@ -78,8 +78,25 @@ All data is stored under Electron's per-user data directory:
 
 - `data/budget.sqlite` — the live database.
 - `backups/` — dated database snapshots.
+- `cloud-backup.json` — this machine's cloud backup folder setting (see below).
 
 The exact location is printed to the console at startup (`[house-budget] userData: …`). When auto-backup is set to "on close", the app writes a snapshot when you quit (an empty, never-used database is skipped). You can also take manual backups from **Settings**.
+
+### Cloud backup folder
+
+**Settings → Data & backup → Cloud backup folder** copies every backup to a folder that a sync app uploads for you. The app never talks to a cloud service itself, so there's no account to create and no credentials to store.
+
+- **Local first.** Each backup is saved in `backups/` first and only then copied. If the copy fails (folder missing, drive not mounted), the local backup still counts, Settings shows why, and the app tries again at the next backup or startup.
+- **Layout.** The app creates a `House Budget` folder inside the one you pick, with one subfolder per device. Each device keeps only its last 30 backups there and never touches the others.
+- **Restoring.** The restore list shows this device's backups and, under *Cloud folder*, backups from other devices or ones no longer on this device. A cloud backup is copied locally and checked before anything is replaced.
+- **New computer.** Install your sync app and House Budget, choose the same folder (or the `House Budget` folder inside it), and restore from the list.
+
+Which sync app to use:
+
+- **Windows:** OneDrive is built in. Dropbox and Google Drive for desktop also work.
+- **Linux:** any tool that gives you a synced folder or a mount — Dropbox (official client), [Nextcloud](https://nextcloud.com/install/#desktop-files), [onedrive](https://github.com/abraunegg/onedrive), [rclone](https://rclone.org/) (`rclone mount --vfs-cache-mode writes`, or a scheduled `rclone copy`), or [Syncthing](https://syncthing.net/) to sync to your own devices.
+
+The app can only confirm the copy reached the folder, not that your sync app has uploaded it yet.
 
 ## Building a distributable
 

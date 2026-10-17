@@ -27,7 +27,9 @@ import type {
   BankAccount,
   GroupKind,
   AutoBackupMode,
-  BackupInfo,
+  CloudCopyResult,
+  CloudStatus,
+  ListedBackup,
   RestorePreview,
   UpdateStatus,
   ShortcutDoc,
@@ -135,12 +137,17 @@ const api = {
     invoke<Ok>('settings:update', { patch }),
 
   /* ---------- backup / data ---------- */
-  createBackup: () => invoke<{ path: string; savedAt: string }>('backup:create'),
-  listBackups: () => invoke<BackupInfo[]>('backup:list'),
+  createBackup: () =>
+    invoke<{ path: string; savedAt: string; cloud: CloudCopyResult }>('backup:create'),
+  listBackups: () => invoke<ListedBackup[]>('backup:list'),
   previewBackup: (filePath: string) => invoke<RestorePreview>('backup:preview', filePath),
   restoreBackup: (filePath: string) =>
     invoke<{ ok: true; safetyCopy: string; savedAt: string }>('backup:restore', filePath),
   revealDataFolder: () => invoke<{ path: string }>('data:revealFolder'),
+  cloudStatus: () => invoke<CloudStatus>('cloud:status'),
+  /** Opens the folder picker; resolves to null when it is cancelled. */
+  cloudChoose: () => invoke<CloudStatus | null>('cloud:choose'),
+  cloudDisconnect: () => invoke<CloudStatus>('cloud:disconnect'),
 
   /* ---------- application menu ----------
      Menu items post a command here rather than acting in the main process,

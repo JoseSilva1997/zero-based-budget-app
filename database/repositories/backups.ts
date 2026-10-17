@@ -35,7 +35,7 @@ function safeTimestamp(d: Date): string {
   );
 }
 
-function friendlyDate(d: Date): string {
+export function friendlyDate(d: Date): string {
   return d.toLocaleString('en-US', {
     month: 'short',
     day: 'numeric',
