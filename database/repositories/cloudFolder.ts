@@ -21,9 +21,17 @@
      cloud folder never collide and pruning one never touches the other.
    - Copies land as `.tmp` and are renamed into place, so a sync app never
      uploads a half-written file that would look like a real backup.
+   - The folder must list files by their names. Some mounts do not: GNOME's
+     built-in Google Drive lists Drive IDs, so nothing in it can be listed or
+     pruned (and its copyfile fails with EIO). Such a folder is refused when
+     chosen, and before every copy, rather than half-working.
+   - Files are copied with plain reads and writes, never fs.copyFile: the
+     kernel shortcuts copyFile uses (copy_file_range, sendfile) are where
+     network mounts fail, while a plain write works on all of them.
    ============================================================ */
 import * as fs from 'fs';
 import * as path from 'path';
+import { pipeline } from 'stream/promises';
 import { listBackups, pruneBackups, MAX_BACKUPS } from './backups';
 import type { ListedBackup } from '../../shared/types';
 
@@ -35,6 +43,8 @@ const STALE_TMP_MS = 60 * 60 * 1000;
 
 export const NOT_READY =
   "Couldn't reach your cloud folder. Check that it's connected; the app will try again next time.";
+export const NOT_LISTABLE =
+  "That folder can't hold backups: it doesn't list files by their names. GNOME's built-in Google Drive works this way. Use a sync app that gives you a normal folder, such as rclone or Insync.";
 
 /**
  * The root for a picked folder: the picked folder itself when it is already a
@@ -56,26 +66,60 @@ export function prepareCloudFolder(picked: string): string {
   if (!isDir) throw new Error("That folder doesn't exist any more. Pick another one.");
 
   const root = resolveCloudRoot(picked);
+  const marker = path.join(root, MARKER);
+  const madeRoot = !fs.existsSync(root);
+  let madeMarker = false;
   try {
     fs.mkdirSync(root, { recursive: true });
     const probe = path.join(root, `.write-test-${process.pid}`);
     fs.writeFileSync(probe, 'ok');
     fs.unlinkSync(probe);
-    const marker = path.join(root, MARKER);
     if (!fs.existsSync(marker)) {
       fs.writeFileSync(
         marker,
         JSON.stringify({ app: 'House Budget', createdAt: new Date().toISOString() }) + '\n'
       );
+      madeMarker = true;
     }
   } catch {
     throw new Error("House Budget can't save files in that folder. Pick one you can write to.");
   }
+
+  if (folderProblem(root) === NOT_LISTABLE) {
+    // Leave the folder as it was found. Best-effort: on such a mount the
+    // cleanup itself may only half-work.
+    try {
+      if (madeMarker) fs.unlinkSync(marker);
+      if (madeRoot) fs.rmdirSync(root);
+    } catch {
+      /* ignore */
+    }
+    throw new Error(NOT_LISTABLE);
+  }
   return root;
 }
 
+/**
+ * Why the folder can't take a copy right now, or null when it can. The marker
+ * must exist AND show up by name when the folder is listed: reachable by name
+ * but missing from the listing is a mount that lists something else (IDs).
+ */
+export function folderProblem(root: string | null): string | null {
+  if (!root || !fs.existsSync(path.join(root, MARKER))) return NOT_READY;
+  try {
+    return fs.readdirSync(root).includes(MARKER) ? null : NOT_LISTABLE;
+  } catch {
+    return NOT_READY;
+  }
+}
+
 export function isFolderReady(root: string | null): boolean {
-  return !!root && fs.existsSync(path.join(root, MARKER));
+  return folderProblem(root) === null;
+}
+
+/** A file copy made of plain reads and writes; see the header for why. */
+async function copyPlain(from: string, to: string): Promise<void> {
+  await pipeline(fs.createReadStream(from), fs.createWriteStream(to));
 }
 
 /**
@@ -108,7 +152,7 @@ async function renameWithRetry(from: string, to: string, attempts = 3): Promise<
 
 /**
  * Copies one local snapshot into this device's subfolder, then prunes that
- * subfolder. Throws NOT_READY when the marker is missing. Re-running it for a
+ * subfolder. Throws when folderProblem() finds one. Re-running it for a
  * file that is already there is a no-op, which is what makes catch-up cheap.
  */
 export async function mirrorBackup(
@@ -117,7 +161,8 @@ export async function mirrorBackup(
   device: string,
   keep = MAX_BACKUPS
 ): Promise<'copied' | 'present'> {
-  if (!isFolderReady(root)) throw new Error(NOT_READY);
+  const problem = folderProblem(root);
+  if (problem) throw new Error(problem);
 
   const dir = path.join(root, device);
   await fs.promises.mkdir(dir, { recursive: true });
@@ -131,14 +176,14 @@ export async function mirrorBackup(
   }
 
   const tmp = dest + TMP_SUFFIX;
-  await fs.promises.copyFile(localFile, tmp);
+  await copyPlain(localFile, tmp);
   try {
     await renameWithRetry(tmp, dest);
   } catch {
     // Some network mounts cannot rename reliably. Writing the final name
     // directly loses only the half-written-file protection, and the size check
     // above repairs a cut-off copy on the next run.
-    await fs.promises.copyFile(localFile, dest);
+    await copyPlain(localFile, dest);
     await fs.promises.rm(tmp, { force: true });
   }
   // The list dates a backup by its modified time, so the copy keeps the
@@ -181,7 +226,8 @@ export async function catchUp(
   device: string,
   keep = MAX_BACKUPS
 ): Promise<number> {
-  if (!isFolderReady(root)) throw new Error(NOT_READY);
+  const problem = folderProblem(root);
+  if (problem) throw new Error(problem);
   const wanted = listBackups(localDir).slice(0, keep).reverse();
   let copied = 0;
   for (const b of wanted) {
@@ -226,7 +272,9 @@ export function stageForRestore(cloudFile: string, stagingRoot: string): string 
   const dir = fs.mkdtempSync(path.join(stagingRoot, 'restore-'));
   const dest = path.join(dir, path.basename(cloudFile));
   try {
-    fs.copyFileSync(cloudFile, dest);
+    // Plain read and write, as for every copy here: the cloud file may sit on
+    // a network mount. Backups are small enough to hold in memory.
+    fs.writeFileSync(dest, fs.readFileSync(cloudFile));
   } catch {
     throw new Error("That backup couldn't be read from your cloud folder. Check that it's connected.");
   }

@@ -155,6 +155,29 @@ async function cloudFolderChecks(b, sandbox) {
   eq(cf.listCloudBackups(root).length, 0, 'an unready folder lists nothing');
   fs.renameSync(markerFile + '.away', markerFile);
 
+  /* a mount that lists IDs instead of names (GNOME's Google Drive): refused
+     when chosen, with what it made removed, and refused before a copy */
+  const gdrive = path.join(dir, 'GDrive');
+  fs.mkdirSync(gdrive);
+  const realReaddir = fs.readdirSync;
+  const listsIds = (p) => path.resolve(String(p)).startsWith(gdrive) || path.resolve(String(p)) === root;
+  fs.readdirSync = function (p, ...rest) {
+    return listsIds(p) ? ['1d5T3o4gkWW9K9ZnCNTTQZWRwWbICgFZV'] : realReaddir.call(this, p, ...rest);
+  };
+  try {
+    let msg = null;
+    try { cf.prepareCloudFolder(gdrive); } catch (e) { msg = e.message; }
+    eq(msg, cf.NOT_LISTABLE, 'a folder that lists IDs is refused');
+    assert(!fs.existsSync(path.join(gdrive, cf.APP_FOLDER)), 'the refused folder is left as it was');
+    eq(cf.folderProblem(root), cf.NOT_LISTABLE, 'an already-chosen ID-listing folder is reported');
+    msg = null;
+    try { await cf.mirrorBackup(info.path, root, 'laptop'); } catch (e) { msg = e.message; }
+    eq(msg, cf.NOT_LISTABLE, 'and refused before a copy');
+  } finally {
+    fs.readdirSync = realReaddir;
+  }
+  eq(cf.folderProblem(root), null, 'a normal folder has no problem');
+
   /* pruning: this device only, this app's files only, stale .tmp cleared */
   const dev = path.join(root, 'laptop');
   const other = path.join(root, 'desktop');
