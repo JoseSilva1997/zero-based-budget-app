@@ -166,6 +166,13 @@ function RestoreDialog({ onClose, onRestored }) {
     catch (e) { setErr(e.message); setBusy(false); setPending(null); }
   };
 
+  // This device's own snapshots first: local always comes first, and the
+  // cloud folder only adds what this device no longer has (or never made).
+  const groups = [
+    { key: "local", title: "On this device", items: (backups || []).filter((b) => b.source !== "cloud") },
+    { key: "cloud", title: "Cloud folder", items: (backups || []).filter((b) => b.source === "cloud") },
+  ].filter((g) => g.items.length);
+
   if (pending) {
     const { live, incoming } = pending;
     return (
@@ -199,16 +206,29 @@ function RestoreDialog({ onClose, onRestored }) {
             No backups yet. Use <strong>Back up now</strong> to make one, or choose a file below.
           </div>
         )}
-        {(backups || []).map((b, i) => (
-          <button key={b.path} type="button" onClick={() => choose(b.path)}
-            className={cx("backup-item", i && "is-ruled")}>
-            <Icons.folder size={16} className="backup-item-icon" />
-            <span className="backup-item-text">
-              <span className="backup-item-date">{b.savedAt}</span>
-              <span className="backup-item-file truncate">{b.fileName}</span>
-            </span>
-            <span className="num backup-item-size">{fileSize(b.size)}</span>
-          </button>
+        {groups.map((g, gi) => (
+          <React.Fragment key={g.key}>
+            {/* Headed only when there are two groups: with local backups
+                alone the list reads exactly as it always has. */}
+            {groups.length > 1 && (
+              <div className={cx("eyebrow backup-group", gi && "is-ruled")}>{g.title}</div>
+            )}
+            {g.items.map((b, i) => (
+              <button key={b.path} type="button" onClick={() => choose(b.path)}
+                className={cx("backup-item", (i || groups.length > 1) && "is-ruled")}>
+                {b.source === "cloud"
+                  ? <Icons.cloud size={16} className="backup-item-icon" />
+                  : <Icons.folder size={16} className="backup-item-icon" />}
+                <span className="backup-item-text">
+                  <span className="backup-item-date">{b.savedAt}</span>
+                  <span className="backup-item-file truncate">
+                    {b.source === "cloud" ? `${b.device} · ${b.fileName}` : b.fileName}
+                  </span>
+                </span>
+                <span className="num backup-item-size">{fileSize(b.size)}</span>
+              </button>
+            ))}
+          </React.Fragment>
         ))}
       </div>
 
@@ -222,6 +242,71 @@ function RestoreDialog({ onClose, onRestored }) {
         <button className="btn" onClick={onClose}>Cancel</button>
       </div>
     </Modal>
+  );
+}
+
+/* ---- cloud backup folder ------------------------------------------------
+   Every backup is saved in the data folder first; this only adds a copy in a
+   folder the user's sync app (OneDrive, Dropbox, ...) uploads. The app never
+   talks to a cloud service itself. The status is asked for again whenever
+   lastBackup changes, because every backup also tries the copy. */
+function CloudFolderSetting({ lastBackup, toast }) {
+  const [st, setSt] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const available = can("cloudStatus");
+
+  useEffect(() => {
+    if (!available) return;
+    let live = true;
+    api.cloudStatus()
+      .then((v) => { if (live) setSt(v); })
+      .catch((err) => console.error("cloud:status failed", err));
+    return () => { live = false; };
+  }, [available, lastBackup]);
+
+  if (!available) return null;
+
+  const choose = async () => {
+    setBusy(true);
+    try {
+      // channel: "cloud:choose" - opens the folder picker; null when cancelled.
+      const next = await api.cloudChoose();
+      if (next) {
+        setSt(next);
+        toast(next.lastError ? `Cloud folder set. ${next.lastError}` : "Cloud folder set. Your backups are copied there now.");
+      }
+    } catch (err) {
+      toast(err.message, "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const stop = async () => {
+    try {
+      setSt(await api.cloudDisconnect());
+      toast("Stopped copying to the cloud folder. Backups already there were left alone.");
+    } catch (err) {
+      toast(err.message, "error");
+    }
+  };
+
+  if (!st || !st.folder) {
+    return (
+      <Setting title="Cloud backup folder" sub="Also copy each backup to a folder your cloud app syncs, like OneDrive or Dropbox. Backups are always saved on this device first.">
+        <button className="btn" onClick={choose} disabled={busy}><Icons.cloud size={15} /> Choose folder…</button>
+      </Setting>
+    );
+  }
+
+  const status = st.lastError
+    || (st.lastCopyAt ? `Last copied ${st.lastCopyAt}.` : "Nothing copied yet.");
+  return (
+    <Setting title="Cloud backup folder"
+      sub={<>Copying backups to <span className="cloud-path">{st.folder}</span>. {status}</>}>
+      <button className="btn" onClick={choose} disabled={busy}><Icons.cloud size={15} /> Change…</button>
+      <button className="btn btn-ghost btn-quiet" onClick={stop} disabled={busy}>Stop copying</button>
+    </Setting>
   );
 }
 
@@ -262,7 +347,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
   };
 
   const CURRENCIES = ["$", "£", "€", "¥", "₹", "C$", "A$"];
-  const AUTO = [["off", "Off"], ["onclose", "On app close"], ["daily", "Once a day"]];
+  const AUTO = [["off", "Off"], ["onclose", "On app close"]];
   const MEMBER_COLORS = ["#2fbf87", "#f0894e", "#5b8def", "#a87bf0", "#e0b84a", "#fb5e7e"];
   // A swatch that differs only by its fill is six identical buttons to anyone
   // who cannot see it, so each one is named by the colour it actually sets.
@@ -407,7 +492,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
                 <button key={val} role="radio" aria-checked={on} onClick={() => dispatch({ type: "updateSettings", patch: { autoBackup: val } })}
                   className={cx("seg-item", on && "is-on")}>
                   {/* the tick keeps its space when hidden, so choosing an option
-                      does not shuffle the other two sideways - see .seg-check */}
+                      does not shuffle the other one sideways - see .seg-check */}
                   <Icons.check size={12} className="seg-check" />
                   {label}
                 </button>
@@ -415,10 +500,11 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
             })}
           </div>
         </Setting>
+        <CloudFolderSetting lastBackup={s.lastBackup} toast={toast} />
         <Setting title="Restore from backup" sub="Go back to a saved snapshot. You'll see what it contains and confirm before anything is replaced, and your current data is backed up first.">
           <button className="btn" onClick={() => setRestoring(true)}><Icons.upload size={15} /> Restore…</button>
         </Setting>
-        <Setting title="Data folder" sub="Your budget file and its backups live in the app's private data folder on this device.">
+        <Setting title="Data folder" sub="Your budget file and its backups live in the app's private data folder on this device. Only a cloud backup folder, if you set one, gets copies.">
           <button className="btn" onClick={async () => {
             // channel: "data:revealFolder" - input {}, returns { path }.
             if (!can("revealDataFolder")) { toast("Opening the data folder needs the desktop app", "error"); return; }

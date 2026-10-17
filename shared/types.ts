@@ -106,7 +106,11 @@ export interface BlobAccount {
   type: BlobAccountType;
 }
 
-export type AutoBackupMode = 'off' | 'onclose' | 'daily';
+/* 'daily' was offered once but never implemented, and was then dropped: the app
+   is not opened every day, so a daily schedule had nothing to run on. A stored
+   'daily' (or anything else unknown) is read as 'onclose' by readAutoBackupMode
+   in database/repositories/meta.ts. */
+export type AutoBackupMode = 'off' | 'onclose';
 
 export interface BlobSettings {
   currency: string;
@@ -334,6 +338,30 @@ export interface RestorePreview {
   live: DbSummary;
   incoming: BackupSummary;
 }
+
+/** A restore candidate as the list shows it: this device's own snapshot, or a
+ *  copy in the cloud backup folder, named by the device that made it. */
+export interface ListedBackup extends BackupInfo {
+  source: 'local' | 'cloud';
+  device: string | null;
+}
+
+/** The cloud backup folder as Settings shows it. Per machine: this lives in
+ *  userData/cloud-backup.json, never in the database, so a restore cannot
+ *  bring in another device's folder or name. */
+export interface CloudStatus {
+  folder: string | null; // the "House Budget" folder inside the one picked
+  device: string | null;
+  ready: boolean; // folder set AND its marker file is there
+  lastCopyAt: string | null;
+  lastError: string | null;
+}
+
+/** What happened to the cloud copy after a local backup succeeded. */
+export type CloudCopyResult =
+  | { state: 'off' }
+  | { state: 'copied' }
+  | { state: 'failed'; error: string };
 
 
 /* ---------- 5. CI  ---------------------------------------------- */

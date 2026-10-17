@@ -19,6 +19,19 @@ export function backupsDir(): string {
   return dir;
 }
 
+/** userData/cloud-backup.json - this machine's cloud backup folder settings.
+ *  Deliberately not in the database: a restore replaces the database whole,
+ *  and must not bring in another device's folder or name with it. */
+export function cloudConfigPath(): string {
+  return path.join(app.getPath('userData'), 'cloud-backup.json');
+}
+
+/** userData/tmp/restore - where a cloud backup is copied before it is checked
+ *  and restored. Created and cleared by stageForRestore. */
+export function restoreStagingDir(): string {
+  return path.join(app.getPath('userData'), 'tmp', 'restore');
+}
+
 /** Absolute path of the live database file. */
 export function dbPath(): string {
   return path.join(dataDir(), 'budget.sqlite');

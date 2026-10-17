@@ -19,6 +19,11 @@ interface SettingsPatch {
 export function registerSettingsIpc(): void {
   ipcMain.handle('settings:update', (_e, p: { patch: SettingsPatch }) =>
     guardAsync(async () => {
+      // Checked before anything is written, so a bad patch changes nothing.
+      const mode = p.patch.autoBackup;
+      if (mode !== undefined && mode !== 'off' && mode !== 'onclose') {
+        throw new Error(`Unknown automatic backup setting: ${String(mode)}`);
+      }
       const db = getDb();
       if (p.patch.currency !== undefined) setMeta(db, 'currency', p.patch.currency);
       if (p.patch.theme !== undefined) setMeta(db, 'theme', p.patch.theme);
