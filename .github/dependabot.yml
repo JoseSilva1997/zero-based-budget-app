@@ -1,13 +1,36 @@
-# Only here to title Dependabot's security-update PRs so they pass the
-# "PR title" check (.github/workflows/pr-title.yml): a dependency bump ships as
-# a patch release. open-pull-requests-limit: 0 keeps this from switching on
-# routine version-update PRs; security updates are unaffected by the limit.
+# Dependabot opens its pull requests against staging, like any other change,
+# so a dependency bump is tested and tried in a staging build before it ships
+# in the next release PR. Security updates always go to the default branch,
+# which is staging; target-branch makes version updates go there too.
+#
+# One grouped PR per update type rather than one per package. Major version
+# bumps (Electron's included) are left out of the group and arrive one PR each,
+# since they are the ones that need trying on their own.
+#
+# No title prefix: only the release PR into main needs one.
 version: 2
 updates:
   - package-ecosystem: npm
     directory: /
+    target-branch: staging
     schedule:
       interval: weekly
-    open-pull-requests-limit: 0
-    commit-message:
-      prefix: min
+    open-pull-requests-limit: 10
+    groups:
+      security:
+        applies-to: security-updates
+        patterns: [ "*" ]
+      minor-and-patch:
+        applies-to: version-updates
+        patterns: [ "*" ]
+        update-types: [ minor, patch ]
+
+  # The pinned actions in .github/workflows (checkout, setup-node, cache, ...).
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: staging
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: [ "*" ]
