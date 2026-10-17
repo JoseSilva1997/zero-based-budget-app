@@ -262,7 +262,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
   };
 
   const CURRENCIES = ["$", "£", "€", "¥", "₹", "C$", "A$"];
-  const AUTO = [["off", "Off"], ["onclose", "On app close"], ["daily", "Once a day"]];
+  const AUTO = [["off", "Off"], ["onclose", "On app close"]];
   const MEMBER_COLORS = ["#2fbf87", "#f0894e", "#5b8def", "#a87bf0", "#e0b84a", "#fb5e7e"];
   // A swatch that differs only by its fill is six identical buttons to anyone
   // who cannot see it, so each one is named by the colour it actually sets.
@@ -407,7 +407,7 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
                 <button key={val} role="radio" aria-checked={on} onClick={() => dispatch({ type: "updateSettings", patch: { autoBackup: val } })}
                   className={cx("seg-item", on && "is-on")}>
                   {/* the tick keeps its space when hidden, so choosing an option
-                      does not shuffle the other two sideways - see .seg-check */}
+                      does not shuffle the other one sideways - see .seg-check */}
                   <Icons.check size={12} className="seg-check" />
                   {label}
                 </button>

@@ -7,8 +7,8 @@
    active month. Each month's tree is fetched separately via 'getMonthTree'.
    ============================================================ */
 import type Database from 'better-sqlite3';
-import type { AutoBackupMode, BootstrapData } from '../../shared/types';
-import { getMeta } from './meta';
+import type { BootstrapData } from '../../shared/types';
+import { getMeta, readAutoBackupMode } from './meta';
 import { listMembers } from './members';
 import { listAccounts } from './accounts';
 import { listMonths } from './months';
@@ -35,7 +35,7 @@ export function loadBootstrap(db: Database.Database): BootstrapData {
       // teaching the main process the theme registry for no gain: the renderer
       // already falls back to DEFAULT_THEME_ID for anything it does not know.
       theme: getMeta(db, 'theme') || '',
-      autoBackup: (getMeta(db, 'autoBackup') as AutoBackupMode) || 'onclose',
+      autoBackup: readAutoBackupMode(db),
       lastBackup: getMeta(db, 'lastBackup'),
       // Absent means expanded: an install that has never touched the toggle
       // opens with the panel showing its labels.

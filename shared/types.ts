@@ -106,7 +106,11 @@ export interface BlobAccount {
   type: BlobAccountType;
 }
 
-export type AutoBackupMode = 'off' | 'onclose' | 'daily';
+/* 'daily' was offered once but never implemented, and was then dropped: the app
+   is not opened every day, so a daily schedule had nothing to run on. A stored
+   'daily' (or anything else unknown) is read as 'onclose' by readAutoBackupMode
+   in database/repositories/meta.ts. */
+export type AutoBackupMode = 'off' | 'onclose';
 
 export interface BlobSettings {
   currency: string;

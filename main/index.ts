@@ -12,7 +12,7 @@ import { backupsDir, userDataDir } from './paths';
 import { registerIpcHandlers } from './ipc';
 import { buildAppMenu } from './menu';
 import { createDbBackup } from '../database/repositories/backups';
-import { getMeta, setMeta } from '../database/repositories/meta';
+import { readAutoBackupMode, setMeta } from '../database/repositories/meta';
 import { initUpdater, checkForUpdates } from './updater';
 
 let mainWindow: BrowserWindow | null = null;
@@ -132,7 +132,7 @@ app.on('before-quit', (event) => {
   // never-used app makes no backups.
   const hasData =
     (db.prepare(`SELECT COUNT(*) AS n FROM budget_months`).get() as { n: number }).n > 0;
-  const wantsBackup = getMeta(db, 'autoBackup') === 'onclose' && hasData;
+  const wantsBackup = readAutoBackupMode(db) === 'onclose' && hasData;
 
   if (!wantsBackup) {
     didCloseTasks = true;

@@ -4,6 +4,7 @@
    state, and the active month key.
    ============================================================ */
 import type Database from 'better-sqlite3';
+import type { AutoBackupMode } from '../../shared/types';
 
 /* 'accentColor' was dropped when themes stopped being a background x accent
    grid and became one complete palette each. Nothing reads or writes it any
@@ -32,4 +33,14 @@ export function setMeta(db: Database.Database, key: MetaKey, value: string | nul
     `INSERT INTO app_meta (key, value) VALUES (?, ?)
      ON CONFLICT(key) DO UPDATE SET value = excluded.value`
   ).run(key, value);
+}
+
+/**
+ * The auto-backup setting, normalised. Only an explicit 'off' turns backups
+ * off; anything else - unset, the retired 'daily', or a value an old backup
+ * carried in on restore - reads as the default 'onclose'. Someone who chose
+ * 'daily' asked for automatic backups, so they keep getting them.
+ */
+export function readAutoBackupMode(db: Database.Database): AutoBackupMode {
+  return getMeta(db, 'autoBackup') === 'off' ? 'off' : 'onclose';
 }
