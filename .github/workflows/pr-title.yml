@@ -1,12 +1,20 @@
 name: PR title
 
-# The merged PR's title is what release.yml reads to pick the version bump, so a
-# PR without a bump prefix cannot merge. GitHub has no hook to stop a PR being
-# opened; a required check that fails is the closest thing, and it blocks the
-# merge button until the title is fixed.
+# Checks on a release PR, the only kind of pull request main takes. Pull
+# requests into staging need neither: they are never released on their own.
 #
-# Kept apart from ci.yml so that retitling a PR re-runs this in seconds instead
-# of re-running every suite. `edited` fires on a title or description change.
+# Release source: releases go staging -> main, so a PR into main from any other
+# branch fails. Without it, a feature branch opened against main out of habit
+# would be released without ever reaching staging or a staging build.
+#
+# Version prefix: the merged PR's title is what release.yml reads to pick the
+# version bump, so a PR without a bump prefix cannot merge.
+#
+# GitHub has no hook to stop a PR being opened; a required check that fails is
+# the closest thing, and it blocks the merge button until it is fixed. Kept
+# apart from ci.yml so that retitling or retargeting a PR re-runs this in
+# seconds instead of re-running every suite. `edited` fires on a title,
+# description or base branch change.
 
 on:
   pull_request:
@@ -20,6 +28,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  source:
+    name: Release source
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Check the PR comes from staging
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [[ $HEAD_REF == staging && $HEAD_REPO == "$REPO" ]]; then
+            echo "Release PR from staging."
+            exit 0
+          fi
+
+          echo "::error title=Releases go staging -> main::This PR is from $HEAD_REPO:$HEAD_REF. Only staging merges into main. Retarget this PR to staging (Edit, next to the title), then release with a PR from staging into main."
+          exit 1
+
   title:
     name: Version prefix
     runs-on: ubuntu-latest

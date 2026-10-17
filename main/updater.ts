@@ -15,6 +15,7 @@
    Disabled unless the app is packaged, unless a dev-app-update.yml sits in the
    app root, which forces the real feed on for local testing, or an update
    simulation is requested (see updater-sim.ts) to look at the UI in dev.
+   Always disabled in a staging build.
    ============================================================ */
 import { app, BrowserWindow } from 'electron';
 import { autoUpdater } from 'electron-updater';
@@ -59,6 +60,14 @@ export function initUpdater(): void {
     enabled = true;
     sim = createUpdateSim(scenario, broadcast);
     console.log(`[updater] SIMULATION "${scenario}": faking the feed, nothing will be downloaded`);
+    return;
+  }
+
+  // A staging build (.github/workflows/staging.yml) is versioned like
+  // 1.2.1-staging.42, which semver ranks below 1.2.1. Left on, the updater
+  // would offer the live release as an upgrade and replace the build under test.
+  if (app.getVersion().includes('-staging.')) {
+    console.log('[updater] disabled (staging build)');
     return;
   }
 

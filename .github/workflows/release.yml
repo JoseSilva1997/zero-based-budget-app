@@ -1,6 +1,9 @@
 name: Release
 
-# Every pull request merged into main is a release. The version is not kept in
+# Every pull request merged into main is a release, and the only pull requests
+# main takes are release PRs from staging (pr-title.yml's "Release source"
+# check), merged with a merge commit. Day-to-day work and Dependabot merge into
+# staging, which releases nothing. The version is not kept in
 # package.json: the git tags are the ledger. The `version` job reads the
 # highest vX.Y.Z tag, bumps it by the merged PR's title, tags the merge commit
 # and opens a draft release. Both platforms then build in parallel against that
