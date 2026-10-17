@@ -86,7 +86,7 @@
     "@material-symbols/svg-400": "^0.45.10",
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.10.5",
-    "electron": "^41.7.1",
+    "electron": "^41.10.6",
     "electron-builder": "^26.15.3",
     "electron-reload": "^2.0.0-alpha.1",
     "esbuild": "^0.28.0",
