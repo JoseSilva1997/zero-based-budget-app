@@ -561,19 +561,17 @@ export function listIncomes(db: Database.Database, monthId: number): BudgetIncom
 }
 
 /**
- * The groups a month shows: every group with a plan line in it, plus the
- * non-archived groups with no plan line in any month (freshly created ones,
- * so there is somewhere to add the first line).
+ * The groups a month shows: every group that is not archived (so a month
+ * started empty still offers them all), plus an archived group in a month
+ * where it still has a plan line.
  */
 export function listGroups(db: Database.Database, monthId: number): BudgetGroup[] {
   return db
     .prepare(
       `SELECT g.* FROM budget_groups g
-        WHERE EXISTS (SELECT 1 FROM budget_items it JOIN categories c ON c.id = it.category_id
+        WHERE g.archived = 0
+           OR EXISTS (SELECT 1 FROM budget_items it JOIN categories c ON c.id = it.category_id
                        WHERE c.group_id = g.id AND it.budget_month_id = ?)
-           OR (g.archived = 0
-               AND NOT EXISTS (SELECT 1 FROM budget_items it JOIN categories c ON c.id = it.category_id
-                                WHERE c.group_id = g.id))
         ORDER BY g.sort_order, g.id`
     )
     .all(monthId) as BudgetGroup[];

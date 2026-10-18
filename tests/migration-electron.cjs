@@ -300,8 +300,10 @@ function perMonthToCategories(Database, runner, months) {
 
   /* each month reads as it did, through the repository */
   const shape = (mid) => months.getMonthTree(db, mid).groups.map((g) => [g.name, g.items.map((i) => i.name)]);
-  eq(shape(1), [['Savings', ['Emergency']], ['Bills', ['Rent', 'Power']], ['New ideas', []], ['Fun', ['Cinema']]], 'August reads back');
-  eq(shape(2), [['Savings', ['Emergency']], ['Bills', ['Rent', 'Groceries']], ['New ideas', []]], 'September reads back');
+  // Every active group shows everywhere (Holidays and New ideas, empty, in the
+  // older months); the archived Fun only where it has lines.
+  eq(shape(1), [['Savings', ['Emergency']], ['Holidays', []], ['Bills', ['Rent', 'Power']], ['New ideas', []], ['Fun', ['Cinema']]], 'August reads back');
+  eq(shape(2), [['Savings', ['Emergency']], ['Holidays', []], ['Bills', ['Rent', 'Groceries']], ['New ideas', []]], 'September reads back');
   eq(shape(3), [['Savings', ['Emergency fund']], ['Holidays', ['Cinema']], ['Bills', ['Groceries', 'Rent']], ['New ideas', []]], 'October reads back');
   eq(months.monthTotals(db, 2).allocated, 1570, 'September allocated unchanged'); // 1000 + 300 + 20 + 250
   eq(months.monthTotals(db, 2).actual, 102, 'September actual unchanged'); // 80 + 15 + 7

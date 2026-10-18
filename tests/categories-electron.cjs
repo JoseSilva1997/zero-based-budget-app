@@ -150,7 +150,7 @@ app.whenReady().then(async () => {
       months.addItemByName(db, { monthId: oct, groupId: bills, name: 'Water' });
       const homeWater = months.addItemByName(db, { monthId: sep, groupId: home, name: 'water' });
       throws(() => months.moveItem(db, homeWater, bills, null), 'merge the categories in Settings', 'move onto a same-named item refused');
-      eq(shape(months, db, sep), [['Home', ['Cleaning', 'Power', 'water']]], 'refused move changed nothing');
+      eq(shape(months, db, sep), [['Bills', []], ['Home', ['Cleaning', 'Power', 'water']]], 'refused move changed nothing');
       db.close();
     }
 
@@ -167,7 +167,7 @@ app.whenReady().then(async () => {
       const catCount = () => db.prepare(`SELECT COUNT(*) n FROM categories`).get().n;
 
       months.deleteItem(db, octGym);
-      eq(shape(months, db, oct), [], 'gone from this month (Bills still has a line in September)');
+      eq(shape(months, db, oct), [['Bills', []]], 'gone from this month; the group still shows, empty');
       eq(db.prepare(`SELECT COUNT(*) n FROM budget_item_actual_entries`).get().n, 0, 'its entries went with it');
       eq(shape(months, db, sep), [['Bills', ['Gym']]], 'the other month keeps its line');
       eq(months.getItemById(db, sepGym).category_id, gymCat, 'so the category stays');
@@ -175,6 +175,26 @@ app.whenReady().then(async () => {
       months.deleteItem(db, sepGym);
       eq(catCount(), 0, 'its last line gone, the category is deleted');
       eq(shape(months, db, sep), [['Bills', []]], 'the group stays, empty');
+      db.close();
+    }
+
+    /* ---- visibility: every active group in every month ---- */
+    {
+      const db = freshDb();
+      const sep = months.insertMonth(db, '2026-09');
+      const bills = months.insertGroup(db, { name: 'Bills', kind: 'spend', sort_order: 0, collapsed: 0 });
+      const fun = months.insertGroup(db, { name: 'Fun', kind: 'spend', sort_order: 1, collapsed: 0 });
+      months.addItemByName(db, { monthId: sep, groupId: bills, name: 'Rent' });
+      months.addItemByName(db, { monthId: sep, groupId: fun, name: 'Cinema' });
+
+      // A month started empty still offers every group, so nothing is re-made.
+      const oct = months.insertMonth(db, '2026-10');
+      eq(shape(months, db, oct), [['Bills', []], ['Fun', []]], 'an empty month shows every active group');
+
+      // An archived group shows only where it still has a line.
+      db.prepare(`UPDATE budget_groups SET archived = 1 WHERE id = ?`).run(fun);
+      eq(shape(months, db, oct), [['Bills', []]], 'an archived group is left out of a month without its lines');
+      eq(shape(months, db, sep), [['Bills', ['Rent']], ['Fun', ['Cinema']]], 'and kept where it has them');
       db.close();
     }
 
@@ -189,12 +209,11 @@ app.whenReady().then(async () => {
       months.addItemByName(db, { monthId: sep, groupId: bills, name: 'Power' });
       months.addItemByName(db, { monthId: oct, groupId: bills, name: 'Rent' });
 
-      // A group with no line anywhere shows in every month, so it can be filled.
+      // An active group shows in every month, so it can be filled anywhere.
       eq(shape(months, db, oct), [['Bills', ['Rent']], ['New', []]], 'a new group shows in October');
       eq(shape(months, db, sep), [['Bills', ['Rent', 'Power']], ['New', []]], 'and in September');
-      // Once it has a line, it shows only where it has one.
       months.addItemByName(db, { monthId: oct, groupId: fresh, name: 'Thing' });
-      eq(shape(months, db, sep), [['Bills', ['Rent', 'Power']]], 'a filled group leaves the months without it');
+      eq(shape(months, db, sep), [['Bills', ['Rent', 'Power']], ['New', []]], 'a filled group still shows, empty, elsewhere');
 
       // Rename, kind and collapse are the group's, so every month sees them.
       months.updateGroup(db, bills, { name: 'House', kind: 'debt', collapsed: 1 });
@@ -203,15 +222,15 @@ app.whenReady().then(async () => {
 
       // Deleting from October takes October's lines; September keeps its own.
       months.deleteGroup(db, bills, oct);
-      eq(shape(months, db, oct), [['New', ['Thing']]], 'gone from October');
-      eq(shape(months, db, sep), [['House', ['Rent', 'Power']]], 'September untouched');
+      eq(shape(months, db, oct), [['House', []], ['New', ['Thing']]], 'October\'s lines are gone');
+      eq(shape(months, db, sep), [['House', ['Rent', 'Power']], ['New', []]], 'September untouched');
       eq(db.prepare(`SELECT COUNT(*) n FROM budget_groups WHERE id = ?`).get(bills).n, 1, 'still used, so the group stays');
 
       // Deleted from the last month that used it, nothing refers to it: gone.
       months.deleteGroup(db, bills, sep);
       eq(db.prepare(`SELECT COUNT(*) n FROM budget_groups WHERE id = ?`).get(bills).n, 0, 'unused group deleted');
       eq(db.prepare(`SELECT COUNT(*) n FROM categories`).get().n, 1, 'and its categories with it');
-      eq(shape(months, db, sep), [], 'September is empty');
+      eq(shape(months, db, sep), [['New', []]], 'September has only the other group');
 
       // An empty group deleted from any month is simply gone.
       const empty = months.insertGroup(db, { name: 'Empty', kind: 'spend', sort_order: 2, collapsed: 0 });
@@ -376,7 +395,7 @@ app.whenReady().then(async () => {
 
       // Picking one adds a line for THAT category, in its own group.
       const picked = months.addItemForCategory(db, { monthId: oct, categoryId: cands[0].categoryId, planned_cents: 4000 });
-      eq(shape(months, db, oct), [['Bills', ['Rent']], ['Car', ['Insurance']]], 'the pick lands in its own group');
+      eq(shape(months, db, oct), [['Bills', ['Rent']], ['Car', ['Insurance']], ['Home', []]], 'the pick lands in its own group');
       eq(months.reusableItemCandidates(db, oct, 'insurance').map((c) => c.groupName), ['Home'], 'and leaves the list');
 
       // An entry logged under a renamed category still finds its line.
