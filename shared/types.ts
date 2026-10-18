@@ -481,6 +481,20 @@ export interface ImportAddedFile {
   rowCount: number;
 }
 
+/** What the preload's importAddFile resolves to. 'needs_bank' is not an
+ *  error to show: the account needs its bank (or Revolut product) chosen,
+ *  and the file can then be sent again. */
+export type ImportAddOutcome =
+  | { status: 'added'; file: ImportAddedFile }
+  | {
+      status: 'needs_bank';
+      message: string;
+      /** The bank the file looks like, or null for none House Budget reads. */
+      preset: BankPreset | null;
+      /** Revolut only: the products in the file, to pick the account's. */
+      products: string[] | null;
+    };
+
 export interface ImportConfirmResult {
   /** Entries written. */
   entries: number;

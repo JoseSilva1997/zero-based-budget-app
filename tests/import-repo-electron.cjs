@@ -6,15 +6,22 @@
 
    Builds an in-memory DB from the committed schema + triggers, runs
    migrations to mirror a real DB, and drives the repository with the
-   anonymised fixture statements in tests/fixtures/import/.
+   anonymised fixture statements in tests/fixtures/import/. Then the
+   import:* and bank channels, against a real database under a sandbox.
 
    Requires a prior `npm run build` (loads build/database/**).
    Run with (ELECTRON_RUN_AS_NODE must be unset so require('electron').app works):
      npx electron tests/import-repo-electron.cjs
    ============================================================ */
-const { app } = require('electron');
+const { app, ipcMain } = require('electron');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
+
+// Before anything reads it: the IPC block opens a real database under
+// userData, and this run must not touch the real one.
+const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'hb-import-test-'));
+app.setPath('userData', path.join(sandbox, 'userData'));
 
 app.disableHardwareAcceleration();
 
@@ -70,7 +77,7 @@ function setup() {
   return { db, sep, joint, travel, natwest };
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   let code = 0;
   try {
     const imports = b('repositories', 'imports.js');
@@ -415,11 +422,79 @@ app.whenReady().then(() => {
       db.close();
     }
 
+    await ipcChecks();
+
     console.log('IMPORT_REPO_OK');
   } catch (err) {
     console.error('IMPORT_REPO_FAIL', err && err.stack ? err.stack : err);
     code = 1;
   } finally {
+    fs.rmSync(sandbox, { recursive: true, force: true });
+    // app.exit, not process.exitCode + app.quit: quitting resets the code to 0,
+    // which would let a failure here pass silently in the npm test chain.
     app.exit(code);
   }
 });
+
+/* ---- the import:* and bank channels, against a real database under the sandbox ----
+   Handlers are captured rather than registered, as in categories-electron.cjs. */
+async function ipcChecks() {
+  // Run as a script, the app path is tests/; the schema lives at the repo root.
+  app.getAppPath = () => root;
+  const mainDb = require(path.join(root, 'build', 'main', 'db.js'));
+  const handlers = new Map();
+  ipcMain.handle = (channel, fn) => handlers.set(channel, fn);
+  require(path.join(root, 'build', 'main', 'ipc', 'imports.js')).registerImportIpc();
+  const call = async (channel, payload) => {
+    const fn = handlers.get(channel);
+    if (!fn) throw new Error(`no handler for ${channel}`);
+    return fn({}, payload);
+  };
+  const data = async (channel, payload) => {
+    const res = await call(channel, payload);
+    if ('error' in res) throw new Error(`${channel}: ${res.error}`);
+    return res.data;
+  };
+
+  const db = mainDb.initDb();
+  const sep = months.insertMonth(db, '2026-09');
+  const bills = months.insertGroup(db, { name: 'Bills', kind: 'spend', sort_order: 0, collapsed: 0 });
+  const food = months.addItemByName(db, { monthId: sep, groupId: bills, name: 'Food' });
+  const foodCat = months.getItemById(db, food).category_id;
+  const joint = accounts.insertAccount(db, { name: 'Joint', kind: 'joint', owner_member_id: null, sort_order: 0, color: null });
+  const upload = { monthId: sep, accountId: joint, filename: 'sep.csv', text: fixture('natwest') };
+
+  // No bank yet: a coded refusal the UI can act on.
+  const refused = await call('import:addFile', upload);
+  eq([refused.code, refused.detail], ['needs_bank', { preset: 'natwest', products: null }], 'import:addFile says the account needs its bank');
+  assert(refused.error.includes('Joint'), 'with copy naming the account');
+
+  // Set the bank up, as the inline setup would, and retry.
+  const bank = await data('bank:create', { name: 'NatWest', preset: 'natwest' });
+  eq([bank.name, bank.preset], ['NatWest', 'natwest'], 'bank:create returns the bank');
+  await data('bank:rename', { id: bank.id, name: 'Joint NatWest' });
+  eq((await data('bank:list')).map((k) => k.name), ['Joint NatWest'], 'bank:list and bank:rename');
+  await data('account:setBank', { accountId: joint, bankId: bank.id, product: null });
+  const file = await data('import:addFile', upload);
+  eq([file.filename, file.rowCount], ['sep.csv', 3], 'import:addFile adds the file');
+  const dup = await call('import:addFile', upload);
+  eq([dup.error, dup.code], ['That file is already in this upload.', undefined], 'an ordinary refusal has no code');
+
+  let review = await data('import:review', { monthId: sep });
+  eq([review.batch.id, review.accounts[0].bank.name, review.accounts[0].rows.length], [file.batchId, 'Joint NatWest', 3], 'import:review');
+  const [deli] = review.accounts[0].rows;
+  await data('import:updateRow', { rowId: deli.id, patch: { categoryId: foodCat } });
+  review = await data('import:review', { monthId: sep });
+  eq(review.accounts[0].rows[0].included, true, 'import:updateRow records a decision');
+
+  const confirmed = await data('import:confirm', { batchId: file.batchId });
+  eq([confirmed.entries, confirmed.totalCents], [1, 250], 'import:confirm');
+  eq((await data('import:history', { monthId: sep })).map((h) => h.entries), [1], 'import:history');
+  await data('import:undo', { batchId: file.batchId });
+  eq((await data('import:history', { monthId: sep })), [], 'import:undo');
+  await data('import:removeFile', { fileId: file.id });
+  eq((await data('import:review', { monthId: sep })).accounts[0].files, [], 'import:removeFile');
+  await data('import:discard', { batchId: file.batchId });
+  eq((await data('import:review', { monthId: sep })).batch, null, 'import:discard');
+  mainDb.closeDb();
+}

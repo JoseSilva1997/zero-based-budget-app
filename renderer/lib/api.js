@@ -50,6 +50,16 @@ export const api = new Proxy({}, {
    assumed from 'hasApi()'. */
 export const can = (method) => typeof api[method] === "function";
 
+/* Upload transactions: the import* and bank methods on 'api' are documented
+   in main/ipc/imports.ts. A dropped statement is sent as its text, read here
+   so no screen has to know the payload's shape. Resolves to the preload's
+   ImportAddOutcome: { status: 'added', file } or { status: 'needs_bank',
+   message, preset, products }. */
+export async function uploadStatement(monthId, accountId, file) {
+  const text = await file.text();
+  return api.importAddFile({ monthId, accountId, filename: file.name, text });
+}
+
 /** "YYYY-MM" + day-of-month -> "YYYY-MM-DD" (day clamped to 1..31). */
 export function spentOn(monthKey, day) {
   let d = Math.round(Number(day));
