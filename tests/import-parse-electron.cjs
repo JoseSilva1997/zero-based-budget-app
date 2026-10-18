@@ -219,6 +219,10 @@ app.whenReady().then(() => {
       eq(cleanDescriptor('ZPAY_*CORNER SHOP'), 'ZPAY CORNER SHOP', 'and _* too');
       eq(cleanDescriptor('EXAMPLE UK*'), 'EXAMPLE UK', 'a trailing * goes');
       eq(cleanDescriptor('Corner Cafe'), 'Corner Cafe', "the bank's casing is kept");
+      eq(cleanDescriptor('AB123456C EXAMPLE DEPT'), 'EXAMPLE DEPT', 'a reference token (letters and many digits) goes');
+      eq(cleanDescriptor('EXAMPLE SHOP X12YZ3AB4'), 'EXAMPLE SHOP', 'wherever it is in the descriptor');
+      eq(cleanDescriptor('Transfer 1234567890'), 'Transfer', 'so does a long run of digits');
+      eq(cleanDescriptor('101 CORNER SHOP AB1'), '101 CORNER SHOP AB1', 'short numbers in a name stay');
     }
 
     /* ---- detection is an exact match on the set of names ---- */
