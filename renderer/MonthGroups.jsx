@@ -647,10 +647,13 @@ function GroupCard({ group, groups, currency, dispatch, month, accounts, drag })
           confirmLabel="Delete group" icon={<Icons.trash size={15} />}
           onClose={() => setConfirmDelete(false)}
           onConfirm={() => { dispatch({ type: "deleteGroup", month, groupId: group.id }); setConfirmDelete(false); }}>
+          {/* Groups are shared by every month. What the delete leaves depends on
+              other months, which this card cannot see, so both outcomes are said. */}
           {itemCount === 0
-            ? "This group has nothing in it in any month, so it is deleted outright and nothing else goes with it."
-            : <>This removes the group and its {itemCount} {itemCount === 1 ? "item" : "items"}
-              {entryCount > 0 ? <> and their {entryCount} spending {entryCount === 1 ? "entry" : "entries"}</> : null} from this month only. Other months are not affected.</>}
+            ? "Nothing in this month is in it."
+            : <>This removes its {itemCount} {itemCount === 1 ? "item" : "items"}
+              {entryCount > 0 ? <> and their {entryCount} spending {entryCount === 1 ? "entry" : "entries"}</> : null} from this month only.</>}
+          {" "}Months that still have items in it keep them, and the group stays there but stops showing in other months. If no month uses it, it is deleted.
         </ConfirmDialog>
       )}
     </div>

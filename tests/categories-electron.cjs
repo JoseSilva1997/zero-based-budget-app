@@ -224,9 +224,13 @@ app.whenReady().then(async () => {
 
       // Deleting from October takes October's lines; September keeps its own.
       months.deleteGroup(db, bills, oct);
-      eq(shape(months, db, oct), [['House', []], ['New', ['Thing']]], 'October\'s lines are gone');
+      // Still used in September, so the group is archived: it leaves every
+      // month where it has no line, and stays where it has one.
+      eq(shape(months, db, oct), [['New', ['Thing']]], 'gone from October');
       eq(shape(months, db, sep), [['House', ['Rent', 'Power']], ['New', []]], 'September untouched');
-      eq(db.prepare(`SELECT COUNT(*) n FROM budget_groups WHERE id = ?`).get(bills).n, 1, 'still used, so the group stays');
+      eq(db.prepare(`SELECT archived FROM budget_groups WHERE id = ?`).get(bills), { archived: 1 }, 'still used, so the group is archived');
+      const nov = months.insertMonth(db, '2026-11');
+      eq(shape(months, db, nov), [['New', []]], 'and a new month leaves it out');
 
       // Deleted from the last month that used it, nothing refers to it: gone.
       months.deleteGroup(db, bills, sep);

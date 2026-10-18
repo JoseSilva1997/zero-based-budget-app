@@ -266,8 +266,10 @@ export function updateGroup(
 
 /**
  * Takes a group out of one month: its plan lines there are deleted (their
- * entries cascade). Categories left with no line anywhere are deleted, and the
- * group itself once it has no category left, so other months keep theirs.
+ * entries cascade), and categories left with no line anywhere are deleted. A
+ * group left with no category is deleted; one other months still use is
+ * archived, so it shows only in the months where it has lines (adding it again
+ * by name brings it back).
  */
 export function deleteGroup(db: Database.Database, id: number, monthId: number): void {
   const tx = db.transaction(() => {
@@ -281,6 +283,7 @@ export function deleteGroup(db: Database.Database, id: number, monthId: number):
     }>;
     for (const c of cats) pruneCategory(db, c.id);
     pruneGroup(db, id);
+    db.prepare(`UPDATE budget_groups SET archived = 1 WHERE id = ?`).run(id);
   });
   tx();
 }
