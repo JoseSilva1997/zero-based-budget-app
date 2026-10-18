@@ -233,7 +233,12 @@ function perMonthToCategories(Database, runner, months) {
   db.exec(V7_DATA);
   db.pragma('user_version = 7');
 
-  runMigrations(db);
+  // The caller is told before anything changes, so it can take a backup.
+  const told = [];
+  runMigrations(db, {
+    beforeMigrating: (from, to) => told.push([from, to, getUserVersion(db), db.prepare(`SELECT COUNT(*) n FROM budget_items`).get().n]),
+  });
+  eq(told, [[7, LATEST_VERSION, 7, 12]], 'told once, before migrating, with the versions');
   eq(getUserVersion(db), LATEST_VERSION, 'v7 db reaches the latest version');
 
   /* groups: merged on normalised name, newest month's kind/collapsed/order */
@@ -305,7 +310,8 @@ function perMonthToCategories(Database, runner, months) {
   /* integrity, and a second run is a clean no-op */
   eq(db.pragma('foreign_key_check'), [], 'no foreign-key violations');
   eq(db.pragma('foreign_keys', { simple: true }), 1, 'foreign keys back on');
-  runMigrations(db);
+  runMigrations(db, { beforeMigrating: () => told.push('again') });
+  eq(told.length, 1, 'an up-to-date database is not backed up again');
   eq(db.prepare(`SELECT COUNT(*) n FROM categories`).get().n, 7, 'idempotent');
   db.close();
 }

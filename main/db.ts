@@ -4,13 +4,15 @@
    - Opens (or creates) the DB at userData/data/budget.sqlite.
    - On a fresh DB: execs `schema` then `triggers`, sets user_version to the
      baseline, then runs migrations.
-   - On an existing DB: runs any pending migrations.
+   - On an existing DB: takes a backup if any migration is pending, then runs
+     them. A failed backup aborts the start rather than migrate unprotected.
    - Enables WAL, foreign keys, synchronous=FULL, and a busy timeout.
    - Exports a typed `getDb()` singleton and a `closeDb()` for clean shutdown.
    ============================================================ */
 import Database from 'better-sqlite3';
 import * as fs from 'fs';
-import { dbPath, sqlFilePath } from './paths';
+import { dbPath, sqlFilePath, backupsDir } from './paths';
+import { createDbBackupSync } from '../database/repositories/backups';
 import { BASELINE_VERSION, getUserVersion, runMigrations, LATEST_VERSION } from '../database/migrations';
 
 let db: Database.Database | null = null;
@@ -50,10 +52,19 @@ export function initDb(): Database.Database {
   const conn = new Database(dbPath());
   applyConnectionPragmas(conn);
 
-  if (isFreshDatabase(conn)) {
+  const fresh = isFreshDatabase(conn);
+  if (fresh) {
     initialiseBaseline(conn);
   }
-  runMigrations(conn);
+  runMigrations(conn, {
+    // A fresh install has nothing to lose; anything else is snapshotted as it
+    // was, so a migration that goes wrong can be undone from Settings.
+    beforeMigrating: fresh
+      ? undefined
+      : (_from, to) => {
+          createDbBackupSync(conn, backupsDir(), `before-v${to}`);
+        },
+  });
 
   const version = getUserVersion(conn);
   if (version !== LATEST_VERSION) {

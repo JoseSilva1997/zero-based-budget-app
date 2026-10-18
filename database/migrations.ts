@@ -5,6 +5,8 @@
    - Each migration is a numbered, idempotent `up(db)`.
    - The runner applies any migration whose `version` > the DB's current
      user_version, each in its own transaction, then bumps user_version.
+   - Before the first pending migration it calls `beforeMigrating`, which
+     main/db.ts uses to back the database up (never on a fresh install).
    - Append-only: never edit a shipped migration; add a new one.
    ============================================================ */
 import type Database from 'better-sqlite3';
@@ -490,14 +492,27 @@ function setUserVersion(db: Database.Database, version: number): void {
   db.pragma(`user_version = ${version}`);
 }
 
+export interface RunOptions {
+  /**
+   * Called once, before the first pending migration touches anything, with the
+   * version the DB is at and the one it is going to. Not called when nothing
+   * is pending. main/db.ts takes a backup here; a throw aborts the run.
+   */
+  beforeMigrating?: (fromVersion: number, toVersion: number) => void;
+}
+
 /**
  * Apply every pending migration. Assumes the baseline schema already exists
  * (db.ts execs `schema.sql`/`triggers.sql` and sets user_version = BASELINE_VERSION on
  * a fresh DB before calling this).
  */
-export function runMigrations(db: Database.Database): void {
+export function runMigrations(db: Database.Database, opts: RunOptions = {}): void {
   let current = getUserVersion(db);
-  for (const migration of MIGRATIONS.filter((m) => m.version > current)) {
+  const pending = MIGRATIONS.filter((m) => m.version > current);
+  if (pending.length > 0 && opts.beforeMigrating) {
+    opts.beforeMigrating(current, LATEST_VERSION);
+  }
+  for (const migration of pending) {
     if (migration.atomic === false) {
       // The migration owns its own transaction(s); we just bump the version
       // afterwards. Idempotent migrations re-run cleanly if this is interrupted.
