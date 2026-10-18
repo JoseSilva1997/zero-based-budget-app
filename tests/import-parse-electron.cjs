@@ -96,6 +96,41 @@ app.whenReady().then(() => {
       eq(monzo.parse([file.records[4]], { bankProduct: null })[0].parseError, undefined, 'a good row has no parse error');
     }
 
+    /* ---- Lloyds ---- */
+    {
+      const file = fixture('lloyds');
+      const lloyds = detectPreset(file.header);
+      eq(lloyds && lloyds.key, 'lloyds', 'a Lloyds header is detected');
+      const rows = lloyds.parse(file.records, { bankProduct: null });
+      eq(
+        rows.map(brief),
+        [
+          [0, '2026-09-28', '2026-09-28', 839, 'debit', 'WEBHOST'],
+          [1, '2026-09-28', '2026-09-28', 4599, 'debit', 'SAM SAMPLE'],
+          [2, '2026-09-28', '2026-09-28', 17593, 'credit', 'EXAMPLE A &'],
+          [3, '2026-09-21', '2026-09-21', 5495, 'debit', 'EXAMPLE.CO.UK'],
+        ],
+        'Lloyds: Debit Amount is money out, Credit Amount money in; a trailing #<digits> is cleaned off'
+      );
+      eq(rows[0].descriptorRaw, 'WEBHOST#5550001234', 'Lloyds: the raw descriptor is kept whole');
+      eq(rows[0].features, { type: 'DEB' }, 'Lloyds: the Transaction Type is a feature');
+      eq(rows[0].accountIdentifier, '112233-12345678', 'Lloyds: the row names its account, sort code without the quote');
+      eq(lloyds.fileAccountIdentifier(file.records), '112233-12345678', 'Lloyds: so does the file');
+
+      const bad = lloyds.parse(
+        [
+          { ...file.records[0], 'Credit Amount': '1.00' },
+          { ...file.records[0], 'Debit Amount': '' },
+        ],
+        { bankProduct: null }
+      );
+      eq(
+        bad.map((r) => r.parseError),
+        ['Both Debit Amount and Credit Amount are filled in', 'Neither Debit Amount nor Credit Amount is filled in'],
+        'Lloyds: a row must have exactly one of the two amounts'
+      );
+    }
+
     console.log('IMPORT_PARSE_OK');
   } catch (err) {
     console.error('IMPORT_PARSE_FAIL', err && err.stack ? err.stack : err);
