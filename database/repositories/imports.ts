@@ -18,6 +18,7 @@ import type {
   ImportDuplicate,
   ImportPlanLine,
   ImportReview,
+  ImportRowPatch,
   ImportRowRead,
 } from '../../shared/types';
 import { readStatement, hashText } from '../../main/import/pipeline';
@@ -25,6 +26,8 @@ import { assessRow, type RowAssessment, type RowDecisions } from '../../main/imp
 import type { Prediction } from '../../main/import/classifier';
 import { getAccountById, listAccounts } from './accounts';
 import { getBank, listBanks, setAccountIdentifier } from './banks';
+import { cleanName } from './categories';
+import { patchById } from './_sql';
 
 export interface ImportBatch {
   id: number;
@@ -362,4 +365,59 @@ export function getReview(db: Database.Database, monthId: number): ImportReview 
     plan: planOf(db, monthId),
     categories: pickerOf(db, monthId),
   };
+}
+
+/* ---------- decisions ----------------------------------------------------- */
+
+/**
+ * Records your decisions on a row: its category, name, kind (spend or
+ * transfer), tick, and the existing entry it is the same as. Each can be
+ * cleared back to the default with null; a field left out is left alone.
+ * Only while its batch is pending. A linked entry must exist and not be
+ * accounted for already (imported, or matched to another row).
+ */
+export function updateRow(db: Database.Database, rowId: number, patch: ImportRowPatch): void {
+  const row = db
+    .prepare(`SELECT r.id, f.batch_id FROM import_rows r JOIN import_files f ON f.id = r.file_id WHERE r.id = ?`)
+    .get(rowId) as { id: number; batch_id: number } | undefined;
+  if (!row) throw new Error('That transaction is no longer in this upload.');
+  assertPending(batchById(db, row.batch_id));
+
+  const fields: Record<string, unknown> = {};
+  if (patch.categoryId !== undefined) {
+    if (patch.categoryId !== null && !db.prepare(`SELECT 1 FROM categories WHERE id = ?`).get(patch.categoryId)) {
+      throw new Error('That category is no longer in your budget. Choose another.');
+    }
+    fields.category_id = patch.categoryId;
+  }
+  if (patch.name !== undefined) fields.name = patch.name === null ? null : cleanName(patch.name) || null;
+  if (patch.kind !== undefined) {
+    if (patch.kind !== null && patch.kind !== 'spend' && patch.kind !== 'transfer') {
+      throw new Error('A transaction is either a spend or a transfer.');
+    }
+    fields.kind = patch.kind;
+  }
+  if (patch.included !== undefined) fields.included = patch.included === null ? null : patch.included ? 1 : 0;
+  if (patch.linkedEntryId !== undefined) {
+    if (patch.linkedEntryId !== null) assertLinkable(db, patch.linkedEntryId, rowId);
+    fields.linked_entry_id = patch.linkedEntryId;
+  }
+  patchById(db, 'import_rows', rowId, fields);
+}
+
+function assertLinkable(db: Database.Database, entryId: number, rowId: number): void {
+  const entry = db.prepare(`SELECT import_row_id FROM budget_item_actual_entries WHERE id = ?`).get(entryId) as
+    | { import_row_id: number | null }
+    | undefined;
+  if (!entry) throw new Error('That entry is no longer in your budget.');
+  const taken =
+    (entry.import_row_id !== null && entry.import_row_id !== rowId) ||
+    db
+      .prepare(
+        `SELECT 1 FROM import_rows o JOIN import_files f ON f.id = o.file_id
+           JOIN import_batches b ON b.id = f.batch_id
+          WHERE o.linked_entry_id = ? AND o.id <> ? AND b.status <> 'discarded'`
+      )
+      .get(entryId, rowId);
+  if (taken) throw new Error('That entry is already matched to another transaction.');
 }

@@ -198,6 +198,53 @@ app.whenReady().then(() => {
       db.close();
     }
 
+    /* ---- decisions ---- */
+    {
+      const { db, sep, joint } = setup();
+      const bills = months.insertGroup(db, { name: 'Bills', kind: 'spend', sort_order: 0, collapsed: 0 });
+      const food = months.addItemByName(db, { monthId: sep, groupId: bills, name: 'Food', bank_account_id: joint });
+      const foodCat = months.getItemById(db, food).category_id;
+      const typed = months.insertActualEntry(db, { budget_item_id: food, spent_on: '2026-09-05', amount_cents: 500, name: 'Bakery', note: null });
+      // Two £5 rows a day apart, both near the hand-typed £5.
+      const csv = [
+        'Date,Type,Description,Value,Balance,Account Name,Account Number',
+        '05 Sep 2026,POS,"4321 04SEP26 CD , BAKERY ONE , SPRINGFIELD GB",-5.00,100.00,Joint Example,600000-11112222',
+        '06 Sep 2026,POS,"4321 05SEP26 CD , BAKERY TWO , SPRINGFIELD GB",-5.00,95.00,Joint Example,600000-11112222',
+      ].join('\n');
+      imports.addFile(db, { monthId: sep, accountId: joint, filename: 'bakery.csv', text: csv });
+      const rows = () => imports.getReview(db, sep).accounts[0].rows;
+      const [one, two] = rows();
+      eq([one.duplicates.map((d) => d.id), two.duplicates.map((d) => d.id)], [[typed], [typed]], 'both rows could be the typed entry');
+
+      imports.updateRow(db, one.id, { categoryId: foodCat, name: '  Morning   bread ' });
+      let r = rows()[0];
+      eq([r.categoryId, r.name, r.decisions.categoryId, r.decisions.name], [foodCat, 'Morning bread', foodCat, 'Morning bread'], 'a category and a name, the name tidied');
+      eq(r.included, false, 'still unticked: it may be a duplicate');
+      imports.updateRow(db, one.id, { included: true });
+      eq([rows()[0].included, rows()[0].decisions.included], [true, true], 'ticked by hand');
+      imports.updateRow(db, one.id, { kind: 'transfer' });
+      eq([rows()[0].kind, rows()[0].included], ['transfer', false], 'a transfer is never ticked');
+      imports.updateRow(db, one.id, { kind: null, included: null, name: '' });
+      r = rows()[0];
+      eq([r.decisions.kind, r.decisions.included, r.decisions.name, r.name], [null, null, null, 'BAKERY ONE'], 'each decision clears back to the default');
+
+      // Same as existing: the entry is this row's, and no longer the other's.
+      imports.updateRow(db, one.id, { linkedEntryId: typed, included: true });
+      [r] = rows();
+      eq([r.decisions.linkedEntryId, r.included], [typed, false], 'a linked row is never ticked');
+      eq(rows()[1].duplicates, [], 'and its entry is no longer offered to the other row');
+      eq(rows()[1].labels.some((l) => l.key === 'possible_duplicate'), false, 'which stops being a possible duplicate');
+      throws(() => imports.updateRow(db, two.id, { linkedEntryId: typed }), 'That entry is already matched to another transaction.', 'one entry, one row');
+      imports.updateRow(db, one.id, { linkedEntryId: null });
+      eq(rows()[1].duplicates.map((d) => d.id), [typed], 'unlinking offers it again');
+
+      throws(() => imports.updateRow(db, one.id, { categoryId: 9999 }), 'That category is no longer in your budget.', 'an unknown category');
+      throws(() => imports.updateRow(db, one.id, { linkedEntryId: 9999 }), 'That entry is no longer in your budget.', 'an unknown entry');
+      throws(() => imports.updateRow(db, one.id, { kind: 'refund' }), 'spend or a transfer', 'an unknown kind');
+      throws(() => imports.updateRow(db, 9999, { included: true }), 'no longer', 'an unknown row');
+      db.close();
+    }
+
     console.log('IMPORT_REPO_OK');
   } catch (err) {
     console.error('IMPORT_REPO_FAIL', err && err.stack ? err.stack : err);
