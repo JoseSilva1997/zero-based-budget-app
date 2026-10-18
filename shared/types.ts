@@ -34,6 +34,23 @@ export interface BankAccount {
   sort_order: number;
   created_at: string;
   updated_at: string;
+  /** Upload transactions: the bank whose statements this account reads. */
+  bank_id: number | null;
+  /** From the first statement imported (Lloyds and NatWest name it). */
+  account_identifier: string | null;
+  /** The Revolut product this account is ('Current'). */
+  bank_product: string | null;
+}
+
+/** The built-in statement readers, one per bank. */
+export type BankPreset = 'monzo' | 'lloyds' | 'revolut' | 'natwest';
+
+export interface Bank {
+  id: number;
+  name: string;
+  preset: BankPreset;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface BudgetMonth {
