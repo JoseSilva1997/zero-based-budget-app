@@ -197,7 +197,7 @@ export function previewMerge(db: Database.Database, fromId: number, intoId: numb
 
 /**
  * Merges category 'fromId' into 'intoId': every plan line and entry of A
- * becomes B's. In a month where both have a line, the two become B's line,
+ * becomes B's, and so does every staged upload row categorised as A. In a month where both have a line, the two become B's line,
  * with the planned amounts summed and A's entries moved onto it. A is then
  * deleted. B keeps its name, group, default account and archived state. There
  * is no undo beyond a backup, so the caller confirms with the returned impact
@@ -249,6 +249,9 @@ export function mergeCategories(db: Database.Database, fromId: number, intoId: n
       }
     }
 
+    // A staged upload row categorised as A would otherwise lose its
+    // category to ON DELETE SET NULL.
+    db.prepare(`UPDATE import_rows SET category_id = ? WHERE category_id = ?`).run(intoId, fromId);
     db.prepare(`DELETE FROM categories WHERE id = ?`).run(fromId);
     pruneGroup(db, from.group_id);
     return impact;

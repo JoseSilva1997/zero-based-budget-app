@@ -386,6 +386,14 @@ app.whenReady().then(async () => {
       const food = months.getItemById(db, sepFood).category_id;
       const groceries = months.getItemById(db, octGroc).category_id;
       const octBefore = months.monthTotals(db, oct);
+      // A staged upload row categorised as A (no staging repository yet, so
+      // written directly).
+      const account = b('repositories', 'accounts.js').insertAccount(db, { name: 'Main', kind: 'main', owner_member_id: null, sort_order: 0, color: null });
+      db.prepare(`INSERT INTO import_batches (id, budget_month_id) VALUES (1, ?)`).run(nov);
+      db.prepare(`INSERT INTO import_files (id, batch_id, bank_account_id, filename, file_hash) VALUES (1, 1, ?, 'nov.csv', 'h')`).run(account);
+      db.prepare(
+        `INSERT INTO import_rows (id, file_id, row_index, raw, descriptor_raw, descriptor_clean, category_id) VALUES (1, 1, 0, '{}', 'SHOP', 'SHOP', ?)`
+      ).run(food);
 
       throws(() => categories.mergeCategories(db, groceries, groceries), 'into itself', 'merge into itself refused');
       throws(() => categories.mergeCategories(db, food, groceries + 999), 'no longer', 'merge into a missing category refused');
@@ -413,6 +421,7 @@ app.whenReady().then(async () => {
       eq(months.monthTotals(db, oct), octBefore, 'October\'s totals are unchanged');
       eq(categories.getCategory(db, food), undefined, 'A is deleted');
       eq(categories.listCategories(db).find((c) => c.id === groceries).entries, 4, 'B carries every entry');
+      eq(db.prepare(`SELECT category_id FROM import_rows WHERE id = 1`).get().category_id, groceries, 'a staged upload row of A is now B\'s');
       eq(db.pragma('foreign_key_check'), [], 'no dangling references');
       db.close();
     }
