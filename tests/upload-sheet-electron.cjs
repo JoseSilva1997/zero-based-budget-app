@@ -185,6 +185,17 @@ window.api = {
     server.batch = null; server.files = []; server.rows = [];
     return { entries: 3, totalCents: 7510, linked: 1, linesCreated: 1 };
   },
+  importUndo: async (batchId) => {
+    server.calls.undo.push(batchId);
+    server.history = server.history.filter((h) => h.id !== batchId);
+    server.batch = { id: batchId, status: 'pending', createdAt: '2026-10-18 10:00:00' };
+    server.files = [
+      { id: 201, accountId: 1, filename: 'main-oct.csv', rowCount: 8 },
+      { id: 202, accountId: 2, filename: 'joint-oct.csv', rowCount: 5 },
+    ];
+    server.rows = reviewRows();
+    return { ok: true };
+  },
   importDiscard: async (batchId) => {
     server.calls.discard.push(batchId);
     server.batch = null; server.files = []; server.rows = [];
@@ -499,6 +510,21 @@ window.__runTests = async () => {
   check('the month is read again so the entries appear', server.calls.getMonth > monthLoads, server.calls.getMonth + ' vs ' + monthLoads);
   check('a toast says what was imported', /3 entries/.test(toastText()) && toastText().includes('£75.10') && /1 matched/.test(toastText()) && /1 new plan line/.test(toastText()), toastText());
   check('and the sheet closes', closed === 1, 'closed ' + closed);
+
+  /* ---- 13. previous imports, with Undo ------------------------------- */
+  await mount();
+  const prev = () => document.querySelector('[data-previous-imports]');
+  check('this month imports are listed at the foot of the sheet', prev() && prev().textContent.includes('18 Oct') && prev().textContent.includes('main-oct.csv') && prev().textContent.includes('joint-oct.csv') && /3 entries/.test(prev().textContent), prev() && prev().textContent);
+  check('below the zones', prev() && zones()[0] && (zones()[0].compareDocumentPosition(prev()) & Node.DOCUMENT_POSITION_FOLLOWING));
+  const loadsBeforeUndo = server.calls.getMonth;
+  await press(byLabel('Undo the import of 18 Oct'), 'Undo the import');
+  check('Undo asks first', dialog() && /undo/i.test(dialog().textContent) && /3 entries/.test(dialog().textContent), dialog() ? dialog().textContent : 'no dialog');
+  check('nothing undone yet', server.calls.undo.length === 0);
+  await press(dialog() && [...dialog().querySelectorAll('button')].find((b) => /Undo import/.test(b.textContent)), 'Undo import');
+  check('confirming undoes that import', JSON.stringify(server.calls.undo) === '[8]', JSON.stringify(server.calls.undo));
+  check('the month is read again', server.calls.getMonth > loadsBeforeUndo);
+  check('the upload is back in progress, on Review', !!document.querySelector('[data-review]') && !!document.querySelector('[data-row-id="1"]'), text().slice(0, 300));
+  check('and it leaves the list of previous imports', !prev() || !prev().textContent.includes('main-oct.csv'), prev() && prev().textContent);
 
   return results;
 };

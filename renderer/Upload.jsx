@@ -460,6 +460,32 @@ function ReviewFoot({ review, currency, busy, onBack, onDiscard, onConfirm }) {
 
 const noop = () => {};
 
+/* ---- previous imports --------------------------------------------------
+   This month's imported batches, newest first, at the foot of the sheet in
+   both steps: the date, the files and how many entries each still has, with
+   Undo. Undo takes out exactly the entries that import wrote (even edited
+   ones) and puts the upload back in progress with every choice intact, so it
+   asks first. */
+function PreviousImports({ history, onUndo }) {
+  if (!history || history.length === 0) return null;
+  return (
+    <section className="upload-previous" data-previous-imports aria-label="Previous imports">
+      <div className="eyebrow upload-previous-head">Previous imports</div>
+      <div className="panel is-clipped">
+        {history.map((h) => (
+          <div key={h.id} className="upload-previous-row">
+            <span className="num upload-previous-when">{shortDate(h.importedAt.slice(0, 10))}<span className="upload-previous-time">{h.importedAt.slice(11, 16)}</span></span>
+            <span className="upload-previous-files truncate" title={h.filenames.join(", ")}>{h.filenames.join(", ")}</span>
+            <span className="num upload-previous-count">{h.entries} {h.entries === 1 ? "entry" : "entries"}</span>
+            <button className="btn btn-sm" aria-label={`Undo the import of ${shortDate(h.importedAt.slice(0, 10))}`}
+              onClick={() => onUndo(h)}>Undo</button>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 /* ---- the sheet --------------------------------------------------------- */
 function UploadSheet({ month, currency, onClose }) {
   const { imports, toast } = useStore();
@@ -468,9 +494,12 @@ function UploadSheet({ month, currency, onClose }) {
   // that already has rows reopens on Review, anything else on the zones.
   const [step, setStep] = useState(null);
 
+  const [history, setHistory] = useState([]);
+
   const load = useCallback(async () => {
-    const r = await imports.review(month);
+    const [r, h] = await Promise.all([imports.review(month), imports.history(month)]);
     setReview(r);
+    setHistory(h);
     setStep((s) => s || (r.batch && r.accounts.some((a) => a.rows.length > 0) ? "review" : "upload"));
     return r;
   }, [imports, month]);
@@ -487,6 +516,23 @@ function UploadSheet({ month, currency, onClose }) {
     try {
       await imports.discard(review.batch.id);
       setStep("upload");
+    } catch (err) {
+      toast(err.message, "error");
+    }
+    setBusy(false);
+    setAsk(null);
+    await load();
+  };
+
+  /* Undo puts the import back in progress, which makes it this month's upload
+     again, so the sheet goes straight to its review. Refused while another
+     upload is in progress; the reason is the backend's. */
+  const undo = async () => {
+    const batch = ask.batch;
+    setBusy(true);
+    try {
+      await imports.undo(month, batch.id);
+      setStep("review");
     } catch (err) {
       toast(err.message, "error");
     }
@@ -538,6 +584,15 @@ function UploadSheet({ month, currency, onClose }) {
       {review && step === "upload" && <UploadStep review={review} month={month} onChanged={load} onReview={() => setStep("review")} />}
       {review && step === "review" && <ReviewStep review={review} currency={currency} onUpdate={updateRow} onBack={() => setStep("upload")}
         busy={busy} onConfirm={confirm} onDiscard={() => setAsk({ kind: "discard" })} />}
+
+      {review && <PreviousImports history={history} onUndo={(batch) => setAsk({ kind: "undo", batch })} />}
+
+      {ask && ask.kind === "undo" && (
+        <ConfirmDialog title="Undo this import?" confirmLabel="Undo import"
+          busy={busy} onClose={() => setAsk(null)} onConfirm={undo}>
+          Takes out the {ask.batch.entries} {ask.batch.entries === 1 ? "entry" : "entries"} it wrote, including any you have edited since, and puts the upload back in progress with your choices, ready to review again.
+        </ConfirmDialog>
+      )}
 
       {ask && ask.kind === "discard" && (
         <ConfirmDialog title="Discard this upload?" confirmLabel="Discard upload" icon={<Icons.trash size={15} />}
