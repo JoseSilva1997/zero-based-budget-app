@@ -66,3 +66,20 @@ export function findCategoryByName(
     .all(groupId) as Category[];
   return rows.find((c) => c.id !== exceptId && normalizeName(c.name) === key);
 }
+
+/**
+ * Renames a category, in every month. A name another category in the same
+ * group already has is refused: the two are really one, and merging them is a
+ * separate, deliberate step.
+ */
+export function renameCategory(db: Database.Database, id: number, name: string): void {
+  const category = getCategory(db, id);
+  if (!category) return;
+  const clash = findCategoryByName(db, category.group_id, name, id);
+  if (clash) {
+    throw new Error(
+      `There's already an item called "${clash.name}" in this group. To combine the two, merge the categories in Settings.`
+    );
+  }
+  db.prepare(`UPDATE categories SET name = ? WHERE id = ?`).run(cleanName(name), id);
+}

@@ -42,6 +42,7 @@ import {
   nextCategorySort,
   getCategory,
   findCategoryByName,
+  renameCategory,
 } from './categories';
 
 /* ---------- inserts ------------------------------------------------------ */
@@ -217,6 +218,14 @@ function addLineForCategory(
   plannedCents: number,
   accountId: number | null | undefined
 ): number {
+  const existing = db
+    .prepare(`SELECT 1 FROM budget_items WHERE budget_month_id = ? AND category_id = ?`)
+    .get(monthId, category.id);
+  if (existing) {
+    throw new Error(
+      `"${category.name}" is already in this month's budget. Change its planned amount there instead of adding it again.`
+    );
+  }
   if (category.archived) {
     db.prepare(`UPDATE categories SET archived = 0 WHERE id = ?`).run(category.id);
   }
@@ -281,9 +290,7 @@ export function updateItem(
       const row = db.prepare(`SELECT category_id FROM budget_items WHERE id = ?`).get(id) as
         | { category_id: number }
         | undefined;
-      if (row) {
-        db.prepare(`UPDATE categories SET name = ? WHERE id = ?`).run(cleanName(name), row.category_id);
-      }
+      if (row) renameCategory(db, row.category_id, name);
     }
     patchById(db, 'budget_items', id, line);
   });

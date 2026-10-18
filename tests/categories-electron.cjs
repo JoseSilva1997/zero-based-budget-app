@@ -75,6 +75,52 @@ app.whenReady().then(() => {
       db.close();
     }
 
+    /* ---- the same name in another month is the same category ---- */
+    {
+      const db = freshDb();
+      const sep = months.insertMonth(db, '2026-09');
+      const oct = months.insertMonth(db, '2026-10');
+      const bills = months.insertGroup(db, { name: 'Bills', kind: 'spend', sort_order: 0, collapsed: 0 });
+      const a = months.addItemByName(db, { monthId: sep, groupId: bills, name: 'Groceries' });
+      const b2 = months.addItemByName(db, { monthId: oct, groupId: bills, name: '  groceries ' });
+      eq(months.getItemById(db, b2).category_id, months.getItemById(db, a).category_id, 'reused across months');
+      eq(months.getItemById(db, b2).name, 'Groceries', 'and keeps the category\'s name');
+
+      // A second line for it in the same month is refused, not duplicated.
+      throws(
+        () => months.addItemByName(db, { monthId: oct, groupId: bills, name: 'GROCERIES' }),
+        '"Groceries" is already in this month',
+        'duplicate in one month refused'
+      );
+      eq(shape(months, db, oct), [['Bills', ['Groceries']]], 'refused add changed nothing');
+      db.close();
+    }
+
+    /* ---- renaming an item renames its category, in every month ---- */
+    {
+      const db = freshDb();
+      const sep = months.insertMonth(db, '2026-09');
+      const oct = months.insertMonth(db, '2026-10');
+      const bills = months.insertGroup(db, { name: 'Bills', kind: 'spend', sort_order: 0, collapsed: 0 });
+      months.addItemByName(db, { monthId: sep, groupId: bills, name: 'Food' });
+      months.addItemByName(db, { monthId: sep, groupId: bills, name: 'Rent' });
+      const octFood = months.addItemByName(db, { monthId: oct, groupId: bills, name: 'Food' });
+
+      months.updateItem(db, octFood, { name: 'Groceries' });
+      eq(shape(months, db, sep), [['Bills', ['Groceries', 'Rent']]], 'the past month shows the new name');
+      eq(shape(months, db, oct), [['Bills', ['Groceries']]], 'this month shows the new name');
+
+      // Into a name another category in the group already has: that is a merge,
+      // which has its own place, so the rename is refused and says where.
+      throws(() => months.updateItem(db, octFood, { name: ' rent' }), 'merge', 'rename onto another category refused');
+      throws(() => months.updateItem(db, octFood, { name: ' rent' }), 'Settings', 'refusal points at Settings');
+      eq(shape(months, db, sep), [['Bills', ['Groceries', 'Rent']]], 'refused rename changed nothing');
+      // A change of case or spacing on its own name is just a rename.
+      months.updateItem(db, octFood, { name: 'groceries' });
+      eq(months.getItemById(db, octFood).name, 'groceries', 'recasing its own name is allowed');
+      db.close();
+    }
+
     console.log('CATEGORIES_OK');
   } catch (err) {
     console.error('CATEGORIES_FAIL', err && err.stack ? err.stack : err);
