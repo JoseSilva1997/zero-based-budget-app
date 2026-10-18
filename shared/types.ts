@@ -277,6 +277,18 @@ export interface CategoryRead {
   entries: number; // spending entries logged against it, every month
 }
 
+/** What merging one category into another moves, for the confirmation
+ *  ("Moves 143 entries across 9 months into Groceries") and the toast. */
+export interface MergeImpact {
+  entries: number;
+  months: number;
+}
+
+/** A merge as it reports back: the impact, plus the backup taken first. */
+export interface MergeResult extends MergeImpact {
+  backup: string; // file name, in the backups list
+}
+
 export interface ReusableCandidate {
   categoryId: number;
   name: string;

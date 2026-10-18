@@ -11,9 +11,15 @@
    Run with (ELECTRON_RUN_AS_NODE must be unset so require('electron').app works):
      npx electron tests/categories-electron.cjs
    ============================================================ */
-const { app } = require('electron');
+const { app, ipcMain } = require('electron');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
+
+// Before anything reads it: the IPC block opens a real database under
+// userData, and this run must not touch the real one.
+const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'hb-categories-test-'));
+app.setPath('userData', path.join(sandbox, 'userData'));
 
 app.disableHardwareAcceleration();
 
@@ -57,7 +63,7 @@ function shape(months, db, monthId) {
   return months.getMonthTree(db, monthId).groups.map((g) => [g.name, g.items.map((i) => i.name)]);
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   let code = 0;
   try {
     const months = b('repositories', 'months.js');
@@ -380,13 +386,73 @@ app.whenReady().then(() => {
       db.close();
     }
 
+    await ipcChecks();
+
     console.log('CATEGORIES_OK');
   } catch (err) {
     console.error('CATEGORIES_FAIL', err && err.stack ? err.stack : err);
     code = 1;
   } finally {
+    fs.rmSync(sandbox, { recursive: true, force: true });
     // app.exit, not process.exitCode + app.quit: quitting resets the code to 0,
     // which would let a failure here pass silently in the npm test chain.
     app.exit(code);
   }
 });
+
+/* ---- the category:* channels, against a real database under the sandbox ----
+   Handlers are captured rather than registered, as in backup-electron.cjs. */
+async function ipcChecks() {
+  const months = b('repositories', 'months.js');
+  const backups = b('repositories', 'backups.js');
+  // Run as a script, the app path is tests/; the schema lives at the repo root.
+  app.getAppPath = () => root;
+  const mainDb = require(path.join(root, 'build', 'main', 'db.js'));
+  const { backupsDir } = require(path.join(root, 'build', 'main', 'paths.js'));
+  const handlers = new Map();
+  ipcMain.handle = (channel, fn) => handlers.set(channel, fn);
+  require(path.join(root, 'build', 'main', 'ipc', 'categories.js')).registerCategoryIpc();
+  const call = (channel, payload) => {
+    const fn = handlers.get(channel);
+    if (!fn) throw new Error(`no handler for ${channel}`);
+    return fn({}, payload);
+  };
+
+  const db = mainDb.initDb();
+  const sep = months.insertMonth(db, '2026-09');
+  const oct = months.insertMonth(db, '2026-10');
+  const bills = months.insertGroup(db, { name: 'Bills', kind: 'spend', sort_order: 0, collapsed: 0 });
+  const fun = months.insertGroup(db, { name: 'Fun', kind: 'spend', sort_order: 1, collapsed: 0 });
+  const sepOut = months.addItemByName(db, { monthId: sep, groupId: fun, name: 'Going out' });
+  months.addItemByName(db, { monthId: oct, groupId: fun, name: 'Going out' });
+  const octGroc = months.addItemByName(db, { monthId: oct, groupId: bills, name: 'Groceries' });
+  months.insertActualEntry(db, { budget_item_id: sepOut, spent_on: '2026-09-05', amount_cents: 900, name: null, note: null });
+  const out = months.getItemById(db, sepOut).category_id;
+  const groc = months.getItemById(db, octGroc).category_id;
+
+  const list = await call('category:list');
+  eq(list.data.map((c) => [c.groupName, c.name, c.lines, c.entries]), [['Bills', 'Groceries', 1, 0], ['Fun', 'Going out', 2, 1]], 'category:list');
+
+  await call('category:setArchived', { id: groc, archived: true });
+  eq((await call('category:list')).data[0].archived, true, 'category:setArchived archives');
+  await call('category:setArchived', { id: groc, archived: false });
+  eq((await call('category:list')).data[0].archived, false, 'and restores');
+
+  eq((await call('category:previewMerge', { fromId: out, intoId: groc })).data, { entries: 1, months: 2 }, 'category:previewMerge');
+  const self = await call('category:previewMerge', { fromId: out, intoId: out });
+  assert(String(self.error).includes('into itself'), 'a refused preview comes back as an error envelope');
+
+  // The merge backs up first, so the backup still holds A.
+  const before = backups.listBackups(backupsDir()).length;
+  const merged = await call('category:merge', { fromId: out, intoId: groc });
+  eq([merged.data.entries, merged.data.months], [1, 2], 'category:merge reports what it moved');
+  const taken = backups.listBackups(backupsDir());
+  eq(taken.length, before + 1, 'the merge took a backup');
+  eq(merged.data.backup, taken[0].fileName, 'and names it');
+  const Database = require('better-sqlite3');
+  const snap = new Database(taken[0].path, { readonly: true });
+  eq(snap.prepare(`SELECT COUNT(*) AS n FROM categories WHERE id = ?`).get(out).n, 1, 'the backup is from before the merge');
+  snap.close();
+  eq((await call('category:list')).data.map((c) => c.name), ['Groceries'], 'A is gone after the merge');
+  mainDb.closeDb();
+}

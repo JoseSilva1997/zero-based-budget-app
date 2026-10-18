@@ -22,6 +22,9 @@ import type {
   IncomeRead,
   GroupRead,
   ItemRead,
+  CategoryRead,
+  MergeImpact,
+  MergeResult,
   ActualRead,
   HouseholdMember,
   BankAccount,
@@ -96,6 +99,17 @@ const api = {
     invoke<Ok>('item:reorder', { groupId, id, targetId }),
   itemMove: (id: number, toGroupId: number, targetId: number | null) =>
     invoke<Ok>('item:move', { id, toGroupId, targetId }),
+
+  /* ---------- categories ----------
+     What an item is FOR, the same in every month. Merging is previewed first
+     (writes nothing), and the merge itself backs up before it writes. */
+  categories: () => invoke<CategoryRead[]>('category:list'),
+  categorySetArchived: (id: number, archived: boolean) =>
+    invoke<Ok>('category:setArchived', { id, archived }),
+  categoryPreviewMerge: (fromId: number, intoId: number) =>
+    invoke<MergeImpact>('category:previewMerge', { fromId, intoId }),
+  categoryMerge: (fromId: number, intoId: number) =>
+    invoke<MergeResult>('category:merge', { fromId, intoId }),
 
   /* ---------- actuals ---------- */
   actualAdd: (

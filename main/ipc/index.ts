@@ -6,6 +6,7 @@ import { registerReadIpc } from './reads';
 import { registerIncomeIpc } from './income';
 import { registerGroupIpc } from './groups';
 import { registerItemIpc } from './items';
+import { registerCategoryIpc } from './categories';
 import { registerActualIpc } from './actuals';
 import { registerMonthIpc } from './months';
 import { registerMemberIpc } from './members';
@@ -24,6 +25,7 @@ export function registerIpcHandlers(): void {
   registerIncomeIpc();
   registerGroupIpc();
   registerItemIpc();
+  registerCategoryIpc();
   registerActualIpc();
   registerMonthIpc();
   registerMemberIpc();

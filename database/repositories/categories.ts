@@ -9,7 +9,7 @@
    one is archived. A category nothing refers to any more is deleted outright.
    ============================================================ */
 import type Database from 'better-sqlite3';
-import type { Category, CategoryRead } from '../../shared/types';
+import type { Category, CategoryRead, MergeImpact } from '../../shared/types';
 import { nextSortOrder } from './_sql';
 
 /** The form two names are compared in: trimmed, inner whitespace collapsed,
@@ -146,12 +146,6 @@ export function listCategories(db: Database.Database): CategoryRead[] {
   }));
 }
 
-/** What a merge moved, for the confirmation ("Moves 143 entries across 9
- *  months into Groceries") and the toast after it. */
-export interface MergeImpact {
-  entries: number;
-  months: number;
-}
 
 /** Refuses a merge that cannot happen, and returns B. */
 function assertMergeable(db: Database.Database, fromId: number, intoId: number): Category {
