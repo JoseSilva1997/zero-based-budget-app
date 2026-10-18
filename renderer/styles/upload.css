@@ -170,3 +170,21 @@
 .upload-fold-caret { transition: transform .18s; flex: none; }
 .upload-fold.is-open .upload-fold-caret { transform: rotate(90deg); }
 .upload-fold.is-open + .upload-row { border-top: 1px solid var(--rule-faint); }
+
+/* ---- row actions ---------------------------------------------------------
+   Quiet until engaged: invisible and unreachable until the row is hovered or
+   holds focus, except a toggle that is on, which is a fact about the row and
+   so stays drawn. */
+.upload-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-1); }
+.upload-actions > * { opacity: 0; pointer-events: none; transition: opacity .12s; }
+.upload-row:hover .upload-actions > *, .upload-row:focus-within .upload-actions > *,
+.upload-actions > .is-on { opacity: 1; pointer-events: auto; }
+.upload-toggle {
+  padding: 3px 9px; border-radius: var(--radius-3xs);
+  border: 1px solid var(--rule-strong); background: transparent; color: var(--muted);
+  font-size: var(--text-11); font-weight: 600; white-space: nowrap;
+  transition: background-color .12s, color .12s, border-color .12s;
+}
+.upload-toggle:hover { background: var(--well); color: var(--ink); }
+.upload-toggle.is-on { background: var(--well); border-color: transparent; color: var(--ink-2); }
+.upload-toggle:disabled { cursor: not-allowed; }

@@ -133,7 +133,24 @@ window.api = {
     activeMonth: '2026-10',
   }),
   getMonth: async () => { server.calls.getMonth += 1; return { month: '2026-10', incomes: [], groups: [] }; },
-  importReview: async () => review(),
+  importReview: async () => { server.calls.reviews = (server.calls.reviews || 0) + 1; return review(); },
+  // Applies the patch to the row's effective fields, as the server would
+  // after recomputing; null puts a field back to its default.
+  importUpdateRow: async (rowId, patch) => {
+    server.calls.updates.push([rowId, patch]);
+    server.rows = server.rows.map((r) => {
+      if (r.id !== rowId) return r;
+      const next = { ...r, decisions: { ...r.decisions } };
+      for (const [k, v] of Object.entries(patch)) {
+        next.decisions[k] = v;
+        if (k !== 'linkedEntryId' && v !== null) next[k] = v;
+      }
+      if (patch.kind === 'transfer') next.labels = [...r.labels.filter((l) => l.key !== 'transfer'), L.transfer];
+      if (patch.kind === 'spend') next.labels = r.labels.filter((l) => l.key !== 'transfer');
+      return next;
+    });
+    return { ok: true };
+  },
   importHistory: async () => server.history.map((h) => ({ ...h })),
   banks: async () => server.banks.map((b) => ({ ...b })),
   // The preload resolves needs_bank rather than throwing; other refusals throw.
@@ -335,6 +352,36 @@ window.__runTests = async () => {
   await press(filter('out_of_month'), 'the Outside this month filter');
   check('filtering for them shows them without the fold', !fold(1) && visibleRows().join() === '5,6,7', visibleRows().join());
   await press(filter('out_of_month'), 'the Outside this month filter again');
+
+  /* ---- 9. decisions go through importUpdateRow ---------------------- */
+  const lastUpdate = () => JSON.stringify(server.calls.updates[server.calls.updates.length - 1]);
+  let reads = server.calls.reviews;
+  const nameField = rowEl(1).querySelector('input[aria-label="Name for Tesco"]');
+  await setValue(nameField, 'Tesco Extra');
+  nameField.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+  await settle();
+  check('renaming a row sends its name', lastUpdate() === '[1,{"name":"Tesco Extra"}]', lastUpdate());
+  check('and the review is read again', server.calls.reviews > reads, server.calls.reviews + ' vs ' + reads);
+  check('the row shows the new name', !!rowEl(1).querySelector('input[aria-label="Name for Tesco Extra"]'), rowEl(1).outerHTML.slice(0, 200));
+
+  await setValue(rowEl(4).querySelector('select'), '11');
+  check('picking a category sends it', lastUpdate() === '[4,{"categoryId":11}]', lastUpdate());
+  check('the picker groups by group, this month first', (() => {
+    const groups = [...rowEl(4).querySelectorAll('optgroup')].map((g) => g.label);
+    return groups.join('|') === 'Food|Car|Other · not this month';
+  })(), [...rowEl(4).querySelectorAll('optgroup')].map((g) => g.label).join('|'));
+
+  await press(rowEl(4).querySelector('input[type="checkbox"]'), 'the tick on Shell');
+  check('ticking a row sends it', lastUpdate() === '[4,{"included":true}]', lastUpdate());
+  check('and the tick follows the server', rowEl(4).querySelector('input[type="checkbox"]').checked);
+
+  const transferBtn = (id) => rowEl(id) && rowEl(id).querySelector('button[data-transfer]');
+  check('a row has a Transfer toggle, off for spending', transferBtn(1) && transferBtn(1).getAttribute('aria-pressed') === 'false');
+  await press(transferBtn(1), 'Transfer on Tesco Extra');
+  check('marking a transfer sends the kind', lastUpdate() === '[1,{"kind":"transfer"}]', lastUpdate());
+  check('the toggle shows it on', transferBtn(1).getAttribute('aria-pressed') === 'true');
+  await press(transferBtn(1), 'Transfer on Tesco Extra again');
+  check('and back to spending', lastUpdate() === '[1,{"kind":"spend"}]', lastUpdate());
 
   return results;
 };

@@ -235,6 +235,7 @@ function UploadStep({ review, month, onChanged, onReview }) {
    the tick, the name and the category. */
 function ReviewRow({ row, review, currency, onUpdate }) {
   const blocked = isBlocked(row);
+  const transfer = row.kind === "transfer";
   return (
     <div className={cx("upload-row", blocked && "is-blocked")} data-row-id={row.id}>
       <input type="checkbox" className="upload-tick" checked={row.included && !blocked} disabled={blocked}
@@ -243,10 +244,19 @@ function ReviewRow({ row, review, currency, onUpdate }) {
       <span className="num upload-date">{shortDate(row.spentOn)}</span>
       <TextInline value={row.name} className="upload-name" label={`Name for ${row.name}`}
         onCommit={(v) => { if (v !== row.name) onUpdate(row, { name: v }); }} />
-      <CategoryPicker row={row} categories={review.categories} disabled={blocked}
+      <CategoryPicker row={row} categories={review.categories} disabled={blocked || transfer}
         onChange={(categoryId) => onUpdate(row, { categoryId })} />
       <span className="num upload-amount">{row.amountCents == null ? "" : fmt(currency, row.amountCents / 100)}</span>
       <LabelChips row={row} />
+      <span className="upload-actions">
+        {/* Excludes the row and teaches the classifier that this payee is a
+            transfer. Pressed is drawn even at rest, so a row marked as one
+            says so without being hovered. */}
+        <button type="button" data-transfer aria-pressed={transfer} disabled={blocked && !transfer}
+          className={cx("upload-toggle", transfer && "is-on")}
+          title={transfer ? "Treat this as spending again" : "Money moved between your own accounts, not spent"}
+          onClick={() => onUpdate(row, { kind: transfer ? "spend" : "transfer" })}>Transfer</button>
+      </span>
     </div>
   );
 }
