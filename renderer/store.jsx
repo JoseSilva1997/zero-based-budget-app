@@ -356,6 +356,19 @@ export function StoreProvider({ children }) {
             await api.itemDelete(Number(A.itemId));
             return refreshMonth(mk);
 
+          case "setCategoryArchived":
+            // The month tree does not change, but the reusable picks it offers
+            // do, so the month is refetched like any other item edit.
+            await api.categorySetArchived(Number(A.id), !!A.archived);
+            return refreshMonth(mk);
+          case "mergeCategories": {
+            // Folds lines across every month and takes a backup first, so the
+            // cached months and 'lastBackup' are all stale: rehydrate.
+            const res = await api.categoryMerge(Number(A.fromId), Number(A.intoId));
+            await reload();
+            return res;
+          }
+
           case "reorderGroup":
             await api.groupReorder(idForKey(mk), Number(A.groupId), Number(A.targetId), !!A.after);
             return refreshMonth(mk);
@@ -492,6 +505,14 @@ export function StoreProvider({ children }) {
     return list.map((s) => ({ ...s, monthLabel: monthLabel(s.month).short }));
   }, [idForKey]);
 
+  /* Categories, as Settings lists them, and what a merge would move. Both
+     write nothing; the writes are the two category actions on dispatch. */
+  const categories = useCallback(async () => (hasApi() ? api.categories() : []), []);
+  const previewMerge = useCallback(
+    (fromId, intoId) => api.categoryPreviewMerge(Number(fromId), Number(intoId)),
+    []
+  );
+
   const getMonth = useCallback(async (key) => {
     if (!hasApi()) return null;
     const id = idForKey(key);
@@ -515,6 +536,8 @@ export function StoreProvider({ children }) {
     trends,
     reusableItems,
     entrySuggestions,
+    categories,
+    previewMerge,
     getMonth,
   };
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
