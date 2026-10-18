@@ -246,6 +246,28 @@ app.whenReady().then(async () => {
       db.close();
     }
 
+    /* ---- adding a group by name reuses the one already there ---- */
+    {
+      const db = freshDb();
+      const sep = months.insertMonth(db, '2026-09');
+      const oct = months.insertMonth(db, '2026-10');
+      const bills = months.addGroupByName(db, 'Bills');
+      eq(shape(months, db, sep), [['Bills', []]], 'a new name makes a new group');
+      eq(months.addGroupByName(db, '  bills '), bills, 'the same name, however typed, is the same group');
+      eq(db.prepare(`SELECT COUNT(*) n FROM budget_groups`).get().n, 1, 'so no second one is made');
+
+      // Deleted from October while September still uses it: archived. Adding
+      // it again by name brings it back rather than starting a namesake.
+      months.addItemByName(db, { monthId: sep, groupId: bills, name: 'Rent' });
+      months.addItemByName(db, { monthId: oct, groupId: bills, name: 'Rent' });
+      months.deleteGroup(db, bills, oct);
+      eq(shape(months, db, oct), [], 'gone from October');
+      eq(months.addGroupByName(db, 'BILLS'), bills, 're-adding finds the archived group');
+      eq(shape(months, db, oct), [['Bills', []]], 'and un-archives it');
+      eq(months.addGroupByName(db, 'Fun') !== bills, true, 'another name is another group');
+      db.close();
+    }
+
     /* ---- archiving: hidden from new months, kept in history ---- */
     {
       const db = freshDb();

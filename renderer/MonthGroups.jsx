@@ -653,7 +653,7 @@ function GroupCard({ group, groups, currency, dispatch, month, accounts, drag })
             ? "Nothing in this month is in it."
             : <>This removes its {itemCount} {itemCount === 1 ? "item" : "items"}
               {entryCount > 0 ? <> and their {entryCount} spending {entryCount === 1 ? "entry" : "entries"}</> : null} from this month only.</>}
-          {" "}Months that still have items in it keep them, and the group stays there but stops showing in other months. If no month uses it, it is deleted.
+          {" "}Months that still have items in it keep them, and the group stays there but stops showing in other months. If no month uses it, it is deleted. Adding a group with the same name brings it back.
         </ConfirmDialog>
       )}
     </div>

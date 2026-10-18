@@ -158,6 +158,44 @@ export function nextItemSort(db: Database.Database, monthId: number, groupId: nu
   return row.m + 1;
 }
 
+/* ---------- adding a group ----------------------------------------------- */
+
+/** The group whose name normalises to the same as 'name' (archived ones
+ *  included), skipping 'exceptId'. */
+export function findGroupByName(
+  db: Database.Database,
+  name: string,
+  exceptId: number | null = null
+): BudgetGroup | undefined {
+  const key = normalizeName(name);
+  const rows = db.prepare(`SELECT * FROM budget_groups ORDER BY id`).all() as BudgetGroup[];
+  return rows.find((g) => g.id !== exceptId && normalizeName(g.name) === key);
+}
+
+/**
+ * Adds a group by name: a group with that normalised name is reused (and
+ * un-archived, so it shows in every month again), or a new one is created at
+ * the end. Returns the group's id.
+ */
+export function addGroupByName(db: Database.Database, name: string): number {
+  const tx = db.transaction(() => {
+    const existing = findGroupByName(db, name);
+    if (existing) {
+      if (existing.archived) {
+        db.prepare(`UPDATE budget_groups SET archived = 0 WHERE id = ?`).run(existing.id);
+      }
+      return existing.id;
+    }
+    return insertGroup(db, {
+      name: cleanName(name),
+      kind: 'spend',
+      collapsed: 0,
+      sort_order: nextGroupSort(db),
+    });
+  });
+  return tx();
+}
+
 /* ---------- adding a plan line ------------------------------------------- */
 
 export interface AddItem {

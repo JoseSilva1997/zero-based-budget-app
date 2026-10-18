@@ -1,5 +1,6 @@
 /* ============================================================
-   IPC: group mutations. 'group:add' returns the new row; the rest are
+   IPC: group mutations. 'group:add' returns the group, reusing one with the
+   same name; the rest are
    optimistic. 'group:update' folds rename, toggle-collapse, and set-savings.
    Groups are shared by every month, so add, update and reorder are global;
    'group:delete' takes the group out of ONE month (its plan lines there),
@@ -9,12 +10,11 @@ import { ipcMain } from 'electron';
 import { getDb } from '../db';
 import { guardAsync } from './envelope';
 import {
-  insertGroup,
+  addGroupByName,
   updateGroup,
   deleteGroup,
   reorderGroups,
   getGroupById,
-  nextGroupSort,
 } from '../../database/repositories/months';
 import type { GroupKind } from '../../shared/types';
 
@@ -26,15 +26,11 @@ interface GroupPatch {
 }
 
 export function registerGroupIpc(): void {
+  // By name: a group already called that (archived or not) is reused.
   ipcMain.handle('group:add', (_e, p: { monthId: number; name?: string }) =>
     guardAsync(async () => {
       const db = getDb();
-      const id = insertGroup(db, {
-        name: p.name || 'New group',
-        kind: 'spend',
-        collapsed: 0,
-        sort_order: nextGroupSort(db),
-      });
+      const id = addGroupByName(db, p.name || 'New group');
       return getGroupById(db, id, p.monthId);
     })
   );
