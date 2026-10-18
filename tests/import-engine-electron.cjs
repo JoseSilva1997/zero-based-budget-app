@@ -76,6 +76,69 @@ app.whenReady().then(() => {
       assert(changed({ descriptorRaw: 'CAFE NERO 2' }), 'another raw descriptor differs');
     }
 
+    /* ---- the classifier ---- */
+    {
+      const { train } = imp('classifier.js');
+      const GROCERIES = 11;
+      const EATING_OUT = 12;
+      const ex = (descriptorClean, label, more = {}) => ({
+        descriptorClean, features: {}, accountId: 1, amountCents: 1500, label, ...more,
+      });
+      const model = train([
+        ex('TESCO STORES', GROCERIES),
+        ex('TESCO EXPRESS', GROCERIES),
+        ex('SAINSBURYS S/MKTS', GROCERIES),
+        ex('PIZZA EXPRESS', EATING_OUT),
+        ex('NANDOS LONDON', EATING_OUT),
+      ]);
+      const guess = model.predict({ descriptorClean: 'TESCO STORES', features: {}, accountId: 1, amountCents: 1500 });
+      eq(guess && guess.label, GROCERIES, 'a known shop is predicted as its category');
+      assert(guess.confidence > 0.9 && guess.confidence <= 1, `and confidently (${guess && guess.confidence})`);
+
+      const q = (descriptorClean, more = {}) => ({ descriptorClean, features: {}, accountId: 1, amountCents: 1500, ...more });
+      eq(model.predict(q('DENTIST SMILES')), null, 'a descriptor like nothing seen has no prediction');
+      eq(train([]).predict(q('TESCO STORES')), null, 'nothing learned, nothing predicted');
+
+      // A partial resemblance is a weaker guess than an exact one.
+      const loose = model.predict(q('TESCO PETROL'));
+      eq(loose.label, GROCERIES, 'a shared word still points at the category');
+      assert(loose.confidence < guess.confidence, 'but less confidently');
+
+      // Transfers are a class of their own.
+      const withTransfers = train([
+        ex('TESCO STORES', GROCERIES),
+        ex('ALEX EXAMPLE', 'transfer', { features: { type: 'Faster payment' } }),
+        ex('SAM EXAMPLE', 'transfer', { features: { type: 'Faster payment' } }),
+      ]);
+      eq(withTransfers.predict(q('ALEX EXAMPLE', { features: { type: 'Faster payment' } })).label, 'transfer', 'a transfer is predicted as one');
+
+      // The bank's own signals and the account tell apart one descriptor.
+      const amazon = train([
+        ex('AMAZON', GROCERIES, { features: { category: 'Groceries' } }),
+        ex('AMAZON', GROCERIES, { features: { category: 'Groceries' } }),
+        ex('AMAZON', EATING_OUT, { features: { category: 'Eating out' } }),
+        ex('AMAZON', EATING_OUT, { features: { category: 'Eating out' } }),
+      ]);
+      eq(amazon.predict(q('AMAZON', { features: { category: 'Eating out' } })).label, EATING_OUT, "the bank's category breaks a tie");
+      const byAccount = train([
+        ex('PAYPAL', GROCERIES, { accountId: 1 }), ex('PAYPAL', GROCERIES, { accountId: 1 }),
+        ex('PAYPAL', EATING_OUT, { accountId: 2 }), ex('PAYPAL', EATING_OUT, { accountId: 2 }),
+      ]);
+      eq(byAccount.predict(q('PAYPAL', { accountId: 2 })).label, EATING_OUT, 'so does the account');
+
+      // Neighbours that disagree make an unsure guess.
+      const split = train([ex('CORNER SHOP', GROCERIES), ex('CORNER SHOP', GROCERIES), ex('CORNER SHOP', EATING_OUT)]);
+      const unsure = split.predict(q('CORNER SHOP'));
+      eq(unsure.label, GROCERIES, 'the majority wins');
+      assert(unsure.confidence < 0.7, `with a lower confidence (${unsure.confidence})`);
+    }
+
+    /* ---- the thresholds ---- */
+    {
+      const { HIGH_CONFIDENCE, LOW_CONFIDENCE } = imp('classifier.js');
+      assert(0 < LOW_CONFIDENCE && LOW_CONFIDENCE < HIGH_CONFIDENCE && HIGH_CONFIDENCE <= 1, 'LOW is below HIGH, both within 0..1');
+    }
+
     console.log('IMPORT_ENGINE_OK');
   } catch (err) {
     console.error('IMPORT_ENGINE_FAIL', err && err.stack ? err.stack : err);
