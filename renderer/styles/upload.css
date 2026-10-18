@@ -139,3 +139,8 @@
 .upload-chip.is-warn { color: var(--caution); border-color: color-mix(in srgb, var(--caution) 45%, transparent); }
 .upload-chip.is-info { background: var(--well); color: var(--ink-2); }
 .upload-chip[title] { cursor: help; }
+
+/* A row that cannot be imported: sunk to the bottom of its section and
+   dimmed, its controls disabled. Everything dims except the chips, which
+   say why in words and have to stay legible to do it. */
+.upload-row.is-blocked > :not(.upload-chips) { opacity: 0.5; }

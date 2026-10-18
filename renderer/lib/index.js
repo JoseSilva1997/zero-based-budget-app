@@ -19,7 +19,7 @@ export {
 } from "./selectors.js";
 export { buildEmpty } from "./reducer.js";
 export * from "./bar.js";
-export { isBlocked, shortDate } from "./imports.js";
+export { isBlocked, shortDate, sinkBlocked } from "./imports.js";
 
 /* Declared here rather than given a module of its own, because a module would
    be this line plus a header twice its length. It is the one piece of the

@@ -291,6 +291,21 @@ window.__runTests = async () => {
   check('an ok row has no chip', chips(1).length === 0, chips(1).length + '');
   check('a row that could not be read carries its reason on the chip', chips(10)[0] && chips(10)[0].title === 'The amount "x" is not a number.', chips(10)[0] && chips(10)[0].title);
 
+  /* ---- 6. blocked rows sink and are inert ---------------------------- */
+  const order = (id) => [...section(id).querySelectorAll('[data-row-id]')].map((r) => Number(r.getAttribute('data-row-id')));
+  const sunk = (id, blockedIds) => {
+    const o = order(id);
+    const firstBlocked = Math.min(...blockedIds.map((b) => o.indexOf(b)));
+    return blockedIds.every((b) => o.includes(b)) && o.slice(firstBlocked).every((r) => blockedIds.includes(r));
+  };
+  check('a blocked row sinks to the bottom of its section', sunk(1, [2]), order(1).join());
+  check('in every section', sunk(2, [9, 10]), order(2).join());
+  check('and otherwise keeps the statement order', order(2).slice(0, 3).join() === '11,12,13', order(2).join());
+  check('a blocked row is dimmed', rowEl(2).classList.contains('is-blocked'));
+  check('its tick cannot be ticked', rowEl(2).querySelector('input[type="checkbox"]').disabled && !rowEl(2).querySelector('input[type="checkbox"]').checked);
+  check('nor its category changed', rowEl(2).querySelector('select').disabled);
+  check('an unblocked row stays live', !rowEl(1).classList.contains('is-blocked') && !rowEl(1).querySelector('input[type="checkbox"]').disabled);
+
   return results;
 };
 `;

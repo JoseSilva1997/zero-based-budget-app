@@ -18,3 +18,9 @@ export function shortDate(iso) {
   const [, m, d] = iso.split("-").map(Number);
   return `${d} ${MONTH_NAMES[m - 1].slice(0, 3)}`;
 }
+
+/** A section's rows with the blocked ones sunk to the bottom, each half in
+ *  the statement's own order. */
+export function sinkBlocked(rows) {
+  return [...rows.filter((r) => !isBlocked(r)), ...rows.filter(isBlocked)];
+}

@@ -14,7 +14,7 @@
    ============================================================ */
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, EmptyState, Icons, Sheet, TextInline } from './ui/index.js';
-import { cx, fmt, isBlocked, monthLabel, shortDate } from './lib/index.js';
+import { cx, fmt, isBlocked, monthLabel, shortDate, sinkBlocked } from './lib/index.js';
 import { useStore } from './store.jsx';
 
 /* The statement formats House Budget reads, by preset key, as a household
@@ -311,7 +311,7 @@ function AccountSection({ entry, review, currency, onUpdate }) {
         {bank && <span className="upload-separator-bank">{bank.name}</span>}
         <span className="num upload-separator-count">{rows.length} {rows.length === 1 ? "row" : "rows"}</span>
       </div>
-      {rows.map((r) => <ReviewRow key={r.id} row={r} review={review} currency={currency} onUpdate={onUpdate} />)}
+      {sinkBlocked(rows).map((r) => <ReviewRow key={r.id} row={r} review={review} currency={currency} onUpdate={onUpdate} />)}
     </section>
   );
 }
