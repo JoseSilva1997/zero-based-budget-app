@@ -263,7 +263,11 @@ export function updateGroup(
   patchById(db, 'budget_groups', id, fields);
 }
 
-/** Deletes a group's plan lines in one month (their entries cascade). */
+/**
+ * Takes a group out of one month: its plan lines there are deleted (their
+ * entries cascade). Categories left with no line anywhere are deleted, and the
+ * group itself once it has no category left, so other months keep theirs.
+ */
 export function deleteGroup(db: Database.Database, id: number, monthId: number): void {
   const tx = db.transaction(() => {
     db.prepare(
@@ -271,6 +275,14 @@ export function deleteGroup(db: Database.Database, id: number, monthId: number):
         WHERE budget_month_id = ?
           AND category_id IN (SELECT id FROM categories WHERE group_id = ?)`
     ).run(monthId, id);
+    const cats = db.prepare(`SELECT id FROM categories WHERE group_id = ?`).all(id) as Array<{
+      id: number;
+    }>;
+    for (const c of cats) pruneCategory(db, c.id);
+    db.prepare(
+      `DELETE FROM budget_groups
+        WHERE id = ? AND NOT EXISTS (SELECT 1 FROM categories WHERE group_id = ?)`
+    ).run(id, id);
   });
   tx();
 }

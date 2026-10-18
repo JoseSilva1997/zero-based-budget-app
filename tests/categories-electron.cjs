@@ -171,6 +171,49 @@ app.whenReady().then(() => {
       db.close();
     }
 
+    /* ---- groups: shared by every month, deleted from one ---- */
+    {
+      const db = freshDb();
+      const sep = months.insertMonth(db, '2026-09');
+      const oct = months.insertMonth(db, '2026-10');
+      const bills = months.insertGroup(db, { name: 'Bills', kind: 'spend', sort_order: 0, collapsed: 0 });
+      const fresh = months.insertGroup(db, { name: 'New', kind: 'spend', sort_order: 1, collapsed: 0 });
+      months.addItemByName(db, { monthId: sep, groupId: bills, name: 'Rent' });
+      months.addItemByName(db, { monthId: sep, groupId: bills, name: 'Power' });
+      months.addItemByName(db, { monthId: oct, groupId: bills, name: 'Rent' });
+
+      // A group with no line anywhere shows in every month, so it can be filled.
+      eq(shape(months, db, oct), [['Bills', ['Rent']], ['New', []]], 'a new group shows in October');
+      eq(shape(months, db, sep), [['Bills', ['Rent', 'Power']], ['New', []]], 'and in September');
+      // Once it has a line, it shows only where it has one.
+      months.addItemByName(db, { monthId: oct, groupId: fresh, name: 'Thing' });
+      eq(shape(months, db, sep), [['Bills', ['Rent', 'Power']]], 'a filled group leaves the months without it');
+
+      // Rename, kind and collapse are the group's, so every month sees them.
+      months.updateGroup(db, bills, { name: 'House', kind: 'debt', collapsed: 1 });
+      const sepGroup = months.getMonthTree(db, sep).groups[0];
+      eq([sepGroup.name, sepGroup.kind, sepGroup.collapsed], ['House', 'debt', true], 'group edits are global');
+
+      // Deleting from October takes October's lines; September keeps its own.
+      months.deleteGroup(db, bills, oct);
+      eq(shape(months, db, oct), [['New', ['Thing']]], 'gone from October');
+      eq(shape(months, db, sep), [['House', ['Rent', 'Power']]], 'September untouched');
+      eq(db.prepare(`SELECT COUNT(*) n FROM budget_groups WHERE id = ?`).get(bills).n, 1, 'still used, so the group stays');
+
+      // Deleted from the last month that used it, nothing refers to it: gone.
+      months.deleteGroup(db, bills, sep);
+      eq(db.prepare(`SELECT COUNT(*) n FROM budget_groups WHERE id = ?`).get(bills).n, 0, 'unused group deleted');
+      eq(db.prepare(`SELECT COUNT(*) n FROM categories`).get().n, 1, 'and its categories with it');
+      eq(shape(months, db, sep), [], 'September is empty');
+
+      // An empty group deleted from any month is simply gone.
+      const empty = months.insertGroup(db, { name: 'Empty', kind: 'spend', sort_order: 2, collapsed: 0 });
+      months.deleteGroup(db, empty, sep);
+      eq(db.prepare(`SELECT COUNT(*) n FROM budget_groups WHERE id = ?`).get(empty).n, 0, 'empty group deleted');
+      eq(db.pragma('foreign_key_check'), [], 'no dangling references');
+      db.close();
+    }
+
     console.log('CATEGORIES_OK');
   } catch (err) {
     console.error('CATEGORIES_FAIL', err && err.stack ? err.stack : err);
