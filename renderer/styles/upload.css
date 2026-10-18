@@ -144,3 +144,16 @@
    dimmed, its controls disabled. Everything dims except the chips, which
    say why in words and have to stay legible to do it. */
 .upload-row.is-blocked > :not(.upload-chips) { opacity: 0.5; }
+
+/* ---- the filter row ------------------------------------------------------
+   Pills, because they are toggles in a row of toggles; the lit one takes the
+   accent edge and Violet Shade, the object being worked on. */
+.upload-filters { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-5); }
+.upload-filter {
+  padding: 4px 11px; border-radius: var(--radius-pill);
+  border: 1px solid var(--rule-strong); background: transparent; color: var(--ink-2);
+  font-size: var(--text-12); font-weight: 500; white-space: nowrap;
+  transition: background-color .12s, border-color .12s, color .12s;
+}
+.upload-filter:hover { background: var(--well); color: var(--ink); }
+.upload-filter.is-on, .upload-filter.is-on:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); }

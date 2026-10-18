@@ -24,3 +24,24 @@ export function shortDate(iso) {
 export function sinkBlocked(rows) {
   return [...rows.filter((r) => !isBlocked(r)), ...rows.filter(isBlocked)];
 }
+
+/* The order the filter chips are offered in: what wants a look first, then
+   what cannot go in, then the notes. */
+const SEVERITY_ORDER = { warn: 0, block: 1, info: 2 };
+
+/** Every label present in the review, with how many rows carry it, for the
+ *  filter chips: [{ key, text, severity, count }]. 'ok' is never one. */
+export function labelCounts(accounts) {
+  const byKey = new Map();
+  for (const a of accounts) {
+    for (const r of a.rows) {
+      for (const l of r.labels) {
+        if (!(l.severity in SEVERITY_ORDER)) continue;
+        const hit = byKey.get(l.key) || { key: l.key, text: l.text, severity: l.severity, count: 0 };
+        hit.count += 1;
+        byKey.set(l.key, hit);
+      }
+    }
+  }
+  return [...byKey.values()].sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
+}

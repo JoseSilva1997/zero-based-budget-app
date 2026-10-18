@@ -14,7 +14,7 @@
    ============================================================ */
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, EmptyState, Icons, Sheet, TextInline } from './ui/index.js';
-import { cx, fmt, isBlocked, monthLabel, shortDate, sinkBlocked } from './lib/index.js';
+import { cx, fmt, isBlocked, labelCounts, monthLabel, shortDate, sinkBlocked } from './lib/index.js';
 import { useStore } from './store.jsx';
 
 /* The statement formats House Budget reads, by preset key, as a household
@@ -302,31 +302,55 @@ function CategoryPicker({ row, categories, disabled, onChange }) {
 
 /* One account's run of rows, under a separator that names the account and
    its bank, with the count kept quiet beside them. */
-function AccountSection({ entry, review, currency, onUpdate }) {
-  const { account, bank, rows } = entry;
+function AccountSection({ entry, rows, review, currency, onUpdate }) {
+  const { account, bank } = entry;
   return (
     <section className="upload-section" data-account-section={account.id} aria-label={`${account.name} rows`}>
       <div className="upload-separator" data-account-separator>
         <span className="upload-separator-name">{account.name}</span>
         {bank && <span className="upload-separator-bank">{bank.name}</span>}
-        <span className="num upload-separator-count">{rows.length} {rows.length === 1 ? "row" : "rows"}</span>
+        <span className="num upload-separator-count">{entry.rows.length} {entry.rows.length === 1 ? "row" : "rows"}</span>
       </div>
       {sinkBlocked(rows).map((r) => <ReviewRow key={r.id} row={r} review={review} currency={currency} onUpdate={onUpdate} />)}
     </section>
   );
 }
 
+/* The filter row: one chip per label in the review, with its count, across
+   every account. One filter at a time; pressing the lit one again clears it.
+   These carry no severity colour - they are controls, and the colour belongs
+   to the chips on the rows they find. */
+function FilterChips({ counts, active, onPick }) {
+  if (counts.length === 0) return null;
+  return (
+    <div className="upload-filters" data-filters role="group" aria-label="Show only rows labelled">
+      {counts.map((c) => (
+        <button key={c.key} type="button" data-filter={c.key} aria-pressed={active === c.key}
+          className={cx("upload-filter", active === c.key && "is-on")}
+          onClick={() => onPick(active === c.key ? null : c.key)}>{c.text} · {c.count}</button>
+      ))}
+    </div>
+  );
+}
+
 /* ---- the review step --------------------------------------------------- */
 function ReviewStep({ review, currency, onUpdate, onBack }) {
-  const withRows = review.accounts.filter((a) => a.rows.length > 0);
+  const [filter, setFilter] = useState(null);
+  const counts = labelCounts(review.accounts);
+  // A filter whose last row has gone (ticked, re-labelled) lets go by itself.
+  const active = counts.some((c) => c.key === filter) ? filter : null;
+  const sections = review.accounts
+    .map((entry) => ({ entry, rows: active ? entry.rows.filter((r) => r.labels.some((l) => l.key === active)) : entry.rows }))
+    .filter((s) => s.rows.length > 0);
   return (
     <div data-review className="upload-review">
-      {withRows.length === 0 ? (
+      <FilterChips counts={counts} active={active} onPick={setFilter} />
+      {sections.length === 0 ? (
         <EmptyState icon={Icons.copy} inline>None of these files had a transaction in them to review.</EmptyState>
       ) : (
         <div className="panel is-clipped upload-list">
-          {withRows.map((entry) => (
-            <AccountSection key={entry.account.id} entry={entry} review={review} currency={currency} onUpdate={onUpdate} />
+          {sections.map(({ entry, rows }) => (
+            <AccountSection key={entry.account.id} entry={entry} rows={rows} review={review} currency={currency} onUpdate={onUpdate} />
           ))}
         </div>
       )}

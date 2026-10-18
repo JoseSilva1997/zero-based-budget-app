@@ -306,6 +306,22 @@ window.__runTests = async () => {
   check('nor its category changed', rowEl(2).querySelector('select').disabled);
   check('an unblocked row stays live', !rowEl(1).classList.contains('is-blocked') && !rowEl(1).querySelector('input[type="checkbox"]').disabled);
 
+  /* ---- 7. filter chips across every account ------------------------- */
+  const filter = (key) => document.querySelector('[data-filter="' + key + '"]');
+  check('a filter chip per label, with its count', filter('possible_duplicate') && filter('possible_duplicate').textContent === 'Possible duplicate · 1', filter('possible_duplicate') && filter('possible_duplicate').textContent);
+  check('counted across every account', filter('out_of_month') && filter('out_of_month').textContent === 'Outside this month · 3' && filter('transfer') && /· 1$/.test(filter('transfer').textContent), filter('out_of_month') && filter('out_of_month').textContent);
+  check('the filter row sits above the list', (() => { const f = document.querySelector('[data-filters]'); const l = document.querySelector('[data-account-section]'); return f && l && (f.compareDocumentPosition(l) & Node.DOCUMENT_POSITION_FOLLOWING); })());
+  check('no chip for ok', !filter('ok'));
+  await press(filter('possible_duplicate'), 'the Possible duplicate filter');
+  const visibleRows = () => [...document.querySelectorAll('[data-row-id]')].map((r) => Number(r.getAttribute('data-row-id')));
+  check('filtering keeps only the rows carrying that label', visibleRows().join() === '8', visibleRows().join());
+  check('the chip says it is on', filter('possible_duplicate').getAttribute('aria-pressed') === 'true');
+  check('a section with nothing left drops out', !section(2), sections().length + '');
+  await press(filter('not_in_month'), 'the Not in this month filter');
+  check('another label filters across accounts too', visibleRows().join() === '11', visibleRows().join());
+  await press(filter('not_in_month'), 'the Not in this month filter again');
+  check('pressing it again shows everything', visibleRows().length >= 10 && !!section(2), visibleRows().join());
+
   return results;
 };
 `;
