@@ -139,6 +139,94 @@ app.whenReady().then(() => {
       assert(0 < LOW_CONFIDENCE && LOW_CONFIDENCE < HIGH_CONFIDENCE && HIGH_CONFIDENCE <= 1, 'LOW is below HIGH, both within 0..1');
     }
 
+    /* ---- labels and what a row effectively is ---- */
+    {
+      const { assessRow, LABELS } = imp('labels.js');
+      const { HIGH_CONFIDENCE, LOW_CONFIDENCE } = imp('classifier.js');
+      const GROC = 11;
+      const sure = { label: GROC, confidence: 0.95 };
+      const facts = (more = {}) => ({
+        monthKey: '2026-09',
+        spentOn: '2026-09-04',
+        direction: 'debit',
+        descriptorClean: 'TESCO STORES',
+        parseError: null,
+        notCompleted: false,
+        alreadyImported: false,
+        duplicates: 0,
+        prediction: sure,
+        inMonth: (id) => id === GROC,
+        stored: { categoryId: null, name: null, kind: null, included: null, linkedEntryId: null },
+        ...more,
+      });
+      const keys = (r) => r.labels.map((l) => l.key);
+      const stored = (s) => ({ stored: { categoryId: null, name: null, kind: null, included: null, linkedEntryId: null, ...s } });
+
+      // A confident prediction in a planned category is simply ticked.
+      const plain = assessRow(facts());
+      eq(keys(plain), ['ok'], 'a confident, planned, in-month spend is ok');
+      eq(plain.labels[0].severity, 'none', 'ok is no chip');
+      eq([plain.categoryId, plain.name, plain.kind, plain.included], [GROC, 'TESCO STORES', 'spend', true], 'and ticked with the prediction and the cleaned name');
+
+      // Your decisions win over the prediction.
+      const mine = assessRow(facts(stored({ categoryId: 12, name: 'Weekly shop', included: 0 })));
+      eq([mine.categoryId, mine.name, mine.included], [12, 'Weekly shop', false], 'stored category, name and tick win');
+      eq(keys(mine), ['not_in_month'], 'a chosen category with no plan line this month says so');
+
+      // Confidence bands.
+      const unsure = assessRow(facts({ prediction: { label: GROC, confidence: (HIGH_CONFIDENCE + LOW_CONFIDENCE) / 2 } }));
+      eq([keys(unsure), unsure.categoryId, unsure.included], [['low_confidence'], GROC, false], 'a middling guess is pre-filled, flagged and unticked');
+      eq(unsure.labels[0], { key: 'low_confidence', severity: 'warn', text: 'Check category' }, 'with its chip');
+      const wild = assessRow(facts({ prediction: { label: GROC, confidence: LOW_CONFIDENCE / 2 } }));
+      eq([keys(wild), wild.categoryId, wild.included], [['uncategorised'], null, false], 'a wild guess is no category');
+      eq(assessRow(facts({ prediction: null })).labels[0].text, 'No category', 'nor is no guess');
+      const picked = assessRow(facts({ prediction: null, ...stored({ categoryId: GROC }) }));
+      eq([keys(picked), picked.included], [['ok'], true], 'picking a category makes it ok and ticked');
+      const forced = assessRow(facts({ prediction: null, ...stored({ included: 1 }) }));
+      eq(forced.included, false, 'a tick without a category does not count');
+
+      // Transfers.
+      const transfer = assessRow(facts({ prediction: { label: 'transfer', confidence: 0.9 } }));
+      eq([keys(transfer), transfer.kind, transfer.included], [['transfer'], 'transfer', false], 'a predicted transfer is one, unticked');
+      eq(assessRow(facts({ prediction: { label: 'transfer', confidence: 0.9 }, ...stored({ included: 1 }) })).included, false, 'and stays out while it is a transfer');
+      const back = assessRow(facts({ prediction: { label: 'transfer', confidence: 0.9 }, ...stored({ kind: 'spend', categoryId: GROC, included: 1 }) }));
+      eq([keys(back), back.kind, back.included], [['ok'], 'spend', true], 'switched back to spend, it can be ticked');
+      const marked = assessRow(facts(stored({ kind: 'transfer' })));
+      eq([keys(marked), marked.kind], [['transfer'], 'transfer'], 'you can mark a spend a transfer');
+
+      // Out of month and duplicates warn and start unticked; a tick overrides.
+      const early = assessRow(facts({ spentOn: '2026-08-30' }));
+      eq([keys(early), early.included], [['out_of_month'], false], 'outside the month is a warning');
+      eq(assessRow(facts({ spentOn: '2026-08-30', ...stored({ included: 1 }) })).included, true, 'that you can tick through');
+      const dup = assessRow(facts({ duplicates: 2 }));
+      eq([keys(dup), dup.labels[0].text, dup.included], [['possible_duplicate'], 'Possible duplicate', false], 'a possible duplicate starts unticked');
+
+      // Linked to an existing entry: never imported again.
+      eq(assessRow(facts({ duplicates: 1, ...stored({ linkedEntryId: 5, included: 1 }) })).included, false, 'a linked row is never ticked');
+
+      // Hard blocks can't be ticked, whatever is stored, and say nothing else.
+      for (const [more, key, text] of [
+        [{ direction: 'credit' }, 'credit', 'Money in'],
+        [{ alreadyImported: true }, 'already_imported', 'Already imported'],
+        [{ parseError: 'Value "x" is not an amount', direction: null }, 'parse_error', "Couldn't read"],
+        [{ notCompleted: true }, 'not_completed', 'Not completed'],
+      ]) {
+        const r = assessRow(facts({ ...more, duplicates: 1, ...stored({ included: 1 }) }));
+        eq([keys(r), r.included], [[key], false], `${key} blocks the row`);
+        eq([r.labels[0].severity, r.labels[0].text], ['block', text], `${key}'s chip`);
+      }
+
+      // Several labels at once.
+      eq(keys(assessRow(facts({ spentOn: '2026-10-01', duplicates: 1, prediction: { label: 13, confidence: 0.4 } }))).sort(),
+        ['low_confidence', 'not_in_month', 'out_of_month', 'possible_duplicate'], 'a row can carry several labels');
+
+      // The catalogue covers every label with display text.
+      eq(Object.keys(LABELS).sort(), ['already_imported', 'credit', 'low_confidence', 'not_completed', 'not_in_month', 'ok', 'out_of_month', 'parse_error', 'possible_duplicate', 'transfer', 'uncategorised'], 'every label is catalogued');
+      eq(LABELS.not_in_month.text, "Not in this month's plan", 'not_in_month copy');
+      eq(LABELS.out_of_month.text, 'Outside this month', 'out_of_month copy');
+      eq(LABELS.transfer.severity, 'info', 'a transfer is info');
+    }
+
     console.log('IMPORT_ENGINE_OK');
   } catch (err) {
     console.error('IMPORT_ENGINE_FAIL', err && err.stack ? err.stack : err);
