@@ -13,34 +13,88 @@
    it has to follow every tick as it happens.
    ============================================================ */
 import { useCallback, useEffect, useState } from 'react';
-import { Icons, Sheet } from './ui/index.js';
+import { Alert, Icons, Sheet } from './ui/index.js';
 import { cx, monthLabel } from './lib/index.js';
 import { useStore } from './store.jsx';
 
-/* ---- one account's drop zone ------------------------------------------ */
-function DropZone({ entry }) {
-  const { account, bank } = entry;
+/* ---- one account's drop zone ------------------------------------------
+   Takes files from its picker or from a drop, and sends them one at a time:
+   a refusal ("That file is already in this upload.") belongs to the file
+   that earned it, and the ones after it still go in. What went wrong is said
+   inside the zone, in the backend's own words, rather than in a toast that
+   would not say which account it was about. */
+function DropZone({ entry, month, onChanged }) {
+  const { imports } = useStore();
+  const { account, bank, files } = entry;
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [over, setOver] = useState(false);
+
+  const send = async (list) => {
+    setError(null);
+    setBusy(true);
+    try {
+      for (const file of list) {
+        try {
+          await imports.upload(month, account.id, file);
+        } catch (err) {
+          setError(err.message);
+        }
+      }
+    } finally {
+      setBusy(false);
+      await onChanged();
+    }
+  };
+
+  const remove = async (file) => {
+    setError(null);
+    try { await imports.removeFile(file.id); } catch (err) { setError(err.message); }
+    await onChanged();
+  };
+
   return (
     <section className="panel upload-zone" data-account-zone={account.id} aria-label={`Statements for ${account.name}`}>
       <div className="upload-zone-head">
         <div className="upload-zone-name truncate">{account.name}</div>
         <div className={cx("upload-zone-bank", !bank && "is-unset")}>{bank ? bank.name : "No bank yet"}</div>
       </div>
-      <label className="upload-drop">
+
+      {files.length > 0 && (
+        <ul className="upload-files">
+          {files.map((f) => (
+            <li key={f.id} className="upload-file">
+              <Icons.copy size={14} className="upload-file-glyph" />
+              <span className="upload-file-name truncate" title={f.filename}>{f.filename}</span>
+              <span className="num upload-file-rows">{f.rowCount} {f.rowCount === 1 ? "row" : "rows"}</span>
+              <button className="icon-btn compact subtle" onClick={() => remove(f)}
+                aria-label={`Remove ${f.filename}`} title="Remove this file"><Icons.x size={14} /></button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <label className={cx("upload-drop", over && "is-over")}
+        onDragOver={(e) => { e.preventDefault(); setOver(true); }}
+        onDragLeave={() => setOver(false)}
+        onDrop={(e) => { e.preventDefault(); setOver(false); send([...e.dataTransfer.files]); }}>
         <Icons.upload size={18} />
-        <span>Drop CSV statements here, or</span>
-        <span className="btn btn-sm upload-choose">Choose files</span>
-        <input type="file" multiple accept=".csv,text/csv" className="sr-only" />
+        <span>{busy ? "Reading…" : "Drop CSV statements here, or"}</span>
+        {!busy && <span className="btn btn-sm upload-choose">Choose files</span>}
+        <input type="file" multiple accept=".csv,text/csv" className="sr-only" disabled={busy}
+          onChange={(e) => { const list = [...e.target.files]; e.target.value = ""; if (list.length) send(list); }} />
       </label>
+
+      {error && <Alert className="upload-zone-error">{error}</Alert>}
     </section>
   );
 }
 
 /* ---- the upload step --------------------------------------------------- */
-function UploadStep({ review }) {
+function UploadStep({ review, month, onChanged }) {
   return (
     <div className="upload-zones">
-      {review.accounts.map((entry) => <DropZone key={entry.account.id} entry={entry} />)}
+      {review.accounts.map((entry) => <DropZone key={entry.account.id} entry={entry} month={month} onChanged={onChanged} />)}
     </div>
   );
 }
@@ -68,7 +122,7 @@ function UploadSheet({ month, currency, onClose }) {
           </div>
         </div>
       }>
-      {review && <UploadStep review={review} />}
+      {review && <UploadStep review={review} month={month} onChanged={load} />}
     </Sheet>
   );
 }

@@ -46,3 +46,16 @@
 .upload-drop:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
 .upload-drop.is-over { border-color: var(--accent); background: var(--wash-tray); color: var(--ink-2); }
 .upload-drop > svg { color: var(--faint); }
+
+/* The files already in a zone: one quiet line each, the row count in the
+   figure face, and the remove button at the end. */
+.upload-files { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.upload-file {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-1) 0; font-size: var(--text-13); color: var(--ink-2);
+}
+.upload-file + .upload-file { border-top: 1px solid var(--rule-faint); }
+.upload-file-glyph { color: var(--faint); flex: none; }
+.upload-file-name { flex: 1; }
+.upload-file-rows { font-size: var(--text-12); color: var(--muted); flex: none; }
+.upload-zone-error { font-size: var(--text-13); }

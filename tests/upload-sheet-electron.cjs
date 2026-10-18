@@ -87,6 +87,25 @@ window.api = {
   importReview: async () => review(),
   importHistory: async () => server.history.map((h) => ({ ...h })),
   banks: async () => server.banks.map((b) => ({ ...b })),
+  // The preload resolves needs_bank rather than throwing; other refusals throw.
+  importAddFile: async ({ accountId, filename, text }) => {
+    server.calls.added.push({ accountId, filename, text });
+    const acc = server.accounts.find((a) => a.id === accountId);
+    if (acc.bank_id == null) {
+      return { status: 'needs_bank', message: 'Choose the bank for this account first.', preset: 'natwest', products: null };
+    }
+    if (server.files.some((f) => f.filename === filename)) throw new Error('That file is already in this upload.');
+    if (!server.batch) server.batch = { id: 7, status: 'pending', createdAt: '2026-10-18 10:00:00' };
+    const file = { id: server.files.length + 100, accountId, filename, rowCount: 3 };
+    server.files.push(file);
+    return { status: 'added', file: { ...file, batchId: 7 } };
+  },
+  importRemoveFile: async (fileId) => {
+    server.calls.removed.push(fileId);
+    server.files = server.files.filter((f) => f.id !== fileId);
+    server.rows = server.rows.filter((r) => r.fileId !== fileId);
+    return { ok: true };
+  },
 };
 
 const host = document.getElementById('root');
@@ -99,6 +118,24 @@ const mount = async () => {
 };
 const text = () => document.body.textContent;
 const zones = () => [...document.querySelectorAll('[data-account-zone]')];
+const zone = (id) => document.querySelector('[data-account-zone="' + id + '"]');
+const byLabel = (label) => document.querySelector('[aria-label="' + label + '"]');
+const buttonNamed = (label) =>
+  [...document.querySelectorAll('button')].find((b) => b.textContent.trim().toLowerCase().startsWith(label.toLowerCase()));
+const press = async (el, name) => {
+  check(name + ' is there to press', !!el, text().slice(0, 300));
+  if (el) el.click();
+  await settle();
+};
+// Hands files to a zone's picker, the way choosing them in the dialog does.
+const choose = async (accountId, names) => {
+  const input = zone(accountId).querySelector('input[type="file"]');
+  const dt = new DataTransfer();
+  for (const n of names) dt.items.add(new File(['Date,Description,Value\\n'], n, { type: 'text/csv' }));
+  input.files = dt.files;
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+  await settle();
+};
 
 window.__runTests = async () => {
   /* ---- 1. one drop zone per account --------------------------------- */
@@ -108,6 +145,15 @@ window.__runTests = async () => {
   check('a zone names its account and bank', zones()[0] && /Main/.test(zones()[0].textContent) && /Lloyds/.test(zones()[0].textContent), zones()[0] && zones()[0].textContent);
   check('an account with no bank says so', zones()[1] && /No bank yet/.test(zones()[1].textContent), zones()[1] && zones()[1].textContent);
   check('each zone offers a file picker', zones().every((z) => z.querySelector('input[type="file"][multiple]')), '');
+
+
+  /* ---- files in a zone ------------------------------------------------ */
+  await choose(1, ['lloyds-sep.csv']);
+  check('a chosen file is sent as text for its account', server.calls.added.length === 1 && server.calls.added[0].accountId === 1 && server.calls.added[0].filename === 'lloyds-sep.csv' && /Date,Description/.test(server.calls.added[0].text), JSON.stringify(server.calls.added));
+  check('the zone lists the file with its row count', /lloyds-sep\.csv/.test(zone(1).textContent) && /3 rows/.test(zone(1).textContent), zone(1).textContent);
+  await press(byLabel('Remove lloyds-sep.csv'), 'Remove lloyds-sep.csv');
+  check('removing a file goes through the bridge', server.calls.removed.length === 1, JSON.stringify(server.calls.removed));
+  check('and it leaves the zone', !/lloyds-sep\.csv/.test(zone(1).textContent), zone(1).textContent);
 
   return results;
 };
