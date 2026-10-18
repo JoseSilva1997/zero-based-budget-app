@@ -188,3 +188,26 @@
 .upload-toggle:hover { background: var(--well); color: var(--ink); }
 .upload-toggle.is-on { background: var(--well); border-color: transparent; color: var(--ink-2); }
 .upload-toggle:disabled { cursor: not-allowed; }
+.upload-toggle.is-open { border-color: var(--accent); color: var(--ink); }
+.upload-actions > .is-open { opacity: 1; pointer-events: auto; }
+
+/* ---- "Same as existing" --------------------------------------------------
+   The candidates open under the row as a tray, the way an item's entries
+   open under it on the budget: Tray Wash, so the row and what it opened read
+   as one object. A matched row says what it is the same as where its labels
+   were; it creates no entry, so it is the quietest row in the list. */
+.upload-candidates {
+  padding: var(--space-3) var(--space-6) var(--space-4) calc(var(--space-6) + 22px + var(--space-4));
+  background: var(--wash-tray); border-top: 1px solid var(--rule-faint);
+}
+.upload-candidates-head { color: var(--faint); margin-bottom: var(--space-2); }
+.upload-candidate {
+  display: grid; align-items: center; gap: var(--space-4);
+  grid-template-columns: 52px minmax(120px, 1.3fr) minmax(100px, 1fr) 92px auto;
+  padding: var(--space-1) 0; font-size: var(--text-13);
+}
+.upload-candidate-name { color: var(--ink); }
+.upload-candidate-cat { color: var(--muted); font-size: var(--text-12); }
+.upload-linked { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--text-12); color: var(--ink-2); }
+.upload-linked > svg { flex: none; color: var(--muted); }
+.upload-row.is-linked .upload-name, .upload-row.is-linked .upload-amount { color: var(--muted); }

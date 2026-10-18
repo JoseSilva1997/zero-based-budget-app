@@ -236,28 +236,71 @@ function UploadStep({ review, month, onChanged, onReview }) {
 function ReviewRow({ row, review, currency, onUpdate }) {
   const blocked = isBlocked(row);
   const transfer = row.kind === "transfer";
+  const linkedId = row.decisions.linkedEntryId;
+  const linked = linkedId != null ? (row.duplicates.find((d) => d.id === linkedId) || { id: linkedId, name: null, spentOn: null }) : null;
+  const [picking, setPicking] = useState(false);
+  const inert = blocked || !!linked;
+
+  const link = (d) => { setPicking(false); onUpdate(row, { linkedEntryId: d.id }); };
+
   return (
-    <div className={cx("upload-row", blocked && "is-blocked")} data-row-id={row.id}>
-      <input type="checkbox" className="upload-tick" checked={row.included && !blocked} disabled={blocked}
-        aria-label={`Import ${row.name}`}
-        onChange={() => onUpdate(row, { included: !row.included })} />
-      <span className="num upload-date">{shortDate(row.spentOn)}</span>
-      <TextInline value={row.name} className="upload-name" label={`Name for ${row.name}`}
-        onCommit={(v) => { if (v !== row.name) onUpdate(row, { name: v }); }} />
-      <CategoryPicker row={row} categories={review.categories} disabled={blocked || transfer}
-        onChange={(categoryId) => onUpdate(row, { categoryId })} />
-      <span className="num upload-amount">{row.amountCents == null ? "" : fmt(currency, row.amountCents / 100)}</span>
-      <LabelChips row={row} />
-      <span className="upload-actions">
-        {/* Excludes the row and teaches the classifier that this payee is a
-            transfer. Pressed is drawn even at rest, so a row marked as one
-            says so without being hovered. */}
-        <button type="button" data-transfer aria-pressed={transfer} disabled={blocked && !transfer}
-          className={cx("upload-toggle", transfer && "is-on")}
-          title={transfer ? "Treat this as spending again" : "Money moved between your own accounts, not spent"}
-          onClick={() => onUpdate(row, { kind: transfer ? "spend" : "transfer" })}>Transfer</button>
-      </span>
-    </div>
+    <>
+      <div className={cx("upload-row", blocked && "is-blocked", linked && "is-linked")} data-row-id={row.id}>
+        <input type="checkbox" className="upload-tick" checked={row.included && !inert} disabled={inert}
+          aria-label={`Import ${row.name}`}
+          onChange={() => onUpdate(row, { included: !row.included })} />
+        <span className="num upload-date">{shortDate(row.spentOn)}</span>
+        <TextInline value={row.name} className="upload-name" label={`Name for ${row.name}`}
+          onCommit={(v) => { if (v !== row.name) onUpdate(row, { name: v }); }} />
+        <CategoryPicker row={row} categories={review.categories} disabled={inert || transfer}
+          onChange={(categoryId) => onUpdate(row, { categoryId })} />
+        <span className="num upload-amount">{row.amountCents == null ? "" : fmt(currency, row.amountCents / 100)}</span>
+        {linked ? (
+          <span className="upload-linked truncate">
+            <Icons.check size={13} />
+            Same as {linked.name || "an existing entry"}{linked.spentOn ? `, ${shortDate(linked.spentOn)}` : ""}
+          </span>
+        ) : <LabelChips row={row} />}
+        <span className="upload-actions">
+          {linked ? (
+            <button type="button" className="upload-toggle is-on" aria-label={`Unlink ${row.name}`}
+              title="Not the same spend after all: import it as its own entry"
+              onClick={() => onUpdate(row, { linkedEntryId: null })}>Unlink</button>
+          ) : (
+            <>
+              {row.duplicates.length > 0 && !blocked && (
+                <button type="button" data-same aria-expanded={picking}
+                  className={cx("upload-toggle", picking && "is-open")}
+                  title="This is a spend you already typed in: match it instead of importing it twice"
+                  onClick={() => setPicking((p) => !p)}>Same as existing</button>
+              )}
+              {/* Excludes the row and teaches the classifier that this payee is
+                  a transfer. Pressed is drawn even at rest, so a row marked as
+                  one says so without being hovered. */}
+              <button type="button" data-transfer aria-pressed={transfer} disabled={blocked && !transfer}
+                className={cx("upload-toggle", transfer && "is-on")}
+                title={transfer ? "Treat this as spending again" : "Money moved between your own accounts, not spent"}
+                onClick={() => onUpdate(row, { kind: transfer ? "spend" : "transfer" })}>Transfer</button>
+            </>
+          )}
+        </span>
+      </div>
+      {picking && !linked && (
+        <div className="upload-candidates" data-candidates-for={row.id} role="group" aria-label={`Entries ${row.name} may be the same as`}>
+          <div className="eyebrow upload-candidates-head">Already in this month</div>
+          {row.duplicates.map((d) => (
+            <div key={d.id} className="upload-candidate">
+              <span className="num upload-date">{shortDate(d.spentOn)}</span>
+              <span className="upload-candidate-name truncate">{d.name || "Unnamed"}</span>
+              <span className="upload-candidate-cat truncate">{d.categoryName}</span>
+              <span className="num upload-amount">{fmt(currency, d.amountCents / 100)}</span>
+              <button type="button" className="btn btn-sm" aria-label={`Match to ${d.name || "this entry"}`}
+                onClick={() => link(d)}>Match</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 

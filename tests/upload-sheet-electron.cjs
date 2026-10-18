@@ -383,6 +383,21 @@ window.__runTests = async () => {
   await press(transferBtn(1), 'Transfer on Tesco Extra again');
   check('and back to spending', lastUpdate() === '[1,{"kind":"spend"}]', lastUpdate());
 
+  /* ---- 10. "Same as existing entry" ---------------------------------- */
+  const sameBtn = (id) => rowEl(id) && rowEl(id).querySelector('button[data-same]');
+  check('only a row with candidates offers Same as existing', sameBtn(8) && !sameBtn(1) && !sameBtn(3), '');
+  await press(sameBtn(8), 'Same as existing on Sainsburys');
+  const cands = document.querySelector('[data-candidates-for="8"]');
+  check('it lists the candidate entries with date, amount, name and category', cands && ['4 Oct', '£12.34', 'Sainsburys big shop', 'Groceries'].every((t) => cands.textContent.includes(t)), cands && cands.textContent);
+  await press(byLabel('Match to Sainsburys big shop'), 'Match to Sainsburys big shop');
+  check('choosing one links the row to that entry', lastUpdate() === '[8,{"linkedEntryId":900}]', lastUpdate());
+  check('the row shows as matched', rowEl(8).classList.contains('is-linked') && /Same as Sainsburys big shop/.test(rowEl(8).textContent), rowEl(8).textContent);
+  check('the candidate list closes', !document.querySelector('[data-candidates-for="8"]'));
+  check('a matched row cannot also be ticked', rowEl(8).querySelector('input[type="checkbox"]').disabled);
+  await press(byLabel('Unlink Sainsburys'), 'Unlink Sainsburys');
+  check('unlinking clears the match', lastUpdate() === '[8,{"linkedEntryId":null}]', lastUpdate());
+  check('and the row is unmatched again', !rowEl(8).classList.contains('is-linked'), rowEl(8).className);
+
   return results;
 };
 `;
