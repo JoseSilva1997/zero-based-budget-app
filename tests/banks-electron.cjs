@@ -91,6 +91,29 @@ app.whenReady().then(() => {
       db.close();
     }
 
+    /* ---- an account's bank and Revolut product ---- */
+    {
+      const db = freshDb();
+      const accounts = b('repositories', 'accounts.js');
+      const main = accounts.insertAccount(db, { name: 'Main', kind: 'main', owner_member_id: null, sort_order: 0, color: null });
+      const rev = banks.createBank(db, { name: 'Revolut', preset: 'revolut' });
+      const fields = () => {
+        const a = accounts.getAccountById(db, main);
+        return [a.bank_id, a.bank_product, a.account_identifier];
+      };
+      eq(fields(), [null, null, null], 'a new account has no bank');
+
+      banks.setAccountBank(db, main, rev, 'Current');
+      eq(fields(), [rev, 'Current', null], 'an account takes a bank and the product it is');
+      banks.setAccountBank(db, main, rev, null);
+      eq(fields(), [rev, null, null], 'the product can be cleared');
+      throws(() => banks.setAccountBank(db, main, rev + 99, null), 'That bank is no longer in your list', 'a missing bank is refused');
+      eq(fields(), [rev, null, null], 'a refused change changes nothing');
+      banks.setAccountBank(db, main, null, null);
+      eq(fields(), [null, null, null], 'an account can be left without a bank');
+      db.close();
+    }
+
     console.log('BANKS_OK');
   } catch (err) {
     console.error('BANKS_FAIL', err && err.stack ? err.stack : err);

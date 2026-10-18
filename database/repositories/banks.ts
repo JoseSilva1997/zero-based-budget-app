@@ -54,3 +54,21 @@ export function renameBank(db: Database.Database, id: number, name: string): voi
   assertBankName(db, name, id);
   db.prepare(`UPDATE banks SET name = ? WHERE id = ?`).run(cleanName(name), id);
 }
+
+/** Points an account at its bank ('bankId' null for none) and records the
+ *  Revolut product it is ('Current'; null for other banks, or not chosen). */
+export function setAccountBank(
+  db: Database.Database,
+  accountId: number,
+  bankId: number | null,
+  product: string | null
+): void {
+  if (bankId !== null && !getBank(db, bankId)) {
+    throw new Error('That bank is no longer in your list, so the account was not changed.');
+  }
+  db.prepare(`UPDATE bank_accounts SET bank_id = ?, bank_product = ? WHERE id = ?`).run(
+    bankId,
+    product,
+    accountId
+  );
+}
