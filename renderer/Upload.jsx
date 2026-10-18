@@ -17,6 +17,111 @@ import { Alert, Icons, Sheet } from './ui/index.js';
 import { cx, monthLabel } from './lib/index.js';
 import { useStore } from './store.jsx';
 
+/* The statement formats House Budget reads, by preset key, as a household
+   would name the bank. */
+const PRESETS = [["monzo", "Monzo"], ["lloyds", "Lloyds"], ["revolut", "Revolut"], ["natwest", "NatWest"]];
+const presetName = (key) => (PRESETS.find(([k]) => k === key) || [key, key])[1];
+
+/* ---- setting an account's bank up, inside its zone ---------------------
+   The first statement dropped on an account with no bank (or a Revolut file
+   with several products in it) comes back as needs_bank. Rather than a
+   dialog over the sheet, the zone itself asks: an existing bank, or a new one
+   named here, with the format already chosen from the file's own header; and
+   for Revolut, which of the file's products this account is. Choosing sends
+   the held files again, so setting a bank up never means dropping the file
+   twice. */
+function BankSetup({ account, bank, need, onDone, onCancel }) {
+  const { imports } = useStore();
+  const [banks, setBanks] = useState(null);
+  const [bankId, setBankId] = useState("new");
+  const [preset, setPreset] = useState(need.preset || "monzo");
+  const [name, setName] = useState(presetName(need.preset || "monzo"));
+  const [product, setProduct] = useState(need.products && need.products.length ? need.products[0] : "");
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  // An account that already has its bank (a Revolut one still missing its
+  // product) keeps it; otherwise a bank already using the file's format is
+  // the likeliest answer.
+  useEffect(() => {
+    let live = true;
+    imports.banks().then((list) => {
+      if (!live) return;
+      setBanks(list);
+      const match = bank || list.find((b) => b.preset === need.preset);
+      if (match) setBankId(String(match.id));
+    }).catch((err) => { if (live) { setBanks([]); setError(err.message); } });
+    return () => { live = false; };
+  }, [imports, bank, need.preset]);
+
+  const chosen = bankId === "new" ? null : (banks || []).find((b) => String(b.id) === bankId) || null;
+  const effectivePreset = chosen ? chosen.preset : preset;
+  const askProduct = effectivePreset === "revolut" && need.products && need.products.length > 0;
+  const ready = !busy && banks !== null && (chosen || name.trim()) && (!askProduct || product);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!ready) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await imports.setUpBank({
+        accountId: account.id,
+        bankId: chosen ? chosen.id : null,
+        newBank: chosen ? null : { name: name.trim(), preset },
+        product: askProduct ? product : null,
+      });
+      await onDone();
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  };
+
+  const typePreset = (v) => {
+    // Keep a name the household typed; follow the format only while the name
+    // is still the one this form suggested.
+    if (name === presetName(preset)) setName(presetName(v));
+    setPreset(v);
+  };
+
+  return (
+    <form className="upload-setup" onSubmit={submit}>
+      <div className="upload-setup-lead">{need.preset
+        ? `This looks like a ${presetName(need.preset)} statement. Which bank is ${account.name} with?`
+        : `House Budget couldn't tell which bank this statement is from. Which bank is ${account.name} with?`}</div>
+      <div className="upload-setup-fields">
+        <select className="sel tinput tray" value={bankId} aria-label={`Bank for ${account.name}`}
+          onChange={(e) => setBankId(e.target.value)}>
+          {(banks || []).map((b) => <option key={b.id} value={String(b.id)}>{b.name}</option>)}
+          <option value="new">A new bank…</option>
+        </select>
+        {!chosen && (
+          <>
+            <input className="tinput tray" value={name} aria-label="Name of the new bank" placeholder="Bank name"
+              onChange={(e) => setName(e.target.value)} />
+            <select className="sel tinput tray" value={preset} aria-label={`Statement format for ${account.name}`}
+              onChange={(e) => typePreset(e.target.value)}>
+              {PRESETS.map(([k, label]) => <option key={k} value={k}>{label} format</option>)}
+            </select>
+          </>
+        )}
+        {askProduct && (
+          <select className="sel tinput tray" value={product} aria-label={`Revolut account for ${account.name}`}
+            onChange={(e) => setProduct(e.target.value)}>
+            {need.products.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
+        )}
+      </div>
+      {error && <Alert>{error}</Alert>}
+      <div className="upload-setup-actions">
+        <button type="button" className="btn btn-sm btn-ghost" onClick={onCancel} disabled={busy}>Cancel</button>
+        <button type="submit" className="btn btn-sm btn-primary" disabled={!ready}>{busy ? "Working…" : "Use this bank"}</button>
+      </div>
+    </form>
+  );
+}
+
 /* ---- one account's drop zone ------------------------------------------
    Takes files from its picker or from a drop, and sends them one at a time:
    a refusal ("That file is already in this upload.") belongs to the file
@@ -29,14 +134,22 @@ function DropZone({ entry, month, onChanged }) {
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [over, setOver] = useState(false);
+  // { files, preset, products } while the account's bank is being set up:
+  // the file that asked, and every one dropped with it after it.
+  const [need, setNeed] = useState(null);
 
   const send = async (list) => {
     setError(null);
+    setNeed(null);
     setBusy(true);
     try {
-      for (const file of list) {
+      for (let i = 0; i < list.length; i++) {
         try {
-          await imports.upload(month, account.id, file);
+          const res = await imports.upload(month, account.id, list[i]);
+          if (res && res.status === "needs_bank") {
+            setNeed({ files: list.slice(i), preset: res.preset, products: res.products });
+            break;
+          }
         } catch (err) {
           setError(err.message);
         }
@@ -74,6 +187,11 @@ function DropZone({ entry, month, onChanged }) {
         </ul>
       )}
 
+      {need ? (
+        <BankSetup account={account} bank={bank} need={need}
+          onCancel={() => setNeed(null)}
+          onDone={() => send(need.files)} />
+      ) : (
       <label className={cx("upload-drop", over && "is-over")}
         onDragOver={(e) => { e.preventDefault(); setOver(true); }}
         onDragLeave={() => setOver(false)}
@@ -84,6 +202,7 @@ function DropZone({ entry, month, onChanged }) {
         <input type="file" multiple accept=".csv,text/csv" className="sr-only" disabled={busy}
           onChange={(e) => { const list = [...e.target.files]; e.target.value = ""; if (list.length) send(list); }} />
       </label>
+      )}
 
       {error && <Alert className="upload-zone-error">{error}</Alert>}
     </section>

@@ -59,3 +59,18 @@
 .upload-file-name { flex: 1; }
 .upload-file-rows { font-size: var(--text-12); color: var(--muted); flex: none; }
 .upload-zone-error { font-size: var(--text-13); }
+
+/* ---- setting a bank up, inside the zone ---------------------------------
+   Takes the drop target's place rather than opening over the sheet, so the
+   question sits under the account it is about. Inkwell like the target it
+   replaces, on a solid edge rather than a dashed one: this is a form now,
+   not a place to put something. */
+.upload-setup {
+  display: flex; flex-direction: column; gap: var(--space-4);
+  padding: var(--space-5) var(--space-6); border-radius: var(--radius-sm);
+  background: var(--well); border: 1px solid var(--rule);
+}
+.upload-setup-lead { font-size: var(--text-13); color: var(--ink-2); line-height: 1.45; }
+.upload-setup-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: var(--space-3); }
+.upload-setup-fields .tinput { font-size: var(--text-13); background-color: var(--raised); }
+.upload-setup-actions { display: flex; justify-content: flex-end; gap: var(--space-3); }

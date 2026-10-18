@@ -56,7 +56,7 @@ const account = (id, name, bankId) => ({
 });
 const server = {
   banks: [LLOYDS],
-  accounts: [account(1, 'Main', 1), account(2, 'Joint', null)],
+  accounts: [account(1, 'Main', 1), account(2, 'Joint', null), account(3, 'Travel', null)],
   batch: null,
   files: [],     // { id, accountId, filename, rowCount }
   rows: [],      // ImportRowRead, with accountId
@@ -92,13 +92,25 @@ window.api = {
     server.calls.added.push({ accountId, filename, text });
     const acc = server.accounts.find((a) => a.id === accountId);
     if (acc.bank_id == null) {
-      return { status: 'needs_bank', message: 'Choose the bank for this account first.', preset: 'natwest', products: null };
+      const revolut = /revolut/.test(filename);
+      return { status: 'needs_bank', message: 'Choose the bank for this account first.', preset: revolut ? 'revolut' : 'natwest', products: revolut ? ['Current', 'Savings'] : null };
     }
     if (server.files.some((f) => f.filename === filename)) throw new Error('That file is already in this upload.');
     if (!server.batch) server.batch = { id: 7, status: 'pending', createdAt: '2026-10-18 10:00:00' };
     const file = { id: server.files.length + 100, accountId, filename, rowCount: 3 };
     server.files.push(file);
     return { status: 'added', file: { ...file, batchId: 7 } };
+  },
+  bankCreate: async (name, preset) => {
+    server.calls.bankCreate.push([name, preset]);
+    const bank = { id: server.banks.length + 1, name, preset };
+    server.banks.push(bank);
+    return { ...bank };
+  },
+  accountSetBank: async (accountId, bankId, product) => {
+    server.calls.setBank.push([accountId, bankId, product]);
+    server.accounts = server.accounts.map((a) => (a.id === accountId ? { ...a, bank_id: bankId, bank_product: product } : a));
+    return { ok: true };
   },
   importRemoveFile: async (fileId) => {
     server.calls.removed.push(fileId);
@@ -128,6 +140,12 @@ const press = async (el, name) => {
   await settle();
 };
 // Hands files to a zone's picker, the way choosing them in the dialog does.
+const setValue = async (el, value) => {
+  const proto = el.tagName === 'SELECT' ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
+  Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, value);
+  el.dispatchEvent(new Event(el.tagName === 'SELECT' ? 'change' : 'input', { bubbles: true }));
+  await settle();
+};
 const choose = async (accountId, names) => {
   const input = zone(accountId).querySelector('input[type="file"]');
   const dt = new DataTransfer();
@@ -141,7 +159,7 @@ window.__runTests = async () => {
   /* ---- 1. one drop zone per account --------------------------------- */
   await mount();
   check('the sheet is a dialog named for the upload', !!document.querySelector('[role="dialog"][aria-label="Upload transactions"]'), text());
-  check('one zone per account, in display order', zones().map((z) => z.getAttribute('data-account-zone')).join(',') === '1,2', zones().length + '');
+  check('one zone per account, in display order', zones().map((z) => z.getAttribute('data-account-zone')).join(',') === '1,2,3', zones().length + '');
   check('a zone names its account and bank', zones()[0] && /Main/.test(zones()[0].textContent) && /Lloyds/.test(zones()[0].textContent), zones()[0] && zones()[0].textContent);
   check('an account with no bank says so', zones()[1] && /No bank yet/.test(zones()[1].textContent), zones()[1] && zones()[1].textContent);
   check('each zone offers a file picker', zones().every((z) => z.querySelector('input[type="file"][multiple]')), '');
@@ -154,6 +172,40 @@ window.__runTests = async () => {
   await press(byLabel('Remove lloyds-sep.csv'), 'Remove lloyds-sep.csv');
   check('removing a file goes through the bridge', server.calls.removed.length === 1, JSON.stringify(server.calls.removed));
   check('and it leaves the zone', !/lloyds-sep\.csv/.test(zone(1).textContent), zone(1).textContent);
+
+  /* ---- 2. an account with no bank is set up inline, then retried ------ */
+  await choose(2, ['joint-sep.csv']);
+  const bankSel = byLabel('Bank for Joint');
+  check('needs_bank opens a setup inside the zone, not a dialog', bankSel && zone(2).contains(bankSel) && !document.querySelector('.modal'), zone(2).textContent);
+  check('no matching bank yet, so it offers a new one', bankSel && bankSel.value === 'new', bankSel && bankSel.value);
+  check('the existing banks are offered too', bankSel && [...bankSel.options].some((o) => o.textContent === 'Lloyds'));
+  const fmtSel = byLabel('Statement format for Joint');
+  check('the format is pre-selected from the file', fmtSel && fmtSel.value === 'natwest', fmtSel && fmtSel.value);
+  const nameIn = byLabel('Name of the new bank');
+  check('the new bank is named after the format to start with', nameIn && nameIn.value === 'NatWest', nameIn && nameIn.value);
+  check('no product to pick for NatWest', !byLabel('Revolut account for Joint'));
+  if (nameIn) await setValue(nameIn, 'NatWest Joint');
+  await press(buttonNamed('Use this bank'), 'Use this bank');
+  check('creates the named bank with the chosen format', JSON.stringify(server.calls.bankCreate) === '[["NatWest Joint","natwest"]]', JSON.stringify(server.calls.bankCreate));
+  check('points the account at it', JSON.stringify(server.calls.setBank) === '[[2,2,null]]', JSON.stringify(server.calls.setBank));
+  check('and sends the file again', server.calls.added.filter((a) => a.filename === 'joint-sep.csv').length === 2, JSON.stringify(server.calls.added.map((a) => a.filename)));
+  check('the file is in the zone and the setup is gone', /joint-sep\.csv/.test(zone(2).textContent) && !byLabel('Bank for Joint'), zone(2).textContent);
+  check('the zone names its new bank', /NatWest Joint/.test(zone(2).textContent), zone(2).textContent);
+
+  // Revolut: the product is chosen as well.
+  await choose(3, ['revolut-jan.csv']);
+  const prodSel = byLabel('Revolut account for Travel');
+  check('a Revolut file asks which of its products this account is', prodSel && ['Current', 'Savings'].every((p) => [...prodSel.options].some((o) => o.value === p)), zone(3).textContent);
+  check('with the format pre-selected as Revolut', byLabel('Statement format for Travel') && byLabel('Statement format for Travel').value === 'revolut');
+  if (prodSel) await setValue(prodSel, 'Savings');
+  await press(buttonNamed('Use this bank'), 'Use this bank (Revolut)');
+  check('sets the product with the bank', JSON.stringify(server.calls.setBank[1]) === '[3,3,"Savings"]', JSON.stringify(server.calls.setBank));
+  check('and the Revolut file goes in', /revolut-jan\.csv/.test(zone(3).textContent), zone(3).textContent);
+
+  /* ---- refusals are said in the zone -------------------------------- */
+  await choose(1, ['main-oct.csv']);
+  await choose(1, ['main-oct.csv']);
+  check('a repeat file is refused in its own zone', /That file is already in this upload\./.test(zone(1).textContent) && !/already in this upload/.test(zone(2).textContent), zone(1).textContent);
 
   return results;
 };
