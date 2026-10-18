@@ -489,8 +489,9 @@ export function moveItem(
 /* ---------- month copy --------------------------------------------------- */
 
 /**
- * Copy a month's plan into a new month: every plan line is copied (category,
- * planned amount, account, position) but NOT its actual entries. Incomes are
+ * Copy a month's plan into a new month: every plan line whose category is not
+ * archived is copied (category, planned amount, account, position) but NOT its
+ * actual entries. Incomes are
  * copied only when 'copyIncome' is set. Returns the new month's id.
  */
 export function copyMonth(
@@ -503,7 +504,11 @@ export function copyMonth(
     const newId = insertMonth(db, newMonth);
 
     const lines = db
-      .prepare(`SELECT * FROM budget_items WHERE budget_month_id = ? ORDER BY sort_order, id`)
+      .prepare(
+        `SELECT it.* FROM budget_items it JOIN categories c ON c.id = it.category_id
+          WHERE it.budget_month_id = ? AND c.archived = 0
+          ORDER BY it.sort_order, it.id`
+      )
       .all(fromMonthId) as BudgetItem[];
     for (const it of lines) {
       insertItem(db, {

@@ -102,3 +102,12 @@ export function pruneCategory(db: Database.Database, id: number): void {
       WHERE id = ? AND NOT EXISTS (SELECT 1 FROM budget_items WHERE category_id = ?)`
   ).run(id, id);
 }
+
+/**
+ * Archives or restores a category. An archived category keeps its plan lines
+ * and entries (history is untouched) but is left out of copied months and the
+ * reusable-items list; adding it again by name restores it.
+ */
+export function setCategoryArchived(db: Database.Database, id: number, archived: boolean): void {
+  db.prepare(`UPDATE categories SET archived = ? WHERE id = ?`).run(archived ? 1 : 0, id);
+}

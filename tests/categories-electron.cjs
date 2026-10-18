@@ -61,6 +61,7 @@ app.whenReady().then(() => {
   let code = 0;
   try {
     const months = b('repositories', 'months.js');
+    const categories = b('repositories', 'categories.js');
 
     /* ---- adding by name creates a category and a plan line ---- */
     {
@@ -211,6 +212,34 @@ app.whenReady().then(() => {
       months.deleteGroup(db, empty, sep);
       eq(db.prepare(`SELECT COUNT(*) n FROM budget_groups WHERE id = ?`).get(empty).n, 0, 'empty group deleted');
       eq(db.pragma('foreign_key_check'), [], 'no dangling references');
+      db.close();
+    }
+
+    /* ---- archiving: hidden from new months, kept in history ---- */
+    {
+      const db = freshDb();
+      const sep = months.insertMonth(db, '2026-09');
+      const bills = months.insertGroup(db, { name: 'Bills', kind: 'spend', sort_order: 0, collapsed: 0 });
+      months.addItemByName(db, { monthId: sep, groupId: bills, name: 'Rent', planned_cents: 100000 });
+      const tv = months.addItemByName(db, { monthId: sep, groupId: bills, name: 'TV licence', planned_cents: 1500 });
+      const tvCat = months.getItemById(db, tv).category_id;
+
+      categories.setCategoryArchived(db, tvCat, true);
+      eq(shape(months, db, sep), [['Bills', ['Rent', 'TV licence']]], 'an archived category stays in its months');
+
+      const oct = months.copyMonth(db, sep, '2026-10', { copyIncome: false });
+      eq(shape(months, db, oct), [['Bills', ['Rent']]], 'a copied month leaves archived categories out');
+
+      const nov = months.insertMonth(db, '2026-11');
+      eq(months.reusableItemCandidates(db, nov, '').map((c) => c.name), ['Rent'], 'and so does the reusable list');
+
+      // Adding it again by name brings it back rather than making a second one.
+      const again = months.addItemByName(db, { monthId: oct, groupId: bills, name: 'tv licence' });
+      eq(months.getItemById(db, again).category_id, tvCat, 'the archived category is reused');
+      eq(categories.getCategory(db, tvCat).archived, 0, 'and un-archived');
+
+      categories.setCategoryArchived(db, tvCat, false);
+      eq(categories.getCategory(db, tvCat).archived, 0, 'un-archiving an active category is a no-op');
       db.close();
     }
 
