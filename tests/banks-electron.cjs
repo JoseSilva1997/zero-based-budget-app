@@ -114,6 +114,28 @@ app.whenReady().then(() => {
       db.close();
     }
 
+    /* ---- an account's identifier, from its first statement ---- */
+    {
+      const db = freshDb();
+      const accounts = b('repositories', 'accounts.js');
+      const joint = accounts.insertAccount(db, { name: 'Joint', kind: 'joint', owner_member_id: null, sort_order: 0, color: null });
+      const nat = banks.createBank(db, { name: 'NatWest', preset: 'natwest' });
+      const lloyds = banks.createBank(db, { name: 'Lloyds', preset: 'lloyds' });
+      const identifier = () => accounts.getAccountById(db, joint).account_identifier;
+
+      banks.setAccountBank(db, joint, nat, null);
+      banks.setAccountIdentifier(db, joint, ' 600000-11112222 ');
+      eq(identifier(), '600000-11112222', 'the identifier is stored trimmed');
+      banks.setAccountBank(db, joint, nat, null);
+      eq(identifier(), '600000-11112222', 'setting the same bank again keeps it');
+      banks.setAccountBank(db, joint, lloyds, null);
+      eq(identifier(), null, "another bank's statements name another account, so it is forgotten");
+      banks.setAccountIdentifier(db, joint, '112233-12345678');
+      banks.setAccountIdentifier(db, joint, null);
+      eq(identifier(), null, 'and it can be cleared');
+      db.close();
+    }
+
     console.log('BANKS_OK');
   } catch (err) {
     console.error('BANKS_FAIL', err && err.stack ? err.stack : err);

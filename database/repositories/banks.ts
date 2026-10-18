@@ -56,7 +56,9 @@ export function renameBank(db: Database.Database, id: number, name: string): voi
 }
 
 /** Points an account at its bank ('bankId' null for none) and records the
- *  Revolut product it is ('Current'; null for other banks, or not chosen). */
+ *  Revolut product it is ('Current'; null for other banks, or not chosen).
+ *  Moving it to another bank forgets its account identifier, which came from
+ *  the old bank's statements. */
 export function setAccountBank(
   db: Database.Database,
   accountId: number,
@@ -66,9 +68,21 @@ export function setAccountBank(
   if (bankId !== null && !getBank(db, bankId)) {
     throw new Error('That bank is no longer in your list, so the account was not changed.');
   }
-  db.prepare(`UPDATE bank_accounts SET bank_id = ?, bank_product = ? WHERE id = ?`).run(
-    bankId,
-    product,
-    accountId
-  );
+  db.prepare(
+    `UPDATE bank_accounts
+        SET account_identifier = CASE WHEN bank_id IS @bankId THEN account_identifier END,
+            bank_id = @bankId, bank_product = @product
+      WHERE id = @accountId`
+  ).run({ bankId, product, accountId });
+}
+
+/** Records the account a statement is for (from the first file imported
+ *  into it), or clears it with null. */
+export function setAccountIdentifier(
+  db: Database.Database,
+  accountId: number,
+  identifier: string | null
+): void {
+  const value = identifier === null ? null : identifier.trim() || null;
+  db.prepare(`UPDATE bank_accounts SET account_identifier = ? WHERE id = ?`).run(value, accountId);
 }
