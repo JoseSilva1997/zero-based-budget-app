@@ -85,3 +85,36 @@
 }
 .upload-foot-note { margin-right: auto; font-size: var(--text-13); color: var(--muted); }
 .upload-back { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--text-13); color: var(--ink-2); }
+
+/* ---- the review list -----------------------------------------------------
+   One card holding every account's rows, a separator between accounts. The
+   row is dense on purpose - a nine-month Revolut export is three hundred of
+   them - so it is 40px rather than the budget's 50, with the same quiet
+   fields that look like text until touched.
+
+   Tracks: tick, date, name, category, amount, labels, actions. */
+.upload-list { display: flex; flex-direction: column; }
+.upload-row {
+  display: grid; align-items: center; gap: var(--space-4);
+  grid-template-columns: 22px 52px minmax(140px, 1.3fr) minmax(150px, 1fr) 92px minmax(120px, 1fr) auto;
+  min-height: 40px; padding: 3px var(--space-6);
+}
+.upload-row + .upload-row { border-top: 1px solid var(--rule-faint); }
+.upload-tick { width: 15px; height: 15px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.upload-tick:disabled { cursor: not-allowed; }
+.upload-date { font-size: var(--text-12); color: var(--muted); white-space: nowrap; }
+.upload-row .tinput { font-size: var(--text-13); padding: 4px 8px; }
+.upload-category.is-empty { color: var(--faint); }
+.upload-amount { text-align: right; font-size: var(--text-13); font-weight: 600; white-space: nowrap; }
+
+/* The separator between accounts. Not a card head: a label line on Inkwell,
+   since it divides one list rather than opening another. */
+.upload-separator {
+  display: flex; align-items: baseline; gap: var(--space-3);
+  padding: 10px var(--space-6) 8px; background: var(--well);
+  border-bottom: 1px solid var(--rule-faint);
+}
+.upload-section + .upload-section .upload-separator { border-top: 1px solid var(--rule); }
+.upload-separator-name { font-weight: 600; font-size: var(--text-13); }
+.upload-separator-bank { font-size: var(--text-12); color: var(--muted); }
+.upload-separator-count { margin-left: auto; font-size: var(--text-12); color: var(--faint); }

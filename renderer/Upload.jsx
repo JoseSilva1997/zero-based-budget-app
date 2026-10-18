@@ -13,8 +13,8 @@
    it has to follow every tick as it happens.
    ============================================================ */
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Icons, Sheet } from './ui/index.js';
-import { cx, monthLabel } from './lib/index.js';
+import { Alert, EmptyState, Icons, Sheet, TextInline } from './ui/index.js';
+import { cx, fmt, isBlocked, monthLabel, shortDate } from './lib/index.js';
 import { useStore } from './store.jsx';
 
 /* The statement formats House Budget reads, by preset key, as a household
@@ -229,10 +229,85 @@ function UploadStep({ review, month, onChanged, onReview }) {
   );
 }
 
+/* ---- one row of the review --------------------------------------------
+   The bank's facts (date, amount) are shown and never edited: they are fixed
+   on the entry after import if they need fixing. What is yours to decide is
+   the tick, the name and the category. */
+function ReviewRow({ row, review, currency, onUpdate }) {
+  const blocked = isBlocked(row);
+  return (
+    <div className={cx("upload-row", blocked && "is-blocked")} data-row-id={row.id}>
+      <input type="checkbox" className="upload-tick" checked={row.included && !blocked} disabled={blocked}
+        aria-label={`Import ${row.name}`}
+        onChange={() => onUpdate(row, { included: !row.included })} />
+      <span className="num upload-date">{shortDate(row.spentOn)}</span>
+      <TextInline value={row.name} className="upload-name" label={`Name for ${row.name}`}
+        onCommit={(v) => { if (v !== row.name) onUpdate(row, { name: v }); }} />
+      <CategoryPicker row={row} categories={review.categories} disabled={blocked}
+        onChange={(categoryId) => onUpdate(row, { categoryId })} />
+      <span className="num upload-amount">{row.amountCents == null ? "" : fmt(currency, row.amountCents / 100)}</span>
+    </div>
+  );
+}
+
+/* The category picker: a native select, redrawn like every select in the
+   app, grouped by group as quick entry's item picker is. This month's lines
+   come first (the server lists them first); a category the month has no
+   line for is still offered, under its group marked as such, since picking
+   it is how a line gets created at £0. */
+function CategoryPicker({ row, categories, disabled, onChange }) {
+  const groups = [];
+  for (const c of categories) {
+    const key = `${c.inMonth ? "in" : "out"}:${c.groupId}`;
+    let g = groups.find((x) => x.key === key);
+    if (!g) groups.push((g = { key, label: c.inMonth ? c.groupName : `${c.groupName} · not this month`, items: [] }));
+    g.items.push(c);
+  }
+  return (
+    <select className={cx("tinput sel upload-category", row.categoryId == null && "is-empty")}
+      value={row.categoryId == null ? "" : String(row.categoryId)} disabled={disabled}
+      aria-label={`Category for ${row.name}`}
+      onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}>
+      <option value="">No category</option>
+      {groups.map((g) => (
+        <optgroup key={g.key} label={g.label}>
+          {g.items.map((c) => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
+        </optgroup>
+      ))}
+    </select>
+  );
+}
+
+/* One account's run of rows, under a separator that names the account and
+   its bank, with the count kept quiet beside them. */
+function AccountSection({ entry, review, currency, onUpdate }) {
+  const { account, bank, rows } = entry;
+  return (
+    <section className="upload-section" data-account-section={account.id} aria-label={`${account.name} rows`}>
+      <div className="upload-separator" data-account-separator>
+        <span className="upload-separator-name">{account.name}</span>
+        {bank && <span className="upload-separator-bank">{bank.name}</span>}
+        <span className="num upload-separator-count">{rows.length} {rows.length === 1 ? "row" : "rows"}</span>
+      </div>
+      {rows.map((r) => <ReviewRow key={r.id} row={r} review={review} currency={currency} onUpdate={onUpdate} />)}
+    </section>
+  );
+}
+
 /* ---- the review step --------------------------------------------------- */
-function ReviewStep({ review, onBack }) {
+function ReviewStep({ review, currency, onUpdate, onBack }) {
+  const withRows = review.accounts.filter((a) => a.rows.length > 0);
   return (
     <div data-review className="upload-review">
+      {withRows.length === 0 ? (
+        <EmptyState icon={Icons.copy} inline>None of these files had a transaction in them to review.</EmptyState>
+      ) : (
+        <div className="panel is-clipped upload-list">
+          {withRows.map((entry) => (
+            <AccountSection key={entry.account.id} entry={entry} review={review} currency={currency} onUpdate={onUpdate} />
+          ))}
+        </div>
+      )}
       <div className="upload-foot">
         <button className="link-btn upload-back" onClick={onBack}><Icons.left size={14} /> Back to files</button>
       </div>
@@ -242,7 +317,7 @@ function ReviewStep({ review, onBack }) {
 
 /* ---- the sheet --------------------------------------------------------- */
 function UploadSheet({ month, currency, onClose }) {
-  const { imports } = useStore();
+  const { imports, toast } = useStore();
   const [review, setReview] = useState(null);
   // 'upload' | 'review'. Decided once, on the first read: a pending upload
   // that already has rows reopens on Review, anything else on the zones.
@@ -256,6 +331,16 @@ function UploadSheet({ month, currency, onClose }) {
   }, [imports, month]);
   useEffect(() => { load(); }, [load]);
 
+  /* Every decision is one write and then a fresh read: the server works out
+     what the row now is (its labels, its default tick) and the list follows
+     that, rather than guessing at it here. A refused write is said in a toast,
+     since it belongs to no one zone. */
+  const updateRow = useCallback(async (row, patch) => {
+    try { await imports.updateRow(row.id, patch); }
+    catch (err) { toast(err.message, "error"); }
+    await load();
+  }, [imports, load, toast]);
+
   return (
     <Sheet label="Upload transactions" closeLabel="Close the upload" onClose={onClose}
       head={
@@ -268,7 +353,7 @@ function UploadSheet({ month, currency, onClose }) {
         </div>
       }>
       {review && step === "upload" && <UploadStep review={review} month={month} onChanged={load} onReview={() => setStep("review")} />}
-      {review && step === "review" && <ReviewStep review={review} onBack={() => setStep("upload")} />}
+      {review && step === "review" && <ReviewStep review={review} currency={currency} onUpdate={updateRow} onBack={() => setStep("upload")} />}
     </Sheet>
   );
 }

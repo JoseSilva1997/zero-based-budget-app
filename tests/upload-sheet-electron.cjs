@@ -61,8 +61,57 @@ const server = {
   files: [],     // { id, accountId, filename, rowCount }
   rows: [],      // ImportRowRead, with accountId
   history: [],
+  plan: [
+    { itemId: 1, categoryId: 11, name: 'Groceries', plannedCents: 30000, actualCents: 28000 },
+    { itemId: 2, categoryId: 12, name: 'Eating out', plannedCents: 5000, actualCents: 5000 },
+    { itemId: 3, categoryId: 13, name: 'Fuel', plannedCents: 10000, actualCents: 2000 },
+  ],
+  categories: [
+    { id: 11, name: 'Groceries', groupId: 1, groupName: 'Food', inMonth: true },
+    { id: 12, name: 'Eating out', groupId: 1, groupName: 'Food', inMonth: true },
+    { id: 13, name: 'Fuel', groupId: 2, groupName: 'Car', inMonth: true },
+    { id: 14, name: 'Gifts', groupId: 3, groupName: 'Other', inMonth: false },
+  ],
   calls: { added: [], removed: [], updates: [], bankCreate: [], setBank: [], confirm: [], discard: [], undo: [], getMonth: 0 },
 };
+
+/* A row as the review reads it, with the account it belongs to beside it. */
+const L = {
+  dup: { key: 'possible_duplicate', severity: 'warn', text: 'Possible duplicate' },
+  low: { key: 'low_confidence', severity: 'warn', text: 'Check category' },
+  oom: { key: 'out_of_month', severity: 'warn', text: 'Outside this month' },
+  nim: { key: 'not_in_month', severity: 'warn', text: "Not in this month's plan" },
+  imported: { key: 'already_imported', severity: 'block', text: 'Already imported' },
+  credit: { key: 'credit', severity: 'block', text: 'Money in' },
+  parse: { key: 'parse_error', severity: 'block', text: "Couldn't read" },
+  transfer: { key: 'transfer', severity: 'info', text: 'Transfer' },
+};
+const row = (id, accountId, o = {}) => ({
+  id, accountId, fileId: accountId === 1 ? 201 : 202, rowIndex: id,
+  postedOn: 'spentOn' in o ? o.spentOn : '2026-10-05', spentOn: 'spentOn' in o ? o.spentOn : '2026-10-05',
+  amountCents: 'amountCents' in o ? o.amountCents : 1000, direction: o.direction || 'debit',
+  descriptorRaw: (o.name || 'SHOP').toUpperCase(), descriptorClean: (o.name || 'SHOP').toUpperCase(),
+  features: {}, parseError: o.parseError || null, notCompleted: false,
+  categoryId: 'categoryId' in o ? o.categoryId : 11, name: o.name || 'Shop', kind: o.kind || 'spend',
+  included: !!o.included, prediction: null, labels: o.labels || [], duplicates: o.duplicates || [],
+  decisions: { categoryId: null, name: null, kind: null, included: null, linkedEntryId: o.linkedEntryId || null },
+});
+const reviewRows = () => [
+  row(1, 1, { name: 'Tesco', spentOn: '2026-10-03', amountCents: 4210, included: true }),
+  row(2, 1, { name: 'Corner shop', amountCents: 500, labels: [L.imported] }),
+  row(3, 1, { name: 'Pret', categoryId: 12, amountCents: 800, included: true }),
+  row(4, 1, { name: 'Shell', categoryId: 13, amountCents: 3000, labels: [L.low] }),
+  row(5, 1, { name: 'Old shop A', spentOn: '2026-09-02', labels: [L.oom] }),
+  row(6, 1, { name: 'Old shop B', spentOn: '2026-09-12', labels: [L.oom] }),
+  row(7, 1, { name: 'Old shop C', spentOn: '2026-08-30', labels: [L.oom] }),
+  row(8, 1, { name: 'Sainsburys', amountCents: 1234, labels: [L.dup],
+    duplicates: [{ id: 900, spentOn: '2026-10-04', amountCents: 1234, name: 'Sainsburys big shop', categoryName: 'Groceries' }] }),
+  row(9, 2, { name: 'Refund', amountCents: 2000, direction: 'credit', labels: [L.credit] }),
+  row(10, 2, { name: 'GARBLED', categoryId: null, amountCents: null, spentOn: null, parseError: 'The amount "x" is not a number.', labels: [L.parse] }),
+  row(11, 2, { name: 'Card shop', categoryId: 14, amountCents: 1500, labels: [L.nim] }),
+  row(12, 2, { name: 'To savings', kind: 'transfer', categoryId: null, amountCents: 10000, labels: [L.transfer] }),
+  row(13, 2, { name: 'Florist', categoryId: 14, amountCents: 2500, included: true }),
+];
 
 const review = () => ({
   month: { id: 1, month: '2026-10' },
@@ -73,8 +122,8 @@ const review = () => ({
     files: server.files.filter((f) => f.accountId === a.id).map((f) => ({ id: f.id, filename: f.filename, rowCount: f.rowCount, createdAt: '' })),
     rows: server.rows.filter((r) => r.accountId === a.id),
   })),
-  plan: [],
-  categories: [],
+  plan: server.plan,
+  categories: server.categories,
 });
 
 window.api = {
@@ -216,6 +265,24 @@ window.__runTests = async () => {
   await press(buttonNamed('Back to files'), 'Back to files');
   check('and the zones are back with their files', zones().length === 3 && /joint-sep/.test(zone(2).textContent), text().slice(0, 300));
 
+  /* ---- 4. a pending upload with rows reopens on Review --------------- */
+  server.files = [
+    { id: 201, accountId: 1, filename: 'main-oct.csv', rowCount: 8 },
+    { id: 202, accountId: 2, filename: 'joint-oct.csv', rowCount: 5 },
+  ];
+  server.rows = reviewRows();
+  await mount();
+  check('reopens on Review', !!document.querySelector('[data-review]') && zones().length === 0, text().slice(0, 300));
+  const sections = () => [...document.querySelectorAll('[data-account-section]')];
+  const section = (id) => document.querySelector('[data-account-section="' + id + '"]');
+  check('one merged list, a section per account with rows', sections().map((x) => x.getAttribute('data-account-section')).join(',') === '1,2', sections().length + '');
+  const sep = (id) => section(id) && section(id).querySelector('[data-account-separator]');
+  check('a separator names the account and its bank', sep(1) && /Main/.test(sep(1).textContent) && /Lloyds/.test(sep(1).textContent), sep(1) && sep(1).textContent);
+  check('with a quiet row count', sep(1) && /8 rows/.test(sep(1).textContent) && sep(2) && /5 rows/.test(sep(2).textContent), (sep(1) && sep(1).textContent) + ' / ' + (sep(2) && sep(2).textContent));
+  check('the second account names its bank too', sep(2) && /Joint/.test(sep(2).textContent) && /NatWest Joint/.test(sep(2).textContent), sep(2) && sep(2).textContent);
+  const rowEl = (id) => document.querySelector('[data-row-id="' + id + '"]');
+  check('a row shows its date, name and amount', rowEl(1) && /3 Oct/.test(rowEl(1).textContent) && rowEl(1).querySelector('input[aria-label="Name for Tesco"]') && rowEl(1).textContent.includes('£42.10'), rowEl(1) && rowEl(1).textContent);
+
   return results;
 };
 `;
@@ -237,7 +304,7 @@ app.whenReady().then(async () => {
     });
     fs.writeFileSync(
       path.join(outDir, 'index.html'),
-      '<!DOCTYPE html><html><body><div id="root"></div><script src="suite.js"></script></body></html>',
+      '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><div id="root"></div><script src="suite.js"></script></body></html>',
       'utf8'
     );
 
