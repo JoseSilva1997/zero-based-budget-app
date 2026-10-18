@@ -71,7 +71,10 @@
   background: var(--well); border: 1px solid var(--rule);
 }
 .upload-setup-lead { font-size: var(--text-13); color: var(--ink-2); line-height: 1.45; }
-.upload-setup-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: var(--space-3); }
+.upload-setup-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4) var(--space-3); }
+.upload-setup-field { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+/* --faint, the ink a label takes over a field inside a tray. */
+.upload-setup-label { color: var(--faint); }
 .upload-setup-fields .tinput { font-size: var(--text-13); background-color: var(--raised); }
 .upload-setup-actions { display: flex; justify-content: flex-end; gap: var(--space-3); }
 
@@ -84,6 +87,9 @@
   margin-top: var(--space-7); padding-top: var(--space-6); border-top: 1px solid var(--rule);
 }
 .upload-foot-note { margin-right: auto; font-size: var(--text-13); color: var(--muted); }
+/* There is no app-wide disabled button (see .merge-foot in settings.css);
+   this footer's way forward waits on a file or a tick, so it says so. */
+.upload-foot .btn:disabled { opacity: .4; pointer-events: none; }
 .upload-back { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--text-13); color: var(--ink-2); }
 
 /* ---- the review list -----------------------------------------------------
@@ -92,16 +98,37 @@
    them - so it is 40px rather than the budget's 50, with the same quiet
    fields that look like text until touched.
 
-   Tracks: tick, date, name, category, amount, labels, actions. */
+   Tracks: tick, date, name, category, amount, labels, actions. Every row is
+   its own grid, so only the name and category tracks flex and everything
+   else is a fixed width: that is what keeps the columns lined up from one
+   row to the next, whatever chips or buttons a row happens to carry. The
+   candidate rows under "Same as existing" use the same tracks, so their
+   date, name and amount sit under the row's own. */
 .upload-list { display: flex; flex-direction: column; }
 .upload-row {
   display: grid; align-items: center; gap: var(--space-4);
-  grid-template-columns: 22px 52px minmax(140px, 1.3fr) minmax(150px, 1fr) 92px minmax(120px, 1fr) auto;
+  grid-template-columns: 22px 52px minmax(0, 1.4fr) minmax(0, 1fr) 92px 190px 196px;
   min-height: 40px; padding: 3px var(--space-6);
 }
 .upload-row + .upload-row { border-top: 1px solid var(--rule-faint); }
-.upload-tick { width: 15px; height: 15px; margin: 0; accent-color: var(--accent); cursor: pointer; }
-.upload-tick:disabled { cursor: not-allowed; }
+/* The tick, redrawn: a native checkbox would fill every ticked row with the
+   accent, and a review of forty ticked rows would be forty violet squares.
+   Ticked is a fact about the row rather than the thing being worked on, so it
+   fills with Pencil Grey and carries its check in Reverse Ink (a fixed hex in
+   the data URI, which cannot read a token, as the select chevron's is). */
+.upload-tick {
+  -webkit-appearance: none; appearance: none; flex: none;
+  width: 16px; height: 16px; margin: 0; border-radius: 4px;
+  border: 1px solid var(--rule-strong); background: var(--well); cursor: pointer;
+  background-position: center; background-repeat: no-repeat; background-size: 12px;
+  transition: background-color .12s, border-color .12s;
+}
+.upload-tick:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--rule-strong)); }
+.upload-tick:checked {
+  background-color: var(--ink-2); border-color: var(--ink-2);
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23141418' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+}
+.upload-tick:disabled { cursor: not-allowed; border-style: dashed; border-color: var(--rule); background-color: transparent; }
 .upload-date { font-size: var(--text-12); color: var(--muted); white-space: nowrap; }
 .upload-row .tinput { font-size: var(--text-13); padding: 4px 8px; }
 .upload-category.is-empty { color: var(--faint); }
@@ -173,12 +200,13 @@
 
 /* ---- row actions ---------------------------------------------------------
    Quiet until engaged: invisible and unreachable until the row is hovered or
-   holds focus, except a toggle that is on, which is a fact about the row and
-   so stays drawn. */
+   holds focus. A row that is a transfer, or matched, already says so at rest
+   (its Transfer chip, its "Same as" line), so the toggle that undoes it
+   needs no resting presence of its own; only an open candidate list keeps
+   its button drawn, since the tray under the row belongs to it. */
 .upload-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-1); }
 .upload-actions > * { opacity: 0; pointer-events: none; transition: opacity .12s; }
-.upload-row:hover .upload-actions > *, .upload-row:focus-within .upload-actions > *,
-.upload-actions > .is-on { opacity: 1; pointer-events: auto; }
+.upload-row:hover .upload-actions > *, .upload-row:focus-within .upload-actions > * { opacity: 1; pointer-events: auto; }
 .upload-toggle {
   padding: 3px 9px; border-radius: var(--radius-3xs);
   border: 1px solid var(--rule-strong); background: transparent; color: var(--muted);
@@ -197,17 +225,21 @@
    as one object. A matched row says what it is the same as where its labels
    were; it creates no entry, so it is the quietest row in the list. */
 .upload-candidates {
-  padding: var(--space-3) var(--space-6) var(--space-4) calc(var(--space-6) + 22px + var(--space-4));
+  padding: var(--space-3) 0 var(--space-4);
   background: var(--wash-tray); border-top: 1px solid var(--rule-faint);
 }
-.upload-candidates-head { color: var(--faint); margin-bottom: var(--space-2); }
+.upload-candidates-head { color: var(--faint); margin: 0 var(--space-6) var(--space-2) calc(var(--space-6) + 22px + var(--space-4)); }
 .upload-candidate {
   display: grid; align-items: center; gap: var(--space-4);
-  grid-template-columns: 52px minmax(120px, 1.3fr) minmax(100px, 1fr) 92px auto;
-  padding: var(--space-1) 0; font-size: var(--text-13);
+  grid-template-columns: 22px 52px minmax(0, 1.4fr) minmax(0, 1fr) 92px 190px 196px;
+  padding: var(--space-1) var(--space-6); font-size: var(--text-13);
 }
-.upload-candidate-name { color: var(--ink); }
-.upload-candidate-cat { color: var(--muted); font-size: var(--text-12); }
+.upload-candidate > :first-child { grid-column: 2; }
+.upload-candidate > .btn { grid-column: 7; justify-self: end; }
+/* 9px, the padding the row's own name field sets its text in, so the two
+   names start on one line. */
+.upload-candidate-name { color: var(--ink); padding-left: 9px; }
+.upload-candidate-cat { padding-left: 9px; color: var(--muted); font-size: var(--text-12); }
 .upload-linked { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--text-12); color: var(--ink-2); }
 .upload-linked > svg { flex: none; color: var(--muted); }
 .upload-row.is-linked .upload-name, .upload-row.is-linked .upload-amount { color: var(--muted); }
@@ -216,6 +248,16 @@
    Confirm gathered at the right, the over-plan line first because it is the
    one that might change your mind. */
 .upload-foot-spacer { margin-right: auto; }
+/* With three hundred rows the review is far longer than the sheet, so its
+   footer holds to the sheet's bottom edge while the list scrolls under it:
+   Confirm and the over-plan line are always in view while ticking. The
+   negative offset is the sheet body's own bottom padding, so the footer
+   sits on the sheet's edge rather than floating 30px above it. */
+.upload-review-foot {
+  position: sticky; bottom: calc(-1 * var(--space-8)); z-index: 2;
+  margin-bottom: calc(-1 * var(--space-8)); padding-bottom: var(--space-6);
+  background: var(--board);
+}
 .upload-over { font-size: var(--text-13); font-weight: 600; color: var(--breach-ink); }
 .upload-summary { font-size: var(--text-13); color: var(--muted); white-space: nowrap; }
 

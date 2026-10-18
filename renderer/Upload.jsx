@@ -91,26 +91,38 @@ function BankSetup({ account, bank, need, onDone, onCancel }) {
         ? `This looks like a ${presetName(need.preset)} statement. Which bank is ${account.name} with?`
         : `House Budget couldn't tell which bank this statement is from. Which bank is ${account.name} with?`}</div>
       <div className="upload-setup-fields">
-        <select className="sel tinput tray" value={bankId} aria-label={`Bank for ${account.name}`}
-          onChange={(e) => setBankId(e.target.value)}>
-          {(banks || []).map((b) => <option key={b.id} value={String(b.id)}>{b.name}</option>)}
-          <option value="new">A new bank…</option>
-        </select>
+        <label className="upload-setup-field">
+          <span className="eyebrow upload-setup-label">Bank</span>
+          <select className="sel tinput tray" value={bankId} aria-label={`Bank for ${account.name}`}
+            onChange={(e) => setBankId(e.target.value)}>
+            {(banks || []).map((b) => <option key={b.id} value={String(b.id)}>{b.name}</option>)}
+            <option value="new">A new bank…</option>
+          </select>
+        </label>
         {!chosen && (
           <>
-            <input className="tinput tray" value={name} aria-label="Name of the new bank" placeholder="Bank name"
-              onChange={(e) => setName(e.target.value)} />
-            <select className="sel tinput tray" value={preset} aria-label={`Statement format for ${account.name}`}
-              onChange={(e) => typePreset(e.target.value)}>
-              {PRESETS.map(([k, label]) => <option key={k} value={k}>{label} format</option>)}
-            </select>
+            <label className="upload-setup-field">
+              <span className="eyebrow upload-setup-label">Its name</span>
+              <input className="tinput tray" value={name} aria-label="Name of the new bank" placeholder="Bank name"
+                onChange={(e) => setName(e.target.value)} />
+            </label>
+            <label className="upload-setup-field">
+              <span className="eyebrow upload-setup-label">Statement format</span>
+              <select className="sel tinput tray" value={preset} aria-label={`Statement format for ${account.name}`}
+                onChange={(e) => typePreset(e.target.value)}>
+                {PRESETS.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+              </select>
+            </label>
           </>
         )}
         {askProduct && (
-          <select className="sel tinput tray" value={product} aria-label={`Revolut account for ${account.name}`}
-            onChange={(e) => setProduct(e.target.value)}>
-            {need.products.map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
+          <label className="upload-setup-field">
+            <span className="eyebrow upload-setup-label">Revolut account</span>
+            <select className="sel tinput tray" value={product} aria-label={`Revolut account for ${account.name}`}
+              onChange={(e) => setProduct(e.target.value)}>
+              {need.products.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
+          </label>
         )}
       </div>
       {error && <Alert>{error}</Alert>}
