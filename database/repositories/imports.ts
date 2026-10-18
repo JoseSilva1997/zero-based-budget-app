@@ -511,3 +511,45 @@ export function listImports(db: Database.Database, monthId: number): ImportHisto
     entries: (entries.get(b.id) as { n: number }).n,
   }));
 }
+
+/* ---------- discard, undo ------------------------------------------------- */
+
+/**
+ * Throws a pending upload away: the batch is deleted with its files and
+ * rows, rather than kept as 'discarded'. Nothing points at a pending
+ * batch's rows (entries only do once it is imported), a discarded row is
+ * neither training data nor evidence of an import, and keeping it would
+ * only keep a copy of a bank statement nobody asked to keep.
+ */
+export function discardBatch(db: Database.Database, batchId: number): void {
+  const batch = batchById(db, batchId);
+  if (!batch) return;
+  assertPending(batch);
+  db.prepare(`DELETE FROM import_batches WHERE id = ?`).run(batchId);
+}
+
+/**
+ * Undoes an import, in one transaction: deletes exactly the entries it
+ * wrote (edited since or not), releases the entries its rows were matched
+ * to, and returns the batch to pending with every decision kept. Plan lines
+ * it created at £0 stay, like any line you added. Refused while the month
+ * has another upload in progress, since a month has only one.
+ */
+export function undoImport(db: Database.Database, batchId: number): void {
+  const tx = db.transaction(() => {
+    const batch = batchById(db, batchId);
+    if (!batch) throw new Error('That import is no longer there.');
+    if (batch.status !== 'imported') throw new Error("That upload hasn't been imported, so there is nothing to undo.");
+    if (pendingBatch(db, batch.budget_month_id)) {
+      throw new Error('Finish or discard the upload in progress first.');
+    }
+    db.prepare(`DELETE FROM budget_item_actual_entries WHERE id IN (${CREATED_ENTRIES_SQL})`).run(batchId);
+    db.prepare(
+      `UPDATE budget_item_actual_entries SET import_row_id = NULL
+        WHERE import_row_id IN (SELECT r.id FROM import_rows r JOIN import_files f ON f.id = r.file_id
+                                 WHERE f.batch_id = ? AND r.linked_entry_id IS NOT NULL)`
+    ).run(batchId);
+    db.prepare(`UPDATE import_batches SET status = 'pending', imported_at = NULL WHERE id = ?`).run(batchId);
+  });
+  tx();
+}

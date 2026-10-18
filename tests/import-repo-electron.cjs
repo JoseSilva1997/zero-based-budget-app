@@ -290,6 +290,58 @@ app.whenReady().then(() => {
       db.close();
     }
 
+    /* ---- discarding and undoing ---- */
+    {
+      const { db, sep, joint } = setup();
+      const bills = months.insertGroup(db, { name: 'Bills', kind: 'spend', sort_order: 0, collapsed: 0 });
+      const food = months.addItemByName(db, { monthId: sep, groupId: bills, name: 'Food' });
+      const foodCat = months.getItemById(db, food).category_id;
+      const typed = months.insertActualEntry(db, { budget_item_id: food, spent_on: '2026-09-26', amount_cents: 2900, name: 'Big shop', note: null });
+
+      // Discarding a pending upload throws it away.
+      const dropped = imports.addFile(db, { monthId: sep, accountId: joint, filename: 'sep.csv', text: fixture('natwest') });
+      imports.discardBatch(db, dropped.batchId);
+      eq(imports.getReview(db, sep).batch, null, 'a discarded upload is gone');
+      eq(imports.listImports(db, sep), [], 'and was never imported');
+
+      const file = imports.addFile(db, { monthId: sep, accountId: joint, filename: 'sep.csv', text: fixture('natwest') });
+      const [deli, superdrug, sainsburys] = imports.getReview(db, sep).accounts[0].rows;
+      imports.updateRow(db, deli.id, { categoryId: foodCat });
+      imports.updateRow(db, superdrug.id, { categoryId: foodCat, included: true });
+      imports.updateRow(db, sainsburys.id, { linkedEntryId: typed });
+      throws(() => imports.undoImport(db, file.batchId), "hasn't been imported", 'a pending upload has nothing to undo');
+      imports.confirmBatch(db, file.batchId);
+      throws(() => imports.discardBatch(db, file.batchId), 'already been imported', 'an imported upload is undone, not discarded');
+
+      // An imported entry edited since is still the import's.
+      const shampoo = months.getItemById(db, food).actuals.find((a) => a.amount === 16.99);
+      months.updateActual(db, shampoo.id, { name: 'Edited', amount_cents: 1800 });
+      months.insertActualEntry(db, { budget_item_id: food, spent_on: '2026-09-27', amount_cents: 100, name: 'Typed after', note: null });
+
+      // Another upload in progress blocks the undo.
+      const other = fixture('natwest').replace('-2.50', '-2.51');
+      const pending = imports.addFile(db, { monthId: sep, accountId: joint, filename: 'other.csv', text: other });
+      throws(() => imports.undoImport(db, file.batchId), 'Finish or discard the upload in progress first.', 'one upload in progress at a time');
+      imports.discardBatch(db, pending.batchId);
+
+      imports.undoImport(db, file.batchId);
+      eq(
+        months.getItemById(db, food).actuals.map((a) => a.name),
+        ['Big shop', 'Typed after'],
+        'undo deletes exactly the entries the import wrote, edited or not'
+      );
+      const review = imports.getReview(db, sep);
+      eq(review.batch.id, file.batchId, 'the batch is back in progress');
+      const rows = review.accounts[0].rows;
+      eq(rows.map((r) => r.decisions.categoryId), [foodCat, foodCat, null], 'with every decision kept');
+      eq([rows[2].decisions.linkedEntryId, rows[2].duplicates.map((d) => d.id)], [typed, [typed]], 'and the matched entry released, still matched');
+      eq(imports.listImports(db, sep), [], 'no longer listed as imported');
+
+      // And it can be confirmed again.
+      eq(imports.confirmBatch(db, file.batchId).entries, 2, 'an undone upload confirms again');
+      db.close();
+    }
+
     console.log('IMPORT_REPO_OK');
   } catch (err) {
     console.error('IMPORT_REPO_FAIL', err && err.stack ? err.stack : err);
