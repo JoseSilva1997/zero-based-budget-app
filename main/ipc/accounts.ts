@@ -1,8 +1,9 @@
 /* ============================================================
    IPC: bank-account ("funding account") mutations. 'account:add' returns the
-   new row. 'account:remove' nulls referencing items first, then deletes, all
-   inside one transaction in the repository (budget_items.bank_account_id has
-   no ON DELETE action, so the delete would otherwise fail).
+   new row. 'account:remove' nulls referencing plan lines and category
+   defaults first, then deletes, all inside one transaction in the repository
+   (budget_items.bank_account_id and categories.bank_account_id have no ON
+   DELETE action, so the delete would otherwise fail).
    ============================================================ */
 import { ipcMain } from 'electron';
 import { getDb } from '../db';

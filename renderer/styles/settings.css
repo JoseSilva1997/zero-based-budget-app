@@ -169,9 +169,14 @@ select.account-select { padding-right: var(--space-3); }
 .seg-check { flex: none; visibility: hidden; }
 .seg-item.is-on .seg-check { visibility: visible; }
 
+/* ---- Restore and merge confirmations ------------------------------------
+   Both state what will happen, then the safety net under it: the counts as
+   the lead, and the backup note a step brighter so it is not read as small
+   print. ConfirmDialog sets its body in a <p>, so these are spans made block. */
+.confirm-summary { display: block; margin-bottom: var(--space-5); }
+.confirm-note { display: block; color: var(--ink-2); }
+
 /* ---- Restore dialog ----------------------------------------------------- */
-.restore-summary { display: block; margin-bottom: var(--space-5); }
-.restore-note { display: block; color: var(--ink-2); }
 /* .alert in controls.css carries the box, its ink and its icon; these four are
    the whole of what is different about this copy. It is NOT .alert-banner,
    which the Dashboard and History banners take: this one pads 10px 12px
@@ -218,6 +223,37 @@ select.account-select { padding-right: var(--space-3); }
 /* The real <input type="file">, kept in the tree so the visible button can
    click it, and out of the layout because it is not the affordance. */
 .restore-file-input { display: none; }
+
+/* ---- Categories ---------------------------------------------------------
+   Grouped like the shortcut lists: a ruled block per group with an eyebrow
+   over it, and rows inside that rule off from each other but not from the
+   heading. The rows are not .set-row (that would rule the first one off from
+   its own eyebrow), so they reveal their actions on hover themselves. */
+.cat-group { border-top: 1px solid var(--rule-faint); padding: 14px var(--space-7) var(--space-3); }
+.cat-group-title { margin-bottom: var(--space-1); color: var(--faint); }
+.cat-row {
+  display: grid; grid-template-columns: 1fr auto; gap: var(--space-5);
+  align-items: center; padding: var(--space-3) 0; min-height: 48px;
+}
+.cat-row + .cat-row { border-top: 1px solid var(--rule-faint); }
+.cat-row:hover .row-actions, .cat-row:focus-within .row-actions { opacity: 1; pointer-events: auto; }
+.cat-text { min-width: 0; }
+.cat-name { font-size: var(--text-14); font-weight: 500; }
+.cat-usage { font-size: var(--text-12); color: var(--muted); margin-top: 2px; }
+/* Archived steps one rung down the ink ramp on both lines, and says so in
+   words on the second, so the state is not carried by the grey alone. */
+.cat-row.is-archived .cat-name { color: var(--muted); }
+.cat-row.is-archived .cat-usage { color: var(--faint); }
+.row-actions.cat-actions { gap: var(--space-1); }
+
+/* The merge picker: one select across the dialog, then its two buttons. */
+select.merge-select { width: 100%; }
+.merge-foot {
+  display: flex; justify-content: flex-end; gap: var(--space-3); margin-top: 18px;
+}
+/* Disabled until a target is picked. There is no app-wide disabled button, so
+   this dims it in place, like .member-remove, and drops the hover glow. */
+.merge-foot .btn:disabled { opacity: .4; pointer-events: none; }
 
 /* ---- Shortcuts ---------------------------------------------------------- */
 .set-row.sc-failed { padding: 14px var(--space-7); font-size: var(--text-13); color: var(--muted); }

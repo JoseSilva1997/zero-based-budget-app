@@ -179,11 +179,11 @@ function RestoreDialog({ onClose, onRestored }) {
       <ConfirmDialog title="Replace everything with this backup?" width={520}
         confirmLabel="Replace my data" icon={<Icons.upload size={15} />}
         busy={busy} onClose={() => setPending(null)} onConfirm={confirm}>
-        <span className="restore-summary">
+        <span className="confirm-summary">
           You have {plural(live.months, "month", "months")} and {plural(live.entries, "spending entry", "spending entries")} right now.
           This backup from {incoming.savedAt} holds {plural(incoming.months, "month", "months")} and {plural(incoming.entries, "spending entry", "spending entries")}.
         </span>
-        <span className="restore-note">
+        <span className="confirm-note">
           Your current data is saved to a new backup first, so you can come back to it from this same list.
         </span>
       </ConfirmDialog>
@@ -307,6 +307,186 @@ function CloudFolderSetting({ lastBackup, toast }) {
       <button className="btn" onClick={choose} disabled={busy}><Icons.cloud size={15} /> Change…</button>
       <button className="btn btn-ghost btn-quiet" onClick={stop} disabled={busy}>Stop copying</button>
     </Setting>
+  );
+}
+
+/* ---- categories ---------------------------------------------------------
+   What each budget item is for, the same in every month. Listed under their
+   groups with how much of the history they carry, because that is what
+   archiving keeps and what merging moves.
+
+   A merge is staged like a restore: pick where to, read what will move (the
+   preview writes nothing), then confirm. The main process backs the database
+   up before it merges, and that backup is the only undo. */
+function CategoriesSection() {
+  const { categories, previewMerge, dispatch, toast } = useStore();
+  const [list, setList] = useState(null); // null while loading
+  const [failed, setFailed] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  const [merging, setMerging] = useState(null); // the source category
+
+  const load = async () => {
+    try { setList(await categories()); setFailed(false); }
+    catch (err) { console.error("category:list failed", err); setFailed(true); setList([]); }
+  };
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const rows = list || [];
+  // Two categories may share a name in different groups ("Going out" under
+  // Bills and under Fun), so a name that is not unique is said with its group.
+  const label = (c) =>
+    rows.some((o) => o.id !== c.id && o.name.toLowerCase() === c.name.toLowerCase())
+      ? `${c.name} (${c.groupName})` : c.name;
+
+  const archivedCount = rows.filter((c) => c.archived).length;
+  const groups = [];
+  rows.filter((c) => showArchived || !c.archived).forEach((c) => {
+    const g = groups.find((x) => x.id === c.groupId);
+    if (g) g.cats.push(c); else groups.push({ id: c.groupId, name: c.groupName, cats: [c] });
+  });
+
+  const setArchived = async (c, archived) => {
+    const res = await dispatch({ type: "setCategoryArchived", id: c.id, archived });
+    if (res.ok) await load();
+  };
+
+  const onMerged = async (res, from, into) => {
+    setMerging(null);
+    await load();
+    toast(`Merged ${from.name} into ${into.name}. Your data from before was saved as ${res.backup}`);
+  };
+
+  return (
+    <div className="panel">
+      <div className="set-row acct-note">
+        What each budget item is for, the same in every month: renaming or moving an item on the
+        month screen changes it everywhere. An archived category is hidden from the pickers and from
+        months you create next, and its history stays where it is.
+      </div>
+      {failed && <div className="set-row sc-failed">Your categories couldn't be read.</div>}
+      {list && !failed && rows.length === 0 && (
+        <div className="set-row sc-failed">No categories yet. They appear as you add items to a month.</div>
+      )}
+      {groups.map((g) => (
+        <div key={g.id} className="cat-group">
+          <div className="eyebrow cat-group-title">{g.name}</div>
+          {g.cats.map((c) => (
+            <div key={c.id} className={cx("cat-row", c.archived && "is-archived")}>
+              <div className="cat-text">
+                <div className="cat-name truncate">{c.name}</div>
+                <div className="cat-usage">
+                  {c.archived && "Archived · "}
+                  {plural(c.lines, "month", "months")} · {plural(c.entries, "entry", "entries")}
+                </div>
+              </div>
+              <div className="row-actions cat-actions">
+                {rows.length > 1 && (
+                  <button className="btn btn-sm btn-ghost" aria-label={`Merge ${label(c)} into another category`}
+                    onClick={() => setMerging(c)}>
+                    <Icons.merge size={14} /> Merge…
+                  </button>
+                )}
+                <button className="btn btn-sm btn-ghost" aria-label={`${c.archived ? "Unarchive" : "Archive"} ${label(c)}`}
+                  onClick={() => setArchived(c, !c.archived)}>
+                  {c.archived ? "Unarchive" : "Archive"}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
+      {archivedCount > 0 && (
+        <div className="set-row set-row-add">
+          <button className="btn btn-sm btn-ghost btn-quiet" aria-expanded={showArchived}
+            onClick={() => setShowArchived((v) => !v)}>
+            {showArchived ? "Hide archived" : `Show archived (${archivedCount})`}
+          </button>
+        </div>
+      )}
+
+      {merging && (
+        <MergeDialog from={merging} rows={rows} label={label} previewMerge={previewMerge}
+          dispatch={dispatch} onClose={() => setMerging(null)} onMerged={onMerged} />
+      )}
+    </div>
+  );
+}
+
+/* "Moves 143 entries across 9 months into Groceries. Going out is deleted." */
+function mergeImpactText({ entries, months }, from, into) {
+  const moved = entries
+    ? `Moves ${plural(entries, "entry", "entries")} across ${plural(months, "month", "months")} into ${into.name}.`
+    : months
+      ? `Moves its plan in ${plural(months, "month", "months")} into ${into.name}; nothing is logged against it.`
+      : "Nothing is planned or logged under it.";
+  return `${moved} ${from.name} is deleted.`;
+}
+
+function MergeDialog({ from, rows, label, previewMerge, dispatch, onClose, onMerged }) {
+  const [intoId, setIntoId] = useState("");
+  const [impact, setImpact] = useState(null); // the preview, once asked for
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+  const into = rows.find((c) => String(c.id) === intoId);
+
+  // Every other category, under its group: the target can be in any group.
+  const targets = [];
+  rows.filter((c) => c.id !== from.id).forEach((c) => {
+    const g = targets.find((x) => x.id === c.groupId);
+    if (g) g.cats.push(c); else targets.push({ id: c.groupId, name: c.groupName, cats: [c] });
+  });
+
+  const review = async () => {
+    setErr(null);
+    try { setImpact(await previewMerge(from.id, into.id)); }
+    catch (e) { setErr(e.message); }
+  };
+
+  const confirm = async () => {
+    setBusy(true);
+    const res = await dispatch({ type: "mergeCategories", fromId: from.id, intoId: into.id });
+    if (res.ok) onMerged(res.value, from, into);
+    else { setBusy(false); setImpact(null); }
+  };
+
+  if (impact && into) {
+    return (
+      <ConfirmDialog title={`Merge ${label(from)} into ${label(into)}?`} width={520}
+        confirmLabel="Merge categories" icon={<Icons.merge size={15} />}
+        busy={busy} onClose={() => setImpact(null)} onConfirm={confirm}>
+        <span className="confirm-summary">{mergeImpactText(impact, from, into)}</span>
+        <span className="confirm-note">
+          In a month that has both, the two lines become one and their planned amounts are added.
+          Your data is backed up first, and restoring that backup is the only undo.
+        </span>
+      </ConfirmDialog>
+    );
+  }
+
+  return (
+    <Modal onClose={onClose} width={520}>
+      <h3>Merge {label(from)}</h3>
+      <p>
+        Everything planned and logged under {from.name}, in every month, moves into the category you
+        pick. It can be in any group. You'll see what moves before anything changes.
+      </p>
+      {err && <Alert className="restore-error">{err}</Alert>}
+      <select value={intoId} aria-label="Merge into" onChange={(e) => setIntoId(e.target.value)}
+        className="btn merge-select">
+        <option value="" disabled>Choose a category…</option>
+        {targets.map((g) => (
+          <optgroup key={g.id} label={g.name}>
+            {g.cats.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}{c.archived ? " (archived)" : ""}</option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+      <div className="merge-foot">
+        <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+        <button className="btn btn-primary" onClick={review} disabled={!into}>Review merge</button>
+      </div>
+    </Modal>
   );
 }
 
@@ -479,6 +659,9 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
         </div>
       </div>
 
+      <Section title="Categories" />
+      <CategoriesSection />
+
       <Section title="Data & backup" />
       <div className="panel">
         <Setting title="Manual backup" sub={`Save a snapshot of all your budget data to a file. Last backup: ${s.lastBackup || "never"}.`}>
@@ -546,4 +729,4 @@ function SettingsScreen({ state, dispatch, currency, toast }) {
   );
 }
 
-export { SettingsScreen };
+export { SettingsScreen, CategoriesSection };

@@ -54,24 +54,40 @@ export interface BudgetIncome {
   updated_at: string;
 }
 
+/** Month-independent: a group's name, kind and collapsed state apply to every
+ *  month it shows in. */
 export interface BudgetGroup {
   id: number;
-  budget_month_id: number;
   name: string;
   kind: GroupKind;
   collapsed: number;
+  archived: number;
   sort_order: number;
   created_at: string;
   updated_at: string;
 }
 
+/** What a plan line and its spending are FOR ("Groceries"), the same in every
+ *  month. 'bank_account_id' is only the default a new plan line starts with. */
+export interface Category {
+  id: number;
+  group_id: number;
+  name: string;
+  bank_account_id: number | null;
+  archived: number;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A month's plan line for one category (at most one per month). */
 export interface BudgetItem {
   id: number;
-  budget_group_id: number;
-  name: string;
+  budget_month_id: number;
+  category_id: number;
   planned_cents: number;
   bank_account_id: number | null;
-  sort_order: number;
+  sort_order: number; // within its group, in this month
   created_at: string;
   updated_at: string;
 }
@@ -181,8 +197,9 @@ export interface ActualRead {
 }
 
 export interface ItemRead {
-  id: number;
-  name: string;
+  id: number; // the plan line (budget_items.id)
+  category_id: number;
+  name: string; // the category's
   allocated: number; // dollars
   account: number | null; // bank_account id
   actuals: ActualRead[];
@@ -248,7 +265,32 @@ export interface TrendPoint {
   byDay: number[]; // length 32, index 1..31 -> dollars spent on that day-of-month
 }
 
+/** A category as the Settings list shows it, with what archiving or merging
+ *  it would touch. */
+export interface CategoryRead {
+  id: number;
+  name: string;
+  groupId: number;
+  groupName: string;
+  archived: boolean;
+  lines: number; // months it has a plan line in
+  entries: number; // spending entries logged against it, every month
+}
+
+/** What merging one category into another moves, for the confirmation
+ *  ("Moves 143 entries across 9 months into Groceries") and the toast. */
+export interface MergeImpact {
+  entries: number;
+  months: number;
+}
+
+/** A merge as it reports back: the impact, plus the backup taken first. */
+export interface MergeResult extends MergeImpact {
+  backup: string; // file name, in the backups list
+}
+
 export interface ReusableCandidate {
+  categoryId: number;
   name: string;
   allocated: number; // dollars
   account: number | null;

@@ -21,6 +21,7 @@ const EXPECTED_TABLES = [
   'budget_item_actual_entries',
   'budget_items',
   'budget_months',
+  'categories',
   'household_members',
 ];
 const REMOVED_TABLES = [
@@ -75,6 +76,17 @@ app.whenReady().then(() => {
     assert(!entryCols.includes('description'), 'budget_item_actual_entries.description should be gone');
     assert(entryCols.includes('name'), 'budget_item_actual_entries.name is missing');
     assert(entryCols.includes('note'), 'budget_item_actual_entries.note is missing');
+
+    // Groups and categories are month-independent; a month holds plan lines.
+    assert(!columnNames(db, 'budget_groups').includes('budget_month_id'), 'budget_groups.budget_month_id should be gone');
+    assert(columnNames(db, 'budget_groups').includes('archived'), 'budget_groups.archived is missing');
+    const itemCols = columnNames(db, 'budget_items');
+    for (const c of ['budget_month_id', 'category_id', 'planned_cents', 'bank_account_id', 'sort_order']) {
+      assert(itemCols.includes(c), `budget_items.${c} is missing`);
+    }
+    for (const c of ['budget_group_id', 'name']) {
+      assert(!itemCols.includes(c), `budget_items.${c} should be gone`);
+    }
 
     const v = db.prepare('SELECT sqlite_version() AS v').get().v;
     console.log(

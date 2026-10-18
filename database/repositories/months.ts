@@ -1,6 +1,9 @@
 /* ============================================================
-   budget_months and everything nested under them: incomes, groups,
-   items, and actual entries.
+   budget_months and everything nested under them: incomes, plan lines
+   (budget_items) and actual entries, plus the month-independent groups and
+   the categories plan lines point at (see ./categories.ts). A month shows a
+   group when it has a plan line in it; an item's id is its plan line's, and
+   its name is its category's.
 
    All money is integer cents. All functions are synchronous and use
    prepared statements. Granular writes map one-to-one to renderer mutations,
@@ -14,6 +17,7 @@ import type {
   BudgetGroup,
   BudgetItem,
   BudgetItemActualEntry,
+  Category,
   GroupKind,
   MonthTree,
   IncomeRead,
@@ -31,6 +35,18 @@ import { centsToDollars, toMonthDay } from '../conversions';
 import { getMeta, setMeta } from './meta';
 import { patchById, nextSortOrder } from './_sql';
 import { listAccounts } from './accounts';
+import {
+  normalizeName,
+  cleanName,
+  insertCategory,
+  nextCategorySort,
+  getCategory,
+  findCategoryByName,
+  renameCategory,
+  assertNameFree,
+  pruneCategory,
+  pruneGroup,
+} from './categories';
 
 /* ---------- inserts ------------------------------------------------------ */
 
@@ -61,36 +77,39 @@ export function insertIncome(db: Database.Database, i: NewIncome): number {
 }
 
 export interface NewGroup {
-  budget_month_id: number;
   name: string;
   kind: GroupKind;
   sort_order: number;
   collapsed: number;
 }
 
+/** Groups are month-independent: a new one shows in every month until it has
+ *  a plan line somewhere. */
 export function insertGroup(db: Database.Database, g: NewGroup): number {
   const info = db
     .prepare(
-      `INSERT INTO budget_groups (budget_month_id, name, kind, sort_order, collapsed)
-       VALUES (@budget_month_id, @name, @kind, @sort_order, @collapsed)`
+      `INSERT INTO budget_groups (name, kind, sort_order, collapsed)
+       VALUES (@name, @kind, @sort_order, @collapsed)`
     )
     .run(g);
   return Number(info.lastInsertRowid);
 }
 
 export interface NewItem {
-  budget_group_id: number;
-  name: string;
+  budget_month_id: number;
+  category_id: number;
   planned_cents: number;
   bank_account_id: number | null;
   sort_order: number;
 }
 
+/** Inserts a plan line as given. Most callers want addItemByName, which finds
+ *  or creates the category and refuses a second line for it in one month. */
 export function insertItem(db: Database.Database, it: NewItem): number {
   const info = db
     .prepare(
-      `INSERT INTO budget_items (budget_group_id, name, planned_cents, bank_account_id, sort_order)
-       VALUES (@budget_group_id, @name, @planned_cents, @bank_account_id, @sort_order)`
+      `INSERT INTO budget_items (budget_month_id, category_id, planned_cents, bank_account_id, sort_order)
+       VALUES (@budget_month_id, @category_id, @planned_cents, @bank_account_id, @sort_order)`
     )
     .run(it);
   return Number(info.lastInsertRowid);
@@ -119,10 +138,148 @@ export function insertActualEntry(db: Database.Database, e: NewActualEntry): num
 
 export const nextIncomeSort = (db: Database.Database, monthId: number) =>
   nextSortOrder(db, 'budget_incomes', 'budget_month_id', monthId);
-export const nextGroupSort = (db: Database.Database, monthId: number) =>
-  nextSortOrder(db, 'budget_groups', 'budget_month_id', monthId);
-export const nextItemSort = (db: Database.Database, groupId: number) =>
-  nextSortOrder(db, 'budget_items', 'budget_group_id', groupId);
+
+export function nextGroupSort(db: Database.Database): number {
+  const row = db.prepare(`SELECT COALESCE(MAX(sort_order), -1) AS m FROM budget_groups`).get() as {
+    m: number;
+  };
+  return row.m + 1;
+}
+
+/** Next sort_order for a plan line in 'groupId' within 'monthId'. */
+export function nextItemSort(db: Database.Database, monthId: number, groupId: number): number {
+  const row = db
+    .prepare(
+      `SELECT COALESCE(MAX(it.sort_order), -1) AS m
+         FROM budget_items it JOIN categories c ON c.id = it.category_id
+        WHERE it.budget_month_id = ? AND c.group_id = ?`
+    )
+    .get(monthId, groupId) as { m: number };
+  return row.m + 1;
+}
+
+/* ---------- adding a group ----------------------------------------------- */
+
+/** The group whose name normalises to the same as 'name' (archived ones
+ *  included), skipping 'exceptId'. */
+export function findGroupByName(
+  db: Database.Database,
+  name: string,
+  exceptId: number | null = null
+): BudgetGroup | undefined {
+  const key = normalizeName(name);
+  const rows = db.prepare(`SELECT * FROM budget_groups ORDER BY id`).all() as BudgetGroup[];
+  return rows.find((g) => g.id !== exceptId && normalizeName(g.name) === key);
+}
+
+/**
+ * Adds a group by name: a group with that normalised name is reused (and
+ * un-archived, so it shows in every month again), or a new one is created at
+ * the end. Returns the group's id.
+ */
+export function addGroupByName(db: Database.Database, name: string): number {
+  const tx = db.transaction(() => {
+    const existing = findGroupByName(db, name);
+    if (existing) {
+      if (existing.archived) {
+        db.prepare(`UPDATE budget_groups SET archived = 0 WHERE id = ?`).run(existing.id);
+      }
+      return existing.id;
+    }
+    return insertGroup(db, {
+      name: cleanName(name),
+      kind: 'spend',
+      collapsed: 0,
+      sort_order: nextGroupSort(db),
+    });
+  });
+  return tx();
+}
+
+/* ---------- adding a plan line ------------------------------------------- */
+
+export interface AddItem {
+  monthId: number;
+  groupId: number;
+  name: string;
+  planned_cents?: number;
+  /** Omitted: the category's default account. */
+  bank_account_id?: number | null;
+}
+
+/**
+ * Adds a plan line to a month by name inside a group: the group's category with
+ * that normalised name is reused (and un-archived), or a new one is created.
+ * Returns the new plan line's id.
+ */
+export function addItemByName(db: Database.Database, a: AddItem): number {
+  const tx = db.transaction(() => {
+    const group = db.prepare(`SELECT id FROM budget_groups WHERE id = ?`).get(a.groupId);
+    if (!group) {
+      throw new Error('That group is no longer in your budget, so the item could not be added.');
+    }
+    const name = cleanName(a.name);
+    let category = findCategoryByName(db, a.groupId, name);
+    if (!category) {
+      const id = insertCategory(db, {
+        group_id: a.groupId,
+        name,
+        bank_account_id: a.bank_account_id ?? null,
+        sort_order: nextCategorySort(db, a.groupId),
+      });
+      category = getCategory(db, id) as Category;
+    }
+    return addLineForCategory(db, a.monthId, category, a.planned_cents ?? 0, a.bank_account_id);
+  });
+  return tx();
+}
+
+/**
+ * Adds a plan line for an existing category (a pick from the reusable list),
+ * in the category's own group. Returns the new plan line's id.
+ */
+export function addItemForCategory(
+  db: Database.Database,
+  a: { monthId: number; categoryId: number; planned_cents?: number; bank_account_id?: number | null }
+): number {
+  const tx = db.transaction(() => {
+    const category = getCategory(db, a.categoryId);
+    if (!category) {
+      throw new Error('That item is no longer in your budget, so it could not be added.');
+    }
+    return addLineForCategory(db, a.monthId, category, a.planned_cents ?? 0, a.bank_account_id);
+  });
+  return tx();
+}
+
+function addLineForCategory(
+  db: Database.Database,
+  monthId: number,
+  category: Category,
+  plannedCents: number,
+  accountId: number | null | undefined
+): number {
+  const existing = db
+    .prepare(`SELECT 1 FROM budget_items WHERE budget_month_id = ? AND category_id = ?`)
+    .get(monthId, category.id);
+  if (existing) {
+    throw new Error(
+      `"${category.name}" is already in this month's budget. Change its planned amount there instead of adding it again.`
+    );
+  }
+  if (category.archived) {
+    db.prepare(`UPDATE categories SET archived = 0 WHERE id = ?`).run(category.id);
+  }
+  // Its group comes back too, as the category does: it is in use again.
+  db.prepare(`UPDATE budget_groups SET archived = 0 WHERE id = ? AND archived = 1`).run(category.group_id);
+  return insertItem(db, {
+    budget_month_id: monthId,
+    category_id: category.id,
+    planned_cents: plannedCents,
+    bank_account_id: accountId !== undefined ? accountId : category.bank_account_id,
+    sort_order: nextItemSort(db, monthId, category.group_id),
+  });
+}
 
 /* ---------- granular updates / deletes ----------------------------------- */
 
@@ -138,30 +295,95 @@ export function removeIncome(db: Database.Database, id: number): void {
   db.prepare(`DELETE FROM budget_incomes WHERE id = ?`).run(id);
 }
 
+/**
+ * Groups are shared by every month, so a rename, kind or collapse applies to
+ * all. A name another group already has (normalised) is refused, since that
+ * would make two of one group.
+ */
 export function updateGroup(
   db: Database.Database,
   id: number,
   fields: Partial<Pick<BudgetGroup, 'name' | 'kind' | 'collapsed' | 'sort_order'>>
 ): void {
+  if (fields.name !== undefined) {
+    const clash = findGroupByName(db, fields.name, id);
+    if (clash) {
+      throw new Error(
+        `There's already a group called "${clash.name}". Pick another name, or move its items into that group instead.`
+      );
+    }
+  }
   patchById(db, 'budget_groups', id, fields);
 }
 
-/** Deletes a group; cascades to its items and their actual entries. */
-export function deleteGroup(db: Database.Database, id: number): void {
-  db.prepare(`DELETE FROM budget_groups WHERE id = ?`).run(id);
+/**
+ * Takes a group out of one month: its plan lines there are deleted (their
+ * entries cascade), and categories left with no line anywhere are deleted. A
+ * group left with no category is deleted; one other months still use is
+ * archived, so it shows only in the months where it has lines (adding it again
+ * by name brings it back).
+ */
+export function deleteGroup(db: Database.Database, id: number, monthId: number): void {
+  const tx = db.transaction(() => {
+    db.prepare(
+      `DELETE FROM budget_items
+        WHERE budget_month_id = ?
+          AND category_id IN (SELECT id FROM categories WHERE group_id = ?)`
+    ).run(monthId, id);
+    const cats = db.prepare(`SELECT id FROM categories WHERE group_id = ?`).all(id) as Array<{
+      id: number;
+    }>;
+    for (const c of cats) pruneCategory(db, c.id);
+    pruneGroup(db, id);
+    db.prepare(`UPDATE budget_groups SET archived = 1 WHERE id = ?`).run(id);
+  });
+  tx();
 }
 
+/**
+ * Patches a plan line. 'name' renames its category, so it applies to every
+ * month, past ones included. 'bank_account_id' is this month's, and also
+ * becomes the category's default, so the next new line starts on it.
+ */
 export function updateItem(
   db: Database.Database,
   id: number,
-  fields: Partial<Pick<BudgetItem, 'name' | 'planned_cents' | 'bank_account_id' | 'sort_order'>>
+  fields: Partial<Pick<BudgetItem, 'planned_cents' | 'bank_account_id' | 'sort_order'>> & {
+    name?: string;
+  }
 ): void {
-  patchById(db, 'budget_items', id, fields);
+  const { name, ...line } = fields;
+  const tx = db.transaction(() => {
+    const row = db.prepare(`SELECT category_id FROM budget_items WHERE id = ?`).get(id) as
+      | { category_id: number }
+      | undefined;
+    if (row && name !== undefined) renameCategory(db, row.category_id, name);
+    if (row && line.bank_account_id !== undefined) {
+      db.prepare(`UPDATE categories SET bank_account_id = ? WHERE id = ?`).run(
+        line.bank_account_id,
+        row.category_id
+      );
+    }
+    patchById(db, 'budget_items', id, line);
+  });
+  tx();
 }
 
-/** Deletes an item; cascades to its actual entries. */
+/**
+ * Deletes a plan line from its month; cascades to its actual entries. Its
+ * category goes too once no month has a line for it (entries hang off lines,
+ * so no line means nothing at all refers to it), and then its group if that
+ * was the group's last category.
+ */
 export function deleteItem(db: Database.Database, id: number): void {
-  db.prepare(`DELETE FROM budget_items WHERE id = ?`).run(id);
+  const tx = db.transaction(() => {
+    const row = db.prepare(`SELECT category_id FROM budget_items WHERE id = ?`).get(id) as
+      | { category_id: number }
+      | undefined;
+    db.prepare(`DELETE FROM budget_items WHERE id = ?`).run(id);
+    if (row) pruneCategory(db, row.category_id);
+  });
+  tx();
 }
 
 export function updateActual(
@@ -193,20 +415,18 @@ function writeOrder(db: Database.Database, table: string, orderedIds: number[]):
 }
 
 /**
- * Move 'id' relative to 'targetId' within a month's groups: both ids must
- * exist and differ, and 'after' inserts past the target.
+ * Move group 'id' relative to 'targetId': both ids must exist and differ, and
+ * 'after' inserts past the target. Groups are shared by every month, so the
+ * order is too.
  */
 export function reorderGroups(
   db: Database.Database,
-  monthId: number,
   id: number,
   targetId: number,
   after: boolean
 ): void {
   const ids = (
-    db
-      .prepare(`SELECT id FROM budget_groups WHERE budget_month_id = ? ORDER BY sort_order, id`)
-      .all(monthId) as Array<{ id: number }>
+    db.prepare(`SELECT id FROM budget_groups ORDER BY sort_order, id`).all() as Array<{ id: number }>
   ).map((r) => r.id);
 
   const from = ids.indexOf(id);
@@ -219,9 +439,18 @@ export function reorderGroups(
   writeOrder(db, 'budget_groups', ids);
 }
 
+/** The month a plan line belongs to, or undefined when it is gone. */
+function lineMonth(db: Database.Database, id: number): number | undefined {
+  const row = db.prepare(`SELECT budget_month_id FROM budget_items WHERE id = ?`).get(id) as
+    | { budget_month_id: number }
+    | undefined;
+  return row ? row.budget_month_id : undefined;
+}
+
 /**
- * Move 'id' relative to 'targetId' within a group's items. Drop-after is
- * inferred from the original direction ('from' index less than 'to' index).
+ * Move plan line 'id' relative to 'targetId' within its group, in its month.
+ * Drop-after is inferred from the original direction ('from' index less than
+ * 'to' index).
  */
 export function reorderItems(
   db: Database.Database,
@@ -229,11 +458,9 @@ export function reorderItems(
   id: number,
   targetId: number
 ): void {
-  const ids = (
-    db
-      .prepare(`SELECT id FROM budget_items WHERE budget_group_id = ? ORDER BY sort_order, id`)
-      .all(groupId) as Array<{ id: number }>
-  ).map((r) => r.id);
+  const monthId = lineMonth(db, id);
+  if (monthId === undefined) return;
+  const ids = listItems(db, monthId, groupId).map((r) => r.id);
 
   const from = ids.indexOf(id);
   const to = ids.indexOf(targetId);
@@ -246,11 +473,12 @@ export function reorderItems(
 }
 
 /**
- * Move an item into another group in the same month. 'targetId' is the item in
- * the destination to land BEFORE; null appends. Both groups have their
+ * Move an item into another group. That moves its CATEGORY, so it changes
+ * group in every month. 'targetId' is the plan line in the destination to land
+ * BEFORE in this month; null appends. Both groups have this month's
  * sort_order rewritten: the destination so the item lands where the drop-line
  * promised, the source so it stays dense and a later insert cannot land in the
- * gap the move left behind.
+ * gap the move left behind. In other months the line goes to the end.
  */
 export function moveItem(
   db: Database.Database,
@@ -259,13 +487,17 @@ export function moveItem(
   targetId: number | null
 ): void {
   const tx = db.transaction(() => {
-    const item = db.prepare(`SELECT budget_group_id FROM budget_items WHERE id = ?`).get(id) as
-      | { budget_group_id: number }
-      | undefined;
+    const item = db
+      .prepare(
+        `SELECT it.budget_month_id AS month_id, it.category_id AS category_id, c.group_id AS group_id
+           FROM budget_items it JOIN categories c ON c.id = it.category_id
+          WHERE it.id = ?`
+      )
+      .get(id) as { month_id: number; category_id: number; group_id: number } | undefined;
     // A drop can land after its own row was deleted elsewhere. Nothing to move
     // is not a failure worth reporting.
     if (!item) return;
-    const fromGroupId = item.budget_group_id;
+    const fromGroupId = item.group_id;
 
     // Staying put is a reorder, and reorder already owns the rules for which
     // side of the target the row lands on. Delegating keeps one copy of them.
@@ -274,24 +506,30 @@ export function moveItem(
       return;
     }
 
-    const where = db
-      .prepare(
-        `SELECT (SELECT budget_month_id FROM budget_groups WHERE id = ?) AS src,
-                (SELECT budget_month_id FROM budget_groups WHERE id = ?) AS dest`
-      )
-      .get(fromGroupId, toGroupId) as { src: number | null; dest: number | null };
-    if (where.dest == null) {
+    const dest = db.prepare(`SELECT id FROM budget_groups WHERE id = ?`).get(toGroupId);
+    if (!dest) {
       throw new Error('That group is no longer in your budget, so the item could not be moved.');
     }
-    // The UI cannot produce this. A silent no-op would hide the bug that did,
-    // and a silent success would put an item in a month it does not belong to.
-    if (where.src !== where.dest) {
-      throw new Error('An item can only be moved to a group in the same month.');
-    }
+    const category = getCategory(db, item.category_id) as Category;
+    assertNameFree(db, toGroupId, category.name, category.id);
 
-    db.prepare(`UPDATE budget_items SET budget_group_id = ? WHERE id = ?`).run(toGroupId, id);
+    // In every other month the line joins the end of the destination group.
+    const others = db
+      .prepare(`SELECT id, budget_month_id FROM budget_items WHERE category_id = ? AND id <> ?`)
+      .all(item.category_id, id) as Array<{ id: number; budget_month_id: number }>;
+    const tail = others.map((o) => ({ id: o.id, at: nextItemSort(db, o.budget_month_id, toGroupId) }));
 
-    const destIds = listItems(db, toGroupId)
+    db.prepare(`UPDATE categories SET group_id = ?, sort_order = ? WHERE id = ?`).run(
+      toGroupId,
+      nextCategorySort(db, toGroupId),
+      item.category_id
+    );
+    const setSort = db.prepare(`UPDATE budget_items SET sort_order = ? WHERE id = ?`);
+    for (const t of tail) setSort.run(t.at, t.id);
+    // The source group may now have no category at all: then it goes.
+    pruneGroup(db, fromGroupId);
+
+    const destIds = listItems(db, item.month_id, toGroupId)
       .map((r) => r.id)
       .filter((x) => x !== id);
     // An unknown target (deleted mid-drag) falls back to the end rather than
@@ -303,7 +541,7 @@ export function moveItem(
     writeOrder(
       db,
       'budget_items',
-      listItems(db, fromGroupId).map((r) => r.id)
+      listItems(db, item.month_id, fromGroupId).map((r) => r.id)
     );
   });
   tx();
@@ -312,9 +550,10 @@ export function moveItem(
 /* ---------- month copy --------------------------------------------------- */
 
 /**
- * Deep-copy a month's plan into a new month: groups and items are cloned
- * (collapsed reset, account preserved) but NOT their actual entries. Incomes
- * are copied only when 'copyIncome' is set. Returns the new month's id.
+ * Copy a month's plan into a new month: every plan line whose category is not
+ * archived is copied (category, planned amount, account, position) but NOT its
+ * actual entries. Incomes are
+ * copied only when 'copyIncome' is set. Returns the new month's id.
  */
 export function copyMonth(
   db: Database.Database,
@@ -325,25 +564,22 @@ export function copyMonth(
   const tx = db.transaction(() => {
     const newId = insertMonth(db, newMonth);
 
-    const groups = listGroups(db, fromMonthId);
-    groups.forEach((g, gIdx) => {
-      const newGroupId = insertGroup(db, {
+    const lines = db
+      .prepare(
+        `SELECT it.* FROM budget_items it JOIN categories c ON c.id = it.category_id
+          WHERE it.budget_month_id = ? AND c.archived = 0
+          ORDER BY it.sort_order, it.id`
+      )
+      .all(fromMonthId) as BudgetItem[];
+    for (const it of lines) {
+      insertItem(db, {
         budget_month_id: newId,
-        name: g.name,
-        kind: g.kind,
-        sort_order: gIdx,
-        collapsed: 0,
+        category_id: it.category_id,
+        planned_cents: it.planned_cents,
+        bank_account_id: it.bank_account_id,
+        sort_order: it.sort_order,
       });
-      listItems(db, g.id).forEach((it, iIdx) => {
-        insertItem(db, {
-          budget_group_id: newGroupId,
-          name: it.name,
-          planned_cents: it.planned_cents,
-          bank_account_id: it.bank_account_id,
-          sort_order: iIdx,
-        });
-      });
-    });
+    }
 
     if (opts.copyIncome) {
       listIncomes(db, fromMonthId).forEach((inc, idx) => {
@@ -380,16 +616,36 @@ export function listIncomes(db: Database.Database, monthId: number): BudgetIncom
     .all(monthId) as BudgetIncome[];
 }
 
+/**
+ * The groups a month shows: every group that is not archived (so a month
+ * started empty still offers them all), plus an archived group in a month
+ * where it still has a plan line.
+ */
 export function listGroups(db: Database.Database, monthId: number): BudgetGroup[] {
   return db
-    .prepare(`SELECT * FROM budget_groups WHERE budget_month_id = ? ORDER BY sort_order, id`)
+    .prepare(
+      `SELECT g.* FROM budget_groups g
+        WHERE g.archived = 0
+           OR EXISTS (SELECT 1 FROM budget_items it JOIN categories c ON c.id = it.category_id
+                       WHERE c.group_id = g.id AND it.budget_month_id = ?)
+        ORDER BY g.sort_order, g.id`
+    )
     .all(monthId) as BudgetGroup[];
 }
 
-export function listItems(db: Database.Database, groupId: number): BudgetItem[] {
+/** A plan line with what it borrows from its category. */
+export type PlanLine = BudgetItem & { name: string; group_id: number };
+
+const PLAN_LINE_SQL = `SELECT it.*, c.name AS name, c.group_id AS group_id
+                         FROM budget_items it JOIN categories c ON c.id = it.category_id`;
+
+/** A month's plan lines in one group, in order. */
+export function listItems(db: Database.Database, monthId: number, groupId: number): PlanLine[] {
   return db
-    .prepare(`SELECT * FROM budget_items WHERE budget_group_id = ? ORDER BY sort_order, id`)
-    .all(groupId) as BudgetItem[];
+    .prepare(
+      `${PLAN_LINE_SQL} WHERE it.budget_month_id = ? AND c.group_id = ? ORDER BY it.sort_order, it.id`
+    )
+    .all(monthId, groupId) as PlanLine[];
 }
 
 export function listActuals(db: Database.Database, itemId: number): BudgetItemActualEntry[] {
@@ -414,9 +670,10 @@ function toActualRead(a: BudgetItemActualEntry): ActualRead {
   };
 }
 
-function toItemRead(db: Database.Database, it: BudgetItem): ItemRead {
+function toItemRead(db: Database.Database, it: PlanLine): ItemRead {
   return {
     id: it.id,
+    category_id: it.category_id,
     name: it.name,
     allocated: centsToDollars(it.planned_cents),
     account: it.bank_account_id,
@@ -424,14 +681,14 @@ function toItemRead(db: Database.Database, it: BudgetItem): ItemRead {
   };
 }
 
-function toGroupRead(db: Database.Database, g: BudgetGroup): GroupRead {
+function toGroupRead(db: Database.Database, g: BudgetGroup, monthId: number | null): GroupRead {
   return {
     id: g.id,
     name: g.name,
     isSavings: g.kind === 'savings',
     collapsed: !!g.collapsed,
     kind: g.kind,
-    items: listItems(db, g.id).map((it) => toItemRead(db, it)),
+    items: monthId == null ? [] : listItems(db, monthId, g.id).map((it) => toItemRead(db, it)),
   };
 }
 
@@ -451,17 +708,20 @@ export function getIncomeById(db: Database.Database, id: number): IncomeRead | u
   return row ? toIncomeRead(row) : undefined;
 }
 
-export function getGroupById(db: Database.Database, id: number): GroupRead | undefined {
+/** A group with its plan lines in 'monthId' (none when no month is given). */
+export function getGroupById(
+  db: Database.Database,
+  id: number,
+  monthId: number | null = null
+): GroupRead | undefined {
   const row = db.prepare(`SELECT * FROM budget_groups WHERE id = ?`).get(id) as
     | BudgetGroup
     | undefined;
-  return row ? toGroupRead(db, row) : undefined;
+  return row ? toGroupRead(db, row, monthId) : undefined;
 }
 
 export function getItemById(db: Database.Database, id: number): ItemRead | undefined {
-  const row = db.prepare(`SELECT * FROM budget_items WHERE id = ?`).get(id) as
-    | BudgetItem
-    | undefined;
+  const row = db.prepare(`${PLAN_LINE_SQL} WHERE it.id = ?`).get(id) as PlanLine | undefined;
   return row ? toItemRead(db, row) : undefined;
 }
 
@@ -482,7 +742,7 @@ export function getMonthTree(db: Database.Database, monthId: number): MonthTree 
     id: month.id,
     month: month.month,
     incomes: listIncomes(db, monthId).map(toIncomeRead),
-    groups: listGroups(db, monthId).map((g) => toGroupRead(db, g)),
+    groups: listGroups(db, monthId).map((g) => toGroupRead(db, g, monthId)),
   };
 }
 
@@ -504,16 +764,16 @@ export function monthTotals(db: Database.Database, monthId: number): MonthTotals
     db,
     `SELECT COALESCE(SUM(it.planned_cents), 0) AS c
        FROM budget_items it
-       JOIN budget_groups g ON it.budget_group_id = g.id
-      WHERE g.budget_month_id = ?`,
+      WHERE it.budget_month_id = ?`,
     monthId
   );
   const savings = scalarCents(
     db,
     `SELECT COALESCE(SUM(it.planned_cents), 0) AS c
        FROM budget_items it
-       JOIN budget_groups g ON it.budget_group_id = g.id
-      WHERE g.budget_month_id = ? AND g.kind = 'savings'`,
+       JOIN categories c ON c.id = it.category_id
+       JOIN budget_groups g ON g.id = c.group_id
+      WHERE it.budget_month_id = ? AND g.kind = 'savings'`,
     monthId
   );
   const actual = scalarCents(
@@ -521,8 +781,7 @@ export function monthTotals(db: Database.Database, monthId: number): MonthTotals
     `SELECT COALESCE(SUM(e.amount_cents), 0) AS c
        FROM budget_item_actual_entries e
        JOIN budget_items it ON e.budget_item_id = it.id
-       JOIN budget_groups g ON it.budget_group_id = g.id
-      WHERE g.budget_month_id = ?`,
+      WHERE it.budget_month_id = ?`,
     monthId
   );
   return {
@@ -543,13 +802,12 @@ export function fundingPlan(db: Database.Database, monthId: number): FundingPlan
               COUNT(it.id) AS cnt,
               COALESCE(SUM(e.s), 0) AS actual_cents
          FROM budget_items it
-         JOIN budget_groups g ON it.budget_group_id = g.id
          LEFT JOIN (
            SELECT budget_item_id, SUM(amount_cents) AS s
              FROM budget_item_actual_entries
             GROUP BY budget_item_id
          ) e ON e.budget_item_id = it.id
-        WHERE g.budget_month_id = ?
+        WHERE it.budget_month_id = ?
         GROUP BY it.bank_account_id`
     )
     .all(monthId) as Array<{
@@ -592,16 +850,17 @@ export function fundingPlan(db: Database.Database, monthId: number): FundingPlan
 export function overBudgetItems(db: Database.Database, monthId: number): OverBudgetRow[] {
   const rows = db
     .prepare(
-      `SELECT g.name AS group_name, it.name AS item_name, it.planned_cents AS planned,
+      `SELECT g.name AS group_name, c.name AS item_name, it.planned_cents AS planned,
               COALESCE(e.s, 0) AS actual
          FROM budget_items it
-         JOIN budget_groups g ON it.budget_group_id = g.id
+         JOIN categories c ON c.id = it.category_id
+         JOIN budget_groups g ON g.id = c.group_id
          LEFT JOIN (
            SELECT budget_item_id, SUM(amount_cents) AS s
              FROM budget_item_actual_entries
             GROUP BY budget_item_id
          ) e ON e.budget_item_id = it.id
-        WHERE g.budget_month_id = ? AND COALESCE(e.s, 0) > it.planned_cents
+        WHERE it.budget_month_id = ? AND COALESCE(e.s, 0) > it.planned_cents
         ORDER BY g.sort_order, it.sort_order`
     )
     .all(monthId) as Array<{
@@ -637,57 +896,60 @@ export function trendSeries(db: Database.Database): TrendPoint[] {
        FROM budget_incomes GROUP BY budget_month_id`
   );
   const allocMap = sumByMonth(
-    `SELECT g.budget_month_id AS mid, COALESCE(SUM(it.planned_cents), 0) AS c
-       FROM budget_items it JOIN budget_groups g ON it.budget_group_id = g.id
-      GROUP BY g.budget_month_id`
+    `SELECT budget_month_id AS mid, COALESCE(SUM(planned_cents), 0) AS c
+       FROM budget_items GROUP BY budget_month_id`
   );
   const savingsMap = sumByMonth(
-    `SELECT g.budget_month_id AS mid, COALESCE(SUM(it.planned_cents), 0) AS c
-       FROM budget_items it JOIN budget_groups g ON it.budget_group_id = g.id
-      WHERE g.kind = 'savings' GROUP BY g.budget_month_id`
+    `SELECT it.budget_month_id AS mid, COALESCE(SUM(it.planned_cents), 0) AS c
+       FROM budget_items it
+       JOIN categories c ON c.id = it.category_id
+       JOIN budget_groups g ON g.id = c.group_id
+      WHERE g.kind = 'savings' GROUP BY it.budget_month_id`
   );
   const actualMap = sumByMonth(
-    `SELECT g.budget_month_id AS mid, COALESCE(SUM(e.amount_cents), 0) AS c
+    `SELECT it.budget_month_id AS mid, COALESCE(SUM(e.amount_cents), 0) AS c
        FROM budget_item_actual_entries e
        JOIN budget_items it ON e.budget_item_id = it.id
-       JOIN budget_groups g ON it.budget_group_id = g.id
-      GROUP BY g.budget_month_id`
+      GROUP BY it.budget_month_id`
   );
 
-  // actual per (month, group name); LEFT JOIN so empty groups contribute 0.
+  // actual per (month, group name) over the month's plan lines; LEFT JOIN so a
+  // group whose lines have no entries contributes 0.
   const byGroupRows = db
     .prepare(
-      `SELECT g.budget_month_id AS mid, g.name AS name, COALESCE(SUM(e.s), 0) AS c
-         FROM budget_groups g
-         LEFT JOIN budget_items it ON it.budget_group_id = g.id
+      `SELECT it.budget_month_id AS mid, g.name AS name, COALESCE(SUM(e.s), 0) AS c
+         FROM budget_items it
+         JOIN categories c ON c.id = it.category_id
+         JOIN budget_groups g ON g.id = c.group_id
          LEFT JOIN (
            SELECT budget_item_id, SUM(amount_cents) AS s
              FROM budget_item_actual_entries GROUP BY budget_item_id
          ) e ON e.budget_item_id = it.id
-        GROUP BY g.budget_month_id, g.name`
+        GROUP BY it.budget_month_id, g.name`
     )
     .all() as Array<{ mid: number; name: string; c: number }>;
 
-  // savings allocated per (month, item name).
+  // savings allocated per (month, category name).
   const savingsCatRows = db
     .prepare(
-      `SELECT g.budget_month_id AS mid, it.name AS name, COALESCE(SUM(it.planned_cents), 0) AS c
-         FROM budget_groups g JOIN budget_items it ON it.budget_group_id = g.id
+      `SELECT it.budget_month_id AS mid, c.name AS name, COALESCE(SUM(it.planned_cents), 0) AS c
+         FROM budget_items it
+         JOIN categories c ON c.id = it.category_id
+         JOIN budget_groups g ON g.id = c.group_id
         WHERE g.kind = 'savings'
-        GROUP BY g.budget_month_id, it.name`
+        GROUP BY it.budget_month_id, c.name`
     )
     .all() as Array<{ mid: number; name: string; c: number }>;
 
   // actual spend per (month, day-of-month from spent_on) for the timing chart.
   const byDayRows = db
     .prepare(
-      `SELECT g.budget_month_id AS mid,
+      `SELECT it.budget_month_id AS mid,
               CAST(substr(e.spent_on, 9, 2) AS INTEGER) AS day,
               COALESCE(SUM(e.amount_cents), 0) AS c
          FROM budget_item_actual_entries e
          JOIN budget_items it ON e.budget_item_id = it.id
-         JOIN budget_groups g ON it.budget_group_id = g.id
-        GROUP BY g.budget_month_id, day`
+        GROUP BY it.budget_month_id, day`
     )
     .all() as Array<{ mid: number; day: number; c: number }>;
 
@@ -731,16 +993,10 @@ export function trendSeries(db: Database.Database): TrendPoint[] {
 
 /* ---------- reusable item suggestions ------------------------------------ */
 
-function normalizeItemName(name: string): string {
-  return String(name || '')
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, ' ');
-}
-
 /**
- * Items from other months not already present in 'monthId', deduped by
- * normalised name, newest months first, filtered by a fuzzy 'query' (all
+ * Categories with a plan line in another month but none in 'monthId', newest
+ * months first (each shown with its most recent plan line's amount and
+ * account), archived ones left out, filtered by a fuzzy 'query' (all
  * whitespace-separated terms must appear in "name groupName"). Capped at 30.
  */
 export function reusableItemCandidates(
@@ -748,30 +1004,21 @@ export function reusableItemCandidates(
   monthId: number,
   query = ''
 ): ReusableCandidate[] {
-  const currentNames = new Set(
-    (
-      db
-        .prepare(
-          `SELECT it.name FROM budget_items it
-             JOIN budget_groups g ON it.budget_group_id = g.id
-            WHERE g.budget_month_id = ?`
-        )
-        .all(monthId) as Array<{ name: string }>
-    ).map((r) => normalizeItemName(r.name))
-  );
-
-  // Other-month items, newest months first then by position.
   const rows = db
     .prepare(
-      `SELECT it.name AS name, it.planned_cents AS planned, it.bank_account_id AS account,
-              g.name AS group_name, g.kind AS kind, m.month AS month
+      `SELECT c.id AS category_id, c.name AS name, it.planned_cents AS planned,
+              it.bank_account_id AS account, g.name AS group_name, g.kind AS kind, m.month AS month
          FROM budget_items it
-         JOIN budget_groups g ON it.budget_group_id = g.id
-         JOIN budget_months m ON g.budget_month_id = m.id
-        WHERE m.id <> ?
+         JOIN categories c ON c.id = it.category_id
+         JOIN budget_groups g ON g.id = c.group_id
+         JOIN budget_months m ON m.id = it.budget_month_id
+        WHERE it.budget_month_id <> ? AND c.archived = 0
+          AND NOT EXISTS (SELECT 1 FROM budget_items x
+                           WHERE x.category_id = c.id AND x.budget_month_id = ?)
         ORDER BY m.month DESC, g.sort_order, it.sort_order, it.id`
     )
-    .all(monthId) as Array<{
+    .all(monthId, monthId) as Array<{
+    category_id: number;
     name: string;
     planned: number;
     account: number | null;
@@ -780,19 +1027,19 @@ export function reusableItemCandidates(
     month: string;
   }>;
 
-  const terms = normalizeItemName(query).split(' ').filter(Boolean);
-  const seen = new Set<string>();
+  const terms = normalizeName(query).split(' ').filter(Boolean);
+  const seen = new Set<number>();
   const out: ReusableCandidate[] = [];
 
   for (const r of rows) {
-    const key = normalizeItemName(r.name);
-    if (!key || currentNames.has(key) || seen.has(key)) continue;
+    if (seen.has(r.category_id)) continue;
 
-    const haystack = normalizeItemName(`${r.name} ${r.group_name}`);
+    const haystack = normalizeName(`${r.name} ${r.group_name}`);
     if (terms.length && !terms.every((t) => haystack.includes(t))) continue;
 
-    seen.add(key);
+    seen.add(r.category_id);
     out.push({
+      categoryId: r.category_id,
       name: r.name,
       allocated: centsToDollars(r.planned),
       account: r.account,
@@ -810,15 +1057,15 @@ export function reusableItemCandidates(
 /** Rank a suggestion for a typed query: a name that STARTS with what was typed
  *  is what the typist meant, so it comes before a mere substring match. */
 function entryRank(s: EntrySuggestion, q: string): number {
-  return normalizeItemName(s.name).startsWith(q) ? 0 : 1;
+  return normalizeName(s.name).startsWith(q) ? 0 : 1;
 }
 
 /**
  * Spending-entry names logged before, for the central "log a spend" input.
- * Deduped by (entry name, item name) so a name used under two different items
- * offers both, most recently spent first, each resolved to the item in
- * 'monthId' that carries the same name - or null when this month has no such
- * item and the caller must pick the destination. Filtered by a fuzzy 'query'
+ * Deduped by (entry name, category) so a name used under two different items
+ * offers both, most recently spent first, each resolved to the plan line in
+ * 'monthId' for the same category - or null when this month has no line for
+ * it and the caller must pick the destination. Filtered by a fuzzy 'query'
  * (all terms must appear in "name itemName groupName"). Capped at 30.
  */
 export function actualEntrySuggestions(
@@ -826,39 +1073,32 @@ export function actualEntrySuggestions(
   monthId: number,
   query = ''
 ): EntrySuggestion[] {
-  // Items available in the target month, keyed by normalised name: an entry
-  // whose old item still exists here already knows where it belongs.
-  const targetItems = new Map<string, number>();
+  // The target month's plan lines, keyed by category: an entry whose category
+  // has a line here already knows where it belongs.
+  const targetItems = new Map<number, number>();
   const itemRows = db
-    .prepare(
-      `SELECT it.id AS id, it.name AS name
-         FROM budget_items it
-         JOIN budget_groups g ON it.budget_group_id = g.id
-        WHERE g.budget_month_id = ?
-        ORDER BY g.sort_order, it.sort_order, it.id`
-    )
-    .all(monthId) as Array<{ id: number; name: string }>;
-  for (const r of itemRows) {
-    const key = normalizeItemName(r.name);
-    if (key && !targetItems.has(key)) targetItems.set(key, r.id);
-  }
+    .prepare(`SELECT id, category_id FROM budget_items WHERE budget_month_id = ?`)
+    .all(monthId) as Array<{ id: number; category_id: number }>;
+  for (const r of itemRows) targetItems.set(r.category_id, r.id);
 
   // Every named entry across every month, most recent spend first, so the first
   // row seen for a pair is the one whose amount and month get shown.
   const rows = db
     .prepare(
-      `SELECT e.name AS name, e.amount_cents AS amount_cents,
-              it.name AS item_name, g.name AS group_name, m.month AS month
+      `SELECT e.name AS name, e.amount_cents AS amount_cents, c.id AS category_id,
+              c.name AS item_name, g.name AS group_name, m.month AS month
          FROM budget_item_actual_entries e
          JOIN budget_items it ON e.budget_item_id = it.id
-         JOIN budget_groups g ON it.budget_group_id = g.id
-         JOIN budget_months m ON g.budget_month_id = m.id
+         JOIN categories c ON c.id = it.category_id
+         JOIN budget_groups g ON g.id = c.group_id
+         JOIN budget_months m ON m.id = it.budget_month_id
         WHERE e.name IS NOT NULL AND trim(e.name) <> ''
         ORDER BY e.spent_on DESC, e.id DESC`
     )
     .all() as Array<{
     name: string;
     amount_cents: number;
+    category_id: number;
     item_name: string;
     group_name: string;
     month: string;
@@ -866,8 +1106,7 @@ export function actualEntrySuggestions(
 
   const byKey = new Map<string, EntrySuggestion>();
   for (const r of rows) {
-    const itemKey = normalizeItemName(r.item_name);
-    const key = `${normalizeItemName(r.name)}|${itemKey}`;
+    const key = `${normalizeName(r.name)}|${r.category_id}`;
     const seen = byKey.get(key);
     if (seen) {
       seen.uses += 1;
@@ -876,7 +1115,7 @@ export function actualEntrySuggestions(
     byKey.set(key, {
       name: r.name,
       amount: centsToDollars(r.amount_cents),
-      itemId: targetItems.has(itemKey) ? (targetItems.get(itemKey) as number) : null,
+      itemId: targetItems.get(r.category_id) ?? null,
       itemName: r.item_name,
       groupName: r.group_name,
       month: r.month,
@@ -884,10 +1123,10 @@ export function actualEntrySuggestions(
     });
   }
 
-  const q = normalizeItemName(query);
+  const q = normalizeName(query);
   const terms = q.split(' ').filter(Boolean);
   const haystack = (s: EntrySuggestion) =>
-    normalizeItemName(`${s.name} ${s.itemName} ${s.groupName}`);
+    normalizeName(`${s.name} ${s.itemName} ${s.groupName}`);
   const out = [...byKey.values()].filter((s) => terms.every((t) => haystack(s).includes(t)));
   // Array.prototype.sort is stable, so recency (the map's insertion order)
   // still decides between two names that both start with the query.
@@ -898,7 +1137,7 @@ export function actualEntrySuggestions(
 /* ---------- destructive helpers ------------------------------------------ */
 
 /**
- * Deletes a month, but only an empty one. budget_groups and budget_incomes
+ * Deletes a month, but only an empty one. Plan lines and budget_incomes
  * cascade from budget_months, so an unguarded delete would take a year of
  * entries with it; the only month worth removing is one nobody has used yet
  * (typically a mis-pressed Ctrl+N). The guards live here rather than in the IPC
@@ -923,7 +1162,7 @@ export function deleteMonth(db: Database.Database, id: number): string | null {
 
     const used = db
       .prepare(
-        `SELECT (SELECT COUNT(*) FROM budget_groups  WHERE budget_month_id = ?) AS groups,
+        `SELECT (SELECT COUNT(*) FROM budget_items   WHERE budget_month_id = ?) AS groups,
                 (SELECT COUNT(*) FROM budget_incomes WHERE budget_month_id = ?) AS incomes`
       )
       .get(id, id) as { groups: number; incomes: number };
@@ -950,7 +1189,13 @@ export function deleteMonth(db: Database.Database, id: number): string | null {
   return tx();
 }
 
-/** Deletes all months (cascades to incomes, groups, items, actual entries). */
+/** Deletes all months (cascades to incomes, plan lines, actual entries), then
+ *  the categories and groups that nothing refers to any more. */
 export function deleteAllMonths(db: Database.Database): void {
-  db.prepare(`DELETE FROM budget_months`).run();
+  const tx = db.transaction(() => {
+    db.prepare(`DELETE FROM budget_months`).run();
+    db.prepare(`DELETE FROM categories`).run();
+    db.prepare(`DELETE FROM budget_groups`).run();
+  });
+  tx();
 }

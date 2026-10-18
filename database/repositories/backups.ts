@@ -2,7 +2,8 @@
    Backup file operations.
 
    - createDbBackup uses better-sqlite3's online backup API for a consistent
-     snapshot (safe even with WAL in flight).
+     snapshot (safe even with WAL in flight). createDbBackupSync is the same
+     snapshot via VACUUM INTO, for the backup taken before a migration.
    - inspectBackupFile validates a candidate file BEFORE anything is
      overwritten: SQLite header, then a read-only open to confirm it is
      actually a House Budget database, then the counts the confirm dialogue
@@ -54,6 +55,33 @@ export async function createDbBackup(
   const dest = path.join(backupsDir, fileName);
 
   await db.backup(dest);
+  pruneBackups(backupsDir);
+
+  const size = fs.existsSync(dest) ? fs.statSync(dest).size : 0;
+  return { path: dest, fileName, savedAt: friendlyDate(now), size };
+}
+
+/**
+ * The same snapshot, taken synchronously with VACUUM INTO, for main/db.ts to
+ * take before migrating an existing database (initDb is synchronous, and
+ * nothing else has the connection yet). 'label' is appended to the file name
+ * to say why it was taken, e.g. "before-v8"; the file is still a normal
+ * backup, listed and restorable like the rest.
+ */
+export function createDbBackupSync(
+  db: Database.Database,
+  backupsDir: string,
+  label: string
+): BackupInfo {
+  const now = new Date();
+  const fileName = `${PREFIX}${safeTimestamp(now)}-${label}${SUFFIX}`;
+  const dest = path.join(backupsDir, fileName);
+
+  // VACUUM INTO refuses an existing file. Two launches in one second would
+  // both try this name; the first snapshot already covers the second.
+  if (!fs.existsSync(dest)) {
+    db.prepare(`VACUUM INTO ?`).run(dest);
+  }
   pruneBackups(backupsDir);
 
   const size = fs.existsSync(dest) ? fs.statSync(dest).size : 0;

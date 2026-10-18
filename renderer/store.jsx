@@ -220,16 +220,24 @@ export function StoreProvider({ children }) {
     }
   }, []);
 
-  /* ---- targeted refreshes ---- */
+  /* ---- targeted refreshes ----
+     Groups and categories are shared by every month, so a write made in one
+     month (a rename, a collapse, a move, a group reorder) can change how any
+     other month reads. Every other cached tree is therefore dropped, and
+     'setActive' fetches it again on the next visit; the active month, when it
+     is not the one written, is refetched alongside. */
   const refreshMonth = useCallback(async (key) => {
     const id = idForKey(key);
     if (id == null || !hasApi()) return;
     const tree = await api.getMonth(id);
+    const active = stateRef.current ? stateRef.current.activeMonth : null;
+    const activeId = active && active !== key ? idForKey(active) : null;
+    const activeTree = activeId != null ? await api.getMonth(activeId) : null;
     setState((s) => {
       if (!s) return s;
-      const months = { ...s.months };
+      const months = {};
       if (tree) months[key] = treeToBlobMonth(tree);
-      else delete months[key];
+      if (activeTree) months[active] = treeToBlobMonth(activeTree);
       return { ...s, months };
     });
   }, [idForKey]);
@@ -339,20 +347,35 @@ export function StoreProvider({ children }) {
             return row;
           }
           case "deleteGroup":
-            await api.groupDelete(Number(A.groupId));
+            // Groups are shared by every month: this takes it out of this one.
+            await api.groupDelete(Number(A.groupId), idForKey(mk));
             return refreshMonth(mk);
           case "addItem": {
-            const row = await api.itemAdd(Number(A.groupId), {
-              name: A.name,
-              allocated: A.allocated,
-              account: idify(A.account),
-            });
+            // A pick from another month carries its category, and lands in that
+            // category's group. An account left out takes the category's default.
+            const fields = { name: A.name, allocated: A.allocated };
+            if (A.categoryId != null) fields.categoryId = Number(A.categoryId);
+            if (A.account !== undefined) fields.account = idify(A.account);
+            const row = await api.itemAdd(idForKey(mk), Number(A.groupId), fields);
             await refreshMonth(mk);
             return row;
           }
           case "deleteItem":
             await api.itemDelete(Number(A.itemId));
             return refreshMonth(mk);
+
+          case "setCategoryArchived":
+            // The month tree does not change, but the reusable picks it offers
+            // do, so the month is refetched like any other item edit.
+            await api.categorySetArchived(Number(A.id), !!A.archived);
+            return refreshMonth(mk);
+          case "mergeCategories": {
+            // Folds lines across every month and takes a backup first, so the
+            // cached months and 'lastBackup' are all stale: rehydrate.
+            const res = await api.categoryMerge(Number(A.fromId), Number(A.intoId));
+            await reload();
+            return res;
+          }
 
           case "reorderGroup":
             await api.groupReorder(idForKey(mk), Number(A.groupId), Number(A.targetId), !!A.after);
@@ -490,6 +513,14 @@ export function StoreProvider({ children }) {
     return list.map((s) => ({ ...s, monthLabel: monthLabel(s.month).short }));
   }, [idForKey]);
 
+  /* Categories, as Settings lists them, and what a merge would move. Both
+     write nothing; the writes are the two category actions on dispatch. */
+  const categories = useCallback(async () => (hasApi() ? api.categories() : []), []);
+  const previewMerge = useCallback(
+    (fromId, intoId) => api.categoryPreviewMerge(Number(fromId), Number(intoId)),
+    []
+  );
+
   const getMonth = useCallback(async (key) => {
     if (!hasApi()) return null;
     const id = idForKey(key);
@@ -513,6 +544,8 @@ export function StoreProvider({ children }) {
     trends,
     reusableItems,
     entrySuggestions,
+    categories,
+    previewMerge,
     getMonth,
   };
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

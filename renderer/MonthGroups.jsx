@@ -55,10 +55,11 @@ function announce(message) {
 
 /* The handle reorders by mouse (HTML5 drag on the row) or by keyboard. Both
    live here so the two paths cannot drift apart. */
-function DragHandle({ label, onGrab, onRelease, onMove, className = "" }) {
+function DragHandle({ label, onGrab, onRelease, onMove, className = "",
+  title = "Drag to reorder, or focus this and press the up and down arrow keys" }) {
   return (
     <button type="button" className={cx("drag-handle", className)} aria-label={label}
-      title="Drag to reorder, or focus this and press the up and down arrow keys"
+      title={title}
       onMouseDown={onGrab} onMouseUp={onRelease} onBlur={onRelease}
       onKeyDown={(e) => {
         if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
@@ -216,6 +217,8 @@ function MoveMenu({ anchorRef, groups, itemName, onPick, onClose }) {
           {g.isSavings && <Icons.plant size={13} className="move-menu-savings" />}
         </button>
       ))}
+      {/* The group belongs to the category, not to this month's line. */}
+      <div className="move-menu-note">Moves it in every month</div>
     </div>,
     document.body
   );
@@ -337,14 +340,19 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
       onDragEnd={() => { setGrabbed(false); drag.endItem(); }}
       className={cx("item-row", index === 0 && "is-first", isDragging && "is-dragging", isDropTarget && "is-drop-target")}>
       <div className="item-row-main">
+      {/* A drop in another group moves the category, so it says so here too,
+          as the Move menu does. */}
       <DragHandle label={`Reorder ${item.name}, item ${index + 1} of ${count} in ${group.name}`}
+        title="Drag to reorder, or onto another group to move it there in every month. Or focus this and press the up and down arrow keys"
         onGrab={() => setGrabbed(true)} onRelease={() => setGrabbed(false)} onMove={onMove} />
       <div className={cx("budget-row", "budget-row-item", open && "budget-row-open")}>
         <div className="item-name-cell">
           {/* The title is on the wrapper because the field itself is an input:
               it cannot ellipsis, so the full name has to be reachable some
-              other way (hover here, or scroll inside the field). */}
-          <span title={item.name} className="item-name-wrap">
+              other way (hover here, or scroll inside the field). Its second
+              line says what nothing on the row does: the name is the
+              category's, so a rename reaches every month. */}
+          <span title={`${item.name}\nRenaming it renames it in every month`} className="item-name-wrap">
             <TextInline value={item.name} col="itemName" label="Item name" className="item-name-input"
               onCommit={(v) => dispatch({ type: "renameItem", month, groupId: group.id, itemId: item.id, name: v })} />
           </span>
@@ -385,7 +393,7 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
             aria-label={otherGroups.length === 0
               ? `Move ${item.name} to another group. Unavailable: no other group in this month.`
               : `Move ${item.name} to another group`}
-            title={otherGroups.length === 0 ? "No other group to move this item to" : "Move to another group"}
+            title={otherGroups.length === 0 ? "No other group to move this item to" : "Move to another group, in every month"}
             onClick={() => setMoveOpen((o) => !o)}><Icons.move size={15} /></button>
           {moveOpen && (
             <MoveMenu anchorRef={moveBtnRef} groups={otherGroups} itemName={item.name}
@@ -401,7 +409,7 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
           confirmLabel="Delete item" icon={<Icons.trash size={15} />}
           onClose={() => setConfirmDelete(false)}
           onConfirm={() => { dispatch({ type: "deleteItem", month, groupId: group.id, itemId: item.id }); setConfirmDelete(false); }}>
-          This removes the item from this month only. {item.actuals.length > 0 ? `Its ${item.actuals.length} spending ${item.actuals.length === 1 ? "entry" : "entries"} will be deleted too.` : ""} Past months are not affected.
+          This removes the item from this month only. {item.actuals.length > 0 ? `Its ${item.actuals.length} spending ${item.actuals.length === 1 ? "entry" : "entries"} will be deleted too.` : ""} Other months are not affected.
         </ConfirmDialog>
       )}
     </div>
@@ -448,7 +456,7 @@ function AddItemSearch({ month, groupId, currency, dispatch, onClose, itemCount 
     if (inputRef.current) inputRef.current.focus();
   };
   const selectCandidate = (candidate) => {
-    submit({ type: "addItem", month, groupId, name: candidate.name, allocated: candidate.allocated, account: candidate.account });
+    submit({ type: "addItem", month, groupId, categoryId: candidate.categoryId, name: candidate.name, allocated: candidate.allocated, account: candidate.account });
   };
   const createItem = () => {
     if (!trimmed) { onClose(); return; }
@@ -470,7 +478,7 @@ function AddItemSearch({ month, groupId, currency, dispatch, onClose, itemCount 
       </div>
       <div className="add-item-results">
         {shown.length > 0 ? shown.map((candidate) => (
-          <button key={`${candidate.month}:${candidate.name}`} type="button" disabled={saving}
+          <button key={candidate.categoryId} type="button" disabled={saving}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => selectCandidate(candidate)}
             className="picker-option add-item-option">
@@ -643,10 +651,13 @@ function GroupCard({ group, groups, currency, dispatch, month, accounts, drag })
           confirmLabel="Delete group" icon={<Icons.trash size={15} />}
           onClose={() => setConfirmDelete(false)}
           onConfirm={() => { dispatch({ type: "deleteGroup", month, groupId: group.id }); setConfirmDelete(false); }}>
+          {/* Groups are shared by every month. What the delete leaves depends on
+              other months, which this card cannot see, so both outcomes are said. */}
           {itemCount === 0
-            ? "This group is empty, so nothing else goes with it. It is removed from this month only, and past months are not affected."
-            : <>This removes the group and its {itemCount} {itemCount === 1 ? "item" : "items"}
-              {entryCount > 0 ? <> and their {entryCount} spending {entryCount === 1 ? "entry" : "entries"}</> : null} from this month only. Past months are not affected.</>}
+            ? "Nothing in this month is in it."
+            : <>This removes its {itemCount} {itemCount === 1 ? "item" : "items"}
+              {entryCount > 0 ? <> and their {entryCount} spending {entryCount === 1 ? "entry" : "entries"}</> : null} from this month only.</>}
+          {" "}Months that still have items in it keep them, and the group stays there but stops showing in other months. If no month uses it, it is deleted. Adding a group with the same name brings it back.
         </ConfirmDialog>
       )}
     </div>

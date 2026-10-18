@@ -58,17 +58,17 @@ app.whenReady().then(() => {
     months.insertIncome(db, { budget_month_id: mid, household_member_id: ze, label: 'Salary', amount_cents: 250000, sort_order: 0 });
     months.insertIncome(db, { budget_month_id: mid, household_member_id: irina, label: 'Salary', amount_cents: 220000, sort_order: 1 });
 
-    const gHome = months.insertGroup(db, { budget_month_id: mid, name: 'Home', kind: 'spend', sort_order: 0, collapsed: 0 });
-    const gSave = months.insertGroup(db, { budget_month_id: mid, name: 'Savings', kind: 'savings', sort_order: 1, collapsed: 0 });
+    const gHome = months.insertGroup(db, { name: 'Home', kind: 'spend', sort_order: 0, collapsed: 0 });
+    const gSave = months.insertGroup(db, { name: 'Savings', kind: 'savings', sort_order: 1, collapsed: 0 });
 
-    const rent = months.insertItem(db, { budget_group_id: gHome, name: 'Rent', planned_cents: 120000, bank_account_id: main, sort_order: 0 });
+    const rent = months.addItemByName(db, { monthId: mid, groupId: gHome, name: 'Rent', planned_cents: 120000, bank_account_id: main });
     months.insertActualEntry(db, { budget_item_id: rent, spent_on: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`, amount_cents: 120000, name: null, note: null });
 
-    const groceries = months.insertItem(db, { budget_group_id: gHome, name: 'Groceries', planned_cents: 30000, bank_account_id: wallet, sort_order: 1 });
+    const groceries = months.addItemByName(db, { monthId: mid, groupId: gHome, name: 'Groceries', planned_cents: 30000, bank_account_id: wallet });
     months.insertActualEntry(db, { budget_item_id: groceries, spent_on: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-04`, amount_cents: 27999, name: 'Weekly shop', note: null });
     months.insertActualEntry(db, { budget_item_id: groceries, spent_on: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-11`, amount_cents: 5500, name: null, note: null }); // pushes Groceries over budget
 
-    months.insertItem(db, { budget_group_id: gSave, name: 'Emergency fund', planned_cents: 50000, bank_account_id: null, sort_order: 0 });
+    months.addItemByName(db, { monthId: mid, groupId: gSave, name: 'Emergency fund', planned_cents: 50000, bank_account_id: null });
 
     db.close();
     console.log(`SEED_OK ${dbFile}`);

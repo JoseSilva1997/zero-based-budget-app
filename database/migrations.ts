@@ -5,6 +5,8 @@
    - Each migration is a numbered, idempotent `up(db)`.
    - The runner applies any migration whose `version` > the DB's current
      user_version, each in its own transaction, then bumps user_version.
+   - Before the first pending migration it calls `beforeMigrating`, which
+     main/db.ts uses to back the database up (never on a fresh install).
    - Append-only: never edit a shipped migration; add a new one.
    ============================================================ */
 import type Database from 'better-sqlite3';
@@ -232,7 +234,246 @@ const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    version: 8,
+    name: 'month-independent groups and categories; items become plan lines',
+    // Not atomic: rebuilding budget_groups and budget_items needs
+    // PRAGMA foreign_keys=OFF, which only takes effect outside a transaction.
+    // Everything else runs in one transaction of its own. Idempotent: a DB
+    // whose groups no longer belong to a month is left alone. The caller
+    // (main/db.ts) has taken a backup before any migration runs.
+    atomic: false,
+    up: (db) => {
+      if (!hasColumn(db, 'budget_groups', 'budget_month_id')) return;
+      const fkWasOn = db.pragma('foreign_keys', { simple: true }) === 1;
+      db.pragma('foreign_keys = OFF');
+      try {
+        db.transaction(() => mergeMonthsIntoCategories(db))();
+      } finally {
+        db.pragma(`foreign_keys = ${fkWasOn ? 'ON' : 'OFF'}`);
+      }
+    },
+  },
 ];
+
+/** Trimmed, inner whitespace collapsed, case-folded: the form names are
+ *  merged on. A copy of normalizeName in repositories/categories.ts, kept
+ *  here so a shipped migration never changes when the repository does. */
+function migrationKey(name: string): string {
+  return String(name || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+/**
+ * Migration 8's body. Groups were cloned into every month, and items into
+ * every group, so nothing linked September's "Groceries" to October's. Here:
+ * - groups merge on their normalised name into one month-independent group,
+ *   taking kind, collapsed and position from the newest month that has it;
+ * - items merge on normalised (group name, item name) into one category,
+ *   taking its name, position and default account from the newest month;
+ * - every item becomes a plan line for its category, keeping its id (so its
+ *   entries keep pointing at it), planned amount, account and position;
+ * - two items that merge into one category in the SAME month become one plan
+ *   line: planned amounts summed, entries moved to the surviving line;
+ * - a group the newest month does not have is archived: every active group
+ *   shows in every month, and it had been dropped. It still shows in the
+ *   months where it has plan lines.
+ */
+function mergeMonthsIntoCategories(db: Database.Database): void {
+  const oldGroups = db
+    .prepare(
+      `SELECT g.*, m.month AS month FROM budget_groups g
+         JOIN budget_months m ON m.id = g.budget_month_id
+        ORDER BY m.month DESC, g.sort_order, g.id`
+    )
+    .all() as Array<{
+    id: number;
+    budget_month_id: number;
+    name: string;
+    kind: string;
+    collapsed: number;
+    month: string;
+  }>;
+  const oldItems = db
+    .prepare(
+      `SELECT it.*, g.budget_month_id AS month_id FROM budget_items it
+         JOIN budget_groups g ON g.id = it.budget_group_id
+         JOIN budget_months m ON m.id = g.budget_month_id
+        ORDER BY m.month DESC, it.sort_order, it.id`
+    )
+    .all() as Array<{
+    id: number;
+    budget_group_id: number;
+    name: string;
+    planned_cents: number;
+    bank_account_id: number | null;
+    sort_order: number;
+    created_at: string;
+    updated_at: string;
+    month_id: number;
+  }>;
+
+  // Groups: the first row seen per key is the newest month's, and the order
+  // seen is (newest month, position), which is also the new global order.
+  // An active group shows in every month from now on, so one the newest month
+  // no longer has is archived rather than resurfacing everywhere.
+  const newestMonth = oldGroups.length ? oldGroups[0].month : null;
+  const groupFor = new Map<number, number>(); // old group id -> new group id
+  const groupByKey = new Map<string, number>();
+  const newGroups: Array<{
+    id: number;
+    name: string;
+    kind: string;
+    collapsed: number;
+    inNewest: boolean;
+  }> = [];
+  for (const g of oldGroups) {
+    const key = migrationKey(g.name);
+    let id = groupByKey.get(key);
+    if (id === undefined) {
+      id = g.id;
+      groupByKey.set(key, id);
+      newGroups.push({
+        id,
+        name: g.name.trim(),
+        kind: g.kind,
+        collapsed: g.collapsed,
+        inNewest: g.month === newestMonth,
+      });
+    }
+    groupFor.set(g.id, id);
+  }
+
+  // Categories, the same way, keyed within their new group.
+  const catByKey = new Map<string, number>();
+  const newCats: Array<{ id: number; group_id: number; name: string; account: number | null }> = [];
+  const lineByMonthCat = new Map<string, number>(); // "month|category" -> surviving item id
+  const lines: Array<{ item: (typeof oldItems)[number]; category_id: number }> = [];
+  const merged: Array<{ from: number; into: number; planned: number }> = [];
+  // Within a month, the earlier position survives a duplicate; the ORDER BY
+  // above already puts it first.
+  for (const it of oldItems) {
+    const groupId = groupFor.get(it.budget_group_id) as number;
+    const key = `${groupId}|${migrationKey(it.name)}`;
+    let catId = catByKey.get(key);
+    if (catId === undefined) {
+      catId = newCats.length + 1;
+      catByKey.set(key, catId);
+      newCats.push({
+        id: catId,
+        group_id: groupId,
+        name: it.name.trim().replace(/\s+/g, ' '),
+        account: it.bank_account_id,
+      });
+    }
+    const slot = `${it.month_id}|${catId}`;
+    const survivor = lineByMonthCat.get(slot);
+    if (survivor === undefined) {
+      lineByMonthCat.set(slot, it.id);
+      lines.push({ item: it, category_id: catId });
+    } else {
+      merged.push({ from: it.id, into: survivor, planned: it.planned_cents });
+    }
+  }
+  for (const m of merged) {
+    const into = lines.find((l) => l.item.id === m.into);
+    if (into) into.item.planned_cents += m.planned;
+  }
+
+  db.exec(`
+    CREATE TABLE budget_groups_new (
+      id INTEGER PRIMARY KEY,
+      name TEXT NOT NULL,
+      kind TEXT NOT NULL DEFAULT 'spend' CHECK (kind IN ('spend','savings','debt')),
+      collapsed INTEGER NOT NULL DEFAULT 0,
+      archived INTEGER NOT NULL DEFAULT 0,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE categories (
+      id INTEGER PRIMARY KEY,
+      group_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      bank_account_id INTEGER REFERENCES bank_accounts(id),
+      archived INTEGER NOT NULL DEFAULT 0,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (group_id) REFERENCES budget_groups(id) ON DELETE RESTRICT
+    );
+    CREATE TABLE budget_items_new (
+      id INTEGER PRIMARY KEY,
+      budget_month_id INTEGER NOT NULL,
+      category_id INTEGER NOT NULL,
+      planned_cents INTEGER NOT NULL DEFAULT 0 CHECK (planned_cents >= 0),
+      bank_account_id INTEGER REFERENCES bank_accounts(id),
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (budget_month_id, category_id),
+      FOREIGN KEY (budget_month_id) REFERENCES budget_months(id) ON DELETE CASCADE,
+      FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT
+    );
+  `);
+
+  const insGroup = db.prepare(
+    `INSERT INTO budget_groups_new (id, name, kind, collapsed, archived, sort_order)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  );
+  newGroups.forEach((g, idx) => {
+    insGroup.run(g.id, g.name, g.kind, g.collapsed, g.inNewest ? 0 : 1, idx);
+  });
+
+  const insCat = db.prepare(
+    `INSERT INTO categories (id, group_id, name, bank_account_id, sort_order) VALUES (?, ?, ?, ?, ?)`
+  );
+  const catSort = new Map<number, number>(); // group id -> next position
+  for (const c of newCats) {
+    const at = catSort.get(c.group_id) ?? 0;
+    catSort.set(c.group_id, at + 1);
+    insCat.run(c.id, c.group_id, c.name, c.account, at);
+  }
+
+  const insLine = db.prepare(
+    `INSERT INTO budget_items_new
+       (id, budget_month_id, category_id, planned_cents, bank_account_id, sort_order, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  for (const { item: it, category_id } of lines) {
+    insLine.run(
+      it.id, it.month_id, category_id, it.planned_cents, it.bank_account_id,
+      it.sort_order, it.created_at, it.updated_at
+    );
+  }
+  const repoint = db.prepare(
+    `UPDATE budget_item_actual_entries SET budget_item_id = ? WHERE budget_item_id = ?`
+  );
+  for (const m of merged) repoint.run(m.into, m.from);
+
+  db.exec(`
+    DROP TABLE budget_items;
+    DROP TABLE budget_groups;
+    ALTER TABLE budget_groups_new RENAME TO budget_groups;
+    ALTER TABLE budget_items_new RENAME TO budget_items;
+    CREATE UNIQUE INDEX idx_categories_group_name ON categories(group_id, name COLLATE NOCASE);
+    CREATE INDEX idx_budget_items_category ON budget_items(category_id);
+    CREATE TRIGGER budget_groups_set_updated_at
+    AFTER UPDATE ON budget_groups FOR EACH ROW
+    BEGIN UPDATE budget_groups SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id; END;
+    CREATE TRIGGER categories_set_updated_at
+    AFTER UPDATE ON categories FOR EACH ROW
+    BEGIN UPDATE categories SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id; END;
+    CREATE TRIGGER budget_items_set_updated_at
+    AFTER UPDATE ON budget_items FOR EACH ROW
+    BEGIN UPDATE budget_items SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id; END;
+  `);
+
+  // Verify integrity before committing (rolls back on any violation).
+  const violations = db.pragma('foreign_key_check') as unknown[];
+  if (violations.length > 0) {
+    throw new Error(`migration 8 left ${violations.length} foreign-key violation(s)`);
+  }
+}
 
 /** Highest version this build knows about. */
 export const LATEST_VERSION = MIGRATIONS.reduce(
@@ -250,14 +491,27 @@ function setUserVersion(db: Database.Database, version: number): void {
   db.pragma(`user_version = ${version}`);
 }
 
+export interface RunOptions {
+  /**
+   * Called once, before the first pending migration touches anything, with the
+   * version the DB is at and the one it is going to. Not called when nothing
+   * is pending. main/db.ts takes a backup here; a throw aborts the run.
+   */
+  beforeMigrating?: (fromVersion: number, toVersion: number) => void;
+}
+
 /**
  * Apply every pending migration. Assumes the baseline schema already exists
  * (db.ts execs `schema.sql`/`triggers.sql` and sets user_version = BASELINE_VERSION on
  * a fresh DB before calling this).
  */
-export function runMigrations(db: Database.Database): void {
+export function runMigrations(db: Database.Database, opts: RunOptions = {}): void {
   let current = getUserVersion(db);
-  for (const migration of MIGRATIONS.filter((m) => m.version > current)) {
+  const pending = MIGRATIONS.filter((m) => m.version > current);
+  if (pending.length > 0 && opts.beforeMigrating) {
+    opts.beforeMigrating(current, LATEST_VERSION);
+  }
+  for (const migration of pending) {
     if (migration.atomic === false) {
       // The migration owns its own transaction(s); we just bump the version
       // afterwards. Idempotent migrations re-run cleanly if this is interrupted.

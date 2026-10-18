@@ -22,6 +22,9 @@ import type {
   IncomeRead,
   GroupRead,
   ItemRead,
+  CategoryRead,
+  MergeImpact,
+  MergeResult,
   ActualRead,
   HouseholdMember,
   BankAccount,
@@ -77,13 +80,16 @@ const api = {
     id: number,
     patch: { name?: string; collapsed?: boolean; isSavings?: boolean; kind?: GroupKind }
   ) => invoke<Ok>('group:update', { id, patch }),
-  groupDelete: (id: number) => invoke<Ok>('group:delete', { id }),
+  groupDelete: (id: number, monthId: number) => invoke<Ok>('group:delete', { id, monthId }),
   groupReorder: (monthId: number, id: number, targetId: number, after: boolean) =>
     invoke<Ok>('group:reorder', { monthId, id, targetId, after }),
 
   /* ---------- items ---------- */
-  itemAdd: (groupId: number, fields: { name?: string; allocated?: number; account?: number | null }) =>
-    invoke<ItemRead>('item:add', { groupId, ...fields }),
+  itemAdd: (
+    monthId: number,
+    groupId: number,
+    fields: { categoryId?: number | null; name?: string; allocated?: number; account?: number | null }
+  ) => invoke<ItemRead>('item:add', { monthId, groupId, ...fields }),
   itemUpdate: (
     id: number,
     patch: { name?: string; allocated?: number; account?: number | null }
@@ -93,6 +99,17 @@ const api = {
     invoke<Ok>('item:reorder', { groupId, id, targetId }),
   itemMove: (id: number, toGroupId: number, targetId: number | null) =>
     invoke<Ok>('item:move', { id, toGroupId, targetId }),
+
+  /* ---------- categories ----------
+     What an item is FOR, the same in every month. Merging is previewed first
+     (writes nothing), and the merge itself backs up before it writes. */
+  categories: () => invoke<CategoryRead[]>('category:list'),
+  categorySetArchived: (id: number, archived: boolean) =>
+    invoke<Ok>('category:setArchived', { id, archived }),
+  categoryPreviewMerge: (fromId: number, intoId: number) =>
+    invoke<MergeImpact>('category:previewMerge', { fromId, intoId }),
+  categoryMerge: (fromId: number, intoId: number) =>
+    invoke<MergeResult>('category:merge', { fromId, intoId }),
 
   /* ---------- actuals ---------- */
   actualAdd: (

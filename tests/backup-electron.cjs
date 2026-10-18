@@ -5,7 +5,9 @@
       (from an install that picked it, or carried in by restoring an old
       backup) must keep backing up on close rather than silently stop, and
       settings:update must refuse it.
-   2. The cloud backup folder, against temp folders standing in for a synced
+   2. The backup taken before migrating an existing database: a restorable
+      copy, listed with the others.
+   3. The cloud backup folder, against temp folders standing in for a synced
       one: local always first, a cloud failure never fails a backup, the
       marker guard, per-device pruning, catch-up, and restore staging.
 
@@ -78,6 +80,7 @@ app.whenReady().then(async () => {
     eq(typeof res.error, 'string', 'daily is refused');
     eq(res.error.includes('daily'), true, 'refusal names the value');
 
+    preMigrationBackupChecks(b, sandbox);
     await cloudFolderChecks(b, sandbox);
     await cloudServiceChecks(b, sandbox);
 
@@ -105,6 +108,50 @@ function makeDb(b, file) {
   b('database', 'migrations.js').runMigrations(db);
   b('database', 'repositories', 'months.js').insertMonth(db, '2026-10');
   return db;
+}
+
+/* ---- the backup main/db.ts takes before migrating an existing database ---- */
+function preMigrationBackupChecks(b, sandbox) {
+  const backups = b('database', 'repositories', 'backups.js');
+  const dir = path.join(sandbox, 'premigration');
+  fs.mkdirSync(dir, { recursive: true });
+  const db = makeDb(b, path.join(dir, 'live.sqlite'));
+  db.pragma('journal_mode = WAL'); // the live database runs in WAL mode
+
+  // Synchronous: it runs inside initDb, before anything else has the database.
+  const info = backups.createDbBackupSync(db, dir, 'before-v8');
+  assert(fs.existsSync(info.path), 'the backup file exists');
+  assert(info.fileName.includes('before-v8'), `the file name says why it was taken (${info.fileName})`);
+  eq(backups.listBackups(dir).some((x) => x.fileName === info.fileName), true, 'it is listed with the other backups');
+  eq(backups.inspectBackupFile(info.path).months, 1, 'it is a restorable copy of the database');
+  db.close();
+
+  // Wired into startup: opening a database a migration is pending for backs it
+  // up first, and opening a brand-new one does not (there is nothing to keep).
+  // Run as a script, the app path is tests/; the schema lives at the repo root.
+  app.getAppPath = () => path.join(__dirname, '..');
+  const paths = b('main', 'paths.js');
+  const dbm = b('main', 'db.js');
+  const { LATEST_VERSION } = b('database', 'migrations.js');
+  const before = () => backups.listBackups(paths.backupsDir()).length;
+
+  const fresh = before();
+  dbm.initDb();
+  dbm.closeDb();
+  eq(before(), fresh, 'a fresh install takes no backup');
+
+  const old = new (require('better-sqlite3'))(paths.dbPath());
+  old.pragma(`user_version = ${LATEST_VERSION - 1}`);
+  old.close();
+  dbm.initDb();
+  dbm.closeDb();
+  const taken = backups.listBackups(paths.backupsDir());
+  eq(taken.length, fresh + 1, 'a pending migration takes one backup');
+  assert(taken[0].fileName.includes(`before-v${LATEST_VERSION}`), `named for the migration (${taken[0].fileName})`);
+
+  dbm.initDb();
+  dbm.closeDb();
+  eq(before(), fresh + 1, 'an up-to-date database takes no backup');
 }
 
 /* ---- the file layer: database/repositories/cloudFolder ---- */
@@ -227,6 +274,8 @@ async function cloudFolderChecks(b, sandbox) {
 /* ---- the service: main/cloudBackup (local first, failures reported) ---- */
 async function cloudServiceChecks(b, sandbox) {
   const svc = b('main', 'cloudBackup.js');
+  // Run as a script, the app path is tests/; the schema lives at the repo root.
+  app.getAppPath = () => path.join(__dirname, '..');
   const paths = b('main', 'paths.js');
   const dir = path.join(sandbox, 'svc');
   const picked = path.join(dir, 'OneDrive');
