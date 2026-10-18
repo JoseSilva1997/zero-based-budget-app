@@ -274,8 +274,9 @@ function migrationKey(name: string): string {
  *   entries keep pointing at it), planned amount, account and position;
  * - two items that merge into one category in the SAME month become one plan
  *   line: planned amounts summed, entries moved to the surviving line;
- * - a group with no items that is not in the newest month is archived, since
- *   an empty group otherwise shows in every month.
+ * - a group the newest month does not have is archived: every active group
+ *   shows in every month, and it had been dropped. It still shows in the
+ *   months where it has plan lines.
  */
 function mergeMonthsIntoCategories(db: Database.Database): void {
   const oldGroups = db
@@ -313,8 +314,8 @@ function mergeMonthsIntoCategories(db: Database.Database): void {
 
   // Groups: the first row seen per key is the newest month's, and the order
   // seen is (newest month, position), which is also the new global order.
-  // A group with no items shows in every month from now on, so one that was
-  // only ever empty in older months is archived rather than resurfacing.
+  // An active group shows in every month from now on, so one the newest month
+  // no longer has is archived rather than resurfacing everywhere.
   const newestMonth = oldGroups.length ? oldGroups[0].month : null;
   const groupFor = new Map<number, number>(); // old group id -> new group id
   const groupByKey = new Map<string, number>();
@@ -419,10 +420,8 @@ function mergeMonthsIntoCategories(db: Database.Database): void {
     `INSERT INTO budget_groups_new (id, name, kind, collapsed, archived, sort_order)
      VALUES (?, ?, ?, ?, ?, ?)`
   );
-  const usedGroups = new Set(newCats.map((c) => c.group_id));
   newGroups.forEach((g, idx) => {
-    const stale = !usedGroups.has(g.id) && !g.inNewest;
-    insGroup.run(g.id, g.name, g.kind, g.collapsed, stale ? 1 : 0, idx);
+    insGroup.run(g.id, g.name, g.kind, g.collapsed, g.inNewest ? 0 : 1, idx);
   });
 
   const insCat = db.prepare(

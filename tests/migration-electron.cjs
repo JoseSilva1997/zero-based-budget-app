@@ -171,8 +171,9 @@ const V7_SCHEMA = `
    - September has 'Groceries' AND 'groceries' in Bills, both with entries:
      one category, so one plan line holding both amounts and all entries.
    - 'Old stuff' was an empty group only in August, and 'New ideas' is an
-     empty group in October: an empty group shows in every month, so only the
-     one still in the newest month should. */
+     empty group in October. An active group shows in every month, so every
+     group the newest month no longer has ('Fun', 'Old stuff') is archived:
+     it stays in the months where it has lines, and nowhere else. */
 const V7_DATA = `
   INSERT INTO household_members (id, name) VALUES (1, 'Alex');
   INSERT INTO bank_accounts (id, name, kind) VALUES (1, 'Main', 'main'), (2, 'Joint', 'joint');
@@ -250,10 +251,10 @@ function perMonthToCategories(Database, runner, months) {
       ['Holidays', 'spend', 0, 0],
       ['Bills', 'debt', 0, 0],
       ['New ideas', 'spend', 0, 0],
-      ['Fun', 'spend', 1, 0],
+      ['Fun', 'spend', 1, 1],
       ['Old stuff', 'spend', 0, 1],
     ],
-    'groups merged across months, newest month deciding; a stale empty group archived'
+    'groups merged across months, newest month deciding; a group the newest month no longer has is archived'
   );
 
   /* categories: merged on (group, name), newest month's name and account */
