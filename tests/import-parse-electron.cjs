@@ -54,6 +54,48 @@ app.whenReady().then(() => {
     eq(parseCsv('a,b\n1,2').records, [{ a: '1', b: '2' }], 'the last record needs no newline');
     eq(parseCsv('a,b\n1,"two\nlines"\n').records, [{ a: '1', b: 'two\nlines' }], 'a quoted field may span lines');
 
+    const { detectPreset } = imp('presets', 'index.js');
+    const fixture = (bank) => parseCsv(fs.readFileSync(path.join(__dirname, 'fixtures', 'import', `${bank}.csv`), 'utf8'));
+    // The fields a test cares about, so one row reads on one line.
+    const brief = (r) => [r.rowIndex, r.spentOn, r.postedOn, r.amountCents, r.direction, r.descriptorClean];
+
+    /* ---- Monzo ---- */
+    {
+      const file = fixture('monzo');
+      const monzo = detectPreset(file.header);
+      eq(monzo && monzo.key, 'monzo', 'a Monzo header is detected');
+      const rows = monzo.parse(file.records, { bankProduct: null });
+      eq(
+        rows.map(brief),
+        [
+          [2, '2026-01-01', '2026-01-01', 12212, 'debit', 'Alex Example'],
+          [3, '2026-01-05', '2026-01-05', 500, 'credit', 'EXAMPLE SAM SI'],
+          [4, '2026-01-06', '2026-01-06', 1240, 'debit', 'Tesco'],
+        ],
+        'Monzo: pot transfers are dropped; the signed Amount gives pence and direction; Name is the descriptor'
+      );
+      eq(rows[2].features, { category: 'Groceries', type: 'Card payment' }, 'Monzo: Category and Type are features');
+      eq(rows[2].descriptorRaw, 'Tesco', 'Monzo: the raw descriptor is Name as written');
+      eq(rows[2].raw['Transaction ID'], 'tx_0000AAAA5555555555555555', 'Monzo: the raw record is kept');
+      eq(monzo.fileAccountIdentifier(file.records), null, 'Monzo: a statement names no account');
+
+      // A row that can't be read comes back marked, never as a throw.
+      const bad = monzo.parse(
+        [
+          { ...file.records[4], Amount: 'twelve' },
+          { ...file.records[4], Date: '2026-01-06' },
+          { ...file.records[4], Amount: '-12.405' },
+        ],
+        { bankProduct: null }
+      );
+      eq(
+        bad.map((r) => r.parseError),
+        ['Amount "twelve" is not an amount', 'Date "2026-01-06" is not a DD/MM/YYYY date', 'Amount "-12.405" is not an amount'],
+        'Monzo: an unreadable amount or date is a parse error naming the field'
+      );
+      eq(monzo.parse([file.records[4]], { bankProduct: null })[0].parseError, undefined, 'a good row has no parse error');
+    }
+
     console.log('IMPORT_PARSE_OK');
   } catch (err) {
     console.error('IMPORT_PARSE_FAIL', err && err.stack ? err.stack : err);

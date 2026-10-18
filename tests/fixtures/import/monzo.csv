@@ -1,0 +1,6 @@
+Transaction ID,Date,Time,Type,Name,Emoji,Category,Amount,Currency,Local amount,Local currency,Notes and #tags,Address,Receipt,Description,Category split,Money Out,Money In
+tx_0000AAAA1111111111111111,01/01/2026,17:50:37,Pot transfer,Going Out Pot,,Transfers,92,GBP,92,GBP,,,,,,,92
+tx_0000AAAA2222222222222222,01/01/2026,17:50:47,Pot transfer,Personal  Pot,,Transfers,28.62,GBP,28.62,GBP,,,,,,,28.62
+tx_0000AAAA3333333333333333,01/01/2026,17:52:01,Faster payment,Alex Example,,Transfers,-122.12,GBP,-122.12,GBP,Alex Exampl,,,Alex Exampl,,-122.12,
+tx_0000AAAA4444444444444444,05/01/2026,14:54:45,Faster payment,EXAMPLE SAM  SI,,Transfers,5,GBP,5,GBP,MONZO-ABCDE,,,MONZO-ABCDE,,,5
+tx_0000AAAA5555555555555555,06/01/2026,12:03:11,Card payment,Tesco,,Groceries,-12.40,GBP,-12.40,GBP,,,,TESCO STORES 1234 LONDON GBR,,-12.40,
