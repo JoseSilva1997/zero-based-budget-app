@@ -353,7 +353,152 @@ export interface BootstrapData {
 
 /* ---------- 4. IPC envelope + payloads ----------------------------------- */
 
-export type IpcResult<T> = { data: T } | { error: string };
+/** A refusal may carry a machine-readable 'code' (and 'detail') beside its
+ *  user-facing message, for the renderer to act on: 'needs_bank' from
+ *  import:addFile. */
+export type IpcResult<T> = { data: T } | { error: string; code?: string; detail?: unknown };
+
+/* ---------- Upload transactions (main/ipc/imports.ts) ---------------------
+   Money here is integer PENCE and dates "YYYY-MM-DD", unlike the blob. */
+
+export type ImportLabelKey =
+  | 'ok'
+  | 'uncategorised'
+  | 'low_confidence'
+  | 'not_in_month'
+  | 'possible_duplicate'
+  | 'out_of_month'
+  | 'transfer'
+  | 'credit'
+  | 'already_imported'
+  | 'parse_error'
+  | 'not_completed';
+
+export interface ImportLabel {
+  key: ImportLabelKey;
+  severity: 'none' | 'info' | 'warn' | 'block';
+  /** The chip's text; '' for 'ok', which has no chip. */
+  text: string;
+}
+
+/** An existing entry an upload row may be the same spend as. */
+export interface ImportDuplicate {
+  id: number;
+  spentOn: string;
+  amountCents: number;
+  name: string | null;
+  categoryName: string;
+}
+
+export interface ImportRowRead {
+  id: number;
+  fileId: number;
+  rowIndex: number;
+  /* The bank's facts, as parsed (dates, amount and direction are null only
+     on a parse error). */
+  postedOn: string | null;
+  spentOn: string | null;
+  amountCents: number | null;
+  direction: 'debit' | 'credit' | null;
+  descriptorRaw: string;
+  descriptorClean: string;
+  features: Record<string, string>;
+  parseError: string | null;
+  notCompleted: boolean;
+  /* Effective: your decision where you made one, else the default. */
+  categoryId: number | null;
+  name: string;
+  kind: 'spend' | 'transfer';
+  included: boolean;
+  /** The classifier's guess (a category id, or 'transfer'), or null. */
+  prediction: { label: number | 'transfer'; confidence: number } | null;
+  labels: ImportLabel[];
+  duplicates: ImportDuplicate[];
+  /** What you decided; null means "the default". */
+  decisions: {
+    categoryId: number | null;
+    name: string | null;
+    kind: 'spend' | 'transfer' | null;
+    included: boolean | null;
+    linkedEntryId: number | null;
+  };
+}
+
+export interface ImportFileRead {
+  id: number;
+  filename: string;
+  rowCount: number;
+  createdAt: string;
+}
+
+export interface ImportReviewAccount {
+  account: BankAccount;
+  bank: Bank | null;
+  files: ImportFileRead[];
+  rows: ImportRowRead[];
+}
+
+/** A plan line in the target month, for "Over plan after import". */
+export interface ImportPlanLine {
+  itemId: number;
+  categoryId: number;
+  name: string;
+  plannedCents: number;
+  actualCents: number;
+}
+
+/** A category the picker offers. */
+export interface ImportCategoryOption {
+  id: number;
+  name: string;
+  groupId: number;
+  groupName: string;
+  /** Has a plan line in the target month (listed first). */
+  inMonth: boolean;
+}
+
+export interface ImportReview {
+  month: { id: number; month: string };
+  batch: { id: number; status: 'pending'; createdAt: string } | null;
+  accounts: ImportReviewAccount[];
+  plan: ImportPlanLine[];
+  categories: ImportCategoryOption[];
+}
+
+export interface ImportRowPatch {
+  categoryId?: number | null;
+  name?: string | null;
+  kind?: 'spend' | 'transfer' | null;
+  included?: boolean | null;
+  linkedEntryId?: number | null;
+}
+
+export interface ImportAddedFile {
+  id: number;
+  batchId: number;
+  accountId: number;
+  filename: string;
+  rowCount: number;
+}
+
+export interface ImportConfirmResult {
+  /** Entries written. */
+  entries: number;
+  totalCents: number;
+  /** Rows matched to an existing entry instead. */
+  linked: number;
+  /** Plan lines created at £0 for categories the month didn't have. */
+  linesCreated: number;
+}
+
+/** An imported batch, as "Previous imports" lists it. */
+export interface ImportHistoryRow {
+  id: number;
+  importedAt: string;
+  filenames: string[];
+  /** Entries it created that still exist. */
+  entries: number;
+}
 
 /**
  * One documented keyboard shortcut, as the Settings section renders it.

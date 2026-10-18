@@ -116,12 +116,54 @@ app.whenReady().then(() => {
         'an unrecognised file too'
       );
       eq([unknown.code, unknown.detail], ['needs_bank', { preset: null, products: null }], 'with no preset');
+      eq(imports.getReview(db, sep).batch, null, 'a refused file leaves no batch behind');
 
       // Set up as the UI would, then retry.
       const rev = banks.createBank(db, { name: 'Revolut', preset: 'revolut' });
       banks.setAccountBank(db, travel, rev, 'Current');
       const file = imports.addFile(db, { monthId: sep, accountId: travel, filename: 'rev.csv', text: fixture('revolut') });
       eq(file.rowCount, 5, "only the account's own product is kept");
+      db.close();
+    }
+
+    /* ---- the review ---- */
+    {
+      const { db, sep, joint } = setup();
+      const bills = months.insertGroup(db, { name: 'Bills', kind: 'spend', sort_order: 0, collapsed: 0 });
+      const home = months.insertGroup(db, { name: 'Home', kind: 'spend', sort_order: 1, collapsed: 0 });
+      const food = months.addItemByName(db, { monthId: sep, groupId: bills, name: 'Food', planned_cents: 30000 });
+      months.insertActualEntry(db, { budget_item_id: food, spent_on: '2026-09-01', amount_cents: 1000, name: 'Corner shop', note: null });
+      const oct = months.insertMonth(db, '2026-10');
+      months.addItemByName(db, { monthId: oct, groupId: home, name: 'Garden', planned_cents: 500 });
+      const foodCat = months.getItemById(db, food).category_id;
+
+      const empty = imports.getReview(db, sep);
+      eq(empty.batch, null, 'no upload yet, no batch');
+      eq(empty.accounts.map((a) => [a.account.name, a.bank && a.bank.name, a.files.length, a.rows.length]), [['Joint', 'NatWest', 0, 0], ['Travel', null, 0, 0]], 'every account, in order, with its bank');
+
+      const file = imports.addFile(db, { monthId: sep, accountId: joint, filename: 'sep.csv', text: fixture('natwest') });
+      const review = imports.getReview(db, sep);
+      eq([review.batch.id, review.batch.status], [file.batchId, 'pending'], 'the pending batch');
+      const [jointSec] = review.accounts;
+      eq(jointSec.files.map((f) => [f.id, f.filename, f.rowCount]), [[file.id, 'sep.csv', 3]], "the account's files");
+      const r = jointSec.rows[1];
+      eq(
+        [r.fileId, r.rowIndex, r.spentOn, r.postedOn, r.amountCents, r.direction, r.descriptorClean, r.features],
+        [file.id, 1, '2026-09-26', '2026-09-28', 1699, 'debit', 'SUPERDRUG STORES PLC', { type: 'POS' }],
+        'a row carries its parsed fields'
+      );
+      eq([r.categoryId, r.name, r.kind, r.included, r.prediction], [null, 'SUPERDRUG STORES PLC', 'spend', false, null], 'with nothing learned, no category and unticked');
+      eq(r.labels, [{ key: 'uncategorised', severity: 'block', text: 'No category' }], 'labelled uncategorised');
+      eq(r.decisions, { categoryId: null, name: null, kind: null, included: null, linkedEntryId: null }, 'and no decisions yet');
+      eq(review.accounts[1].rows, [], "another account's section is empty");
+
+      eq(review.plan, [{ itemId: food, categoryId: foodCat, name: 'Food', plannedCents: 30000, actualCents: 1000 }], "the month's plan with spending so far");
+      eq(review.categories.map((c) => [c.name, c.groupName, c.inMonth]), [['Food', 'Bills', true], ['Garden', 'Home', false]], "the picker: this month's first");
+
+      // Removing a file takes its rows.
+      imports.removeFile(db, file.id);
+      const after = imports.getReview(db, sep);
+      eq([after.accounts[0].files.length, after.accounts[0].rows.length], [0, 0], 'a removed file takes its rows');
       db.close();
     }
 
