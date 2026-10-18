@@ -322,6 +322,20 @@ window.__runTests = async () => {
   await press(filter('not_in_month'), 'the Not in this month filter again');
   check('pressing it again shows everything', visibleRows().length >= 10 && !!section(2), visibleRows().join());
 
+  /* ---- 8. rows outside the month fold away -------------------------- */
+  const fold = (id) => section(id) && section(id).querySelector('[data-out-of-month]');
+  check('rows whose only warning is the month fold under a disclosure', fold(1) && fold(1).textContent.includes('3 rows outside this month'), fold(1) && fold(1).textContent);
+  check('closed by default', fold(1) && fold(1).getAttribute('aria-expanded') === 'false' && ![5, 6, 7].some((id) => rowEl(id)), visibleRows().join());
+  check('the rest of the section is still there', [1, 3, 4, 8, 2].every((id) => rowEl(id)), visibleRows().join());
+  check('a section with none has no disclosure', !fold(2));
+  await press(fold(1), 'the outside-this-month disclosure');
+  check('opening it shows them', fold(1).getAttribute('aria-expanded') === 'true' && [5, 6, 7].every((id) => rowEl(id)), visibleRows().join());
+  await press(fold(1), 'the disclosure again');
+  check('and it closes again', ![5, 6, 7].some((id) => rowEl(id)), visibleRows().join());
+  await press(filter('out_of_month'), 'the Outside this month filter');
+  check('filtering for them shows them without the fold', !fold(1) && visibleRows().join() === '5,6,7', visibleRows().join());
+  await press(filter('out_of_month'), 'the Outside this month filter again');
+
   return results;
 };
 `;

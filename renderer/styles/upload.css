@@ -157,3 +157,16 @@
 }
 .upload-filter:hover { background: var(--well); color: var(--ink); }
 .upload-filter.is-on, .upload-filter.is-on:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); }
+
+/* The fold for rows outside the month: a quiet full-width line at the foot
+   of its section, the caret turning as it opens. */
+.upload-fold {
+  display: flex; align-items: center; gap: var(--space-2); width: 100%;
+  padding: 9px var(--space-6); border: 0; border-top: 1px solid var(--rule-faint);
+  background: transparent; color: var(--muted); font-size: var(--text-12); text-align: left;
+  transition: background-color .12s, color .12s;
+}
+.upload-fold:hover { background: var(--well); color: var(--ink-2); }
+.upload-fold-caret { transition: transform .18s; flex: none; }
+.upload-fold.is-open .upload-fold-caret { transform: rotate(90deg); }
+.upload-fold.is-open + .upload-row { border-top: 1px solid var(--rule-faint); }

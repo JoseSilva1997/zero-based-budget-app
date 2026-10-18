@@ -45,3 +45,10 @@ export function labelCounts(accounts) {
   }
   return [...byKey.values()].sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
 }
+
+/** A row whose only warning is that it falls outside the month: a long
+ *  statement brings hundreds of these, and they fold away by default. */
+export function onlyOutOfMonth(row) {
+  const warns = row.labels.filter((l) => l.severity === "warn");
+  return warns.length === 1 && warns[0].key === "out_of_month";
+}

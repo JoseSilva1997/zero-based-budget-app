@@ -14,7 +14,7 @@
    ============================================================ */
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, EmptyState, Icons, Sheet, TextInline } from './ui/index.js';
-import { cx, fmt, isBlocked, labelCounts, monthLabel, shortDate, sinkBlocked } from './lib/index.js';
+import { cx, fmt, isBlocked, labelCounts, monthLabel, onlyOutOfMonth, shortDate, sinkBlocked } from './lib/index.js';
 import { useStore } from './store.jsx';
 
 /* The statement formats House Budget reads, by preset key, as a household
@@ -301,9 +301,19 @@ function CategoryPicker({ row, categories, disabled, onChange }) {
 }
 
 /* One account's run of rows, under a separator that names the account and
-   its bank, with the count kept quiet beside them. */
-function AccountSection({ entry, rows, review, currency, onUpdate }) {
+   its bank, with the count kept quiet beside them.
+
+   A statement covering many months brings hundreds of rows whose only
+   warning is that they fall outside this one; those fold under a disclosure
+   at the foot of the section, closed until asked for, so the month's own
+   rows are what the list is about. A filter shows exactly what it found, so
+   while one is on nothing folds. */
+function AccountSection({ entry, rows, folding, review, currency, onUpdate }) {
   const { account, bank } = entry;
+  const [open, setOpen] = useState(false);
+  const outside = folding ? rows.filter(onlyOutOfMonth) : [];
+  const shown = folding ? rows.filter((r) => !onlyOutOfMonth(r)) : rows;
+  const draw = (r) => <ReviewRow key={r.id} row={r} review={review} currency={currency} onUpdate={onUpdate} />;
   return (
     <section className="upload-section" data-account-section={account.id} aria-label={`${account.name} rows`}>
       <div className="upload-separator" data-account-separator>
@@ -311,7 +321,17 @@ function AccountSection({ entry, rows, review, currency, onUpdate }) {
         {bank && <span className="upload-separator-bank">{bank.name}</span>}
         <span className="num upload-separator-count">{entry.rows.length} {entry.rows.length === 1 ? "row" : "rows"}</span>
       </div>
-      {sinkBlocked(rows).map((r) => <ReviewRow key={r.id} row={r} review={review} currency={currency} onUpdate={onUpdate} />)}
+      {sinkBlocked(shown).map(draw)}
+      {outside.length > 0 && (
+        <>
+          <button type="button" className={cx("upload-fold", open && "is-open")} data-out-of-month
+            aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+            <Icons.right size={14} className="upload-fold-caret" />
+            <span className="num">{outside.length}</span> {outside.length === 1 ? "row" : "rows"} outside this month
+          </button>
+          {open && sinkBlocked(outside).map(draw)}
+        </>
+      )}
     </section>
   );
 }
@@ -350,7 +370,7 @@ function ReviewStep({ review, currency, onUpdate, onBack }) {
       ) : (
         <div className="panel is-clipped upload-list">
           {sections.map(({ entry, rows }) => (
-            <AccountSection key={entry.account.id} entry={entry} rows={rows} review={review} currency={currency} onUpdate={onUpdate} />
+            <AccountSection key={entry.account.id} entry={entry} rows={rows} folding={!active} review={review} currency={currency} onUpdate={onUpdate} />
           ))}
         </div>
       )}
