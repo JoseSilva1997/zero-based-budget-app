@@ -244,6 +244,9 @@ app.whenReady().then(() => {
       eq(cleanDescriptor('EXAMPLE GYM 2026-09-03'), 'EXAMPLE GYM', 'and an ISO date');
       eq(cleanDescriptor('03SEP26 EXAMPLE GYM'), 'EXAMPLE GYM', 'and a 03SEP26 one');
       eq(cleanDescriptor(' 03SEP26  12345678 '), '03SEP26 12345678', 'a descriptor nothing would survive is only trimmed');
+      eq(cleanDescriptor('EXAMPLE STORES 2656'), 'EXAMPLE STORES', 'a trailing store number goes');
+      eq(cleanDescriptor('EXAMPLE 781-111'), 'EXAMPLE', 'in either of its shapes');
+      eq(cleanDescriptor('EXAMPLE CAFE 36'), 'EXAMPLE CAFE 36', 'a short trailing number may be part of the name');
     }
 
     /* ---- detection is an exact match on the set of names ---- */
