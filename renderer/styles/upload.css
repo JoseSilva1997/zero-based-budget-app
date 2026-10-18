@@ -1,0 +1,48 @@
+/* ============================================================
+   Upload transactions: the sheet's contents. .sheet, .sheet-head and
+   .sheet-body are in overlays.css and drawn by Sheet (ui/overlays.jsx); this
+   is what the upload puts inside them - the drop zones, the review list and
+   its label chips, the footer and the previous imports.
+   ============================================================ */
+
+/* ---- the head ----------------------------------------------------------
+   The Wallet's head, without its glow: the upload is a chore rather than a
+   figure the sheet is opened for, so its mark is a plain tile-rung square on
+   Inkwell and the accent stays put away. `auto` on the right margin puts the
+   close button at the far edge. */
+.upload-head-id { display: flex; align-items: center; gap: 11px; margin-right: auto; }
+.upload-head-mark {
+  width: 34px; height: 34px; border-radius: 9px; flex: none;
+  display: grid; place-items: center;
+  background: var(--well); color: var(--ink-2); border: 1px solid var(--rule);
+}
+.upload-head-title { font-weight: 600; font-size: var(--text-16); }
+.upload-head-sub { font-size: var(--text-12); color: var(--muted); }
+
+/* ---- the upload step: one zone per account ------------------------------
+   Two across, because a household has a handful of accounts and each zone is
+   short; a single column of them would leave the sheet mostly empty. */
+.upload-zones {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-6);
+}
+.upload-zone { padding: var(--space-6); display: flex; flex-direction: column; gap: var(--space-5); }
+.upload-zone-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-5); }
+.upload-zone-name { font-weight: 600; font-size: var(--text-15); }
+.upload-zone-bank { font-size: var(--text-12); color: var(--muted); flex: none; }
+.upload-zone-bank.is-unset { color: var(--faint); font-style: italic; }
+
+/* The drop target. Dashed, because it is a place to put something rather
+   than a card that holds it, and it lifts its edge toward the accent while a
+   file is held over it - the object being worked on is where the lamp goes. */
+.upload-drop {
+  display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: var(--space-3);
+  padding: 18px var(--space-6); border-radius: var(--radius-sm);
+  border: 1px dashed var(--rule-strong); background: var(--well);
+  color: var(--muted); font-size: var(--text-13); cursor: pointer;
+  transition: border-color .14s, background-color .14s;
+}
+.upload-drop:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--rule-strong)); }
+.upload-drop:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.upload-drop.is-over { border-color: var(--accent); background: var(--wash-tray); color: var(--ink-2); }
+.upload-drop > svg { color: var(--faint); }

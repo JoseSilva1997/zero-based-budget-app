@@ -19,8 +19,8 @@
    contract, 'value' carries the newly-inserted row for the add actions and is
    undefined for the rest.
    ============================================================ */
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
-import { api, can, hasApi, spentOn, dayFromMonthDay } from "./lib/api.js";
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { api, can, hasApi, spentOn, dayFromMonthDay, uploadStatement } from "./lib/api.js";
 import { THEME_IDS, DEFAULT_THEME_ID, buildEmpty, monthLabel } from "./lib/index.js";
 
 const DEFAULT_COLOR = "#7a7a7a";
@@ -529,6 +529,39 @@ export function StoreProvider({ children }) {
     return tree ? treeToBlobMonth(tree) : null;
   }, [idForKey]);
 
+  /* Upload transactions (main/ipc/imports.ts). Months are named by their
+     "YYYY-MM" key here like everywhere else in the store, and resolved to the
+     id the channels want. The review is recomputed on every read, so the sheet
+     reads it again after each of these rather than patching its copy. Only
+     the two calls that write or delete entries refresh the month, since the
+     rest touch nothing but the pending upload. They throw rather than toast:
+     a refusal belongs next to the file or the button that caused it. */
+  const imports = useMemo(() => ({
+    review: (key) => api.importReview(idForKey(key)),
+    history: (key) => api.importHistory(idForKey(key)),
+    upload: (key, accountId, file) => uploadStatement(idForKey(key), Number(accountId), file),
+    removeFile: (fileId) => api.importRemoveFile(Number(fileId)),
+    updateRow: (rowId, patch) => api.importUpdateRow(Number(rowId), patch),
+    discard: (batchId) => api.importDiscard(Number(batchId)),
+    confirm: async (key, batchId) => {
+      const res = await api.importConfirm(Number(batchId));
+      await refreshMonth(key);
+      return res;
+    },
+    undo: async (key, batchId) => {
+      await api.importUndo(Number(batchId));
+      await refreshMonth(key);
+    },
+    banks: () => api.banks(),
+    /* An account's bank, chosen or named inline in its drop zone. A new bank
+       is created first, so the account can point at it. */
+    setUpBank: async ({ accountId, bankId, newBank, product }) => {
+      let id = bankId;
+      if (id == null) id = (await api.bankCreate(newBank.name, newBank.preset)).id;
+      await api.accountSetBank(Number(accountId), Number(id), product || null);
+    },
+  }), [idForKey, refreshMonth]);
+
   const value = {
     state,
     loading,
@@ -547,6 +580,7 @@ export function StoreProvider({ children }) {
     categories,
     previewMerge,
     getMonth,
+    imports,
   };
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

@@ -1,8 +1,8 @@
 /* ============================================================
    Accounts - per-item funding account selector + funding plan
    ============================================================ */
-import { useRef, useState } from 'react';
-import { Avatar, DiffPill, EmptyState, Icons, MiniBar, ObjectRow, Stat, Tile, useFocusTrap } from './ui/index.js';
+import { useState } from 'react';
+import { Avatar, DiffPill, EmptyState, Icons, MiniBar, ObjectRow, Sheet, Stat, Tile } from './ui/index.js';
 import { cx, fmt, monthLabel, round2, walletPlan, walletSummary } from './lib/index.js';
 
 const ACCT_ICON = { joint: "user", main: "budget", wallet: "coins", savings: "plant" };
@@ -182,36 +182,24 @@ function AccountPanel({ mo, accounts, members, currency, onClose }) {
 
 /* the Wallet sheet - the centred surface holding the panel.
 
-   The veil stops the mouse reaching the budget behind it, so the keyboard must
-   not be able to either: useFocusTrap gives this the same guarantee a modal
-   has, which is the reason that behaviour is a hook and not something each
-   overlay writes out. */
+   The veil, the focus trap and the close button are Sheet's (ui/overlays.jsx),
+   shared with the upload sheet; what is drawn here is the Wallet's own head. */
 function WalletSheet({ mo, accounts, members, currency, month, onClose }) {
-  const boxRef = useRef(null);
-  useFocusTrap(boxRef, onClose);
   const { toFund } = walletSummary(mo, accounts);
   return (
-    /* The sheet sits inside the veil so the veil can centre it; the target
-       check is what keeps a click that lands on the sheet itself from
-       reaching the veil's own handler and closing it. */
-    <div className="sheet-veil" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <aside ref={boxRef} className="sheet" role="dialog" aria-modal="true" aria-label="Wallet">
-        <div className="sheet-head">
-          <div className="wallet-head-id">
-            <span className="wallet-head-mark"><Icons.wallet size={19} /></span>
-            <div>
-              <div className="wallet-head-title">Wallet</div>
-              <div className="wallet-head-sub">Movements for {monthLabel(month).mo}</div>
-            </div>
+    <Sheet label="Wallet" closeLabel="Close the Wallet" onClose={onClose}
+      head={<>
+        <div className="wallet-head-id">
+          <span className="wallet-head-mark"><Icons.wallet size={19} /></span>
+          <div>
+            <div className="wallet-head-title">Wallet</div>
+            <div className="wallet-head-sub">Movements for {monthLabel(month).mo}</div>
           </div>
-          <Stat className="wallet-head-total" label="Total to move" figure={fmt(currency, toFund)} />
-          <button className="icon-btn" onClick={onClose} aria-label="Close the Wallet" title="Close"><Icons.x size={18} /></button>
         </div>
-        <div className="sheet-body">
-          <AccountPanel mo={mo} accounts={accounts} members={members} currency={currency} onClose={onClose} />
-        </div>
-      </aside>
-    </div>
+        <Stat className="wallet-head-total" label="Total to move" figure={fmt(currency, toFund)} />
+      </>}>
+      <AccountPanel mo={mo} accounts={accounts} members={members} currency={currency} onClose={onClose} />
+    </Sheet>
   );
 }
 

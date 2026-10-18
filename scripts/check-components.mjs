@@ -69,6 +69,7 @@ const OWNED = {
   "object-row-figure": "ObjectRow", "object-row-figure-sub": "ObjectRow",
 
   "modal-veil": "Modal", modal: "Modal", "dialog-actions": "ConfirmDialog",
+  "sheet-veil": "Sheet", sheet: "Sheet", "sheet-head": "Sheet", "sheet-body": "Sheet", "sheet-close": "Sheet",
 
   "chart-card": "ChartCard", "chart-rule": "ChartCard", "chart-head": "ChartCard",
   "chart-title": "ChartCard", "chart-sub": "ChartCard", "chart-body": "ChartCard",
