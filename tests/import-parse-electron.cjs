@@ -209,6 +209,18 @@ app.whenReady().then(() => {
       );
     }
 
+    /* ---- generic descriptor cleaning, for every bank ---- */
+    {
+      const { cleanDescriptor } = imp('clean.js');
+      eq(cleanDescriptor('  Personal   Pot '), 'Personal Pot', 'whitespace is trimmed and collapsed');
+      eq(cleanDescriptor('Example Pay top-up by *1234'), 'Example Pay top-up by', 'a "*1234" card fragment goes');
+      eq(cleanDescriptor('EXAMPLEPAY**4321*'), 'EXAMPLEPAY', 'so does a "**4321*" one');
+      eq(cleanDescriptor('RIDES   *TRIP'), 'RIDES TRIP', 'a * between a processor and a merchant is a space');
+      eq(cleanDescriptor('ZPAY_*CORNER SHOP'), 'ZPAY CORNER SHOP', 'and _* too');
+      eq(cleanDescriptor('EXAMPLE UK*'), 'EXAMPLE UK', 'a trailing * goes');
+      eq(cleanDescriptor('Corner Cafe'), 'Corner Cafe', "the bank's casing is kept");
+    }
+
     /* ---- detection is an exact match on the set of names ---- */
     {
       const header = fixture('lloyds').header;

@@ -7,8 +7,10 @@
 
 export function cleanDescriptor(text: string): string {
   return String(text || '')
-    // A card fragment: "*1234".
-    .replace(/\*\d{4}\b/g, ' ')
+    // A card fragment: "*1234", "**1234*".
+    .replace(/\*+\d{4}\b\*?/g, ' ')
+    // What's left of a *: the separator in "SQ *SHOP" or "ZETTLE_*SHOP".
+    .replace(/_?\*+/g, ' ')
     .trim()
     .replace(/\s+/g, ' ');
 }
