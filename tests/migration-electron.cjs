@@ -9,6 +9,9 @@
       every month): migration 8 merges them into month-independent groups and
       categories, keeps every plan line's id so its entries still point at it,
       and folds two same-named items in one month into one plan line.
+   3. Migration 9 adds the upload-transactions tables (banks and the import
+      staging data): a migrated database ends up shaped exactly like a fresh
+      install, and on both the constraints and cascades hold.
 
    Requires a prior `npm run build` (it loads build/database/migrations.js).
    Run with:  npx electron tests/migration-electron.cjs
@@ -319,6 +322,162 @@ function perMonthToCategories(Database, runner, months) {
   db.close();
 }
 
+/* ---- migration 9: the upload-transactions tables ---- */
+
+// Tables migration 9 creates or alters.
+const IMPORT_TABLES = ['banks', 'bank_accounts', 'import_batches', 'import_files', 'import_rows', 'budget_item_actual_entries'];
+
+/** What a table is, in a form two databases can be compared on: its
+ *  columns, foreign keys, indices and triggers, and for a table created
+ *  whole, its CREATE statement (which carries the CHECKs) with comments and
+ *  layout stripped. */
+function describeTable(db, table, created) {
+  const norm = (sql) =>
+    String(sql || '')
+      .replace(/--[^\n]*/g, '')
+      .replace(/IF NOT EXISTS /gi, '')
+      .replace(/\s+/g, ' ')
+      .replace(/\s*([(),])\s*/g, '$1')
+      .trim();
+  const master = (type) =>
+    db
+      .prepare(`SELECT name, sql FROM sqlite_master WHERE type = ? AND tbl_name = ? AND sql IS NOT NULL ORDER BY name`)
+      .all(type, table)
+      .map((r) => [r.name, norm(r.sql)]);
+  return {
+    columns: db.prepare(`PRAGMA table_info(${table})`).all(),
+    // By what they link, not their ids: ALTER TABLE adds a key after the
+    // table's own FOREIGN KEY clauses, which numbers them differently.
+    foreignKeys: db
+      .prepare(`PRAGMA foreign_key_list(${table})`)
+      .all()
+      .map((k) => `${k.from} -> ${k.table}(${k.to}) on delete ${k.on_delete} on update ${k.on_update}`)
+      .sort(),
+    indices: master('index'),
+    // Only for the tables it creates: the V7 fixture leaves out older
+    // triggers that a real database has.
+    triggers: created ? master('trigger') : null,
+    create: created ? master('table') : null,
+  };
+}
+
+/** The staging data behaves as the import needs it to, whichever way the
+ *  database got its tables. */
+function importStagingBehaves(db, label) {
+  const refuses = (sql, msg) => {
+    try {
+      db.exec(sql);
+    } catch (err) {
+      return;
+    }
+    throw new Error(`${label}: ${msg}: expected the database to refuse it`);
+  };
+  db.exec(`
+    INSERT INTO budget_months (id, month) VALUES (901, '2031-01'), (902, '2031-02');
+    INSERT INTO bank_accounts (id, name, kind) VALUES (901, 'Joint test', 'joint');
+    INSERT INTO budget_groups (id, name) VALUES (901, 'Import test');
+    INSERT INTO categories (id, group_id, name) VALUES (901, 901, 'Food test'), (902, 901, 'Spare test');
+    INSERT INTO budget_items (id, budget_month_id, category_id) VALUES (901, 901, 901);
+  `);
+
+  /* banks */
+  db.exec(`INSERT INTO banks (id, name, preset) VALUES (901, 'My NatWest', 'natwest')`);
+  refuses(`INSERT INTO banks (name, preset) VALUES ('MY natwest', 'natwest')`, 'a bank name is unique, ignoring case');
+  refuses(`INSERT INTO banks (name, preset) VALUES ('Other', 'hsbc')`, 'a preset is one of the four built in');
+  db.exec(`UPDATE bank_accounts SET bank_id = 901, account_identifier = '600000-11112222', bank_product = NULL WHERE id = 901`);
+
+  /* batches: at most one pending per month */
+  db.exec(`INSERT INTO import_batches (id, budget_month_id, status) VALUES (901, 901, 'pending')`);
+  refuses(`INSERT INTO import_batches (budget_month_id, status) VALUES (901, 'pending')`, 'a second pending batch for a month');
+  db.exec(`INSERT INTO import_batches (budget_month_id, status, imported_at) VALUES (901, 'imported', CURRENT_TIMESTAMP), (901, 'imported', CURRENT_TIMESTAMP), (902, 'pending', NULL)`);
+  refuses(`INSERT INTO import_batches (budget_month_id, status) VALUES (902, 'done')`, 'a batch status is pending, imported or discarded');
+
+  /* files: one file once per batch */
+  db.exec(`INSERT INTO import_files (id, batch_id, bank_account_id, filename, file_hash) VALUES (901, 901, 901, 'sep.csv', 'abc')`);
+  refuses(`INSERT INTO import_files (batch_id, bank_account_id, filename, file_hash) VALUES (901, 901, 'copy.csv', 'abc')`, 'the same file twice in a batch');
+
+  /* rows: parsed fields, then decisions with their defaults */
+  db.exec(`
+    INSERT INTO import_rows (id, file_id, row_index, raw, posted_on, spent_on, amount_cents, direction,
+                             descriptor_raw, descriptor_clean, features, fingerprint)
+    VALUES (901, 901, 0, '{}', '2031-01-03', '2031-01-02', 1699, 'debit', 'X , SHOP , TOWN GB', 'SHOP', '{"type":"POS"}', 'fp1'),
+           (902, 901, 1, '{}', NULL, NULL, NULL, NULL, 'bad', 'bad', '{}', NULL);
+    UPDATE import_rows SET parse_error = 'Value "x" is not an amount' WHERE id = 902;
+  `);
+  const row = db.prepare(`SELECT kind, included, not_completed, category_id, linked_entry_id, name FROM import_rows WHERE id = 901`).get();
+  eq(row, { kind: null, included: null, not_completed: 0, category_id: null, linked_entry_id: null, name: null }, `${label}: a new row's decisions start empty`);
+  refuses(`INSERT INTO import_rows (file_id, row_index, raw, amount_cents, direction, descriptor_raw, descriptor_clean) VALUES (901, 5, '{}', -1, 'debit', '', '')`, 'a negative amount');
+  refuses(`INSERT INTO import_rows (file_id, row_index, raw, amount_cents, direction, descriptor_raw, descriptor_clean) VALUES (901, 5, '{}', 1, 'sideways', '', '')`, 'a direction other than debit or credit');
+  refuses(`UPDATE import_rows SET kind = 'refund' WHERE id = 901`, 'a kind other than spend or transfer');
+  refuses(`INSERT INTO import_rows (file_id, row_index, raw, descriptor_raw, descriptor_clean) VALUES (901, 0, '{}', '', '')`, 'the same row of a file twice');
+
+  /* links both ways between a row and an entry */
+  db.exec(`
+    INSERT INTO budget_item_actual_entries (id, budget_item_id, spent_on, amount_cents, name, import_row_id)
+    VALUES (901, 901, '2031-01-02', 1699, 'SHOP', 901), (902, 901, '2031-01-02', 500, 'By hand', NULL);
+    UPDATE import_rows SET category_id = 902, linked_entry_id = 902 WHERE id = 901;
+  `);
+  db.exec(`DELETE FROM budget_item_actual_entries WHERE id = 902`);
+  eq(db.prepare(`SELECT linked_entry_id FROM import_rows WHERE id = 901`).get().linked_entry_id, null, `${label}: deleting a linked entry unlinks the row`);
+  db.exec(`DELETE FROM categories WHERE id = 902`);
+  eq(db.prepare(`SELECT category_id FROM import_rows WHERE id = 901`).get().category_id, null, `${label}: deleting a category clears it from the row`);
+  db.exec(`DELETE FROM import_rows WHERE id = 901`);
+  eq(db.prepare(`SELECT import_row_id FROM budget_item_actual_entries WHERE id = 901`).get().import_row_id, null, `${label}: deleting a staging row keeps its entry, unlinked`);
+
+  /* a bank deleted leaves its accounts without one */
+  db.exec(`DELETE FROM banks WHERE id = 901`);
+  eq(db.prepare(`SELECT bank_id, account_identifier FROM bank_accounts WHERE id = 901`).get(), { bank_id: null, account_identifier: '600000-11112222' }, `${label}: deleting a bank clears it from its accounts`);
+
+  /* deleting a month takes its staging data with it */
+  db.exec(`DELETE FROM budget_months WHERE id = 901`);
+  eq(
+    ['import_batches', 'import_files', 'import_rows'].map((t) => db.prepare(`SELECT COUNT(*) n FROM ${t} WHERE ${t === 'import_batches' ? 'budget_month_id = 901' : '1'}`).get().n),
+    [0, 0, 0],
+    `${label}: a deleted month's batches, files and rows go with it`
+  );
+  eq(db.pragma('foreign_key_check'), [], `${label}: no foreign-key violations`);
+}
+
+function importStaging(Database, runner) {
+  const { runMigrations, getUserVersion, LATEST_VERSION } = runner;
+  const fs = require('fs');
+  const root = path.join(__dirname, '..');
+
+  const fresh = new Database(':memory:');
+  fresh.pragma('foreign_keys = ON');
+  fresh.exec(fs.readFileSync(path.join(root, 'database', 'schema.sql'), 'utf8'));
+  fresh.exec(fs.readFileSync(path.join(root, 'database', 'triggers.sql'), 'utf8'));
+  fresh.pragma('user_version = 1');
+  runMigrations(fresh);
+
+  const migrated = new Database(':memory:');
+  migrated.pragma('foreign_keys = ON');
+  migrated.exec(V7_SCHEMA);
+  migrated.exec(V7_DATA);
+  migrated.pragma('user_version = 7');
+  runMigrations(migrated);
+  eq(getUserVersion(migrated), LATEST_VERSION, 'the migrated db reaches the latest version');
+
+  const created = new Set(['banks', 'import_batches', 'import_files', 'import_rows']);
+  for (const t of created) assert(describeTable(fresh, t, true).columns.length > 0, `a fresh install has ${t}`);
+  for (const t of IMPORT_TABLES) {
+    eq(describeTable(migrated, t, created.has(t)), describeTable(fresh, t, created.has(t)), `${t}: a migrated database matches a fresh install`);
+  }
+  eq(
+    migrated.prepare(`SELECT COUNT(*) n FROM budget_item_actual_entries WHERE import_row_id IS NULL`).get().n,
+    6,
+    'existing entries are kept, none of them imported'
+  );
+
+  importStagingBehaves(fresh, 'fresh');
+  importStagingBehaves(migrated, 'migrated');
+
+  runMigrations(migrated);
+  eq(describeTable(migrated, 'import_rows', true), describeTable(fresh, 'import_rows', true), 'a second run is a clean no-op');
+  fresh.close();
+  migrated.close();
+}
+
 app.whenReady().then(() => {
   let code = 0;
   try {
@@ -394,6 +553,8 @@ app.whenReady().then(() => {
       require(path.join(__dirname, '..', 'build', 'database', 'migrations.js')),
       require(path.join(__dirname, '..', 'build', 'database', 'repositories', 'months.js'))
     );
+
+    importStaging(Database, require(path.join(__dirname, '..', 'build', 'database', 'migrations.js')));
 
     console.log(`MIGRATION_OK version=${LATEST_VERSION} tables=${tables.length}`);
   } catch (err) {

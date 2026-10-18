@@ -24,6 +24,14 @@ import type {
   ItemRead,
   CategoryRead,
   MergeImpact,
+  Bank,
+  BankPreset,
+  ImportAddOutcome,
+  ImportAddedFile,
+  ImportConfirmResult,
+  ImportHistoryRow,
+  ImportReview,
+  ImportRowPatch,
   MergeResult,
   ActualRead,
   HouseholdMember,
@@ -110,6 +118,42 @@ const api = {
     invoke<MergeImpact>('category:previewMerge', { fromId, intoId }),
   categoryMerge: (fromId: number, intoId: number) =>
     invoke<MergeResult>('category:merge', { fromId, intoId }),
+
+  /* ---------- upload transactions ----------
+     Channels documented in main/ipc/imports.ts. Money is pence, dates
+     "YYYY-MM-DD". After any change, read importReview again: predictions and
+     labels are recomputed on the main side. */
+  importReview: (monthId: number) => invoke<ImportReview>('import:review', { monthId }),
+  /** Resolves to { status: 'needs_bank', ... } rather than throwing when the
+   *  account's bank must be set up first: an Error's extra fields don't
+   *  survive the context bridge, so the refusal's code is read here. */
+  importAddFile: async (p: {
+    monthId: number;
+    accountId: number;
+    filename: string;
+    text: string;
+  }): Promise<ImportAddOutcome> => {
+    const res = (await ipcRenderer.invoke('import:addFile', p)) as IpcResult<ImportAddedFile>;
+    if ('error' in res && res.code === 'needs_bank') {
+      const detail = res.detail as { preset: BankPreset | null; products: string[] | null };
+      return { status: 'needs_bank', message: res.error, preset: detail.preset, products: detail.products };
+    }
+    return { status: 'added', file: unwrap(res) };
+  },
+  importRemoveFile: (fileId: number) => invoke<Ok>('import:removeFile', { fileId }),
+  importUpdateRow: (rowId: number, patch: ImportRowPatch) =>
+    invoke<Ok>('import:updateRow', { rowId, patch }),
+  importConfirm: (batchId: number) => invoke<ImportConfirmResult>('import:confirm', { batchId }),
+  importDiscard: (batchId: number) => invoke<Ok>('import:discard', { batchId }),
+  importHistory: (monthId: number) => invoke<ImportHistoryRow[]>('import:history', { monthId }),
+  importUndo: (batchId: number) => invoke<Ok>('import:undo', { batchId }),
+
+  /* ---------- banks ---------- */
+  banks: () => invoke<Bank[]>('bank:list'),
+  bankCreate: (name: string, preset: BankPreset) => invoke<Bank>('bank:create', { name, preset }),
+  bankRename: (id: number, name: string) => invoke<Ok>('bank:rename', { id, name }),
+  accountSetBank: (accountId: number, bankId: number | null, product: string | null) =>
+    invoke<Ok>('account:setBank', { accountId, bankId, product }),
 
   /* ---------- actuals ---------- */
   actualAdd: (

@@ -38,7 +38,7 @@
    it inherits the same settle: a timing function declared on a keyframe
    governs the segment starting there and overrides the one on the element.
    Four things pop, and they are the app's four overlays: this modal, the
-   Wallet sheet, the find bar and the toast. The curve is an exponential
+   sheet, the find bar and the toast. The curve is an exponential
    ease-out with no overshoot - fast out of the gate, long settle, nothing to
    recover from - because a dialog or a message in a money app springing past
    where it means to land is not a texture this app wants. */
@@ -51,7 +51,7 @@
 /* The sheet: a centred surface holding a screen's worth of work, sized in
    viewport units so it keeps its margin at every window size. The modal above
    is a question with two buttons under it; this is a place to read and to
-   choose, and the Wallet is the one thing in the app that needs it.
+   choose. Drawn by Sheet (ui/overlays.jsx), for the Wallet and the upload.
 
    It takes the modal's `pop` rather than a keyframe of its own: a centred
    surface arriving from an edge would travel further than it settles. */

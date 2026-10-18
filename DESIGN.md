@@ -32,6 +32,7 @@ colors:
   breach-ink: "oklch(0.80 0.15 27)"
   info: "oklch(0.72 0.13 240)"
   info-soft: "oklch(0.31 0.08 240)"
+  caution: "oklch(0.80 0.14 75)"
 typography:
   display:
     fontFamily: "Plus Jakarta Sans, system-ui, -apple-system, sans-serif"
@@ -207,7 +208,7 @@ What the system refuses is as load-bearing as what it states. Zero-based budgeti
 
 ## Colors
 
-A single-theme palette (`obsidian`), built as a black room with one violet lamp in it, one red for things that have gone wrong, and one cold blue reserved for "shared".
+A single-theme palette (`obsidian`), built as a black room with one violet lamp in it, one red for things that have gone wrong, one cold blue reserved for "shared", and one amber lantern lit only over the upload review's label chips.
 
 ### Primary
 - **Lamplight Violet** (`accent`): the app's only accent, at full strength. It appears on the brand tile, the focus ring, spending that actually moved on the month bar, the mini progress fill, the drag drop line, and the toast's draining edge. Nowhere else.
@@ -222,6 +223,9 @@ A single-theme palette (`obsidian`), built as a black room with one violet lamp 
 
 ### Tertiary
 - **Cold Signal Blue** (`info`) and **Signal Shade** (`info-soft`): reserved for "shared", which in this app means an account no single member owns. It is the one place a third hue is allowed, because shared-ness is a fact about ownership rather than a state of the money.
+
+### The Exception
+- **Lantern Amber** (`caution`): the one warning hue, and it exists for a single job: the text and outline of a "warn" label chip in the upload review ("No category", "Check category", "Possible duplicate", "Outside this month"), a row the household should look at before ticking. It is a single token with no shade or glow of its own; the chip's outline is the same amber mixed toward transparent. Solved as text on Lamplit Slate at 9.63:1 and guarded at 4.5:1 by `tests/tokens-electron.cjs`. It sits at the same lightness as Ember Glow on purpose, so what tells the two chips apart is hue, texture (an outline against Ember's fill) and the chip's own words, never luminance alone. It appears nowhere else; see The Label Chip Exception below.
 
 ### Neutral
 - **Midnight Board** (`board`): the canvas, true black. Under it sits **The Night Gradient** (`canvas-wash`), a faint violet-tinted radial lightest at the top.
@@ -238,9 +242,11 @@ A single-theme palette (`obsidian`), built as a black room with one violet lamp 
 
 **The One Failure Rule.** Exactly one state in this app earns a hue, and it is the failure. An envelope spent to plan is the success in zero-based budgeting, so the settled state gets no colour: it is the resting state. Never paint under-spending, on-track, or any other settled state green, or any other colour at all.
 
+**The Label Chip Exception.** One owner-approved exception to the rule above, scoped to the label chips on the upload review's rows and to nothing else. A parsed bank row is not a budget state, and the review has to sort three kinds of row at a glance across three hundred of them: one that cannot be imported, one to look at before ticking, and one that only carries a note. So the chips are coloured by severity: **block** in the failure ramp (Ember Shade fill, Ember Glow text), **warn** in Lantern Amber (an outlined caption, hollow so the louder fill stays with the row that is refused), **info** neutral (Inkwell and Pencil Grey), and a row that is fine gets no chip at all. "No category" is a warn chip even though its tick waits for a category to be picked: on a first import, before the app has learnt anything, nearly every row carries it, and an Ember wall would bury the rows that really are refused (money in, already imported, unreadable, not completed). The words on every chip are the second channel. The filter chips above the list, the over-plan line, and every other surface of the upload sheet stay inside the rule: Lantern Amber is never a budget state, never a fill, and never appears outside a review row's label chip.
+
 **The Hollow Remainder Rule.** Money not yet allocated is drawn by absence: the month bar starts as an outlined, empty track and allocating fills it. Never colour the unallocated remainder, and never treat an unwritten budget as an error.
 
-**The One Red Rule.** Ember Red means both "over budget" and "something failed". Do not introduce a second red, an amber warning tier, or a distinct destructive palette.
+**The One Red Rule.** Ember Red means both "over budget" and "something failed". Do not introduce a second red, an amber warning tier, or a distinct destructive palette. Lantern Amber is not a warning tier for the app: it is the upload review's label chips and nothing else (The Label Chip Exception).
 
 **The Rationed Accent Rule.** Lamplight Violet is a lamp, not a wash. It goes on the brand tile, the focus ring, the object currently being worked on, quantity fills, and the "Actual" column. If a screen has two loud violet objects competing, one of them is wrong: the topbar pair is the reference, where "New month" is solid and the Wallet button beside it keeps its accent in the glyph and the amount only.
 
@@ -386,13 +392,16 @@ Full-bleed and structural, sitting directly on the board rather than inside a ca
 A floating strip on the board with a Drawn Edge border and the floating shadow, docked centred over the main column rather than the viewport. Its bottom hairline is consumed left to right over exactly the lifetime the store granted the message (2.6s for a confirmation, 6s when there is an Undo to catch), spanning precisely the straight run of the border between the two corner arcs, so what is revealed as it drains is the toast's own edge being eaten. Errors never expire and so carry no draining edge at all, which gives the two states a second, non-colour channel.
 
 ### The wallet (signature)
-The Wallet opens as a **sheet**: a centred surface capped at 1120px and at the viewport less 56px, as tall as its own contents until it needs to scroll. It is the app's third overlay shape, between the modal (a question with two buttons under it) and nothing at all, and it exists because planning a month's transfers is a screen's worth of work rather than a dialog's. It takes the modal's veil, its `pop` keyframe and its focus trap unchanged.
+The Wallet opens as a **sheet**: a centred surface capped at 1120px and at the viewport less 56px, as tall as its own contents until it needs to scroll. It is the app's third overlay shape, between the modal (a question with two buttons under it) and nothing at all, and it exists because planning a month's transfers is a screen's worth of work rather than a dialog's. It takes the modal's veil, its `pop` keyframe and its focus trap unchanged. The shape is drawn once, by `Sheet` in `ui/overlays.jsx`, and the Wallet and the upload sheet are the two things that open it: each supplies its own head, and the close button is always the last thing in it.
 
 Inside it, an account is drawn as the **wallet silhouette**: a card with a semicircular cut in its bottom edge, at a fixed 16px in from the left, and a 46px slot broken through the hairline beside it. The cut is a half-disc of the surface behind the card, laid over the card's own bottom border and carrying that border round the arc, so the shape is a real cut rather than a drawn circle. Together the cut and the slot are the whole of what says "wallet": there is no wallet drawing on the card, which leaves the tile at the top-left free to carry the account's own glyph.
 
 The sheet is a **board**, not a card: what it holds is a screen's worth of cards, so the ramp inside it is the one a page uses (Midnight Board, Lamplit Slate cards, Inkwell insets) and the veil behind is what separates it from the page it floats over. A sheet filled as a card would leave every surface inside it a step up the ramp with nowhere to go, and every hairline grade a step below its own floor.
 
 A wallet card therefore departs from the card rules above in exactly one place: its corner is a control's 10px rather than a card's 20px, because it is a button in a grid of buttons. It is a button in the other respect too, so its edge takes the Drawn Edge grade rather than a card's Ghost Rule. The detail panel beside it is read rather than pressed, so it is a plain `.panel` at a card's 20px. A single radial wash at a card's top-right is the only depth on it, and that wash is what turns accent on the selected wallet, so selection is carried by a fill as well as by the accent edge.
+
+### The upload sheet
+"Upload transactions", beside the Wallet button on Month Budget, opens the same sheet. Its head is the Wallet's without the glow: a plain Inkwell square for the mark, because uploading is a chore rather than a figure the sheet is opened for, and the button that opens it is a plain secondary for the same reason. Inside, two steps share the board. **Upload** is a grid of drop zones, one card per account with its bank named quietly at the right, the files already in it as quiet lines, and a dashed Inkwell target whose edge lifts toward the accent while a file is held over it. A statement that needs its bank chosen turns the target into a small form in place (solid edge, labelled fields) rather than opening a dialog over the sheet. **Review** is one clipped card holding every row, a separator on Inkwell between accounts. Rows are 40px rather than the budget's 50, because a long statement is hundreds of them, on fixed tracks so the columns hold from row to row; the fields are the budget's quiet ones; the tick is redrawn in Pencil Grey rather than left to fill with the accent forty times over; row actions are quiet until engaged. Rows that cannot be imported sink to the foot of their account and dim everything but their chips; rows whose only warning is the month fold under a disclosure. The footer holds to the sheet's bottom edge while the list scrolls, so Confirm and the over-plan line (in Ember Glow, because over plan is the failure) are always in view. Previous imports sit last, as a plain card of rows.
 
 ### Motion
 Transitions are short and property-scoped: 120-140ms on state (colour, background, border, transform), 180ms on a rotation, 300-350ms on a quantity settling into place. The four overlays (modal, sheet, find bar, toast) share one keyframe, an exponential ease-out with no overshoot (`cubic-bezier(.16, 1, .3, 1)`): fast out of the gate, long settle, nothing to recover from, because a dialog in a money app springing past where it means to land is not a texture this app wants. Reduced motion collapses every animation and transition, drops the two hover lifts, and holds the toast's edge full rather than emptying it a frame after it appears.
@@ -424,7 +433,7 @@ Transitions are short and property-scoped: 120-140ms on state (colour, backgroun
 ### Don't:
 - **Don't** introduce green, or any colour at all, for a settled or under-spent state. Under-spending is an unfinished allocation, not a win.
 - **Don't** colour the unallocated remainder of a month. Absence is the signal.
-- **Don't** add a second red, an amber warning tier, or a separate destructive palette alongside Ember Red.
+- **Don't** add a second red, an amber warning tier, or a separate destructive palette alongside Ember Red. Lantern Amber is the upload review's label chips and nowhere else.
 - **Don't** put a gradient on a filled button. Flat fill, inset highlight, accent glow.
 - **Don't** raise more than one object per screen to the ranked shadow.
 - **Don't** add mascots, confetti, celebratory copy, pastel cards, or any other texture from the playful money app. This is a household's actual ledger.

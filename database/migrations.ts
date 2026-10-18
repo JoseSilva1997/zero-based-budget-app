@@ -254,6 +254,93 @@ const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    version: 9,
+    name: 'banks and the upload-transactions staging tables',
+    // Additive: new tables, new nullable columns. Each step is guarded, so a
+    // fresh install (whose schema.sql already has all of it) is a no-op, and
+    // the DDL matches schema.sql so both end up the same.
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS banks (
+          id INTEGER PRIMARY KEY,
+          name TEXT NOT NULL,
+          preset TEXT NOT NULL CHECK (preset IN ('monzo','lloyds','revolut','natwest')),
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS import_batches (
+          id INTEGER PRIMARY KEY,
+          budget_month_id INTEGER NOT NULL,
+          status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','imported','discarded')),
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          imported_at TEXT,
+          FOREIGN KEY (budget_month_id) REFERENCES budget_months(id) ON DELETE CASCADE
+        );
+        CREATE TABLE IF NOT EXISTS import_files (
+          id INTEGER PRIMARY KEY,
+          batch_id INTEGER NOT NULL,
+          bank_account_id INTEGER NOT NULL,
+          filename TEXT NOT NULL,
+          file_hash TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE (batch_id, file_hash),
+          FOREIGN KEY (batch_id) REFERENCES import_batches(id) ON DELETE CASCADE,
+          FOREIGN KEY (bank_account_id) REFERENCES bank_accounts(id) ON DELETE CASCADE
+        );
+        CREATE TABLE IF NOT EXISTS import_rows (
+          id INTEGER PRIMARY KEY,
+          file_id INTEGER NOT NULL,
+          row_index INTEGER NOT NULL,
+          raw TEXT NOT NULL,
+          posted_on TEXT,
+          spent_on TEXT,
+          amount_cents INTEGER CHECK (amount_cents >= 0),
+          direction TEXT CHECK (direction IN ('debit','credit')),
+          descriptor_raw TEXT NOT NULL,
+          descriptor_clean TEXT NOT NULL,
+          features TEXT NOT NULL DEFAULT '{}',
+          parse_error TEXT,
+          not_completed INTEGER NOT NULL DEFAULT 0 CHECK (not_completed IN (0,1)),
+          fingerprint TEXT,
+          category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
+          name TEXT,
+          kind TEXT CHECK (kind IN ('spend','transfer')),
+          included INTEGER CHECK (included IN (0,1)),
+          linked_entry_id INTEGER REFERENCES budget_item_actual_entries(id) ON DELETE SET NULL,
+          UNIQUE (file_id, row_index),
+          FOREIGN KEY (file_id) REFERENCES import_files(id) ON DELETE CASCADE
+        );
+      `);
+      if (!hasColumn(db, 'bank_accounts', 'bank_id')) {
+        db.exec(`ALTER TABLE bank_accounts ADD COLUMN bank_id INTEGER REFERENCES banks(id) ON DELETE SET NULL;`);
+      }
+      if (!hasColumn(db, 'bank_accounts', 'account_identifier')) {
+        db.exec(`ALTER TABLE bank_accounts ADD COLUMN account_identifier TEXT;`);
+      }
+      if (!hasColumn(db, 'bank_accounts', 'bank_product')) {
+        db.exec(`ALTER TABLE bank_accounts ADD COLUMN bank_product TEXT;`);
+      }
+      if (!hasColumn(db, 'budget_item_actual_entries', 'import_row_id')) {
+        db.exec(
+          `ALTER TABLE budget_item_actual_entries ADD COLUMN import_row_id INTEGER REFERENCES import_rows(id) ON DELETE SET NULL;`
+        );
+      }
+      db.exec(`
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_banks_name ON banks(name COLLATE NOCASE);
+        CREATE INDEX IF NOT EXISTS idx_actual_entries_import_row ON budget_item_actual_entries(import_row_id);
+        CREATE INDEX IF NOT EXISTS idx_import_batches_month ON import_batches(budget_month_id);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_import_batches_one_pending ON import_batches(budget_month_id) WHERE status = 'pending';
+        CREATE INDEX IF NOT EXISTS idx_import_files_account ON import_files(bank_account_id);
+        CREATE INDEX IF NOT EXISTS idx_import_rows_fingerprint ON import_rows(fingerprint);
+        CREATE INDEX IF NOT EXISTS idx_import_rows_category ON import_rows(category_id);
+        CREATE INDEX IF NOT EXISTS idx_import_rows_linked_entry ON import_rows(linked_entry_id);
+        CREATE TRIGGER IF NOT EXISTS banks_set_updated_at
+        AFTER UPDATE ON banks FOR EACH ROW
+        BEGIN UPDATE banks SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id; END;
+      `);
+    },
+  },
 ];
 
 /** Trimmed, inner whitespace collapsed, case-folded: the form names are

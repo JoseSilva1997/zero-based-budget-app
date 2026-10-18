@@ -43,6 +43,6 @@ export { MoneyInput, DayField, TextInline, FieldChip } from "./inputs.jsx";
 export { Tile, Stat, Avatar, DiffPill, MiniBar } from "./readouts.jsx";
 export { ObjectRow } from "./rows.jsx";
 export { EmptyState, Alert } from "./notices.jsx";
-export { Modal, ConfirmDialog } from "./overlays.jsx";
+export { Modal, ConfirmDialog, Sheet } from "./overlays.jsx";
 export { ChartCard } from "./containers.jsx";
 export { useFocusTrap } from "./hooks.js";

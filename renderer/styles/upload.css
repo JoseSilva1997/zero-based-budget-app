@@ -1,0 +1,278 @@
+/* ============================================================
+   Upload transactions: the sheet's contents. .sheet, .sheet-head and
+   .sheet-body are in overlays.css and drawn by Sheet (ui/overlays.jsx); this
+   is what the upload puts inside them - the drop zones, the review list and
+   its label chips, the footer and the previous imports.
+   ============================================================ */
+
+/* ---- the head ----------------------------------------------------------
+   The Wallet's head, without its glow: the upload is a chore rather than a
+   figure the sheet is opened for, so its mark is a plain tile-rung square on
+   Inkwell and the accent stays put away. `auto` on the right margin puts the
+   close button at the far edge. */
+.upload-head-id { display: flex; align-items: center; gap: 11px; margin-right: auto; }
+.upload-head-mark {
+  width: 34px; height: 34px; border-radius: 9px; flex: none;
+  display: grid; place-items: center;
+  background: var(--well); color: var(--ink-2); border: 1px solid var(--rule);
+}
+.upload-head-title { font-weight: 600; font-size: var(--text-16); }
+.upload-head-sub { font-size: var(--text-12); color: var(--muted); }
+
+/* ---- the upload step: one zone per account ------------------------------
+   Two across, because a household has a handful of accounts and each zone is
+   short; a single column of them would leave the sheet mostly empty. */
+.upload-zones {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-6);
+}
+.upload-zone { padding: var(--space-6); display: flex; flex-direction: column; gap: var(--space-5); }
+.upload-zone-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-5); }
+.upload-zone-name { font-weight: 600; font-size: var(--text-15); }
+.upload-zone-bank { font-size: var(--text-12); color: var(--muted); flex: none; }
+.upload-zone-bank.is-unset { color: var(--faint); font-style: italic; }
+
+/* The drop target. Dashed, because it is a place to put something rather
+   than a card that holds it, and it lifts its edge toward the accent while a
+   file is held over it - the object being worked on is where the lamp goes. */
+.upload-drop {
+  display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: var(--space-3);
+  padding: 18px var(--space-6); border-radius: var(--radius-sm);
+  border: 1px dashed var(--rule-strong); background: var(--well);
+  color: var(--muted); font-size: var(--text-13); cursor: pointer;
+  transition: border-color .14s, background-color .14s;
+}
+.upload-drop:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--rule-strong)); }
+.upload-drop:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.upload-drop.is-over { border-color: var(--accent); background: var(--wash-tray); color: var(--ink-2); }
+.upload-drop > svg { color: var(--faint); }
+
+/* The files already in a zone: one quiet line each, the row count in the
+   figure face, and the remove button at the end. */
+.upload-files { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.upload-file {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-1) 0; font-size: var(--text-13); color: var(--ink-2);
+}
+.upload-file + .upload-file { border-top: 1px solid var(--rule-faint); }
+.upload-file-glyph { color: var(--faint); flex: none; }
+.upload-file-name { flex: 1; }
+.upload-file-rows { font-size: var(--text-12); color: var(--muted); flex: none; }
+.upload-zone-error { font-size: var(--text-13); }
+
+/* ---- setting a bank up, inside the zone ---------------------------------
+   Takes the drop target's place rather than opening over the sheet, so the
+   question sits under the account it is about. Inkwell like the target it
+   replaces, on a solid edge rather than a dashed one: this is a form now,
+   not a place to put something. */
+.upload-setup {
+  display: flex; flex-direction: column; gap: var(--space-4);
+  padding: var(--space-5) var(--space-6); border-radius: var(--radius-sm);
+  background: var(--well); border: 1px solid var(--rule);
+}
+.upload-setup-lead { font-size: var(--text-13); color: var(--ink-2); line-height: 1.45; }
+.upload-setup-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4) var(--space-3); }
+.upload-setup-field { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+/* --faint, the ink a label takes over a field inside a tray. */
+.upload-setup-label { color: var(--faint); }
+.upload-setup-fields .tinput { font-size: var(--text-13); background-color: var(--raised); }
+.upload-setup-actions { display: flex; justify-content: flex-end; gap: var(--space-3); }
+
+/* ---- the footer ----------------------------------------------------------
+   The step's one way forward, at the end of what it is about: a note on the
+   left saying what pressing it will do, the button on the right under the
+   reader's hand, the way a dialog's actions sit. */
+.upload-foot {
+  display: flex; align-items: center; gap: var(--space-5); flex-wrap: wrap;
+  margin-top: var(--space-7); padding-top: var(--space-6); border-top: 1px solid var(--rule);
+}
+.upload-foot-note { margin-right: auto; font-size: var(--text-13); color: var(--muted); }
+/* There is no app-wide disabled button (see .merge-foot in settings.css);
+   this footer's way forward waits on a file or a tick, so it says so. */
+.upload-foot .btn:disabled { opacity: .4; pointer-events: none; }
+.upload-back { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--text-13); color: var(--ink-2); }
+
+/* ---- the review list -----------------------------------------------------
+   One card holding every account's rows, a separator between accounts. The
+   row is dense on purpose - a nine-month Revolut export is three hundred of
+   them - so it is 40px rather than the budget's 50, with the same quiet
+   fields that look like text until touched.
+
+   Tracks: tick, date, name, category, amount, labels, actions. Every row is
+   its own grid, so only the name and category tracks flex and everything
+   else is a fixed width: that is what keeps the columns lined up from one
+   row to the next, whatever chips or buttons a row happens to carry. The
+   candidate rows under "Same as existing" use the same tracks, so their
+   date, name and amount sit under the row's own. */
+.upload-list { display: flex; flex-direction: column; }
+.upload-row {
+  display: grid; align-items: center; gap: var(--space-4);
+  grid-template-columns: 22px 52px minmax(0, 1.4fr) minmax(0, 1fr) 92px 190px 196px;
+  min-height: 40px; padding: 3px var(--space-6);
+}
+.upload-row + .upload-row { border-top: 1px solid var(--rule-faint); }
+/* The tick, redrawn: a native checkbox would fill every ticked row with the
+   accent, and a review of forty ticked rows would be forty violet squares.
+   Ticked is a fact about the row rather than the thing being worked on, so it
+   fills with Pencil Grey and carries its check in Reverse Ink (a fixed hex in
+   the data URI, which cannot read a token, as the select chevron's is). */
+.upload-tick {
+  -webkit-appearance: none; appearance: none; flex: none;
+  width: 16px; height: 16px; margin: 0; border-radius: 4px;
+  border: 1px solid var(--rule-strong); background: var(--well); cursor: pointer;
+  background-position: center; background-repeat: no-repeat; background-size: 12px;
+  transition: background-color .12s, border-color .12s;
+}
+.upload-tick:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--rule-strong)); }
+.upload-tick:checked {
+  background-color: var(--ink-2); border-color: var(--ink-2);
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23141418' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+}
+.upload-tick:disabled { cursor: not-allowed; border-style: dashed; border-color: var(--rule); background-color: transparent; }
+.upload-date { font-size: var(--text-12); color: var(--muted); white-space: nowrap; }
+.upload-row .tinput { font-size: var(--text-13); padding: 4px 8px; }
+.upload-category.is-empty { color: var(--faint); }
+.upload-amount { text-align: right; font-size: var(--text-13); font-weight: 600; white-space: nowrap; }
+
+/* The separator between accounts. Not a card head: a label line on Inkwell,
+   since it divides one list rather than opening another. */
+.upload-separator {
+  display: flex; align-items: baseline; gap: var(--space-3);
+  padding: 10px var(--space-6) 8px; background: var(--well);
+  border-bottom: 1px solid var(--rule-faint);
+}
+.upload-section + .upload-section .upload-separator { border-top: 1px solid var(--rule); }
+.upload-separator-name { font-weight: 600; font-size: var(--text-13); }
+.upload-separator-bank { font-size: var(--text-12); color: var(--muted); }
+.upload-separator-count { margin-left: auto; font-size: var(--text-12); color: var(--faint); }
+
+/* ---- label chips ---------------------------------------------------------
+   A chip's corner (6px) and the difference chip's caption size, so they read
+   as notes on the row rather than as controls. Three skins, one per
+   severity, and this is the only place in the app a warning hue appears: see
+   --caution in tokens.css and The One Failure Rule in DESIGN.md.
+     block  filled Ember, like the over-budget chip: the row cannot go in.
+     warn   outlined Lantern Amber: look before you tick. Hollow on purpose,
+            so the louder fill stays with the row that is refused.
+     info   Inkwell and Pencil Grey: a fact about the row, not a problem. */
+.upload-chips { display: flex; flex-wrap: wrap; gap: var(--space-1); min-width: 0; }
+.upload-chip {
+  display: inline-flex; align-items: center; white-space: nowrap;
+  padding: 1px 7px; border-radius: var(--radius-3xs);
+  font-size: var(--text-11); font-weight: 600; line-height: 1.5;
+  border: 1px solid transparent;
+}
+.upload-chip.is-block { background: var(--breach-soft); color: var(--breach-ink); }
+.upload-chip.is-warn { color: var(--caution); border-color: color-mix(in srgb, var(--caution) 45%, transparent); }
+.upload-chip.is-info { background: var(--well); color: var(--ink-2); }
+.upload-chip[title] { cursor: help; }
+
+/* A row that cannot be imported: sunk to the bottom of its section and
+   dimmed, its controls disabled. Everything dims except the chips, which
+   say why in words and have to stay legible to do it. */
+.upload-row.is-blocked > :not(.upload-chips) { opacity: 0.5; }
+
+/* ---- the filter row ------------------------------------------------------
+   Pills, because they are toggles in a row of toggles; the lit one takes the
+   accent edge and Violet Shade, the object being worked on. */
+.upload-filters { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-5); }
+.upload-filter {
+  padding: 4px 11px; border-radius: var(--radius-pill);
+  border: 1px solid var(--rule-strong); background: transparent; color: var(--ink-2);
+  font-size: var(--text-12); font-weight: 500; white-space: nowrap;
+  transition: background-color .12s, border-color .12s, color .12s;
+}
+.upload-filter:hover { background: var(--well); color: var(--ink); }
+.upload-filter.is-on, .upload-filter.is-on:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--ink); }
+
+/* The fold for rows outside the month: a quiet full-width line at the foot
+   of its section, the caret turning as it opens. */
+.upload-fold {
+  display: flex; align-items: center; gap: var(--space-2); width: 100%;
+  padding: 9px var(--space-6); border: 0; border-top: 1px solid var(--rule-faint);
+  background: transparent; color: var(--muted); font-size: var(--text-12); text-align: left;
+  transition: background-color .12s, color .12s;
+}
+.upload-fold:hover { background: var(--well); color: var(--ink-2); }
+.upload-fold-caret { transition: transform .18s; flex: none; }
+.upload-fold.is-open .upload-fold-caret { transform: rotate(90deg); }
+.upload-fold.is-open + .upload-row { border-top: 1px solid var(--rule-faint); }
+
+/* ---- row actions ---------------------------------------------------------
+   Quiet until engaged: invisible and unreachable until the row is hovered or
+   holds focus. A row that is a transfer, or matched, already says so at rest
+   (its Transfer chip, its "Same as" line), so the toggle that undoes it
+   needs no resting presence of its own; only an open candidate list keeps
+   its button drawn, since the tray under the row belongs to it. */
+.upload-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-1); }
+.upload-actions > * { opacity: 0; pointer-events: none; transition: opacity .12s; }
+.upload-row:hover .upload-actions > *, .upload-row:focus-within .upload-actions > * { opacity: 1; pointer-events: auto; }
+.upload-toggle {
+  padding: 3px 9px; border-radius: var(--radius-3xs);
+  border: 1px solid var(--rule-strong); background: transparent; color: var(--muted);
+  font-size: var(--text-11); font-weight: 600; white-space: nowrap;
+  transition: background-color .12s, color .12s, border-color .12s;
+}
+.upload-toggle:hover { background: var(--well); color: var(--ink); }
+.upload-toggle.is-on { background: var(--well); border-color: transparent; color: var(--ink-2); }
+.upload-toggle:disabled { cursor: not-allowed; }
+.upload-toggle.is-open { border-color: var(--accent); color: var(--ink); }
+.upload-actions > .is-open { opacity: 1; pointer-events: auto; }
+
+/* ---- "Same as existing" --------------------------------------------------
+   The candidates open under the row as a tray, the way an item's entries
+   open under it on the budget: Tray Wash, so the row and what it opened read
+   as one object. A matched row says what it is the same as where its labels
+   were; it creates no entry, so it is the quietest row in the list. */
+.upload-candidates {
+  padding: var(--space-3) 0 var(--space-4);
+  background: var(--wash-tray); border-top: 1px solid var(--rule-faint);
+}
+.upload-candidates-head { color: var(--faint); margin: 0 var(--space-6) var(--space-2) calc(var(--space-6) + 22px + var(--space-4)); }
+.upload-candidate {
+  display: grid; align-items: center; gap: var(--space-4);
+  grid-template-columns: 22px 52px minmax(0, 1.4fr) minmax(0, 1fr) 92px 190px 196px;
+  padding: var(--space-1) var(--space-6); font-size: var(--text-13);
+}
+.upload-candidate > :first-child { grid-column: 2; }
+.upload-candidate > .btn { grid-column: 7; justify-self: end; }
+/* 9px, the padding the row's own name field sets its text in, so the two
+   names start on one line. */
+.upload-candidate-name { color: var(--ink); padding-left: 9px; }
+.upload-candidate-cat { padding-left: 9px; color: var(--muted); font-size: var(--text-12); }
+.upload-linked { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--text-12); color: var(--ink-2); }
+.upload-linked > svg { flex: none; color: var(--muted); }
+.upload-row.is-linked .upload-name, .upload-row.is-linked .upload-amount { color: var(--muted); }
+
+/* The review's footer: Back to files on the left, then everything about
+   Confirm gathered at the right, the over-plan line first because it is the
+   one that might change your mind. */
+.upload-foot-spacer { margin-right: auto; }
+/* With three hundred rows the review is far longer than the sheet, so its
+   footer holds to the sheet's bottom edge while the list scrolls under it:
+   Confirm and the over-plan line are always in view while ticking. The
+   negative offset is the sheet body's own bottom padding, so the footer
+   sits on the sheet's edge rather than floating 30px above it. */
+.upload-review-foot {
+  position: sticky; bottom: calc(-1 * var(--space-8)); z-index: 2;
+  margin-bottom: calc(-1 * var(--space-8)); padding-bottom: var(--space-6);
+  background: var(--board);
+}
+.upload-over { font-size: var(--text-13); font-weight: 600; color: var(--breach-ink); }
+.upload-summary { font-size: var(--text-13); color: var(--muted); white-space: nowrap; }
+
+/* ---- previous imports ----------------------------------------------------
+   A plain card of rows at the foot of the sheet, under an object label: a
+   record of what happened rather than work still to do. */
+.upload-previous { margin-top: var(--space-8); }
+.upload-previous-head { color: var(--muted); margin-bottom: var(--space-4); }
+.upload-previous-row {
+  display: grid; align-items: center; gap: var(--space-5);
+  grid-template-columns: 96px minmax(0, 1fr) auto auto;
+  padding: var(--space-3) var(--space-6); font-size: var(--text-13);
+}
+.upload-previous-row + .upload-previous-row { border-top: 1px solid var(--rule-faint); }
+.upload-previous-when { font-weight: 600; white-space: nowrap; }
+.upload-previous-time { margin-left: var(--space-2); font-weight: 500; font-size: var(--text-12); color: var(--faint); }
+.upload-previous-files { color: var(--ink-2); }
+.upload-previous-count { color: var(--muted); font-size: var(--text-12); white-space: nowrap; }

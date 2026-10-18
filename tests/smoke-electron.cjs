@@ -16,6 +16,7 @@ app.disableHardwareAcceleration();
 const EXPECTED_TABLES = [
   'app_meta',
   'bank_accounts',
+  'banks',
   'budget_groups',
   'budget_incomes',
   'budget_item_actual_entries',
@@ -23,6 +24,9 @@ const EXPECTED_TABLES = [
   'budget_months',
   'categories',
   'household_members',
+  'import_batches',
+  'import_files',
+  'import_rows',
 ];
 const REMOVED_TABLES = [
   'budget_group_templates',
@@ -87,6 +91,13 @@ app.whenReady().then(() => {
     for (const c of ['budget_group_id', 'name']) {
       assert(!itemCols.includes(c), `budget_items.${c} should be gone`);
     }
+
+    // Upload transactions: an account points at its bank, and an entry at the
+    // staging row it was imported from.
+    for (const c of ['bank_id', 'account_identifier', 'bank_product']) {
+      assert(columnNames(db, 'bank_accounts').includes(c), `bank_accounts.${c} is missing`);
+    }
+    assert(entryCols.includes('import_row_id'), 'budget_item_actual_entries.import_row_id is missing');
 
     const v = db.prepare('SELECT sqlite_version() AS v').get().v;
     console.log(

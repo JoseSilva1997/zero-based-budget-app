@@ -1,0 +1,114 @@
+/* ============================================================
+   banks: the banks you hold accounts with, by the name you give them, each
+   reading its statements through one built-in preset (monzo, lloyds,
+   revolut, natwest). A bank_account points at its bank, and remembers what
+   uploads need: the Revolut product it is, and the account identifier from
+   the first statement imported into it.
+   ============================================================ */
+import type Database from 'better-sqlite3';
+import type { Bank, BankPreset } from '../../shared/types';
+import { cleanName, normalizeName } from './categories';
+
+/** The presets built in (main/import/presets has one module per key). */
+export const BANK_PRESETS: BankPreset[] = ['monzo', 'lloyds', 'revolut', 'natwest'];
+
+export interface NewBank {
+  name: string;
+  preset: BankPreset;
+}
+
+/** Refuses a blank name, or one another bank has (compared trimmed,
+ *  collapsed and case-folded), skipping 'exceptId'. */
+function assertBankName(db: Database.Database, name: string, exceptId: number | null): void {
+  if (!cleanName(name)) throw new Error('A bank needs a name.');
+  const key = normalizeName(name);
+  const clash = listBanks(db).find((k) => k.id !== exceptId && normalizeName(k.name) === key);
+  if (clash) {
+    throw new Error(`There's already a bank called "${clash.name}". Give this one another name.`);
+  }
+}
+
+export function createBank(db: Database.Database, bank: NewBank): number {
+  assertBankName(db, bank.name, null);
+  if (!BANK_PRESETS.includes(bank.preset)) {
+    throw new Error("House Budget can't read statements from that bank yet.");
+  }
+  const info = db
+    .prepare(`INSERT INTO banks (name, preset) VALUES (?, ?)`)
+    .run(cleanName(bank.name), bank.preset);
+  return Number(info.lastInsertRowid);
+}
+
+export function getBank(db: Database.Database, id: number): Bank | undefined {
+  return db.prepare(`SELECT * FROM banks WHERE id = ?`).get(id) as Bank | undefined;
+}
+
+/** Every bank, by name. */
+export function listBanks(db: Database.Database): Bank[] {
+  return db.prepare(`SELECT * FROM banks ORDER BY name COLLATE NOCASE, id`).all() as Bank[];
+}
+
+/** Renames a bank. Another bank's name is refused; its own, in another
+ *  case, is fine. */
+export function renameBank(db: Database.Database, id: number, name: string): void {
+  assertBankName(db, name, id);
+  db.prepare(`UPDATE banks SET name = ? WHERE id = ?`).run(cleanName(name), id);
+}
+
+/** Points an account at its bank ('bankId' null for none) and records the
+ *  Revolut product it is ('Current'; null for other banks, or not chosen).
+ *  Moving it to another bank forgets its account identifier, which came from
+ *  the old bank's statements. */
+export function setAccountBank(
+  db: Database.Database,
+  accountId: number,
+  bankId: number | null,
+  product: string | null
+): void {
+  if (bankId !== null && !getBank(db, bankId)) {
+    throw new Error('That bank is no longer in your list, so the account was not changed.');
+  }
+  db.prepare(
+    `UPDATE bank_accounts
+        SET account_identifier = CASE WHEN bank_id IS @bankId THEN account_identifier END,
+            bank_id = @bankId, bank_product = @product
+      WHERE id = @accountId`
+  ).run({ bankId, product, accountId });
+}
+
+/** Records the account a statement is for (from the first file imported
+ *  into it), or clears it with null. */
+export function setAccountIdentifier(
+  db: Database.Database,
+  accountId: number,
+  identifier: string | null
+): void {
+  const value = identifier === null ? null : identifier.trim() || null;
+  db.prepare(`UPDATE bank_accounts SET account_identifier = ? WHERE id = ?`).run(value, accountId);
+}
+
+/** "Joint", "Joint and Bills", "Joint, Bills and Savings". */
+function listNames(names: string[]): string {
+  return names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0];
+}
+
+/**
+ * Deletes a bank. A bank an account still uses is refused rather than
+ * quietly unset (which bank_accounts' ON DELETE SET NULL would do): the
+ * account would lose its preset, Revolut product and identifier, and its
+ * next upload would start over. The SET NULL stays as the backstop.
+ */
+export function deleteBank(db: Database.Database, id: number): void {
+  const bank = getBank(db, id);
+  if (!bank) return;
+  const users = db
+    .prepare(`SELECT name FROM bank_accounts WHERE bank_id = ? ORDER BY sort_order, id`)
+    .all(id) as Array<{ name: string }>;
+  if (users.length > 0) {
+    throw new Error(
+      `"${bank.name}" is still the bank for ${listNames(users.map((u) => u.name))}. ` +
+        `Choose another bank for ${users.length > 1 ? 'them' : 'it'} first.`
+    );
+  }
+  db.prepare(`DELETE FROM banks WHERE id = ?`).run(id);
+}

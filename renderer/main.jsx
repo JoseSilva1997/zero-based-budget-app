@@ -9,6 +9,7 @@ import { api, can } from './lib/api.js';
 import { StoreProvider, useStore } from './store.jsx';
 import { Avatar, ConfirmDialog, EmptyState, Icons, MsIcons, Section, Tile } from './ui/index.js';
 import { WalletSheet } from './Accounts.jsx';
+import { UploadSheet } from './Upload.jsx';
 import { GroupCard, NewMonthModal, useBudgetDrag } from './MonthGroups.jsx';
 import { IncomeSection } from './MonthBudget.jsx';
 import { MonthBar } from './MonthBar.jsx';
@@ -28,6 +29,7 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
   const [addingGroup, setAddingGroup] = useState(false);
   const [newGroup, setNewGroup] = useState("");
   const [walletOpen, setWalletOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [confirmMonth, setConfirmMonth] = useState(false);
   // Deleting the last remaining month would leave the budget screen with
   // nothing to show, and the delete needs the desktop bridge to exist at all.
@@ -53,6 +55,14 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
           )}
         </div>
         <div className="topbar-actions">
+          {/* A plain secondary: the accent in this bar already belongs to "New
+              month" and to the Wallet's glyph, and uploading is an occasional
+              chore rather than the thing the screen is for. */}
+          {can("importReview") && (
+            <button className="btn" onClick={() => setUploadOpen(true)} title="Import a bank statement into this month">
+              <Icons.upload size={16} /> Upload transactions
+            </button>
+          )}
           <button className="btn wallet-btn" onClick={() => setWalletOpen(true)} title="Open Wallet - funding plan by account">
             <Icons.wallet size={16} />
             Wallet
@@ -117,6 +127,8 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
            each group card already ends with, one level out. */
         <button className="btn btn-ghost btn-quiet add-group-btn" onClick={() => setAddingGroup(true)}><Icons.plus size={16} /> Add group</button>
       )}
+
+      {uploadOpen && <UploadSheet month={mid} currency={currency} onClose={() => setUploadOpen(false)} />}
 
       {walletOpen && <WalletSheet mo={mo} accounts={state.settings.accounts} members={state.settings.members} currency={currency} month={mid} onClose={() => setWalletOpen(false)} />}
 
