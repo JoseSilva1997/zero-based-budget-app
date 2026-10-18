@@ -60,3 +60,12 @@ BEGIN
   SET updated_at = CURRENT_TIMESTAMP
   WHERE id = NEW.id;
 END;
+
+CREATE TRIGGER banks_set_updated_at
+AFTER UPDATE ON banks
+FOR EACH ROW
+BEGIN
+  UPDATE banks
+  SET updated_at = CURRENT_TIMESTAMP
+  WHERE id = NEW.id;
+END;
