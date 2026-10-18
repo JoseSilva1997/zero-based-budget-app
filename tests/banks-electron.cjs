@@ -64,6 +64,15 @@ app.whenReady().then(() => {
         'banks list by name, stored trimmed and collapsed'
       );
       eq(banks.getBank(db, nat).name, 'Joint NatWest', 'a bank reads back by id');
+
+      throws(
+        () => banks.createBank(db, { name: 'joint natwest', preset: 'natwest' }),
+        'There\'s already a bank called "Joint NatWest". Give this one another name.',
+        'a name in use is refused, ignoring case and spacing'
+      );
+      throws(() => banks.createBank(db, { name: '   ', preset: 'monzo' }), 'A bank needs a name.', 'a blank name is refused');
+      throws(() => banks.createBank(db, { name: 'HSBC', preset: 'hsbc' }), "House Budget can't read statements from that bank yet.", 'an unknown preset is refused');
+      eq(banks.listBanks(db).length, 2, 'refusals add nothing');
       db.close();
     }
 

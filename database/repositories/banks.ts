@@ -7,14 +7,32 @@
    ============================================================ */
 import type Database from 'better-sqlite3';
 import type { Bank, BankPreset } from '../../shared/types';
-import { cleanName } from './categories';
+import { cleanName, normalizeName } from './categories';
+
+/** The presets built in (main/import/presets has one module per key). */
+export const BANK_PRESETS: BankPreset[] = ['monzo', 'lloyds', 'revolut', 'natwest'];
 
 export interface NewBank {
   name: string;
   preset: BankPreset;
 }
 
+/** Refuses a blank name, or one another bank has (compared trimmed,
+ *  collapsed and case-folded), skipping 'exceptId'. */
+function assertBankName(db: Database.Database, name: string, exceptId: number | null): void {
+  if (!cleanName(name)) throw new Error('A bank needs a name.');
+  const key = normalizeName(name);
+  const clash = listBanks(db).find((k) => k.id !== exceptId && normalizeName(k.name) === key);
+  if (clash) {
+    throw new Error(`There's already a bank called "${clash.name}". Give this one another name.`);
+  }
+}
+
 export function createBank(db: Database.Database, bank: NewBank): number {
+  assertBankName(db, bank.name, null);
+  if (!BANK_PRESETS.includes(bank.preset)) {
+    throw new Error("House Budget can't read statements from that bank yet.");
+  }
   const info = db
     .prepare(`INSERT INTO banks (name, preset) VALUES (?, ?)`)
     .run(cleanName(bank.name), bank.preset);
