@@ -221,6 +221,8 @@ app.whenReady().then(() => {
         ['2026-09-29', 'S EXAMPLE SENT FROM EXAMPLEBANK'],
         'NatWest: a credit keeps the payer and reference'
       );
+      eq(card('1234 03SEP26 D , EXAMPLE.COM , LONDON GB , REFUND'), ['2026-09-03', 'EXAMPLE.COM'], 'NatWest: a trailing REFUND marker is not the town');
+      eq(card('1234 03SEP26 , EXAMPLEPAY*SAM EXAMP, LONDON GB, CREDIT'), ['2026-09-03', 'EXAMPLEPAY SAM EXAMP'], 'NatWest: nor is CREDIT');
     }
 
     /* ---- generic descriptor cleaning, for every bank ---- */

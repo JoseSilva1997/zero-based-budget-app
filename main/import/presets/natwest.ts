@@ -31,8 +31,11 @@ function cardPayment(description: string): { spentOn: string | null; merchant: s
   const segments = m[4]
     .split(',')
     .map((s) => s.trim())
-    // A payment abroad ends with "EUR 6.00, VRATE 1.1627".
-    .filter((s) => s && !/^[A-Z]{3} \d+\.\d+$/.test(s) && !/^VRATE \d/.test(s));
+    // A payment abroad ends with "EUR 6.00, VRATE 1.1627", and a refund
+    // with "REFUND" or "CREDIT": none of them is the merchant or the town.
+    .filter(
+      (s) => s && !/^[A-Z]{3} \d+\.\d+$/.test(s) && !/^VRATE \d/.test(s) && !/^(REFUND|CREDIT)$/.test(s)
+    );
   const merchant = (segments.length > 1 ? segments.slice(0, -1) : segments).join(' ');
   return { spentOn: dayMonYear(m[1], m[2], m[3]), merchant };
 }
