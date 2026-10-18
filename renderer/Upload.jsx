@@ -14,7 +14,7 @@
    ============================================================ */
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, EmptyState, Icons, Sheet, TextInline } from './ui/index.js';
-import { cx, fmt, isBlocked, labelCounts, monthLabel, onlyOutOfMonth, shortDate, sinkBlocked } from './lib/index.js';
+import { cx, fmt, importOutcome, isBlocked, labelCounts, monthLabel, onlyOutOfMonth, shortDate, sinkBlocked } from './lib/index.js';
 import { useStore } from './store.jsx';
 
 /* The statement formats House Budget reads, by preset key, as a household
@@ -427,9 +427,32 @@ function ReviewStep({ review, currency, onUpdate, onBack }) {
           ))}
         </div>
       )}
-      <div className="upload-foot">
-        <button className="link-btn upload-back" onClick={onBack}><Icons.left size={14} /> Back to files</button>
-      </div>
+      <ReviewFoot review={review} currency={currency} onBack={onBack} />
+    </div>
+  );
+}
+
+/* The review's footer. Confirm, with what it will do said quietly beside it,
+   and next to that what the month will be over by once it has: per category,
+   worked out here from the ticks as they stand, in the failure hue because
+   over plan is the failure. It also catches a row in the wrong category - a
+   line that suddenly goes over is usually one. */
+function ReviewFoot({ review, currency, onBack }) {
+  const out = importOutcome(review);
+  const money = (cents) => fmt(currency, cents / 100);
+  const parts = [`${out.count} ${out.count === 1 ? "entry" : "entries"} · ${money(out.totalCents)}`];
+  if (out.linked) parts.push(`${out.linked} matched`);
+  return (
+    <div className="upload-foot upload-review-foot">
+      <button className="link-btn upload-back" onClick={onBack}><Icons.left size={14} /> Back to files</button>
+      <span className="upload-foot-spacer" />
+      {out.over.length > 0 && (
+        <span className="upload-over" data-over-plan>
+          Over plan after import: {out.over.map((o) => `${o.name} +${money(o.overCents)}`).join(", ")}
+        </span>
+      )}
+      <span className="num upload-summary" data-confirm-summary>{parts.join(" · ")}</span>
+      <button className="btn btn-primary" disabled={out.count === 0 && out.linked === 0}>Confirm</button>
     </div>
   );
 }

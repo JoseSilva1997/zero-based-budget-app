@@ -52,3 +52,43 @@ export function onlyOutOfMonth(row) {
   const warns = row.labels.filter((l) => l.severity === "warn");
   return warns.length === 1 && warns[0].key === "out_of_month";
 }
+
+/** Whether Confirm would write this row as an entry: ticked, importable, a
+ *  spend rather than a transfer, not matched to an entry already there, and
+ *  with an amount and a category to write. */
+export const willImport = (row) =>
+  row.included && !isBlocked(row) && row.kind === "spend" &&
+  row.decisions.linkedEntryId == null && row.amountCents != null && row.categoryId != null;
+
+/**
+ * What Confirm would do, worked out from the review as it stands:
+ * { count, totalCents, linked, over }.
+ *
+ * `over` is "Over plan after import": per category the ticked rows land in,
+ * what the month has spent so far plus those rows, against what was planned.
+ * A category with no plan line this month is planned at nothing, so all of it
+ * is over (Confirm creates the line at £0). Only categories that go over are
+ * listed, worst first, as { categoryId, name, overCents }.
+ */
+export function importOutcome(review) {
+  let count = 0, totalCents = 0, linked = 0;
+  const added = new Map();
+  for (const a of review.accounts) {
+    for (const r of a.rows) {
+      if (r.decisions.linkedEntryId != null && !isBlocked(r)) linked += 1;
+      if (!willImport(r)) continue;
+      count += 1;
+      totalCents += r.amountCents;
+      added.set(r.categoryId, (added.get(r.categoryId) || 0) + r.amountCents);
+    }
+  }
+  const over = [];
+  for (const [categoryId, cents] of added) {
+    const line = review.plan.find((p) => p.categoryId === categoryId);
+    const cat = review.categories.find((c) => c.id === categoryId);
+    const overCents = (line ? line.actualCents : 0) + cents - (line ? line.plannedCents : 0);
+    if (overCents > 0) over.push({ categoryId, name: line ? line.name : cat ? cat.name : "Uncategorised", overCents });
+  }
+  over.sort((a, b) => b.overCents - a.overCents);
+  return { count, totalCents, linked, over };
+}

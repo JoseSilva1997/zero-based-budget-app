@@ -42,6 +42,7 @@ import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { StoreProvider } from './renderer/store.jsx';
 import { UploadSheet } from './renderer/Upload.jsx';
+import { importOutcome } from './renderer/lib/imports.js';
 
 const results = [];
 const check = (name, cond, msg) => results.push({ name, ok: !!cond, msg: cond ? '' : (msg || '') });
@@ -221,7 +222,48 @@ const choose = async (accountId, names) => {
   await settle();
 };
 
+/* ---- the pure helper: what Confirm would do, and what goes over ------ */
+function unitTests() {
+  const lbl = (key, severity) => ({ key, severity, text: key });
+  const r = (o) => ({ included: true, kind: 'spend', categoryId: 11, amountCents: 1000, labels: [], decisions: { linkedEntryId: null }, ...o });
+  const plan = [
+    { itemId: 1, categoryId: 11, name: 'Groceries', plannedCents: 30000, actualCents: 28000 },
+    { itemId: 2, categoryId: 12, name: 'Eating out', plannedCents: 5000, actualCents: 5000 },
+    { itemId: 3, categoryId: 13, name: 'Fuel', plannedCents: 10000, actualCents: 2000 },
+  ];
+  const categories = [
+    { id: 11, name: 'Groceries' }, { id: 12, name: 'Eating out' }, { id: 13, name: 'Fuel' }, { id: 14, name: 'Gifts' },
+  ];
+  const out = importOutcome({ plan, categories, accounts: [
+    { rows: [
+      r({ categoryId: 11, amountCents: 4210 }),
+      r({ categoryId: 12, amountCents: 800 }),
+      r({ categoryId: 13, amountCents: 3000 }),
+      r({ categoryId: 11, amountCents: 999, included: false }),
+    ] },
+    { rows: [
+      r({ categoryId: 14, amountCents: 2500 }),
+      r({ categoryId: 11, amountCents: 5000, labels: [lbl('credit', 'block')] }),
+      r({ categoryId: 11, amountCents: 7000, kind: 'transfer' }),
+      r({ categoryId: 11, amountCents: 1234, decisions: { linkedEntryId: 900 } }),
+      r({ categoryId: 11, amountCents: null, labels: [lbl('parse_error', 'block')] }),
+    ] },
+  ] });
+  check('unit: counts only the rows Confirm writes', out.count === 4, JSON.stringify(out));
+  check('unit: totals them in pence', out.totalCents === 10510, out.totalCents + '');
+  check('unit: counts the matched rows apart', out.linked === 1, out.linked + '');
+  check('unit: a line already at plan goes over by what is added', JSON.stringify(out.over.find((o) => o.name === 'Eating out')) === '{"categoryId":12,"name":"Eating out","overCents":800}', JSON.stringify(out.over));
+  check('unit: over is actual plus the ticked rows, less the plan', out.over.find((o) => o.name === 'Groceries') && out.over.find((o) => o.name === 'Groceries').overCents === 2210, JSON.stringify(out.over));
+  check('unit: a category with no plan line is over by all of it', out.over.find((o) => o.name === 'Gifts') && out.over.find((o) => o.name === 'Gifts').overCents === 2500, JSON.stringify(out.over));
+  check('unit: a line with room left is not listed', !out.over.some((o) => o.name === 'Fuel'), JSON.stringify(out.over));
+  check('unit: the worst first', out.over.map((o) => o.name).join() === 'Gifts,Groceries,Eating out', out.over.map((o) => o.name).join());
+  const none = importOutcome({ plan, categories, accounts: [{ rows: [r({ categoryId: 13, amountCents: 100 })] }] });
+  check('unit: nothing over is an empty list', none.over.length === 0 && none.count === 1, JSON.stringify(none));
+}
+
 window.__runTests = async () => {
+  unitTests();
+
   /* ---- 1. one drop zone per account --------------------------------- */
   await mount();
   check('the sheet is a dialog named for the upload', !!document.querySelector('[role="dialog"][aria-label="Upload transactions"]'), text());
@@ -397,6 +439,17 @@ window.__runTests = async () => {
   await press(byLabel('Unlink Sainsburys'), 'Unlink Sainsburys');
   check('unlinking clears the match', lastUpdate() === '[8,{"linkedEntryId":null}]', lastUpdate());
   check('and the row is unmatched again', !rowEl(8).classList.contains('is-linked'), rowEl(8).className);
+
+  /* ---- 11. the footer: summary and the over-plan line ---------------- */
+  const confirmBtn = () => [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Confirm');
+  const summary = () => document.querySelector('[data-confirm-summary]');
+  const overLine = () => document.querySelector('[data-over-plan]');
+  check('a button labelled exactly Confirm', !!confirmBtn());
+  check('with a quiet summary of what it will do', summary() && summary().textContent.includes('4 entries · £105.10'), summary() && summary().textContent);
+  check('the over-plan line lists what goes over, worst first', overLine() && overLine().textContent === 'Over plan after import: Groceries +£52.10, Gifts +£25.00, Eating out +£8.00', overLine() && overLine().textContent);
+  await press(rowEl(4).querySelector('input[type="checkbox"]'), 'the tick on Shell (off)');
+  check('it follows a tick', overLine() && overLine().textContent === 'Over plan after import: Gifts +£25.00, Groceries +£22.10, Eating out +£8.00', overLine() && overLine().textContent);
+  check('and so does the summary', summary() && summary().textContent.includes('3 entries · £75.10'), summary() && summary().textContent);
 
   return results;
 };

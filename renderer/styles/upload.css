@@ -211,3 +211,10 @@
 .upload-linked { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--text-12); color: var(--ink-2); }
 .upload-linked > svg { flex: none; color: var(--muted); }
 .upload-row.is-linked .upload-name, .upload-row.is-linked .upload-amount { color: var(--muted); }
+
+/* The review's footer: Back to files on the left, then everything about
+   Confirm gathered at the right, the over-plan line first because it is the
+   one that might change your mind. */
+.upload-foot-spacer { margin-right: auto; }
+.upload-over { font-size: var(--text-13); font-weight: 600; color: var(--breach-ink); }
+.upload-summary { font-size: var(--text-13); color: var(--muted); white-space: nowrap; }
