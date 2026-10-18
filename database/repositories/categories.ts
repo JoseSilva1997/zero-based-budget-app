@@ -75,11 +75,22 @@ export function findCategoryByName(
 export function renameCategory(db: Database.Database, id: number, name: string): void {
   const category = getCategory(db, id);
   if (!category) return;
-  const clash = findCategoryByName(db, category.group_id, name, id);
+  assertNameFree(db, category.group_id, name, id);
+  db.prepare(`UPDATE categories SET name = ? WHERE id = ?`).run(cleanName(name), id);
+}
+
+/** Refuses when another category in 'groupId' has 'name' (normalised), so a
+ *  rename or a move never quietly makes two of one thing. */
+export function assertNameFree(
+  db: Database.Database,
+  groupId: number,
+  name: string,
+  exceptId: number
+): void {
+  const clash = findCategoryByName(db, groupId, name, exceptId);
   if (clash) {
     throw new Error(
-      `There's already an item called "${clash.name}" in this group. To combine the two, merge the categories in Settings.`
+      `There's already an item called "${clash.name}" in that group. To combine the two, merge the categories in Settings.`
     );
   }
-  db.prepare(`UPDATE categories SET name = ? WHERE id = ?`).run(cleanName(name), id);
 }

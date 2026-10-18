@@ -121,6 +121,32 @@ app.whenReady().then(() => {
       db.close();
     }
 
+    /* ---- moving an item to another group moves its category, in every month ---- */
+    {
+      const db = freshDb();
+      const sep = months.insertMonth(db, '2026-09');
+      const oct = months.insertMonth(db, '2026-10');
+      const bills = months.insertGroup(db, { name: 'Bills', kind: 'spend', sort_order: 0, collapsed: 0 });
+      const home = months.insertGroup(db, { name: 'Home', kind: 'spend', sort_order: 1, collapsed: 0 });
+      months.addItemByName(db, { monthId: sep, groupId: bills, name: 'Power' });
+      months.addItemByName(db, { monthId: sep, groupId: home, name: 'Cleaning' });
+      months.addItemByName(db, { monthId: oct, groupId: home, name: 'Cleaning' });
+      const octPower = months.addItemByName(db, { monthId: oct, groupId: bills, name: 'Power' });
+
+      months.moveItem(db, octPower, home, null);
+      // Bills is left with nothing in any month, so like a new group it shows
+      // (empty) everywhere until something is added or it is deleted.
+      eq(shape(months, db, oct), [['Bills', []], ['Home', ['Cleaning', 'Power']]], 'moved in this month');
+      eq(shape(months, db, sep), [['Bills', []], ['Home', ['Cleaning', 'Power']]], 'and in the past month');
+
+      // The destination already has an item by that name: refused, as a rename would be.
+      months.addItemByName(db, { monthId: oct, groupId: bills, name: 'Water' });
+      const homeWater = months.addItemByName(db, { monthId: sep, groupId: home, name: 'water' });
+      throws(() => months.moveItem(db, homeWater, bills, null), 'merge the categories in Settings', 'move onto a same-named item refused');
+      eq(shape(months, db, sep), [['Home', ['Cleaning', 'Power', 'water']]], 'refused move changed nothing');
+      db.close();
+    }
+
     console.log('CATEGORIES_OK');
   } catch (err) {
     console.error('CATEGORIES_FAIL', err && err.stack ? err.stack : err);

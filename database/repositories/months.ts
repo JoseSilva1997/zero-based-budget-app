@@ -43,6 +43,7 @@ import {
   getCategory,
   findCategoryByName,
   renameCategory,
+  assertNameFree,
 } from './categories';
 
 /* ---------- inserts ------------------------------------------------------ */
@@ -426,6 +427,8 @@ export function moveItem(
     if (!dest) {
       throw new Error('That group is no longer in your budget, so the item could not be moved.');
     }
+    const category = getCategory(db, item.category_id) as Category;
+    assertNameFree(db, toGroupId, category.name, category.id);
 
     // In every other month the line joins the end of the destination group.
     const others = db
