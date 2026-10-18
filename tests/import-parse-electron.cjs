@@ -223,6 +223,10 @@ app.whenReady().then(() => {
       eq(cleanDescriptor('EXAMPLE SHOP X12YZ3AB4'), 'EXAMPLE SHOP', 'wherever it is in the descriptor');
       eq(cleanDescriptor('Transfer 1234567890'), 'Transfer', 'so does a long run of digits');
       eq(cleanDescriptor('101 CORNER SHOP AB1'), '101 CORNER SHOP AB1', 'short numbers in a name stay');
+      eq(cleanDescriptor('EXAMPLE GYM 03/09/26'), 'EXAMPLE GYM', 'a DD/MM/YY date goes');
+      eq(cleanDescriptor('EXAMPLE GYM 03/09/2026'), 'EXAMPLE GYM', 'and DD/MM/YYYY');
+      eq(cleanDescriptor('EXAMPLE GYM 2026-09-03'), 'EXAMPLE GYM', 'and an ISO date');
+      eq(cleanDescriptor('03SEP26 EXAMPLE GYM'), 'EXAMPLE GYM', 'and a 03SEP26 one');
     }
 
     /* ---- detection is an exact match on the set of names ---- */

@@ -12,6 +12,15 @@ function isReference(token: string): boolean {
   return /^[A-Z0-9]{8,}$/i.test(token) && /[A-Z]/i.test(token) && (token.match(/\d/g) || []).length >= 3;
 }
 
+/** A date: 03/09/26, 03/09/2026, 2026-09-03 or 03SEP26. */
+function isDate(token: string): boolean {
+  return (
+    /^\d{2}\/\d{2}\/(\d{2}|\d{4})$/.test(token) ||
+    /^\d{4}-\d{2}-\d{2}$/.test(token) ||
+    /^\d{2}(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\d{2}$/i.test(token)
+  );
+}
+
 export function cleanDescriptor(text: string): string {
   return String(text || '')
     // A card fragment: "*1234", "**1234*".
@@ -19,6 +28,6 @@ export function cleanDescriptor(text: string): string {
     // What's left of a *: the separator in "SQ *SHOP" or "ZETTLE_*SHOP".
     .replace(/_?\*+/g, ' ')
     .split(/\s+/)
-    .filter((token) => token && !isReference(token))
+    .filter((token) => token && !isReference(token) && !isDate(token))
     .join(' ');
 }
