@@ -277,6 +277,33 @@ app.whenReady().then(async () => {
       db.close();
     }
 
+    /* ---- adding a line for a category in an archived group un-archives the group ---- */
+    {
+      const db = freshDb();
+      const sep = months.insertMonth(db, '2026-09');
+      const oct = months.insertMonth(db, '2026-10');
+      const car = months.addGroupByName(db, 'Car');
+      const sepIns = months.addItemByName(db, { monthId: sep, groupId: car, name: 'Insurance' });
+      months.addItemByName(db, { monthId: sep, groupId: car, name: 'Fuel' });
+      months.addItemByName(db, { monthId: oct, groupId: car, name: 'Insurance' });
+      const archived = () => db.prepare(`SELECT archived FROM budget_groups WHERE id = ?`).get(car).archived;
+
+      // A pick from the reusable list brings the group back, as it does its category.
+      months.deleteGroup(db, car, oct);
+      eq(archived(), 1, 'deleted from October, Car is archived');
+      months.addItemForCategory(db, { monthId: oct, categoryId: months.getItemById(db, sepIns).category_id });
+      eq(archived(), 0, 'picking one of its categories un-archives the group');
+      const nov = months.insertMonth(db, '2026-11');
+      eq(shape(months, db, nov), [['Car', []]], 'so new months offer it again');
+
+      // So does adding by name into it.
+      months.deleteGroup(db, car, oct);
+      eq(archived(), 1, 'archived again');
+      months.addItemByName(db, { monthId: oct, groupId: car, name: 'fuel' });
+      eq(archived(), 0, 'adding by name into it un-archives the group');
+      db.close();
+    }
+
     /* ---- archiving: hidden from new months, kept in history ---- */
     {
       const db = freshDb();

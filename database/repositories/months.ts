@@ -270,6 +270,8 @@ function addLineForCategory(
   if (category.archived) {
     db.prepare(`UPDATE categories SET archived = 0 WHERE id = ?`).run(category.id);
   }
+  // Its group comes back too, as the category does: it is in use again.
+  db.prepare(`UPDATE budget_groups SET archived = 0 WHERE id = ? AND archived = 1`).run(category.group_id);
   return insertItem(db, {
     budget_month_id: monthId,
     category_id: category.id,
