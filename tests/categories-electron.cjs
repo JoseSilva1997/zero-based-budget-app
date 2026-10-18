@@ -344,6 +344,35 @@ app.whenReady().then(() => {
       db.close();
     }
 
+    /* ---- reusable picks and entry suggestions follow the category ---- */
+    {
+      const db = freshDb();
+      const sep = months.insertMonth(db, '2026-09');
+      const oct = months.insertMonth(db, '2026-10');
+      const bills = months.insertGroup(db, { name: 'Bills', kind: 'spend', sort_order: 0, collapsed: 0 });
+      const car = months.insertGroup(db, { name: 'Car', kind: 'spend', sort_order: 1, collapsed: 0 });
+      const home = months.insertGroup(db, { name: 'Home', kind: 'spend', sort_order: 2, collapsed: 0 });
+      const sepCarIns = months.addItemByName(db, { monthId: sep, groupId: car, name: 'Insurance', planned_cents: 4000 });
+      months.addItemByName(db, { monthId: sep, groupId: home, name: 'Insurance', planned_cents: 2500 });
+      months.addItemByName(db, { monthId: oct, groupId: bills, name: 'Rent' });
+      months.insertActualEntry(db, { budget_item_id: sepCarIns, spent_on: '2026-09-09', amount_cents: 4000, name: 'Aviva', note: null });
+
+      // Two categories that share a name are two candidates, each with its id.
+      const cands = months.reusableItemCandidates(db, oct, 'insurance');
+      eq(cands.map((c) => [c.name, c.groupName, c.allocated]), [['Insurance', 'Car', 40], ['Insurance', 'Home', 25]], 'one candidate per category');
+
+      // Picking one adds a line for THAT category, in its own group.
+      const picked = months.addItemForCategory(db, { monthId: oct, categoryId: cands[0].categoryId, planned_cents: 4000 });
+      eq(shape(months, db, oct), [['Bills', ['Rent']], ['Car', ['Insurance']]], 'the pick lands in its own group');
+      eq(months.reusableItemCandidates(db, oct, 'insurance').map((c) => c.groupName), ['Home'], 'and leaves the list');
+
+      // An entry logged under a renamed category still finds its line.
+      months.updateItem(db, picked, { name: 'Car insurance' });
+      const sugg = months.actualEntrySuggestions(db, oct, 'aviva');
+      eq(sugg.map((x) => [x.itemId, x.itemName, x.groupName]), [[picked, 'Car insurance', 'Car']], 'resolved by category, not by name');
+      db.close();
+    }
+
     console.log('CATEGORIES_OK');
   } catch (err) {
     console.error('CATEGORIES_FAIL', err && err.stack ? err.stack : err);
