@@ -220,16 +220,24 @@ export function StoreProvider({ children }) {
     }
   }, []);
 
-  /* ---- targeted refreshes ---- */
+  /* ---- targeted refreshes ----
+     Groups and categories are shared by every month, so a write made in one
+     month (a rename, a collapse, a move, a group reorder) can change how any
+     other month reads. Every other cached tree is therefore dropped, and
+     'setActive' fetches it again on the next visit; the active month, when it
+     is not the one written, is refetched alongside. */
   const refreshMonth = useCallback(async (key) => {
     const id = idForKey(key);
     if (id == null || !hasApi()) return;
     const tree = await api.getMonth(id);
+    const active = stateRef.current ? stateRef.current.activeMonth : null;
+    const activeId = active && active !== key ? idForKey(active) : null;
+    const activeTree = activeId != null ? await api.getMonth(activeId) : null;
     setState((s) => {
       if (!s) return s;
-      const months = { ...s.months };
+      const months = {};
       if (tree) months[key] = treeToBlobMonth(tree);
-      else delete months[key];
+      if (activeTree) months[active] = treeToBlobMonth(activeTree);
       return { ...s, months };
     });
   }, [idForKey]);
