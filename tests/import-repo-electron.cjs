@@ -108,6 +108,21 @@ app.whenReady().then(async () => {
       db.close();
     }
 
+    /* ---- a file with nothing in it for the account ---- */
+    {
+      const { db, sep, joint, travel } = setup();
+      const header = fixture('natwest').split('\n')[0] + '\n';
+      throws(() => imports.addFile(db, { monthId: sep, accountId: joint, filename: 'empty.csv', text: header }),
+        'That file has no transactions in it.', 'a statement with no rows is refused');
+      const rev = banks.createBank(db, { name: 'Revolut', preset: 'revolut' });
+      banks.setAccountBank(db, travel, rev, 'Savings');
+      const currentOnly = fixture('revolut').split('\n').filter((l) => !l.includes(',Savings,')).join('\n');
+      throws(() => imports.addFile(db, { monthId: sep, accountId: travel, filename: 'current.csv', text: currentOnly }),
+        'no transactions', "a Revolut export with none of the account's product is refused too");
+      eq(imports.getReview(db, sep).batch, null, 'leaving nothing behind');
+      db.close();
+    }
+
     /* ---- a wrong first statement, taken back, isn't remembered ---- */
     {
       const { db, sep, joint } = setup();

@@ -94,6 +94,15 @@ export function readStatement(
     throw new Error(`This is the statement for ••${lastFour(identifier)}, not ${account.name}.`);
   }
   const parsed = preset.parse(records, { bankProduct: account.bank_product });
+  // Every row was one the preset drops: another Revolut product's, or Monzo
+  // pot transfers. Nothing in it is this account's.
+  if (parsed.length === 0) {
+    throw new Error(
+      account.bank_product
+        ? `That file has no transactions in it for ${account.name} (${account.bank_product}).`
+        : 'That file has no transactions in it.'
+    );
+  }
   const prints = fingerprintRows(account.id, parsed);
   return {
     rows: parsed.map((r, i) => ({ ...r, fingerprint: prints[i] })),
