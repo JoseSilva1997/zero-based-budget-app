@@ -108,6 +108,28 @@ app.whenReady().then(async () => {
       db.close();
     }
 
+    /* ---- a wrong first statement, taken back, isn't remembered ---- */
+    {
+      const { db, sep, joint } = setup();
+      const other = fixture('natwest').replace(/600000-11112222/g, '600000-33338338');
+      const wrong = imports.addFile(db, { monthId: sep, accountId: joint, filename: 'other.csv', text: other });
+      imports.removeFile(db, wrong.id);
+      eq(accounts.getAccountById(db, joint).account_identifier, null, 'removing the only statement that named the account forgets it');
+      const right = imports.addFile(db, { monthId: sep, accountId: joint, filename: 'sep.csv', text: fixture('natwest') });
+      eq(accounts.getAccountById(db, joint).account_identifier, '600000-11112222', 'so the right statement can still go in');
+
+      // Discarding the upload is the same.
+      imports.discardBatch(db, right.batchId);
+      eq(accounts.getAccountById(db, joint).account_identifier, null, 'a discarded upload leaves no identifier behind');
+
+      // While another statement still names it, it stays.
+      const first = imports.addFile(db, { monthId: sep, accountId: joint, filename: 'sep.csv', text: fixture('natwest') });
+      imports.addFile(db, { monthId: sep, accountId: joint, filename: 'sep2.csv', text: fixture('natwest') + '\n' });
+      imports.removeFile(db, first.id);
+      eq(accounts.getAccountById(db, joint).account_identifier, '600000-11112222', 'another statement for the account keeps it');
+      db.close();
+    }
+
     /* ---- an account with no bank yet ---- */
     {
       const { db, sep, travel } = setup();

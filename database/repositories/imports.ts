@@ -24,6 +24,7 @@ import type {
   ImportRowRead,
 } from '../../shared/types';
 import { readStatement, hashText } from '../../main/import/pipeline';
+import { getPreset } from '../../main/import/presets';
 import { assessRow, type RowAssessment, type RowDecisions } from '../../main/import/labels';
 import { train, type Classifier, type Prediction, type TrainingExample } from '../../main/import/classifier';
 import { getAccountById, listAccounts } from './accounts';
@@ -145,14 +146,38 @@ function assertPending(batch: ImportBatch | undefined): asserts batch is ImportB
   }
 }
 
+/**
+ * Forgets an account's identifier when no statement still in the database
+ * names it. addFile records it from the first statement, so if that one was
+ * the wrong account's and is taken back (removed, or its upload discarded),
+ * keeping it would refuse every right statement from then on.
+ */
+function forgetUnbackedIdentifier(db: Database.Database, accountId: number): void {
+  const account = getAccountById(db, accountId) as BankAccount | undefined;
+  if (!account || !account.account_identifier || account.bank_id === null) return;
+  const bank = getBank(db, account.bank_id) as Bank | undefined;
+  const preset = bank ? getPreset(bank.preset) : undefined;
+  if (!preset) return;
+  const files = db.prepare(`SELECT id FROM import_files WHERE bank_account_id = ?`).all(accountId) as Array<{ id: number }>;
+  const rawOf = db.prepare(`SELECT raw FROM import_rows WHERE file_id = ? ORDER BY row_index`);
+  const backed = files.some((f) => {
+    const records = (rawOf.all(f.id) as Array<{ raw: string }>).map((r) => JSON.parse(r.raw));
+    return preset.fileAccountIdentifier(records) === account.account_identifier;
+  });
+  if (!backed) setAccountIdentifier(db, accountId, null);
+}
+
 /** Removes a file, and its rows, from a pending batch. */
 export function removeFile(db: Database.Database, fileId: number): void {
-  const file = db.prepare(`SELECT batch_id FROM import_files WHERE id = ?`).get(fileId) as
-    | { batch_id: number }
+  const file = db.prepare(`SELECT batch_id, bank_account_id FROM import_files WHERE id = ?`).get(fileId) as
+    | { batch_id: number; bank_account_id: number }
     | undefined;
   if (!file) return;
   assertPending(batchById(db, file.batch_id));
-  db.prepare(`DELETE FROM import_files WHERE id = ?`).run(fileId);
+  db.transaction(() => {
+    db.prepare(`DELETE FROM import_files WHERE id = ?`).run(fileId);
+    forgetUnbackedIdentifier(db, file.bank_account_id);
+  })();
 }
 
 /* ---------- the review ---------------------------------------------------- */
@@ -586,7 +611,13 @@ export function discardBatch(db: Database.Database, batchId: number): void {
   const batch = batchById(db, batchId);
   if (!batch) return;
   assertPending(batch);
-  db.prepare(`DELETE FROM import_batches WHERE id = ?`).run(batchId);
+  db.transaction(() => {
+    const accounts = db
+      .prepare(`SELECT DISTINCT bank_account_id AS id FROM import_files WHERE batch_id = ?`)
+      .all(batchId) as Array<{ id: number }>;
+    db.prepare(`DELETE FROM import_batches WHERE id = ?`).run(batchId);
+    for (const a of accounts) forgetUnbackedIdentifier(db, a.id);
+  })();
 }
 
 /**
