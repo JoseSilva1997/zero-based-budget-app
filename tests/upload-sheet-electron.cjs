@@ -283,6 +283,14 @@ window.__runTests = async () => {
   const rowEl = (id) => document.querySelector('[data-row-id="' + id + '"]');
   check('a row shows its date, name and amount', rowEl(1) && /3 Oct/.test(rowEl(1).textContent) && rowEl(1).querySelector('input[aria-label="Name for Tesco"]') && rowEl(1).textContent.includes('£42.10'), rowEl(1) && rowEl(1).textContent);
 
+  /* ---- 5. label chips, coloured by severity -------------------------- */
+  const chips = (id) => (rowEl(id) ? [...rowEl(id).querySelectorAll('.upload-chip')] : []);
+  check('a warn label is an amber chip with its text', chips(4).length === 1 && chips(4)[0].classList.contains('is-warn') && chips(4)[0].textContent === 'Check category', chips(4).map((c) => c.className + ':' + c.textContent).join());
+  check('a block label is an ember chip', chips(2).length === 1 && chips(2)[0].classList.contains('is-block') && chips(2)[0].textContent === 'Already imported', chips(2).map((c) => c.className).join());
+  check('an info label is a neutral chip', chips(12).length === 1 && chips(12)[0].classList.contains('is-info') && chips(12)[0].textContent === 'Transfer', chips(12).map((c) => c.className).join());
+  check('an ok row has no chip', chips(1).length === 0, chips(1).length + '');
+  check('a row that could not be read carries its reason on the chip', chips(10)[0] && chips(10)[0].title === 'The amount "x" is not a number.', chips(10)[0] && chips(10)[0].title);
+
   return results;
 };
 `;

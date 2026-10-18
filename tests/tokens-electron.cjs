@@ -53,6 +53,14 @@ const CHECKS = [
   ['rule-faint on raised',  '--rule-faint',  '--raised', 1.7],
   ['breach on board',    '--breach',    '--board', 3.0],
   ['breach-ink on breach-soft', '--breach-ink', '--breach-soft', 4.5],
+  // Lantern Amber, the one warning hue, which exists only for the upload
+  // review's "warn" label chips (a named exception to The One Failure Rule in
+  // DESIGN.md). The chip is an outlined caption whose text IS the amber, on
+  // the --raised card the review list sits on, so it is held to AA body text.
+  // What tells it apart from the block chip beside it is hue and texture (an
+  // outline against Ember's fill) plus the words, not luminance - the two sit
+  // at similar lightness by design - so there is no ratio to guard there.
+  ['caution on raised', '--caution', '--raised', 4.5],
   // The primary button. --accent-btn exists precisely so this clears AA when
   // the raw --accent cannot carry --on-accent; a theme that skips the override
   // when it needed one fails here.

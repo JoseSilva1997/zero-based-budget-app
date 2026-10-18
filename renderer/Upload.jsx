@@ -246,7 +246,29 @@ function ReviewRow({ row, review, currency, onUpdate }) {
       <CategoryPicker row={row} categories={review.categories} disabled={blocked}
         onChange={(categoryId) => onUpdate(row, { categoryId })} />
       <span className="num upload-amount">{row.amountCents == null ? "" : fmt(currency, row.amountCents / 100)}</span>
+      <LabelChips row={row} />
     </div>
+  );
+}
+
+/* The labels that say why a row is or is not ticked, as chips coloured by
+   severity: Ember for a row that cannot be imported, Lantern Amber for one to
+   look at first, neutral for a plain note, and no chip at all for 'ok'. This
+   is the one place a warning hue appears, a named exception to The One
+   Failure Rule (DESIGN.md). The words are the second channel, so colour is
+   never the only thing telling two chips apart. A row that could not be read
+   carries the reason on its chip, since the chip itself only says that it
+   could not. */
+const SEVERITY_CLASS = { block: "is-block", warn: "is-warn", info: "is-info" };
+function LabelChips({ row }) {
+  const shown = row.labels.filter((l) => SEVERITY_CLASS[l.severity]);
+  return (
+    <span className="upload-chips">
+      {shown.map((l) => (
+        <span key={l.key} className={cx("upload-chip", SEVERITY_CLASS[l.severity])}
+          title={l.key === "parse_error" && row.parseError ? row.parseError : undefined}>{l.text}</span>
+      ))}
+    </span>
   );
 }
 

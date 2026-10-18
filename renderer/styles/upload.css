@@ -118,3 +118,24 @@
 .upload-separator-name { font-weight: 600; font-size: var(--text-13); }
 .upload-separator-bank { font-size: var(--text-12); color: var(--muted); }
 .upload-separator-count { margin-left: auto; font-size: var(--text-12); color: var(--faint); }
+
+/* ---- label chips ---------------------------------------------------------
+   A chip's corner (6px) and the difference chip's caption size, so they read
+   as notes on the row rather than as controls. Three skins, one per
+   severity, and this is the only place in the app a warning hue appears: see
+   --caution in tokens.css and The One Failure Rule in DESIGN.md.
+     block  filled Ember, like the over-budget chip: the row cannot go in.
+     warn   outlined Lantern Amber: look before you tick. Hollow on purpose,
+            so the louder fill stays with the row that is refused.
+     info   Inkwell and Pencil Grey: a fact about the row, not a problem. */
+.upload-chips { display: flex; flex-wrap: wrap; gap: var(--space-1); min-width: 0; }
+.upload-chip {
+  display: inline-flex; align-items: center; white-space: nowrap;
+  padding: 1px 7px; border-radius: var(--radius-3xs);
+  font-size: var(--text-11); font-weight: 600; line-height: 1.5;
+  border: 1px solid transparent;
+}
+.upload-chip.is-block { background: var(--breach-soft); color: var(--breach-ink); }
+.upload-chip.is-warn { color: var(--caution); border-color: color-mix(in srgb, var(--caution) 45%, transparent); }
+.upload-chip.is-info { background: var(--well); color: var(--ink-2); }
+.upload-chip[title] { cursor: help; }
