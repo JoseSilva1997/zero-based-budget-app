@@ -179,6 +179,11 @@ window.api = {
     server.accounts = server.accounts.map((a) => (a.id === accountId ? { ...a, bank_id: bankId, bank_product: product } : a));
     return { ok: true };
   },
+  importDiscard: async (batchId) => {
+    server.calls.discard.push(batchId);
+    server.batch = null; server.files = []; server.rows = [];
+    return { ok: true };
+  },
   importRemoveFile: async (fileId) => {
     server.calls.removed.push(fileId);
     server.files = server.files.filter((f) => f.id !== fileId);
@@ -450,6 +455,18 @@ window.__runTests = async () => {
   await press(rowEl(4).querySelector('input[type="checkbox"]'), 'the tick on Shell (off)');
   check('it follows a tick', overLine() && overLine().textContent === 'Over plan after import: Gifts +£25.00, Groceries +£22.10, Eating out +£8.00', overLine() && overLine().textContent);
   check('and so does the summary', summary() && summary().textContent.includes('3 entries · £75.10'), summary() && summary().textContent);
+
+  /* ---- discarding the upload, with a confirmation -------------------- */
+  const dialog = () => document.querySelector('.modal[role="dialog"]');
+  await press(buttonNamed('Discard'), 'Discard');
+  check('Discard asks first', dialog() && /discard/i.test(dialog().textContent), dialog() ? dialog().textContent : 'no dialog');
+  check('nothing discarded yet', server.calls.discard.length === 0);
+  await press(dialog() && [...dialog().querySelectorAll('button')].find((b) => /Cancel/.test(b.textContent)), 'Cancel');
+  check('cancelling keeps the review', !dialog() && !!document.querySelector('[data-review]') && server.calls.discard.length === 0);
+  await press(buttonNamed('Discard'), 'Discard again');
+  await press(dialog() && [...dialog().querySelectorAll('button')].find((b) => /Discard upload/.test(b.textContent)), 'Discard upload');
+  check('confirming discards the pending upload', JSON.stringify(server.calls.discard) === '[7]', JSON.stringify(server.calls.discard));
+  check('and goes back to empty zones', zones().length === 3 && !document.querySelector('[data-review]') && !/main-oct/.test(text()), text().slice(0, 300));
 
   return results;
 };

@@ -13,7 +13,7 @@
    it has to follow every tick as it happens.
    ============================================================ */
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, EmptyState, Icons, Sheet, TextInline } from './ui/index.js';
+import { Alert, ConfirmDialog, EmptyState, Icons, Sheet, TextInline } from './ui/index.js';
 import { cx, fmt, importOutcome, isBlocked, labelCounts, monthLabel, onlyOutOfMonth, shortDate, sinkBlocked } from './lib/index.js';
 import { useStore } from './store.jsx';
 
@@ -407,7 +407,7 @@ function FilterChips({ counts, active, onPick }) {
 }
 
 /* ---- the review step --------------------------------------------------- */
-function ReviewStep({ review, currency, onUpdate, onBack }) {
+function ReviewStep({ review, currency, onUpdate, onBack, onDiscard }) {
   const [filter, setFilter] = useState(null);
   const counts = labelCounts(review.accounts);
   // A filter whose last row has gone (ticked, re-labelled) lets go by itself.
@@ -427,7 +427,7 @@ function ReviewStep({ review, currency, onUpdate, onBack }) {
           ))}
         </div>
       )}
-      <ReviewFoot review={review} currency={currency} onBack={onBack} />
+      <ReviewFoot review={review} currency={currency} onBack={onBack} onDiscard={onDiscard} />
     </div>
   );
 }
@@ -437,7 +437,7 @@ function ReviewStep({ review, currency, onUpdate, onBack }) {
    worked out here from the ticks as they stand, in the failure hue because
    over plan is the failure. It also catches a row in the wrong category - a
    line that suddenly goes over is usually one. */
-function ReviewFoot({ review, currency, onBack }) {
+function ReviewFoot({ review, currency, onBack, onDiscard }) {
   const out = importOutcome(review);
   const money = (cents) => fmt(currency, cents / 100);
   const parts = [`${out.count} ${out.count === 1 ? "entry" : "entries"} · ${money(out.totalCents)}`];
@@ -445,6 +445,7 @@ function ReviewFoot({ review, currency, onBack }) {
   return (
     <div className="upload-foot upload-review-foot">
       <button className="link-btn upload-back" onClick={onBack}><Icons.left size={14} /> Back to files</button>
+      <button className="btn btn-sm btn-ghost btn-quiet" onClick={onDiscard}><Icons.trash size={14} /> Discard</button>
       <span className="upload-foot-spacer" />
       {out.over.length > 0 && (
         <span className="upload-over" data-over-plan>
@@ -456,6 +457,8 @@ function ReviewFoot({ review, currency, onBack }) {
     </div>
   );
 }
+
+const noop = () => {};
 
 /* ---- the sheet --------------------------------------------------------- */
 function UploadSheet({ month, currency, onClose }) {
@@ -473,6 +476,25 @@ function UploadSheet({ month, currency, onClose }) {
   }, [imports, month]);
   useEffect(() => { load(); }, [load]);
 
+  // The confirmation open over the sheet, if any: { kind: 'discard' } or
+  // { kind: 'undo', batch }. While one is open, Escape belongs to it, so the
+  // sheet's own close is held off.
+  const [ask, setAsk] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  const discard = async () => {
+    setBusy(true);
+    try {
+      await imports.discard(review.batch.id);
+      setStep("upload");
+    } catch (err) {
+      toast(err.message, "error");
+    }
+    setBusy(false);
+    setAsk(null);
+    await load();
+  };
+
   /* Every decision is one write and then a fresh read: the server works out
      what the row now is (its labels, its default tick) and the list follows
      that, rather than guessing at it here. A refused write is said in a toast,
@@ -484,7 +506,7 @@ function UploadSheet({ month, currency, onClose }) {
   }, [imports, load, toast]);
 
   return (
-    <Sheet label="Upload transactions" closeLabel="Close the upload" onClose={onClose}
+    <Sheet label="Upload transactions" closeLabel="Close the upload" onClose={ask ? noop : onClose}
       head={
         <div className="upload-head-id">
           <span className="upload-head-mark"><Icons.upload size={18} /></span>
@@ -495,7 +517,15 @@ function UploadSheet({ month, currency, onClose }) {
         </div>
       }>
       {review && step === "upload" && <UploadStep review={review} month={month} onChanged={load} onReview={() => setStep("review")} />}
-      {review && step === "review" && <ReviewStep review={review} currency={currency} onUpdate={updateRow} onBack={() => setStep("upload")} />}
+      {review && step === "review" && <ReviewStep review={review} currency={currency} onUpdate={updateRow} onBack={() => setStep("upload")}
+        onDiscard={() => setAsk({ kind: "discard" })} />}
+
+      {ask && ask.kind === "discard" && (
+        <ConfirmDialog title="Discard this upload?" confirmLabel="Discard upload" icon={<Icons.trash size={15} />}
+          busy={busy} onClose={() => setAsk(null)} onConfirm={discard}>
+          Every file and every choice you have made in this upload goes. Nothing in your budget changes, and you can upload the statements again.
+        </ConfirmDialog>
+      )}
     </Sheet>
   );
 }
