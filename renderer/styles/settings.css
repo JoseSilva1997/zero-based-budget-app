@@ -251,6 +251,9 @@ select.merge-select { width: 100%; }
 .merge-foot {
   display: flex; justify-content: flex-end; gap: var(--space-3); margin-top: 18px;
 }
+/* Disabled until a target is picked. There is no app-wide disabled button, so
+   this dims it in place, like .member-remove, and drops the hover glow. */
+.merge-foot .btn:disabled { opacity: .4; pointer-events: none; }
 
 /* ---- Shortcuts ---------------------------------------------------------- */
 .set-row.sc-failed { padding: 14px var(--space-7); font-size: var(--text-13); color: var(--muted); }
