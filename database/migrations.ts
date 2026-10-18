@@ -305,7 +305,7 @@ const MIGRATIONS: Migration[] = [
           fingerprint TEXT,
           category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
           name TEXT,
-          kind TEXT NOT NULL DEFAULT 'spend' CHECK (kind IN ('spend','transfer')),
+          kind TEXT CHECK (kind IN ('spend','transfer')),
           included INTEGER CHECK (included IN (0,1)),
           linked_entry_id INTEGER REFERENCES budget_item_actual_entries(id) ON DELETE SET NULL,
           UNIQUE (file_id, row_index),

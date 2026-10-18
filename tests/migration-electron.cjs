@@ -405,7 +405,7 @@ function importStagingBehaves(db, label) {
     UPDATE import_rows SET parse_error = 'Value "x" is not an amount' WHERE id = 902;
   `);
   const row = db.prepare(`SELECT kind, included, not_completed, category_id, linked_entry_id, name FROM import_rows WHERE id = 901`).get();
-  eq(row, { kind: 'spend', included: null, not_completed: 0, category_id: null, linked_entry_id: null, name: null }, `${label}: a new row's decisions start empty`);
+  eq(row, { kind: null, included: null, not_completed: 0, category_id: null, linked_entry_id: null, name: null }, `${label}: a new row's decisions start empty`);
   refuses(`INSERT INTO import_rows (file_id, row_index, raw, amount_cents, direction, descriptor_raw, descriptor_clean) VALUES (901, 5, '{}', -1, 'debit', '', '')`, 'a negative amount');
   refuses(`INSERT INTO import_rows (file_id, row_index, raw, amount_cents, direction, descriptor_raw, descriptor_clean) VALUES (901, 5, '{}', 1, 'sideways', '', '')`, 'a direction other than debit or credit');
   refuses(`UPDATE import_rows SET kind = 'refund' WHERE id = 901`, 'a kind other than spend or transfer');

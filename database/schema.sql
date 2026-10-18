@@ -151,7 +151,7 @@ CREATE TABLE import_rows (
   -- Your decisions.
   category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
   name TEXT,
-  kind TEXT NOT NULL DEFAULT 'spend' CHECK (kind IN ('spend','transfer')),
+  kind TEXT CHECK (kind IN ('spend','transfer')), -- NULL: the classifier's prediction
   included INTEGER CHECK (included IN (0,1)), -- NULL: the labels' default
   linked_entry_id INTEGER REFERENCES budget_item_actual_entries(id) ON DELETE SET NULL,
   UNIQUE (file_id, row_index),
