@@ -325,7 +325,11 @@ function assessBatch(db: Database.Database, batch: ImportBatch, month: BudgetMon
   );
   const classifier = trainFor(db, batch.id);
   const imported = db.prepare(ALREADY_IMPORTED_SQL);
+  // Two overlapping statements in one upload hold the same rows: the copy in
+  // the later file is already in, through the earlier one.
+  const earlier = new Set<string>();
   return batchRows(db, batch.id).map((row) => {
+    const inEarlierFile = row.fingerprint !== null && earlier.has(row.fingerprint);
     const prediction = classifier.predict({
       descriptorClean: row.descriptor_clean,
       features: JSON.parse(row.features || '{}'),
@@ -340,12 +344,13 @@ function assessBatch(db: Database.Database, batch: ImportBatch, month: BudgetMon
       descriptorClean: row.descriptor_clean,
       parseError: row.parse_error,
       notCompleted: !!row.not_completed,
-      alreadyImported: row.fingerprint !== null && !!imported.get(row.fingerprint, batch.id),
+      alreadyImported: inEarlierFile || (row.fingerprint !== null && !!imported.get(row.fingerprint, batch.id)),
       duplicates: duplicates.length,
       prediction,
       inMonth: (id) => planned.has(id),
       stored: decisionsOf(row),
     });
+    if (row.fingerprint !== null) earlier.add(row.fingerprint);
     return { row, prediction, duplicates, assessment };
   });
 }

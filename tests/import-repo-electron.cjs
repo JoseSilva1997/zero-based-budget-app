@@ -196,6 +196,30 @@ app.whenReady().then(async () => {
       db.close();
     }
 
+    /* ---- overlapping statements in one upload ---- */
+    {
+      const { db, sep, joint } = setup();
+      const bills = months.insertGroup(db, { name: 'Bills', kind: 'spend', sort_order: 0, collapsed: 0 });
+      const food = months.addItemByName(db, { monthId: sep, groupId: bills, name: 'Food', bank_account_id: joint });
+      const foodCat = months.getItemById(db, food).category_id;
+      // The September statement, and a longer one that also holds it.
+      const longer = fixture('natwest').trimEnd() +
+        '\n01 Sep 2026,POS,"4321 31AUG26 CD , EARLIER SHOP , SPRINGFIELD GB",-1.00,1.00,Joint Example,600000-11112222\n';
+      const a = imports.addFile(db, { monthId: sep, accountId: joint, filename: 'sep.csv', text: fixture('natwest') });
+      imports.addFile(db, { monthId: sep, accountId: joint, filename: 'aug-sep.csv', text: longer });
+      const rows = imports.getReview(db, sep).accounts[0].rows;
+      eq(rows.length, 7, 'both files are in');
+      const debits = rows.filter((r) => r.direction === 'debit');
+      for (const r of debits) imports.updateRow(db, r.id, { categoryId: foodCat, included: true });
+      const again = imports.getReview(db, sep).accounts[0].rows;
+      eq(again.slice(3, 6).map((r) => r.labels.map((l) => l.key)), [['already_imported'], ['already_imported'], ['already_imported']],
+        'a row the upload already holds from an earlier file is already in');
+      eq(again.slice(0, 3).map((r) => r.labels.some((l) => l.key === 'already_imported')), [false, false, false], 'the first copy is not');
+      const res = imports.confirmBatch(db, a.batchId);
+      eq(res.entries, 4, 'each spend is written once: the three, and the one only the longer file has');
+      db.close();
+    }
+
     /* ---- possible duplicates ---- */
     {
       const { db, sep, joint, travel } = setup();
