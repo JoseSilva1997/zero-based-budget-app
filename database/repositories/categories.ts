@@ -145,3 +145,76 @@ export function listCategories(db: Database.Database): CategoryRead[] {
     entries: r.entries,
   }));
 }
+
+/** What a merge moved, for the confirmation ("Moves 143 entries across 9
+ *  months into Groceries") and the toast after it. */
+export interface MergeImpact {
+  entries: number;
+  months: number;
+}
+
+/**
+ * Merges category 'fromId' into 'intoId': every plan line and entry of A
+ * becomes B's. In a month where both have a line, the two become B's line,
+ * with the planned amounts summed and A's entries moved onto it. A is then
+ * deleted. B keeps its name, group, default account and archived state. There
+ * is no undo beyond a backup, so the caller confirms with the returned impact
+ * first (it is the same before and after: A's months and entries).
+ */
+export function mergeCategories(db: Database.Database, fromId: number, intoId: number): MergeImpact {
+  const tx = db.transaction((): MergeImpact => {
+    if (fromId === intoId) {
+      throw new Error("A category can't be merged into itself. Pick a different one to merge into.");
+    }
+    const from = getCategory(db, fromId);
+    const into = getCategory(db, intoId);
+    if (!from || !into) {
+      throw new Error('One of those categories is no longer in your budget, so nothing was merged.');
+    }
+
+    const lines = db
+      .prepare(`SELECT id, budget_month_id, planned_cents FROM budget_items WHERE category_id = ?`)
+      .all(fromId) as Array<{ id: number; budget_month_id: number; planned_cents: number }>;
+    const impact: MergeImpact = { entries: 0, months: lines.length };
+
+    const intoLine = db.prepare(
+      `SELECT id FROM budget_items WHERE category_id = ? AND budget_month_id = ?`
+    );
+    const countEntries = db.prepare(
+      `SELECT COUNT(*) AS n FROM budget_item_actual_entries WHERE budget_item_id = ?`
+    );
+    const moveEntries = db.prepare(
+      `UPDATE budget_item_actual_entries SET budget_item_id = ? WHERE budget_item_id = ?`
+    );
+    const addPlanned = db.prepare(
+      `UPDATE budget_items SET planned_cents = planned_cents + ? WHERE id = ?`
+    );
+    const deleteLine = db.prepare(`DELETE FROM budget_items WHERE id = ?`);
+    const repoint = db.prepare(
+      `UPDATE budget_items SET category_id = ?, sort_order = ? WHERE id = ?`
+    );
+    const nextSort = db.prepare(
+      `SELECT COALESCE(MAX(it.sort_order), -1) + 1 AS n
+         FROM budget_items it JOIN categories c ON c.id = it.category_id
+        WHERE it.budget_month_id = ? AND c.group_id = ?`
+    );
+
+    for (const line of lines) {
+      impact.entries += (countEntries.get(line.id) as { n: number }).n;
+      const shared = intoLine.get(intoId, line.budget_month_id) as { id: number } | undefined;
+      if (shared) {
+        moveEntries.run(shared.id, line.id);
+        addPlanned.run(line.planned_cents, shared.id);
+        deleteLine.run(line.id);
+      } else {
+        // Joins the end of B's group in that month, which may be another group.
+        const at = (nextSort.get(line.budget_month_id, into.group_id) as { n: number }).n;
+        repoint.run(intoId, at, line.id);
+      }
+    }
+
+    db.prepare(`DELETE FROM categories WHERE id = ?`).run(fromId);
+    return impact;
+  });
+  return tx();
+}

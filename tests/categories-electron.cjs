@@ -273,6 +273,53 @@ app.whenReady().then(() => {
       db.close();
     }
 
+    /* ---- mergeCategories: A's lines and entries fold into B ---- */
+    {
+      const db = freshDb();
+      const sep = months.insertMonth(db, '2026-09');
+      const oct = months.insertMonth(db, '2026-10');
+      const nov = months.insertMonth(db, '2026-11');
+      const bills = months.insertGroup(db, { name: 'Bills', kind: 'spend', sort_order: 0, collapsed: 0 });
+      const home = months.insertGroup(db, { name: 'Home', kind: 'spend', sort_order: 1, collapsed: 0 });
+      const entry = (line, day) =>
+        months.insertActualEntry(db, { budget_item_id: line, spent_on: day, amount_cents: 1000, name: null, note: null });
+
+      // A = Food under Home, B = Groceries under Bills. Both have October.
+      const sepFood = months.addItemByName(db, { monthId: sep, groupId: home, name: 'Food', planned_cents: 10000 });
+      const octFood = months.addItemByName(db, { monthId: oct, groupId: home, name: 'Food', planned_cents: 10000 });
+      months.addItemByName(db, { monthId: oct, groupId: bills, name: 'Rent', planned_cents: 90000 });
+      const octGroc = months.addItemByName(db, { monthId: oct, groupId: bills, name: 'Groceries', planned_cents: 20000 });
+      months.addItemByName(db, { monthId: nov, groupId: bills, name: 'Groceries', planned_cents: 20000 });
+      entry(sepFood, '2026-09-01');
+      entry(sepFood, '2026-09-02');
+      entry(octFood, '2026-10-03');
+      entry(octGroc, '2026-10-04');
+      const food = months.getItemById(db, sepFood).category_id;
+      const groceries = months.getItemById(db, octGroc).category_id;
+      const octBefore = months.monthTotals(db, oct);
+
+      throws(() => categories.mergeCategories(db, groceries, groceries), 'into itself', 'merge into itself refused');
+      throws(() => categories.mergeCategories(db, food, groceries + 999), 'no longer', 'merge into a missing category refused');
+
+      const impact = categories.mergeCategories(db, food, groceries);
+      eq(impact, { entries: 3, months: 2 }, 'reports the entries and months it moved');
+
+      // Home is left with nothing, so it shows empty, as after deleting its last item.
+      eq(shape(months, db, sep), [['Bills', ['Groceries']], ['Home', []]], 'September\'s line now reads Groceries, in its group');
+      eq(months.getItemById(db, sepFood).allocated, 100, 'a month only A had keeps its line and amount');
+      eq(months.getItemById(db, sepFood).actuals.length, 2, 'and its entries');
+      eq(shape(months, db, oct), [['Bills', ['Rent', 'Groceries']], ['Home', []]], 'October has one Groceries line');
+      const octLine = months.getItemById(db, octGroc);
+      eq(octLine.allocated, 300, 'the shared month sums the planned amounts');
+      eq(octLine.actuals.length, 2, 'and holds both lines\' entries');
+      eq(months.getItemById(db, octFood), undefined, 'A\'s line in the shared month is gone');
+      eq(months.monthTotals(db, oct), octBefore, 'October\'s totals are unchanged');
+      eq(categories.getCategory(db, food), undefined, 'A is deleted');
+      eq(categories.listCategories(db).find((c) => c.id === groceries).entries, 4, 'B carries every entry');
+      eq(db.pragma('foreign_key_check'), [], 'no dangling references');
+      db.close();
+    }
+
     console.log('CATEGORIES_OK');
   } catch (err) {
     console.error('CATEGORIES_FAIL', err && err.stack ? err.stack : err);
