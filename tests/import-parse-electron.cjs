@@ -131,6 +131,37 @@ app.whenReady().then(() => {
       );
     }
 
+    /* ---- Revolut ---- */
+    {
+      const file = fixture('revolut');
+      const revolut = detectPreset(file.header);
+      eq(revolut && revolut.key, 'revolut', 'a Revolut header (after its BOM) is detected');
+      eq(revolut.productsIn(file.records), ['Current', 'Savings'], 'Revolut: the products in the file, in order');
+      eq(revolut.fileAccountIdentifier(file.records), null, 'Revolut: a statement names no account');
+
+      const rows = revolut.parse(file.records, { bankProduct: 'Current' });
+      eq(
+        rows.map(brief),
+        [
+          [0, '2026-01-02', '2026-01-02', 2000, 'credit', 'Google Pay top-up by'],
+          [1, '2026-01-02', '2026-01-03', 1750, 'debit', 'Cash withdrawal at Central Market'],
+          [2, '2026-01-03', '2026-01-04', 883, 'debit', 'Cash withdrawal at Central Market'],
+          [3, '2026-01-05', '2026-01-06', 121, 'debit', 'Little Bakery'],
+          [5, '2026-01-07', '2026-01-07', 320, 'debit', 'Corner Cafe'],
+        ],
+        "Revolut: spent on the Started date, posted on the Completed one; the fee is part of the cost; another product's rows are dropped"
+      );
+      eq(rows.map((r) => !!r.notCompleted), [false, false, false, false, true], 'Revolut: a row not COMPLETED is marked');
+      eq(rows[2].features, { type: 'ATM' }, 'Revolut: the Type is a feature');
+      eq(rows[4].parseError, undefined, 'Revolut: a pending row without a Completed date is not an error');
+
+      eq(
+        revolut.parse(file.records, { bankProduct: null }).map((r) => r.rowIndex),
+        [0, 1, 2, 3, 4, 5],
+        'Revolut: with no product bound yet, every row is kept'
+      );
+    }
+
     console.log('IMPORT_PARSE_OK');
   } catch (err) {
     console.error('IMPORT_PARSE_FAIL', err && err.stack ? err.stack : err);

@@ -7,6 +7,8 @@
 
 export function cleanDescriptor(text: string): string {
   return String(text || '')
+    // A card fragment: "*1234".
+    .replace(/\*\d{4}\b/g, ' ')
     .trim()
     .replace(/\s+/g, ' ');
 }
