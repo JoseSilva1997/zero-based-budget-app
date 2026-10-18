@@ -264,7 +264,16 @@ app.whenReady().then(async () => {
       eq(shape(months, db, oct), [], 'gone from October');
       eq(months.addGroupByName(db, 'BILLS'), bills, 're-adding finds the archived group');
       eq(shape(months, db, oct), [['Bills', []]], 'and un-archives it');
-      eq(months.addGroupByName(db, 'Fun') !== bills, true, 'another name is another group');
+      const fun = months.addGroupByName(db, 'Fun');
+      eq(fun !== bills, true, 'another name is another group');
+
+      // Renaming onto a name another group has would make two of one group.
+      throws(() => months.updateGroup(db, fun, { name: ' bills ' }), 'already a group called "Bills"', 'group rename clash refused');
+      eq(months.getGroupById(db, fun).name, 'Fun', 'the refused rename changed nothing');
+      months.updateGroup(db, fun, { name: 'FUN', collapsed: 1 });
+      eq(months.getGroupById(db, fun).name, 'FUN', 'recasing its own name is allowed');
+      months.updateGroup(db, bills, { collapsed: 1 });
+      eq(months.getGroupById(db, bills).collapsed, true, 'an edit without a name is not checked');
       db.close();
     }
 

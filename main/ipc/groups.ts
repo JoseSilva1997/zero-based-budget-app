@@ -1,7 +1,7 @@
 /* ============================================================
    IPC: group mutations. 'group:add' returns the group, reusing one with the
-   same name; the rest are
-   optimistic. 'group:update' folds rename, toggle-collapse, and set-savings.
+   same name; the rest are optimistic. 'group:update' folds rename (refused
+   onto another group's name), toggle-collapse, and set-savings.
    Groups are shared by every month, so add, update and reorder are global;
    'group:delete' takes the group out of ONE month (its plan lines there),
    archiving it if other months still use it and deleting it if none do.

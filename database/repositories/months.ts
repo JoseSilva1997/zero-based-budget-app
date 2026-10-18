@@ -293,12 +293,24 @@ export function removeIncome(db: Database.Database, id: number): void {
   db.prepare(`DELETE FROM budget_incomes WHERE id = ?`).run(id);
 }
 
-/** Groups are shared by every month, so a rename, kind or collapse applies to all. */
+/**
+ * Groups are shared by every month, so a rename, kind or collapse applies to
+ * all. A name another group already has (normalised) is refused, since that
+ * would make two of one group.
+ */
 export function updateGroup(
   db: Database.Database,
   id: number,
   fields: Partial<Pick<BudgetGroup, 'name' | 'kind' | 'collapsed' | 'sort_order'>>
 ): void {
+  if (fields.name !== undefined) {
+    const clash = findGroupByName(db, fields.name, id);
+    if (clash) {
+      throw new Error(
+        `There's already a group called "${clash.name}". Pick another name, or move its items into that group instead.`
+      );
+    }
+  }
   patchById(db, 'budget_groups', id, fields);
 }
 
