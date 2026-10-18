@@ -265,6 +265,18 @@ export interface TrendPoint {
   byDay: number[]; // length 32, index 1..31 -> dollars spent on that day-of-month
 }
 
+/** A category as the Settings list shows it, with what archiving or merging
+ *  it would touch. */
+export interface CategoryRead {
+  id: number;
+  name: string;
+  groupId: number;
+  groupName: string;
+  archived: boolean;
+  lines: number; // months it has a plan line in
+  entries: number; // spending entries logged against it, every month
+}
+
 export interface ReusableCandidate {
   categoryId: number;
   name: string;

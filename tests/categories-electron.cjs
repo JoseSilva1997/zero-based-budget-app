@@ -243,6 +243,36 @@ app.whenReady().then(() => {
       db.close();
     }
 
+    /* ---- listCategories: what Settings needs to archive and merge ---- */
+    {
+      const db = freshDb();
+      const sep = months.insertMonth(db, '2026-09');
+      const oct = months.insertMonth(db, '2026-10');
+      const save = months.insertGroup(db, { name: 'Savings', kind: 'savings', sort_order: 1, collapsed: 0 });
+      const bills = months.insertGroup(db, { name: 'Bills', kind: 'spend', sort_order: 0, collapsed: 0 });
+      const sepFood = months.addItemByName(db, { monthId: sep, groupId: bills, name: 'Food' });
+      const octFood = months.addItemByName(db, { monthId: oct, groupId: bills, name: 'Food' });
+      const rainy = months.addItemByName(db, { monthId: sep, groupId: save, name: 'Rainy day' });
+      months.addItemByName(db, { monthId: oct, groupId: bills, name: 'Groceries' });
+      for (const [line, day] of [[sepFood, '01'], [sepFood, '02'], [octFood, '03']]) {
+        months.insertActualEntry(db, { budget_item_id: line, spent_on: `2026-09-${day}`, amount_cents: 100, name: null, note: null });
+      }
+      categories.setCategoryArchived(db, months.getItemById(db, rainy).category_id, true);
+
+      eq(
+        categories.listCategories(db).map((c) => [c.groupName, c.name, c.archived, c.lines, c.entries]),
+        [
+          ['Bills', 'Food', false, 2, 3],
+          ['Bills', 'Groceries', false, 1, 0],
+          ['Savings', 'Rainy day', true, 1, 0],
+        ],
+        'every category, by group order, with its archived flag and usage'
+      );
+      const food = categories.listCategories(db)[0];
+      eq([food.groupId, food.id], [bills, months.getItemById(db, sepFood).category_id], 'ids to act on');
+      db.close();
+    }
+
     console.log('CATEGORIES_OK');
   } catch (err) {
     console.error('CATEGORIES_FAIL', err && err.stack ? err.stack : err);

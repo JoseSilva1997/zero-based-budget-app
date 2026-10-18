@@ -9,7 +9,7 @@
    one is archived. A category nothing refers to any more is deleted outright.
    ============================================================ */
 import type Database from 'better-sqlite3';
-import type { Category } from '../../shared/types';
+import type { Category, CategoryRead } from '../../shared/types';
 import { nextSortOrder } from './_sql';
 
 /** The form two names are compared in: trimmed, inner whitespace collapsed,
@@ -110,4 +110,38 @@ export function pruneCategory(db: Database.Database, id: number): void {
  */
 export function setCategoryArchived(db: Database.Database, id: number, archived: boolean): void {
   db.prepare(`UPDATE categories SET archived = ? WHERE id = ?`).run(archived ? 1 : 0, id);
+}
+
+/** Every category, archived ones included, in group then category order, with
+ *  how many months and entries refer to it. */
+export function listCategories(db: Database.Database): CategoryRead[] {
+  const rows = db
+    .prepare(
+      `SELECT c.id AS id, c.name AS name, g.id AS group_id, g.name AS group_name,
+              c.archived AS archived,
+              (SELECT COUNT(*) FROM budget_items it WHERE it.category_id = c.id) AS lines,
+              (SELECT COUNT(*) FROM budget_item_actual_entries e
+                 JOIN budget_items it ON it.id = e.budget_item_id
+                WHERE it.category_id = c.id) AS entries
+         FROM categories c JOIN budget_groups g ON g.id = c.group_id
+        ORDER BY g.sort_order, g.id, c.sort_order, c.id`
+    )
+    .all() as Array<{
+    id: number;
+    name: string;
+    group_id: number;
+    group_name: string;
+    archived: number;
+    lines: number;
+    entries: number;
+  }>;
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    groupId: r.group_id,
+    groupName: r.group_name,
+    archived: !!r.archived,
+    lines: r.lines,
+    entries: r.entries,
+  }));
 }
