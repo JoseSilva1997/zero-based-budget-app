@@ -87,7 +87,9 @@ export function importOutcome(review) {
   const added = new Map();
   for (const a of review.accounts) {
     for (const r of a.rows) {
-      if (r.decisions.linkedEntryId != null && !isBlocked(r)) linked += 1;
+      // A matched row needs no category of its own (the entry has one), so
+      // only a hard block keeps it out.
+      if (r.decisions.linkedEntryId != null && !isInert(r)) linked += 1;
       if (!willImport(r)) continue;
       count += 1;
       totalCents += r.amountCents;

@@ -294,6 +294,12 @@ function unitTests() {
   check('unit: the worst first', out.over.map((o) => o.name).join() === 'Gifts,Groceries,Eating out', out.over.map((o) => o.name).join());
   const none = importOutcome({ plan, categories, accounts: [{ rows: [r({ categoryId: 13, amountCents: 100 })] }] });
   check('unit: nothing over is an empty list', none.over.length === 0 && none.count === 1, JSON.stringify(none));
+  // Bootstrapping: a past month's rows matched to hand-typed entries carry no
+  // category of their own, and matching them is still something to confirm.
+  const matchedOnly = importOutcome({ plan, categories, accounts: [{ rows: [
+    r({ categoryId: null, included: false, labels: [lbl('uncategorised', 'warn')], decisions: { linkedEntryId: 900 } }),
+  ] }] });
+  check('unit: a matched row with no category of its own still counts as matched', matchedOnly.linked === 1 && matchedOnly.count === 0, JSON.stringify(matchedOnly));
   // "No category" is an amber chip but not a reason to look: a row with no
   // category outside the month still folds, as most of a long statement does.
   check('unit: a row outside the month with no category yet still folds',
