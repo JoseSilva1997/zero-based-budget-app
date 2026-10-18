@@ -74,3 +74,14 @@
 .upload-setup-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: var(--space-3); }
 .upload-setup-fields .tinput { font-size: var(--text-13); background-color: var(--raised); }
 .upload-setup-actions { display: flex; justify-content: flex-end; gap: var(--space-3); }
+
+/* ---- the footer ----------------------------------------------------------
+   The step's one way forward, at the end of what it is about: a note on the
+   left saying what pressing it will do, the button on the right under the
+   reader's hand, the way a dialog's actions sit. */
+.upload-foot {
+  display: flex; align-items: center; gap: var(--space-5); flex-wrap: wrap;
+  margin-top: var(--space-7); padding-top: var(--space-6); border-top: 1px solid var(--rule);
+}
+.upload-foot-note { margin-right: auto; font-size: var(--text-13); color: var(--muted); }
+.upload-back { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--text-13); color: var(--ink-2); }

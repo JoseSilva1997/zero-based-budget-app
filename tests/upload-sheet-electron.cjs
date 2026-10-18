@@ -162,6 +162,7 @@ window.__runTests = async () => {
   check('one zone per account, in display order', zones().map((z) => z.getAttribute('data-account-zone')).join(',') === '1,2,3', zones().length + '');
   check('a zone names its account and bank', zones()[0] && /Main/.test(zones()[0].textContent) && /Lloyds/.test(zones()[0].textContent), zones()[0] && zones()[0].textContent);
   check('an account with no bank says so', zones()[1] && /No bank yet/.test(zones()[1].textContent), zones()[1] && zones()[1].textContent);
+  check('Review waits for a file', buttonNamed('Review') && buttonNamed('Review').disabled, '');
   check('each zone offers a file picker', zones().every((z) => z.querySelector('input[type="file"][multiple]')), '');
 
 
@@ -206,6 +207,14 @@ window.__runTests = async () => {
   await choose(1, ['main-oct.csv']);
   await choose(1, ['main-oct.csv']);
   check('a repeat file is refused in its own zone', /That file is already in this upload\./.test(zone(1).textContent) && !/already in this upload/.test(zone(2).textContent), zone(1).textContent);
+
+  /* ---- 3. the Review button ------------------------------------------ */
+  check('Review is ready once a file is in', buttonNamed('Review') && !buttonNamed('Review').disabled, '');
+  await press(buttonNamed('Review'), 'Review');
+  check('Review moves to the review step', !!document.querySelector('[data-review]') && zones().length === 0, text().slice(0, 300));
+  check('Back to files returns to the zones', !!buttonNamed('Back to files'));
+  await press(buttonNamed('Back to files'), 'Back to files');
+  check('and the zones are back with their files', zones().length === 3 && /joint-sep/.test(zone(2).textContent), text().slice(0, 300));
 
   return results;
 };

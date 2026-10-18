@@ -210,10 +210,32 @@ function DropZone({ entry, month, onChanged }) {
 }
 
 /* ---- the upload step --------------------------------------------------- */
-function UploadStep({ review, month, onChanged }) {
+function UploadStep({ review, month, onChanged, onReview }) {
+  const fileCount = review.accounts.reduce((n, a) => n + a.files.length, 0);
   return (
-    <div className="upload-zones">
-      {review.accounts.map((entry) => <DropZone key={entry.account.id} entry={entry} month={month} onChanged={onChanged} />)}
+    <>
+      <div className="upload-zones">
+        {review.accounts.map((entry) => <DropZone key={entry.account.id} entry={entry} month={month} onChanged={onChanged} />)}
+      </div>
+      <div className="upload-foot">
+        <span className="upload-foot-note">{fileCount === 0
+          ? "Add a statement to at least one account to review it."
+          : `${fileCount} ${fileCount === 1 ? "file" : "files"} ready to review.`}</span>
+        <button className="btn btn-primary" disabled={fileCount === 0} onClick={onReview}>
+          Review <Icons.right size={15} />
+        </button>
+      </div>
+    </>
+  );
+}
+
+/* ---- the review step --------------------------------------------------- */
+function ReviewStep({ review, onBack }) {
+  return (
+    <div data-review className="upload-review">
+      <div className="upload-foot">
+        <button className="link-btn upload-back" onClick={onBack}><Icons.left size={14} /> Back to files</button>
+      </div>
     </div>
   );
 }
@@ -222,10 +244,14 @@ function UploadStep({ review, month, onChanged }) {
 function UploadSheet({ month, currency, onClose }) {
   const { imports } = useStore();
   const [review, setReview] = useState(null);
+  // 'upload' | 'review'. Decided once, on the first read: a pending upload
+  // that already has rows reopens on Review, anything else on the zones.
+  const [step, setStep] = useState(null);
 
   const load = useCallback(async () => {
     const r = await imports.review(month);
     setReview(r);
+    setStep((s) => s || (r.batch && r.accounts.some((a) => a.rows.length > 0) ? "review" : "upload"));
     return r;
   }, [imports, month]);
   useEffect(() => { load(); }, [load]);
@@ -241,7 +267,8 @@ function UploadSheet({ month, currency, onClose }) {
           </div>
         </div>
       }>
-      {review && <UploadStep review={review} month={month} onChanged={load} />}
+      {review && step === "upload" && <UploadStep review={review} month={month} onChanged={load} onReview={() => setStep("review")} />}
+      {review && step === "review" && <ReviewStep review={review} onBack={() => setStep("upload")} />}
     </Sheet>
   );
 }
