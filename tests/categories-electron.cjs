@@ -320,6 +320,30 @@ app.whenReady().then(() => {
       db.close();
     }
 
+    /* ---- accounts: per line, with the category remembering the last choice ---- */
+    {
+      const db = freshDb();
+      const accounts = b('repositories', 'accounts.js');
+      const main = accounts.insertAccount(db, { name: 'Main', kind: 'main', owner_member_id: null, sort_order: 0, color: null });
+      const joint = accounts.insertAccount(db, { name: 'Joint', kind: 'joint', owner_member_id: null, sort_order: 1, color: null });
+      const sep = months.insertMonth(db, '2026-09');
+      const oct = months.insertMonth(db, '2026-10');
+      const bills = months.insertGroup(db, { name: 'Bills', kind: 'spend', sort_order: 0, collapsed: 0 });
+      const sepRent = months.addItemByName(db, { monthId: sep, groupId: bills, name: 'Rent', bank_account_id: main });
+
+      months.updateItem(db, sepRent, { bank_account_id: joint });
+      const octRent = months.addItemByName(db, { monthId: oct, groupId: bills, name: 'Rent' });
+      eq(months.getItemById(db, octRent).account, joint, 'a new line starts on the account last chosen');
+      months.updateItem(db, octRent, { bank_account_id: main });
+      eq(months.getItemById(db, sepRent).account, joint, 'another month\'s line keeps its own account');
+
+      accounts.deleteAccount(db, main);
+      eq(months.getItemById(db, octRent).account, null, 'a deleted account is cleared from lines');
+      const rentCat = months.getItemById(db, octRent).category_id;
+      eq(categories.getCategory(db, rentCat).bank_account_id, null, 'and from category defaults');
+      db.close();
+    }
+
     console.log('CATEGORIES_OK');
   } catch (err) {
     console.error('CATEGORIES_FAIL', err && err.stack ? err.stack : err);

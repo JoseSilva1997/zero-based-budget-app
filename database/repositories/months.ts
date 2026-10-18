@@ -289,7 +289,8 @@ export function deleteGroup(db: Database.Database, id: number, monthId: number):
 
 /**
  * Patches a plan line. 'name' renames its category, so it applies to every
- * month, past ones included.
+ * month, past ones included. 'bank_account_id' is this month's, and also
+ * becomes the category's default, so the next new line starts on it.
  */
 export function updateItem(
   db: Database.Database,
@@ -300,11 +301,15 @@ export function updateItem(
 ): void {
   const { name, ...line } = fields;
   const tx = db.transaction(() => {
-    if (name !== undefined) {
-      const row = db.prepare(`SELECT category_id FROM budget_items WHERE id = ?`).get(id) as
-        | { category_id: number }
-        | undefined;
-      if (row) renameCategory(db, row.category_id, name);
+    const row = db.prepare(`SELECT category_id FROM budget_items WHERE id = ?`).get(id) as
+      | { category_id: number }
+      | undefined;
+    if (row && name !== undefined) renameCategory(db, row.category_id, name);
+    if (row && line.bank_account_id !== undefined) {
+      db.prepare(`UPDATE categories SET bank_account_id = ? WHERE id = ?`).run(
+        line.bank_account_id,
+        row.category_id
+      );
     }
     patchById(db, 'budget_items', id, line);
   });
