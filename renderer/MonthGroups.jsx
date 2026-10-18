@@ -401,7 +401,7 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
           confirmLabel="Delete item" icon={<Icons.trash size={15} />}
           onClose={() => setConfirmDelete(false)}
           onConfirm={() => { dispatch({ type: "deleteItem", month, groupId: group.id, itemId: item.id }); setConfirmDelete(false); }}>
-          This removes the item from this month only. {item.actuals.length > 0 ? `Its ${item.actuals.length} spending ${item.actuals.length === 1 ? "entry" : "entries"} will be deleted too.` : ""} Past months are not affected.
+          This removes the item from this month only. {item.actuals.length > 0 ? `Its ${item.actuals.length} spending ${item.actuals.length === 1 ? "entry" : "entries"} will be deleted too.` : ""} Other months are not affected.
         </ConfirmDialog>
       )}
     </div>
@@ -644,9 +644,9 @@ function GroupCard({ group, groups, currency, dispatch, month, accounts, drag })
           onClose={() => setConfirmDelete(false)}
           onConfirm={() => { dispatch({ type: "deleteGroup", month, groupId: group.id }); setConfirmDelete(false); }}>
           {itemCount === 0
-            ? "This group is empty, so nothing else goes with it. It is removed from this month only, and past months are not affected."
+            ? "This group has nothing in it in any month, so it is deleted outright and nothing else goes with it."
             : <>This removes the group and its {itemCount} {itemCount === 1 ? "item" : "items"}
-              {entryCount > 0 ? <> and their {entryCount} spending {entryCount === 1 ? "entry" : "entries"}</> : null} from this month only. Past months are not affected.</>}
+              {entryCount > 0 ? <> and their {entryCount} spending {entryCount === 1 ? "entry" : "entries"}</> : null} from this month only. Other months are not affected.</>}
         </ConfirmDialog>
       )}
     </div>
