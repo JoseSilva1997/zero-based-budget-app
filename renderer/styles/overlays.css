@@ -23,6 +23,12 @@
 /* Hover and keyboard focus look the same: this menu is walked with arrow keys
    as often as it is clicked. */
 .move-menu-item:hover, .move-menu-item:focus-visible { background: var(--well); }
+/* A footnote under the groups, ruled off so it is not read as one more row:
+   the move belongs to the category, so it reaches every month. */
+.move-menu-note {
+  margin-top: 4px; padding: 7px 9px 5px; border-top: 1px solid var(--rule-faint);
+  font-size: var(--text-11); color: var(--faint);
+}
 
 /* Modal */
 .modal-veil { position: fixed; inset: 0; background: rgba(0,0,0,0.62); backdrop-filter: blur(4px); display: grid; place-items: center; z-index: 60; animation: veil .18s ease; }

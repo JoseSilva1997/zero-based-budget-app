@@ -216,6 +216,8 @@ function MoveMenu({ anchorRef, groups, itemName, onPick, onClose }) {
           {g.isSavings && <Icons.plant size={13} className="move-menu-savings" />}
         </button>
       ))}
+      {/* The group belongs to the category, not to this month's line. */}
+      <div className="move-menu-note">Moves it in every month</div>
     </div>,
     document.body
   );
@@ -343,8 +345,10 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
         <div className="item-name-cell">
           {/* The title is on the wrapper because the field itself is an input:
               it cannot ellipsis, so the full name has to be reachable some
-              other way (hover here, or scroll inside the field). */}
-          <span title={item.name} className="item-name-wrap">
+              other way (hover here, or scroll inside the field). Its second
+              line says what nothing on the row does: the name is the
+              category's, so a rename reaches every month. */}
+          <span title={`${item.name}\nRenaming it renames it in every month`} className="item-name-wrap">
             <TextInline value={item.name} col="itemName" label="Item name" className="item-name-input"
               onCommit={(v) => dispatch({ type: "renameItem", month, groupId: group.id, itemId: item.id, name: v })} />
           </span>
@@ -385,7 +389,7 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
             aria-label={otherGroups.length === 0
               ? `Move ${item.name} to another group. Unavailable: no other group in this month.`
               : `Move ${item.name} to another group`}
-            title={otherGroups.length === 0 ? "No other group to move this item to" : "Move to another group"}
+            title={otherGroups.length === 0 ? "No other group to move this item to" : "Move to another group, in every month"}
             onClick={() => setMoveOpen((o) => !o)}><Icons.move size={15} /></button>
           {moveOpen && (
             <MoveMenu anchorRef={moveBtnRef} groups={otherGroups} itemName={item.name}
