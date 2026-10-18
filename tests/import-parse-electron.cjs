@@ -247,6 +247,8 @@ app.whenReady().then(() => {
       eq(cleanDescriptor('EXAMPLE STORES 2656'), 'EXAMPLE STORES', 'a trailing store number goes');
       eq(cleanDescriptor('EXAMPLE 781-111'), 'EXAMPLE', 'in either of its shapes');
       eq(cleanDescriptor('EXAMPLE CAFE 36'), 'EXAMPLE CAFE 36', 'a short trailing number may be part of the name');
+      eq(cleanDescriptor('SANDWICHES41809'), 'SANDWICHES', 'a reference glued onto a name is cut off it');
+      eq(cleanDescriptor('EXAMPLEAIR224Y44XYZ'), 'EXAMPLEAIR', 'a letters-and-digits one too');
     }
 
     /* ---- detection is an exact match on the set of names ---- */

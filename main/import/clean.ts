@@ -12,6 +12,12 @@ function isReference(token: string): boolean {
   return /^[A-Z0-9]{8,}$/i.test(token) && /[A-Z]/i.test(token) && (token.match(/\d/g) || []).length >= 3;
 }
 
+/** A name with a reference glued on ("SUBWAY41809") is the name. */
+function unglue(token: string): string {
+  const m = /^([A-Z]{4,})(\d[A-Z0-9]*)$/i.exec(token);
+  return m && (m[2].match(/\d/g) || []).length >= 3 ? m[1] : token;
+}
+
 /** A date: 03/09/26, 03/09/2026, 2026-09-03 or 03SEP26. */
 function isDate(token: string): boolean {
   return (
@@ -29,6 +35,7 @@ export function cleanDescriptor(text: string): string {
     // What's left of a *: the separator in "SQ *SHOP" or "ZETTLE_*SHOP".
     .replace(/_?\*+/g, ' ')
     .split(/\s+/)
+    .map(unglue)
     .filter((token) => token && !isReference(token) && !isDate(token));
   // A store number at the end: "TESCO STORES 2656", "ALDI 781-111".
   if (tokens.length > 1 && /^\d{3,}(-\d+)?$/.test(tokens[tokens.length - 1])) tokens.pop();
