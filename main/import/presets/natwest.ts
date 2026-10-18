@@ -6,8 +6,10 @@
    so it is spent on 2026-09-28, and the descriptor is the segments between
    CD and the final town-and-country one, joined: "SUPERDRUG STORES PLC".
    The marker may also be C or D, or missing on an online payment.
-   Rows without that shape (direct debits, transfers...) are spent on Date
-   and get the generic cleaning. Every row names its account.
+   Rows without that shape (direct debits, transfers...) are spent on Date;
+   their comma segments are joined without the bank's boilerplate (channel,
+   Faster Payment date, source account), and the generic cleaning drops the
+   trace number. Every row names its account.
    ============================================================ */
 import { cleanDescriptor } from '../clean';
 import { RowErrors, dayMonYear, sameHeader, splitSigned } from './common';
@@ -35,6 +37,20 @@ function cardPayment(description: string): { spentOn: string | null; merchant: s
   return { spentOn: dayMonYear(m[1], m[2], m[3]), merchant };
 }
 
+/** Segments of a payment or transfer that are the bank's, not the payee's:
+ *  the channel, the Faster Payment date and time code, and the account a
+ *  transfer came from. */
+const BOILERPLATE = [/^VIA MOBILE\b/i, /^FP \d{2}\/\d{2}\/\d{2}\b/, /^(FROM|TO) A\/C \d+$/i];
+
+/** Any other row's comma segments, without the boilerplate, joined. */
+function otherDescriptor(description: string): string {
+  return description
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s && !BOILERPLATE.some((re) => re.test(s)))
+    .join(' ');
+}
+
 export const natwest: Preset = {
   key: 'natwest',
   label: 'NatWest',
@@ -53,7 +69,7 @@ export const natwest: Preset = {
         spentOn: card?.spentOn ?? postedOn,
         ...splitSigned(errors.amount(raw, 'Value')),
         descriptorRaw: descriptor,
-        descriptorClean: cleanDescriptor(card ? card.merchant : descriptor),
+        descriptorClean: cleanDescriptor(card ? card.merchant : otherDescriptor(descriptor)),
         ...(account ? { accountIdentifier: account } : {}),
         features: { type: raw['Type'] ?? '' },
         ...errors.result(),

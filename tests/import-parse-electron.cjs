@@ -207,6 +207,20 @@ app.whenReady().then(() => {
         ['2026-09-03', 'EXAMPLE BAR SOMETOWN'],
         'NatWest: a payment abroad ends with the foreign amount and rate, which are not the merchant'
       );
+
+      // Payments and transfers: comma segments, some of them bank boilerplate.
+      eq(
+        card('EXAMPLE PAYEE , SOME REFERENCE, VIA MOBILE - PYMT , FP 28/09/26 10 , 12345678901234000N'),
+        ['2026-09-29', 'EXAMPLE PAYEE SOME REFERENCE'],
+        'NatWest: a mobile payment keeps the payee and reference, not the channel, FP date or trace number'
+      );
+      eq(card('From A/C 12345678 , Sam Example , Via Mobile Xfer'), ['2026-09-29', 'Sam Example'], 'NatWest: a transfer in keeps the name, not the account number');
+      eq(card('EXAMPLE LANDLORD , FP 24/09/26 30 , 01234567890123000N'), ['2026-09-29', 'EXAMPLE LANDLORD'], 'NatWest: a standing order keeps the payee');
+      eq(
+        card('S EXAMPLE , SENT FROM EXAMPLEBANK , FP 21/09/26 1626 , ABC900012345678901'),
+        ['2026-09-29', 'S EXAMPLE SENT FROM EXAMPLEBANK'],
+        'NatWest: a credit keeps the payer and reference'
+      );
     }
 
     /* ---- generic descriptor cleaning, for every bank ---- */
