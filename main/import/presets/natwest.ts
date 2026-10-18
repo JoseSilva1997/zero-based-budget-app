@@ -45,8 +45,11 @@ function cardPayment(description: string): { spentOn: string | null; merchant: s
  *  transfer came from. */
 const BOILERPLATE = [/^VIA MOBILE\b/i, /^FP \d{2}\/\d{2}\/\d{2}\b/, /^(FROM|TO) A\/C \d+$/i];
 
-/** Any other row's comma segments, without the boilerplate, joined. */
+/** Any other row's comma segments, without the boilerplate, joined. The
+ *  monthly charge says only "25AUG A/C 12345678" (the period and the
+ *  account), so it is named for what it is. */
 function otherDescriptor(description: string): string {
+  if (/^\s*\d{2}[A-Z]{3} A\/C \d+\s*$/.test(description)) return 'Account charges';
   return description
     .split(',')
     .map((s) => s.trim())
