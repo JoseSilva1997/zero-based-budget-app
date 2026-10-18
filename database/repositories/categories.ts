@@ -153,6 +153,35 @@ export interface MergeImpact {
   months: number;
 }
 
+/** Refuses a merge that cannot happen, and returns B. */
+function assertMergeable(db: Database.Database, fromId: number, intoId: number): Category {
+  if (fromId === intoId) {
+    throw new Error("A category can't be merged into itself. Pick a different one to merge into.");
+  }
+  const from = getCategory(db, fromId);
+  const into = getCategory(db, intoId);
+  if (!from || !into) {
+    throw new Error('One of those categories is no longer in your budget, so nothing was merged.');
+  }
+  return into;
+}
+
+/** What merging 'fromId' into 'intoId' would move, without moving anything:
+ *  the counts the confirmation states before the user commits. */
+export function previewMerge(db: Database.Database, fromId: number, intoId: number): MergeImpact {
+  assertMergeable(db, fromId, intoId);
+  const row = db
+    .prepare(
+      `SELECT COUNT(*) AS months,
+              (SELECT COUNT(*) FROM budget_item_actual_entries e
+                 JOIN budget_items it ON it.id = e.budget_item_id
+                WHERE it.category_id = @id) AS entries
+         FROM budget_items WHERE category_id = @id`
+    )
+    .get({ id: fromId }) as { months: number; entries: number };
+  return { entries: row.entries, months: row.months };
+}
+
 /**
  * Merges category 'fromId' into 'intoId': every plan line and entry of A
  * becomes B's. In a month where both have a line, the two become B's line,
@@ -163,14 +192,7 @@ export interface MergeImpact {
  */
 export function mergeCategories(db: Database.Database, fromId: number, intoId: number): MergeImpact {
   const tx = db.transaction((): MergeImpact => {
-    if (fromId === intoId) {
-      throw new Error("A category can't be merged into itself. Pick a different one to merge into.");
-    }
-    const from = getCategory(db, fromId);
-    const into = getCategory(db, intoId);
-    if (!from || !into) {
-      throw new Error('One of those categories is no longer in your budget, so nothing was merged.');
-    }
+    const into = assertMergeable(db, fromId, intoId);
 
     const lines = db
       .prepare(`SELECT id, budget_month_id, planned_cents FROM budget_items WHERE category_id = ?`)

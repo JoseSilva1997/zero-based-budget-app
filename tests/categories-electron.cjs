@@ -301,6 +301,13 @@ app.whenReady().then(() => {
       throws(() => categories.mergeCategories(db, groceries, groceries), 'into itself', 'merge into itself refused');
       throws(() => categories.mergeCategories(db, food, groceries + 999), 'no longer', 'merge into a missing category refused');
 
+      // The preview states the impact the confirmation names, and writes nothing.
+      throws(() => categories.previewMerge(db, groceries, groceries), 'into itself', 'preview into itself refused');
+      throws(() => categories.previewMerge(db, food, groceries + 999), 'no longer', 'preview of a missing category refused');
+      eq(categories.previewMerge(db, food, groceries), { entries: 3, months: 2 }, 'preview counts A\'s entries and months');
+      eq(shape(months, db, oct), [['Bills', ['Rent', 'Groceries']], ['Home', ['Food']]], 'the preview changed nothing');
+      assert(categories.getCategory(db, food), 'A is still there after the preview');
+
       const impact = categories.mergeCategories(db, food, groceries);
       eq(impact, { entries: 3, months: 2 }, 'reports the entries and months it moved');
 
