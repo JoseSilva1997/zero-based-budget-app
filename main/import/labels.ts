@@ -7,10 +7,16 @@
 
    Severity decides the default tick:
    - block: the row can't be ticked, whatever was stored (money in, already
-     imported, unreadable, not completed; no category until one is picked);
+     imported, unreadable, not completed);
    - warn: it starts unticked, and you may tick it;
    - info: a transfer, unticked until you switch it back to a spend;
    - none: 'ok', no chip, ticked.
+
+   One rule stands apart from severity: a spend with no category can't be
+   ticked until one is picked, since there is no line to write it to. Its
+   'uncategorised' chip is only a warning, though: on a first import, before
+   the classifier has learnt anything, nearly every row is one, and a wall of
+   refusals would hide the rows that really are refused.
 
    A row the bank already rules out (a hard block) carries only that label:
    whether it is a duplicate, or which category it would be, is noise.
@@ -41,7 +47,7 @@ export interface Label {
 
 export const LABELS: Record<LabelKey, { severity: Severity; text: string }> = {
   ok: { severity: 'none', text: '' },
-  uncategorised: { severity: 'block', text: 'No category' },
+  uncategorised: { severity: 'warn', text: 'No category' },
   low_confidence: { severity: 'warn', text: 'Check category' },
   not_in_month: { severity: 'warn', text: "Not in this month's plan" },
   possible_duplicate: { severity: 'warn', text: 'Possible duplicate' },
@@ -118,6 +124,7 @@ export function assessRow(f: RowFacts): RowAssessment {
   if (f.spentOn && f.spentOn.slice(0, 7) !== f.monthKey) labels.push(label('out_of_month'));
 
   const blocked = labels.some((l) => l.severity === 'block');
+  // No category, no tick: the rule 'uncategorised' carries, whatever its chip.
   const importable = !blocked && kind === 'spend' && categoryId !== null && s.linkedEntryId === null;
   const byDefault = labels.length === 0;
   const included = importable && (s.included === null ? byDefault : s.included === 1);

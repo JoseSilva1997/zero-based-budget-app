@@ -179,6 +179,10 @@ app.whenReady().then(() => {
       eq(unsure.labels[0], { key: 'low_confidence', severity: 'warn', text: 'Check category' }, 'with its chip');
       const wild = assessRow(facts({ prediction: { label: GROC, confidence: LOW_CONFIDENCE / 2 } }));
       eq([keys(wild), wild.categoryId, wild.included], [['uncategorised'], null, false], 'a wild guess is no category');
+      // A first import is mostly rows like this, so the chip is a warning
+      // (Lantern Amber), not a refusal; the tick still waits for a category.
+      eq(wild.labels[0], { key: 'uncategorised', severity: 'warn', text: 'No category' }, 'with an amber chip');
+      eq(assessRow(facts({ prediction: null, duplicates: 1, ...stored({ included: 1 }) })).included, false, 'and no tick counts until a category is picked');
       eq(assessRow(facts({ prediction: null })).labels[0].text, 'No category', 'nor is no guess');
       const picked = assessRow(facts({ prediction: null, ...stored({ categoryId: GROC }) }));
       eq([keys(picked), picked.included], [['ok'], true], 'picking a category makes it ok and ticked');

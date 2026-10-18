@@ -160,7 +160,7 @@ app.whenReady().then(async () => {
         'a row carries its parsed fields'
       );
       eq([r.categoryId, r.name, r.kind, r.included, r.prediction], [null, 'SUPERDRUG STORES PLC', 'spend', false, null], 'with nothing learned, no category and unticked');
-      eq(r.labels, [{ key: 'uncategorised', severity: 'block', text: 'No category' }], 'labelled uncategorised');
+      eq(r.labels, [{ key: 'uncategorised', severity: 'warn', text: 'No category' }], 'labelled uncategorised');
       eq(r.decisions, { categoryId: null, name: null, kind: null, included: null, linkedEntryId: null }, 'and no decisions yet');
       eq(review.accounts[1].rows, [], "another account's section is empty");
 

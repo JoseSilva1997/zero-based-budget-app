@@ -42,7 +42,7 @@ import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { StoreProvider, useStore } from './renderer/store.jsx';
 import { UploadSheet } from './renderer/Upload.jsx';
-import { importOutcome } from './renderer/lib/imports.js';
+import { importOutcome, onlyOutOfMonth } from './renderer/lib/imports.js';
 
 const results = [];
 const check = (name, cond, msg) => results.push({ name, ok: !!cond, msg: cond ? '' : (msg || '') });
@@ -86,7 +86,7 @@ const L = {
   credit: { key: 'credit', severity: 'block', text: 'Money in' },
   parse: { key: 'parse_error', severity: 'block', text: "Couldn't read" },
   transfer: { key: 'transfer', severity: 'info', text: 'Transfer' },
-  uncat: { key: 'uncategorised', severity: 'block', text: 'No category' },
+  uncat: { key: 'uncategorised', severity: 'warn', text: 'No category' },
 };
 const row = (id, accountId, o = {}) => ({
   id, accountId, fileId: accountId === 1 ? 201 : 202, rowIndex: id,
@@ -294,6 +294,12 @@ function unitTests() {
   check('unit: the worst first', out.over.map((o) => o.name).join() === 'Gifts,Groceries,Eating out', out.over.map((o) => o.name).join());
   const none = importOutcome({ plan, categories, accounts: [{ rows: [r({ categoryId: 13, amountCents: 100 })] }] });
   check('unit: nothing over is an empty list', none.over.length === 0 && none.count === 1, JSON.stringify(none));
+  // "No category" is an amber chip but not a reason to look: a row with no
+  // category outside the month still folds, as most of a long statement does.
+  check('unit: a row outside the month with no category yet still folds',
+    onlyOutOfMonth({ labels: [lbl('uncategorised', 'warn'), lbl('out_of_month', 'warn')] }));
+  check('unit: one with another warning does not',
+    !onlyOutOfMonth({ labels: [lbl('possible_duplicate', 'warn'), lbl('out_of_month', 'warn')] }));
 }
 
 window.__runTests = async () => {
@@ -383,6 +389,7 @@ window.__runTests = async () => {
   check('a block label is an ember chip', chips(2).length === 1 && chips(2)[0].classList.contains('is-block') && chips(2)[0].textContent === 'Already imported', chips(2).map((c) => c.className).join());
   check('an info label is a neutral chip', chips(12).length === 1 && chips(12)[0].classList.contains('is-info') && chips(12)[0].textContent === 'Transfer', chips(12).map((c) => c.className).join());
   check('an ok row has no chip', chips(1).length === 0, chips(1).length + '');
+  check('a row with no category wears an amber chip, not an ember one', chips(14).length === 1 && chips(14)[0].classList.contains('is-warn') && chips(14)[0].textContent === 'No category', chips(14).map((c) => c.className).join());
   check('a row that could not be read carries its reason on the chip', chips(10)[0] && chips(10)[0].title === 'The amount "x" is not a number.', chips(10)[0] && chips(10)[0].title);
 
   /* ---- 6. blocked rows sink and are inert ---------------------------- */

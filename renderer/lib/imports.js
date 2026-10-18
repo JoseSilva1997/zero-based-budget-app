@@ -9,14 +9,18 @@
    ============================================================ */
 import { MONTH_NAMES } from "./dates.js";
 
-/** A row that cannot be imported as it stands: any label of block severity. */
-export const isBlocked = (row) => row.labels.some((l) => l.severity === "block");
+/** A row waiting on a category. Its chip is only a warning (on a first
+ *  import nearly every row is one), but it cannot be ticked until a category
+ *  is picked, so it stays live, in place, with its picker open to that choice. */
+export const needsCategory = (row) => row.labels.some((l) => l.key === "uncategorised");
 
-/** A row nothing can be done about: blocked for a reason other than a
- *  missing category (money in, already imported, unreadable, not completed).
- *  An uncategorised row is blocked only until a category is picked, so it
- *  stays live, in place, with its picker open to that choice. */
-export const isInert = (row) => row.labels.some((l) => l.severity === "block" && l.key !== "uncategorised");
+/** A row that cannot be ticked as it stands: any label of block severity, or
+ *  no category yet. */
+export const isBlocked = (row) => row.labels.some((l) => l.severity === "block") || needsCategory(row);
+
+/** A row nothing can be done about: a label of block severity (money in,
+ *  already imported, unreadable, not completed). */
+export const isInert = (row) => row.labels.some((l) => l.severity === "block");
 
 /** "2026-10-03" -> "3 Oct"; null (a row that could not be read) -> "". */
 export function shortDate(iso) {
@@ -53,9 +57,11 @@ export function labelCounts(accounts) {
 }
 
 /** A row whose only warning is that it falls outside the month: a long
- *  statement brings hundreds of these, and they fold away by default. */
+ *  statement brings hundreds of these, and they fold away by default. "No
+ *  category" doesn't count as a warning here: it is on most rows of a first
+ *  import, and is about the tick rather than something to look at. */
 export function onlyOutOfMonth(row) {
-  const warns = row.labels.filter((l) => l.severity === "warn");
+  const warns = row.labels.filter((l) => l.severity === "warn" && l.key !== "uncategorised");
   return warns.length === 1 && warns[0].key === "out_of_month";
 }
 
