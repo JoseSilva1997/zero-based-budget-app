@@ -4,10 +4,11 @@
    ============================================================ */
 import { lloyds } from './lloyds';
 import { monzo } from './monzo';
+import { natwest } from './natwest';
 import { revolut } from './revolut';
 import type { Preset, PresetKey } from './types';
 
-export const PRESETS: Preset[] = [monzo, lloyds, revolut];
+export const PRESETS: Preset[] = [monzo, lloyds, revolut, natwest];
 
 export function getPreset(key: PresetKey): Preset | undefined {
   return PRESETS.find((p) => p.key === key);

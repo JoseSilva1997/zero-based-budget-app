@@ -75,3 +75,14 @@ export function splitSigned(signed: number | null): {
   if (signed === null) return { amountCents: null, direction: null };
   return { amountCents: Math.abs(signed), direction: signed < 0 ? 'debit' : 'credit' };
 }
+
+const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+
+/** Day, month abbreviation and year as YYYY-MM-DD; a two-digit year is
+ *  this century. Null when it isn't a real date. */
+export function dayMonYear(day: string, mon: string, year: string): string | null {
+  const month = MONTHS.indexOf(mon.toUpperCase()) + 1;
+  if (month === 0) return null;
+  const yyyy = year.length === 2 ? `20${year}` : year;
+  return validIso(`${yyyy}-${String(month).padStart(2, '0')}-${day.padStart(2, '0')}`);
+}

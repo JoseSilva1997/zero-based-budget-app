@@ -162,6 +162,43 @@ app.whenReady().then(() => {
       );
     }
 
+    /* ---- NatWest ---- */
+    {
+      const file = fixture('natwest');
+      const natwest = detectPreset(file.header);
+      eq(natwest && natwest.key, 'natwest', 'a NatWest header is detected');
+      const rows = natwest.parse(file.records, { bankProduct: null });
+      eq(
+        rows.map(brief),
+        [
+          [0, '2026-09-28', '2026-09-29', 250, 'debit', 'DELI AB1'],
+          [1, '2026-09-26', '2026-09-28', 1699, 'debit', 'SUPERDRUG STORES PLC'],
+          [2, '2026-09-26', '2026-09-28', 2900, 'debit', 'SAINSBURYS S/MKTS'],
+        ],
+        'NatWest POS: spent on the card date in the description, posted on Date; the merchant segments are the descriptor'
+      );
+      eq(rows[1].descriptorRaw, '8765 26SEP26 CD , SUPERDRUG STORES , PLC , LITTLE TOWN GB', 'NatWest: the raw descriptor is kept whole');
+      eq(rows[1].features, { type: 'POS' }, 'NatWest: the Type is a feature');
+      eq(rows[1].accountIdentifier, '600000-11112222', 'NatWest: the row names its account');
+      eq(natwest.fileAccountIdentifier(file.records), '600000-11112222', 'NatWest: so does the file');
+
+      // Not every row carries a card date: Date is the fallback.
+      const plain = natwest.parse(
+        [{ ...file.records[0], Type: 'D/D', Description: 'EXAMPLE ENERGY LTD', Value: '45.00' }],
+        { bankProduct: null }
+      )[0];
+      eq(brief(plain), [0, '2026-09-29', '2026-09-29', 4500, 'credit', 'EXAMPLE ENERGY LTD'], 'NatWest: without a card date, spent on Date');
+    }
+
+    /* ---- detection is an exact match on the set of names ---- */
+    {
+      const header = fixture('lloyds').header;
+      eq(detectPreset([...header].reverse().map((h) => ` ${h.toUpperCase()} `)).key, 'lloyds', 'order, case and padding do not matter');
+      eq(detectPreset([...header, 'Notes']), null, 'an extra column is not a match');
+      eq(detectPreset(header.slice(1)), null, 'a missing column is not a match');
+      eq(detectPreset(['Date', 'Amount']), null, 'an unknown statement matches nothing');
+    }
+
     console.log('IMPORT_PARSE_OK');
   } catch (err) {
     console.error('IMPORT_PARSE_FAIL', err && err.stack ? err.stack : err);
