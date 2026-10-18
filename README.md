@@ -113,7 +113,7 @@ Two long-lived branches, and both only change through pull requests:
 
 | Branch | What it is | Merging into it |
 |--------|------------|-----------------|
-| `staging` (default) | Everything finished and waiting for the next release. | Feature branches and Dependabot. Releases nothing. |
+| `staging` (default) | Where work gathers between releases. | Feature branches and Dependabot. Releases nothing. |
 | `main` | Exactly what users have. | Only release PRs from `staging`. Every merge is a release. |
 
 ```
@@ -122,9 +122,9 @@ dependabot ─PR─┘   │
                    └──▶ staging build (installer + AppImage, workflow artifacts)
 ```
 
-1. **Develop.** Branch off `staging` and open a pull request back into it. CI runs the suites on Linux and Windows, and the PR cannot merge until both pass. Squash-merge it. There is no hotfix lane, so only merge what is ready to ship: whatever is on `staging` goes out with the next release.
+1. **Develop.** Branch off `staging` and open a pull request back into it. CI runs the suites on Linux and Windows, and the PR cannot merge until both pass. Squash or merge commit, either is fine. Nothing is released until you decide it is time.
 2. **Try it.** Every push to `staging` runs the **Staging build** workflow, which leaves a Windows installer and a Linux AppImage on the run as artifacts for 14 days. Run the workflow by hand to get one for any other branch. A staging build is its own app, *House Budget Staging*, versioned like `1.2.1-staging.42`: it installs beside the real one with its own data folder, and never offers or installs updates.
-3. **Release.** Open a pull request from `staging` into `main`, titled with a version prefix (below). It needs the suites, the **Release source** check (the PR comes from `staging`) and the **Version prefix** check to pass, and `staging` to be up to date with `main`. Merge it with a **merge commit**, the only method `main` allows. A squash would leave `main` with a commit `staging` lacks, and every later release PR would conflict.
+3. **Release.** First review the open Dependabot pull requests and merge them into `staging`. Then open a pull request from `staging` into `main`, titled with a version prefix (below). It needs the suites, the **Release source** check (the PR comes from `staging`) and the **Version prefix** check to pass, and `staging` to be up to date with `main`. Merge it with a **merge commit**, the only method `main` allows. A squash would leave `main` with a commit `staging` lacks, and every later release PR would conflict.
 4. **Publish.** The **Release** workflow tags the merge commit, builds the Windows installer and the Linux AppImage in parallel, and publishes the GitHub release once both are uploaded. Installed copies then offer the update.
 
 The release PR's title picks the version bump (case-insensitive; a scope like `med (ui):` is fine). A title without one of these fails the **Version prefix** check, and the pull request cannot merge until it is renamed. Pick the largest change in the batch:
@@ -137,7 +137,7 @@ The release PR's title picks the version bump (case-insensitive; a scope like `m
 
 Pull requests into `staging` need no prefix.
 
-Dependabot (`.github/dependabot.yml`) opens its pull requests against `staging` once a week: one grouped PR for security updates, one for minor and patch updates, and one PR per major version bump. They merge like any other change and ship with the next release.
+Dependabot (`.github/dependabot.yml`) opens its pull requests against `staging` once a week: one grouped PR for security updates, one for minor and patch updates, and one PR per major version bump. They wait there until release time, when you review and merge them before opening the release PR.
 
 The git tags are the record of what has shipped: the next version is the highest `vX.Y.Z` tag, bumped. A merge that only touches Markdown, `LICENSE`, `tests/` or `.github/` is not released. To release one anyway, or to retry a failed release, run the **Release** workflow by hand from the Actions tab.
 
