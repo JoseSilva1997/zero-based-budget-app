@@ -407,7 +407,7 @@ function FilterChips({ counts, active, onPick }) {
 }
 
 /* ---- the review step --------------------------------------------------- */
-function ReviewStep({ review, currency, onUpdate, onBack, onDiscard }) {
+function ReviewStep({ review, currency, busy, onUpdate, onBack, onDiscard, onConfirm }) {
   const [filter, setFilter] = useState(null);
   const counts = labelCounts(review.accounts);
   // A filter whose last row has gone (ticked, re-labelled) lets go by itself.
@@ -427,7 +427,7 @@ function ReviewStep({ review, currency, onUpdate, onBack, onDiscard }) {
           ))}
         </div>
       )}
-      <ReviewFoot review={review} currency={currency} onBack={onBack} onDiscard={onDiscard} />
+      <ReviewFoot review={review} currency={currency} busy={busy} onBack={onBack} onDiscard={onDiscard} onConfirm={onConfirm} />
     </div>
   );
 }
@@ -437,7 +437,7 @@ function ReviewStep({ review, currency, onUpdate, onBack, onDiscard }) {
    worked out here from the ticks as they stand, in the failure hue because
    over plan is the failure. It also catches a row in the wrong category - a
    line that suddenly goes over is usually one. */
-function ReviewFoot({ review, currency, onBack, onDiscard }) {
+function ReviewFoot({ review, currency, busy, onBack, onDiscard, onConfirm }) {
   const out = importOutcome(review);
   const money = (cents) => fmt(currency, cents / 100);
   const parts = [`${out.count} ${out.count === 1 ? "entry" : "entries"} · ${money(out.totalCents)}`];
@@ -453,7 +453,7 @@ function ReviewFoot({ review, currency, onBack, onDiscard }) {
         </span>
       )}
       <span className="num upload-summary" data-confirm-summary>{parts.join(" · ")}</span>
-      <button className="btn btn-primary" disabled={out.count === 0 && out.linked === 0}>Confirm</button>
+      <button className="btn btn-primary" disabled={busy || (out.count === 0 && out.linked === 0)} onClick={onConfirm}>Confirm</button>
     </div>
   );
 }
@@ -495,6 +495,25 @@ function UploadSheet({ month, currency, onClose }) {
     await load();
   };
 
+  /* Confirm writes the entries in one transaction; the store reads the month
+     again, so the new entries and any £0 lines are on the page behind the
+     sheet by the time it closes. The toast is the receipt. */
+  const confirm = async () => {
+    setBusy(true);
+    try {
+      const res = await imports.confirm(month, review.batch.id);
+      const parts = [`Imported ${res.entries} ${res.entries === 1 ? "entry" : "entries"} · ${fmt(currency, res.totalCents / 100)}`];
+      if (res.linked) parts.push(`${res.linked} matched`);
+      if (res.linesCreated) parts.push(`${res.linesCreated} new plan ${res.linesCreated === 1 ? "line" : "lines"}`);
+      toast(`${parts.join(", ")}.`);
+      onClose();
+    } catch (err) {
+      toast(err.message, "error");
+      setBusy(false);
+      await load();
+    }
+  };
+
   /* Every decision is one write and then a fresh read: the server works out
      what the row now is (its labels, its default tick) and the list follows
      that, rather than guessing at it here. A refused write is said in a toast,
@@ -518,7 +537,7 @@ function UploadSheet({ month, currency, onClose }) {
       }>
       {review && step === "upload" && <UploadStep review={review} month={month} onChanged={load} onReview={() => setStep("review")} />}
       {review && step === "review" && <ReviewStep review={review} currency={currency} onUpdate={updateRow} onBack={() => setStep("upload")}
-        onDiscard={() => setAsk({ kind: "discard" })} />}
+        busy={busy} onConfirm={confirm} onDiscard={() => setAsk({ kind: "discard" })} />}
 
       {ask && ask.kind === "discard" && (
         <ConfirmDialog title="Discard this upload?" confirmLabel="Discard upload" icon={<Icons.trash size={15} />}

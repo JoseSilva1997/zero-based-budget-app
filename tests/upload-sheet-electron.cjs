@@ -40,7 +40,7 @@ function assert(cond, msg) {
 const PAGE_SUITE = /* js */ `
 import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
-import { StoreProvider } from './renderer/store.jsx';
+import { StoreProvider, useStore } from './renderer/store.jsx';
 import { UploadSheet } from './renderer/Upload.jsx';
 import { importOutcome } from './renderer/lib/imports.js';
 
@@ -179,6 +179,12 @@ window.api = {
     server.accounts = server.accounts.map((a) => (a.id === accountId ? { ...a, bank_id: bankId, bank_product: product } : a));
     return { ok: true };
   },
+  importConfirm: async (batchId) => {
+    server.calls.confirm.push(batchId);
+    server.history.unshift({ id: batchId, importedAt: '2026-10-18 10:30:00', filenames: server.files.map((f) => f.filename), entries: 3 });
+    server.batch = null; server.files = []; server.rows = [];
+    return { entries: 3, totalCents: 7510, linked: 1, linesCreated: 1 };
+  },
   importDiscard: async (batchId) => {
     server.calls.discard.push(batchId);
     server.batch = null; server.files = []; server.rows = [];
@@ -194,12 +200,23 @@ window.api = {
 
 const host = document.getElementById('root');
 let root = null;
+let closed = 0;
+// The app's toast lives in main.jsx; this stands in for it, showing the
+// store's live message where the suite can read it.
+function ToastProbe() {
+  const { toastMsg } = useStore();
+  return createElement('output', { 'data-toast': toastMsg ? toastMsg.tone : '' }, toastMsg ? toastMsg.message : '');
+}
 const mount = async () => {
   if (root) root.unmount();
+  closed = 0;
   root = createRoot(host);
-  root.render(createElement(StoreProvider, null, createElement(UploadSheet, { month: '2026-10', currency: '£', onClose: () => {} })));
+  root.render(createElement(StoreProvider, null,
+    createElement(UploadSheet, { month: '2026-10', currency: '£', onClose: () => { closed += 1; } }),
+    createElement(ToastProbe)));
   await settle();
 };
+const toastText = () => (document.querySelector('[data-toast]') || {}).textContent || '';
 const text = () => document.body.textContent;
 const zones = () => [...document.querySelectorAll('[data-account-zone]')];
 const zone = (id) => document.querySelector('[data-account-zone="' + id + '"]');
@@ -467,6 +484,21 @@ window.__runTests = async () => {
   await press(dialog() && [...dialog().querySelectorAll('button')].find((b) => /Discard upload/.test(b.textContent)), 'Discard upload');
   check('confirming discards the pending upload', JSON.stringify(server.calls.discard) === '[7]', JSON.stringify(server.calls.discard));
   check('and goes back to empty zones', zones().length === 3 && !document.querySelector('[data-review]') && !/main-oct/.test(text()), text().slice(0, 300));
+
+  /* ---- 12. Confirm imports and refreshes the month ------------------- */
+  server.batch = { id: 8, status: 'pending', createdAt: '2026-10-18 10:00:00' };
+  server.files = [
+    { id: 201, accountId: 1, filename: 'main-oct.csv', rowCount: 8 },
+    { id: 202, accountId: 2, filename: 'joint-oct.csv', rowCount: 5 },
+  ];
+  server.rows = reviewRows();
+  await mount();
+  const monthLoads = server.calls.getMonth;
+  await press(confirmBtn(), 'Confirm');
+  check('Confirm imports the pending upload', JSON.stringify(server.calls.confirm) === '[8]', JSON.stringify(server.calls.confirm));
+  check('the month is read again so the entries appear', server.calls.getMonth > monthLoads, server.calls.getMonth + ' vs ' + monthLoads);
+  check('a toast says what was imported', /3 entries/.test(toastText()) && toastText().includes('£75.10') && /1 matched/.test(toastText()) && /1 new plan line/.test(toastText()), toastText());
+  check('and the sheet closes', closed === 1, 'closed ' + closed);
 
   return results;
 };
