@@ -167,6 +167,37 @@ app.whenReady().then(() => {
       db.close();
     }
 
+    /* ---- possible duplicates ---- */
+    {
+      const { db, sep, joint, travel } = setup();
+      const bills = months.insertGroup(db, { name: 'Bills', kind: 'spend', sort_order: 0, collapsed: 0 });
+      const onJoint = months.addItemByName(db, { monthId: sep, groupId: bills, name: 'Toiletries', bank_account_id: joint });
+      const anyAcct = months.addItemByName(db, { monthId: sep, groupId: bills, name: 'Shops', bank_account_id: null });
+      const onTravel = months.addItemByName(db, { monthId: sep, groupId: bills, name: 'Holiday', bank_account_id: travel });
+      const entry = (item, spent_on, amount_cents, name) => months.insertActualEntry(db, { budget_item_id: item, spent_on, amount_cents, name, note: null });
+      // SUPERDRUG: £16.99 spent 2026-09-26.
+      const near = entry(onJoint, '2026-09-24', 1699, 'Superdrug');
+      const noAcct = entry(anyAcct, '2026-09-29', 1699, null);
+      entry(onTravel, '2026-09-26', 1699, 'Other account');
+      entry(onJoint, '2026-09-30', 1699, 'Four days later');
+      entry(onJoint, '2026-09-26', 1700, 'Another amount');
+
+      imports.addFile(db, { monthId: sep, accountId: joint, filename: 'sep.csv', text: fixture('natwest') });
+      const rows = imports.getReview(db, sep).accounts[0].rows;
+      const superdrug = rows[1];
+      eq(
+        superdrug.duplicates,
+        [
+          { id: near, spentOn: '2026-09-24', amountCents: 1699, name: 'Superdrug', categoryName: 'Toiletries' },
+          { id: noAcct, spentOn: '2026-09-29', amountCents: 1699, name: null, categoryName: 'Shops' },
+        ],
+        'same amount within three days, on this account or none, nearest first'
+      );
+      assert(superdrug.labels.some((l) => l.key === 'possible_duplicate'), 'and the row says so');
+      eq(rows[0].duplicates, [], 'a row with no match has none');
+      db.close();
+    }
+
     console.log('IMPORT_REPO_OK');
   } catch (err) {
     console.error('IMPORT_REPO_FAIL', err && err.stack ? err.stack : err);

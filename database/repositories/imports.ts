@@ -192,6 +192,35 @@ const decisionsOf = (r: StoredRow): RowDecisions => ({
   linkedEntryId: r.linked_entry_id,
 });
 
+/** How far apart, in days, an entry and a row may be and still be one spend. */
+const DUPLICATE_DAYS = 3;
+
+/**
+ * Existing entries a debit row may be the same spend as: the same amount,
+ * spent within DUPLICATE_DAYS, on a plan line on the row's account or on no
+ * account. Entries already accounted for are left out: imported from a row,
+ * or matched to another row ("Same as existing") in an upload in progress.
+ */
+function duplicatesOf(db: Database.Database, row: StoredRow): ImportDuplicate[] {
+  if (row.direction !== 'debit' || row.parse_error || row.spent_on === null) return [];
+  return db
+    .prepare(
+      `SELECT e.id, e.spent_on AS spentOn, e.amount_cents AS amountCents, e.name, c.name AS categoryName
+         FROM budget_item_actual_entries e
+         JOIN budget_items it ON it.id = e.budget_item_id
+         JOIN categories c ON c.id = it.category_id
+        WHERE e.amount_cents = @amount
+          AND ABS(julianday(e.spent_on) - julianday(@spentOn)) <= ${DUPLICATE_DAYS}
+          AND (it.bank_account_id = @account OR it.bank_account_id IS NULL)
+          AND e.import_row_id IS NULL
+          AND NOT EXISTS (SELECT 1 FROM import_rows o JOIN import_files f ON f.id = o.file_id
+                            JOIN import_batches b ON b.id = f.batch_id
+                           WHERE o.linked_entry_id = e.id AND o.id <> @rowId AND b.status <> 'discarded')
+        ORDER BY ABS(julianday(e.spent_on) - julianday(@spentOn)), e.spent_on, e.id`
+    )
+    .all({ amount: row.amount_cents, spentOn: row.spent_on, account: row.bank_account_id, rowId: row.id }) as ImportDuplicate[];
+}
+
 interface AssessedRow {
   row: StoredRow;
   prediction: Prediction | null;
@@ -211,7 +240,7 @@ function assessBatch(db: Database.Database, batch: ImportBatch, month: BudgetMon
   );
   return batchRows(db, batch.id).map((row) => {
     const prediction: Prediction | null = null;
-    const duplicates: ImportDuplicate[] = [];
+    const duplicates = duplicatesOf(db, row);
     const assessment = assessRow({
       monthKey: month.month,
       spentOn: row.spent_on,
