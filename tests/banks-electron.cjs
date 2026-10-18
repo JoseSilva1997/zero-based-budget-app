@@ -136,6 +136,38 @@ app.whenReady().then(() => {
       db.close();
     }
 
+    /* ---- deleting: only a bank no account uses ---- */
+    {
+      const db = freshDb();
+      const accounts = b('repositories', 'accounts.js');
+      const add = (name, sort) => accounts.insertAccount(db, { name, kind: 'main', owner_member_id: null, sort_order: sort, color: null });
+      const joint = add('Joint', 0);
+      const bills = add('Bills', 1);
+      const nat = banks.createBank(db, { name: 'NatWest', preset: 'natwest' });
+      const spare = banks.createBank(db, { name: 'Spare', preset: 'monzo' });
+      banks.setAccountBank(db, joint, nat, null);
+      banks.setAccountBank(db, bills, nat, null);
+
+      throws(
+        () => banks.deleteBank(db, nat),
+        '"NatWest" is still the bank for Joint and Bills. Choose another bank for them first.',
+        'a bank in use is refused, naming the accounts'
+      );
+      banks.setAccountBank(db, bills, null, null);
+      throws(
+        () => banks.deleteBank(db, nat),
+        '"NatWest" is still the bank for Joint. Choose another bank for it first.',
+        'one account reads as one'
+      );
+      eq(accounts.getAccountById(db, joint).bank_id, nat, 'a refused delete changes nothing');
+
+      banks.deleteBank(db, spare);
+      eq(banks.listBanks(db).map((k) => k.name), ['NatWest'], 'a bank no account uses is deleted');
+      banks.deleteBank(db, spare);
+      eq(banks.listBanks(db).length, 1, 'deleting one already gone is a no-op');
+      db.close();
+    }
+
     console.log('BANKS_OK');
   } catch (err) {
     console.error('BANKS_FAIL', err && err.stack ? err.stack : err);

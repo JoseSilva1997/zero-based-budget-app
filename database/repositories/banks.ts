@@ -86,3 +86,29 @@ export function setAccountIdentifier(
   const value = identifier === null ? null : identifier.trim() || null;
   db.prepare(`UPDATE bank_accounts SET account_identifier = ? WHERE id = ?`).run(value, accountId);
 }
+
+/** "Joint", "Joint and Bills", "Joint, Bills and Savings". */
+function listNames(names: string[]): string {
+  return names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0];
+}
+
+/**
+ * Deletes a bank. A bank an account still uses is refused rather than
+ * quietly unset (which bank_accounts' ON DELETE SET NULL would do): the
+ * account would lose its preset, Revolut product and identifier, and its
+ * next upload would start over. The SET NULL stays as the backstop.
+ */
+export function deleteBank(db: Database.Database, id: number): void {
+  const bank = getBank(db, id);
+  if (!bank) return;
+  const users = db
+    .prepare(`SELECT name FROM bank_accounts WHERE bank_id = ? ORDER BY sort_order, id`)
+    .all(id) as Array<{ name: string }>;
+  if (users.length > 0) {
+    throw new Error(
+      `"${bank.name}" is still the bank for ${listNames(users.map((u) => u.name))}. ` +
+        `Choose another bank for ${users.length > 1 ? 'them' : 'it'} first.`
+    );
+  }
+  db.prepare(`DELETE FROM banks WHERE id = ?`).run(id);
+}
