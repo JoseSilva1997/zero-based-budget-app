@@ -55,10 +55,11 @@ function announce(message) {
 
 /* The handle reorders by mouse (HTML5 drag on the row) or by keyboard. Both
    live here so the two paths cannot drift apart. */
-function DragHandle({ label, onGrab, onRelease, onMove, className = "" }) {
+function DragHandle({ label, onGrab, onRelease, onMove, className = "",
+  title = "Drag to reorder, or focus this and press the up and down arrow keys" }) {
   return (
     <button type="button" className={cx("drag-handle", className)} aria-label={label}
-      title="Drag to reorder, or focus this and press the up and down arrow keys"
+      title={title}
       onMouseDown={onGrab} onMouseUp={onRelease} onBlur={onRelease}
       onKeyDown={(e) => {
         if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
@@ -339,7 +340,10 @@ function ItemRow({ item, group, currency, dispatch, month, accounts, open, onTog
       onDragEnd={() => { setGrabbed(false); drag.endItem(); }}
       className={cx("item-row", index === 0 && "is-first", isDragging && "is-dragging", isDropTarget && "is-drop-target")}>
       <div className="item-row-main">
+      {/* A drop in another group moves the category, so it says so here too,
+          as the Move menu does. */}
       <DragHandle label={`Reorder ${item.name}, item ${index + 1} of ${count} in ${group.name}`}
+        title="Drag to reorder, or onto another group to move it there in every month. Or focus this and press the up and down arrow keys"
         onGrab={() => setGrabbed(true)} onRelease={() => setGrabbed(false)} onMove={onMove} />
       <div className={cx("budget-row", "budget-row-item", open && "budget-row-open")}>
         <div className="item-name-cell">
