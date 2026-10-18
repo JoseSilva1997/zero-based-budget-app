@@ -5,6 +5,7 @@
      "4321 28SEP26 CD , SUPERDRUG STORES , PLC , LITTLE TOWN GB"
    so it is spent on 2026-09-28, and the descriptor is the segments between
    CD and the final town-and-country one, joined: "SUPERDRUG STORES PLC".
+   The marker may also be C or D, or missing on an online payment.
    Rows without that shape (direct debits, transfers...) are spent on Date
    and get the generic cleaning. Every row names its account.
    ============================================================ */
@@ -22,9 +23,14 @@ function bookedDate(text: string): string | null {
 
 /** The card payment's parts, or null when the description isn't one. */
 function cardPayment(description: string): { spentOn: string | null; merchant: string } | null {
-  const m = /^\s*\d{4} (\d{2})([A-Z]{3})(\d{2}) CD\s*,(.*)$/.exec(description);
+  // The marker after the date is CD, C, D, or absent (online payments).
+  const m = /^\s*\d{4} (\d{2})([A-Z]{3})(\d{2})(?: [A-Z]{1,2})?\s*,(.*)$/.exec(description);
   if (!m) return null;
-  const segments = m[4].split(',').map((s) => s.trim()).filter(Boolean);
+  const segments = m[4]
+    .split(',')
+    .map((s) => s.trim())
+    // A payment abroad ends with "EUR 6.00, VRATE 1.1627".
+    .filter((s) => s && !/^[A-Z]{3} \d+\.\d+$/.test(s) && !/^VRATE \d/.test(s));
   const merchant = (segments.length > 1 ? segments.slice(0, -1) : segments).join(' ');
   return { spentOn: dayMonYear(m[1], m[2], m[3]), merchant };
 }

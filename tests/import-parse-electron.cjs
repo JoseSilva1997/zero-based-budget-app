@@ -193,6 +193,20 @@ app.whenReady().then(() => {
         { bankProduct: null }
       )[0];
       eq(brief(plain), [0, '2026-09-29', '2026-09-29', 4500, 'credit', 'EXAMPLE ENERGY LTD'], 'NatWest: without a card date, spent on Date');
+
+      // The card payments' other shapes, seen on real statements (invented here).
+      const card = (description) => {
+        const r = natwest.parse([{ ...file.records[0], Description: description }], { bankProduct: null })[0];
+        return [r.spentOn, r.descriptorClean];
+      };
+      eq(card('1234 03SEP26 , EXAMPLE STREAMING , LONDON GB'), ['2026-09-03', 'EXAMPLE STREAMING'], 'NatWest: an online card payment has no CD marker');
+      eq(card('1234 03SEP26 C , EXAMPLE CAFE , TOWN GB'), ['2026-09-03', 'EXAMPLE CAFE'], 'NatWest: the marker may be C');
+      eq(card('1234 03SEP26 D , EXAMPLE SHOP , TOWN GB'), ['2026-09-03', 'EXAMPLE SHOP'], 'NatWest: or D');
+      eq(
+        card('1234 03SEP26 CD , EXAMPLE BAR , SOMETOWN , REGION PT , EUR 6.00, VRATE 1.1627'),
+        ['2026-09-03', 'EXAMPLE BAR SOMETOWN'],
+        'NatWest: a payment abroad ends with the foreign amount and rate, which are not the merchant'
+      );
     }
 
     /* ---- detection is an exact match on the set of names ---- */
