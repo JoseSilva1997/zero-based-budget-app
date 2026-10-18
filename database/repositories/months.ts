@@ -45,6 +45,7 @@ import {
   renameCategory,
   assertNameFree,
   pruneCategory,
+  pruneGroup,
 } from './categories';
 
 /* ---------- inserts ------------------------------------------------------ */
@@ -279,10 +280,7 @@ export function deleteGroup(db: Database.Database, id: number, monthId: number):
       id: number;
     }>;
     for (const c of cats) pruneCategory(db, c.id);
-    db.prepare(
-      `DELETE FROM budget_groups
-        WHERE id = ? AND NOT EXISTS (SELECT 1 FROM categories WHERE group_id = ?)`
-    ).run(id, id);
+    pruneGroup(db, id);
   });
   tx();
 }
@@ -319,7 +317,8 @@ export function updateItem(
 /**
  * Deletes a plan line from its month; cascades to its actual entries. Its
  * category goes too once no month has a line for it (entries hang off lines,
- * so no line means nothing at all refers to it).
+ * so no line means nothing at all refers to it), and then its group if that
+ * was the group's last category.
  */
 export function deleteItem(db: Database.Database, id: number): void {
   const tx = db.transaction(() => {
@@ -472,6 +471,8 @@ export function moveItem(
     );
     const setSort = db.prepare(`UPDATE budget_items SET sort_order = ? WHERE id = ?`);
     for (const t of tail) setSort.run(t.at, t.id);
+    // The source group may now have no category at all: then it goes.
+    pruneGroup(db, fromGroupId);
 
     const destIds = listItems(db, item.month_id, toGroupId)
       .map((r) => r.id)

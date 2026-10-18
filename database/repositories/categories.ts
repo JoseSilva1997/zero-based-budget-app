@@ -95,12 +95,31 @@ export function assertNameFree(
   }
 }
 
-/** Deletes the category when no plan line refers to it any more. */
+/** Deletes the category when no plan line refers to it any more, and then its
+ *  group if that left the group with no category at all. */
 export function pruneCategory(db: Database.Database, id: number): void {
+  const category = getCategory(db, id);
+  if (!category) return;
+  const info = db
+    .prepare(
+      `DELETE FROM categories
+        WHERE id = ? AND NOT EXISTS (SELECT 1 FROM budget_items WHERE category_id = ?)`
+    )
+    .run(id, id);
+  if (info.changes > 0) pruneGroup(db, category.group_id);
+}
+
+/**
+ * Deletes a group that has no category left. Called when a group is emptied
+ * (its last category pruned, moved out or merged away): an empty active group
+ * would otherwise show in every month. A group just created is empty too, and
+ * is left alone because nothing calls this for it.
+ */
+export function pruneGroup(db: Database.Database, groupId: number): void {
   db.prepare(
-    `DELETE FROM categories
-      WHERE id = ? AND NOT EXISTS (SELECT 1 FROM budget_items WHERE category_id = ?)`
-  ).run(id, id);
+    `DELETE FROM budget_groups
+      WHERE id = ? AND NOT EXISTS (SELECT 1 FROM categories WHERE group_id = ?)`
+  ).run(groupId, groupId);
 }
 
 /**
@@ -187,6 +206,7 @@ export function previewMerge(db: Database.Database, fromId: number, intoId: numb
 export function mergeCategories(db: Database.Database, fromId: number, intoId: number): MergeImpact {
   const tx = db.transaction((): MergeImpact => {
     const into = assertMergeable(db, fromId, intoId);
+    const from = getCategory(db, fromId) as Category;
 
     const lines = db
       .prepare(`SELECT id, budget_month_id, planned_cents FROM budget_items WHERE category_id = ?`)
@@ -230,6 +250,7 @@ export function mergeCategories(db: Database.Database, fromId: number, intoId: n
     }
 
     db.prepare(`DELETE FROM categories WHERE id = ?`).run(fromId);
+    pruneGroup(db, from.group_id);
     return impact;
   });
   return tx();

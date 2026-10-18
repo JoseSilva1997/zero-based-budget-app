@@ -141,15 +141,17 @@ app.whenReady().then(async () => {
       const octPower = months.addItemByName(db, { monthId: oct, groupId: bills, name: 'Power' });
 
       months.moveItem(db, octPower, home, null);
-      // Bills is left with nothing in any month, so like a new group it shows
-      // (empty) everywhere until something is added or it is deleted.
-      eq(shape(months, db, oct), [['Bills', []], ['Home', ['Cleaning', 'Power']]], 'moved in this month');
-      eq(shape(months, db, sep), [['Bills', []], ['Home', ['Cleaning', 'Power']]], 'and in the past month');
+      // Bills is left with no category at all, so it is deleted rather than
+      // showing empty in every month.
+      eq(shape(months, db, oct), [['Home', ['Cleaning', 'Power']]], 'moved in this month; the emptied group is gone');
+      eq(shape(months, db, sep), [['Home', ['Cleaning', 'Power']]], 'and in the past month');
+      eq(db.prepare(`SELECT COUNT(*) n FROM budget_groups WHERE id = ?`).get(bills).n, 0, 'the emptied group is deleted');
 
       // The destination already has an item by that name: refused, as a rename would be.
-      months.addItemByName(db, { monthId: oct, groupId: bills, name: 'Water' });
+      const bills2 = months.insertGroup(db, { name: 'Bills', kind: 'spend', sort_order: 0, collapsed: 0 });
+      months.addItemByName(db, { monthId: oct, groupId: bills2, name: 'Water' });
       const homeWater = months.addItemByName(db, { monthId: sep, groupId: home, name: 'water' });
-      throws(() => months.moveItem(db, homeWater, bills, null), 'merge the categories in Settings', 'move onto a same-named item refused');
+      throws(() => months.moveItem(db, homeWater, bills2, null), 'merge the categories in Settings', 'move onto a same-named item refused');
       eq(shape(months, db, sep), [['Bills', []], ['Home', ['Cleaning', 'Power', 'water']]], 'refused move changed nothing');
       db.close();
     }
@@ -174,7 +176,7 @@ app.whenReady().then(async () => {
 
       months.deleteItem(db, sepGym);
       eq(catCount(), 0, 'its last line gone, the category is deleted');
-      eq(shape(months, db, sep), [['Bills', []]], 'the group stays, empty');
+      eq(shape(months, db, sep), [], 'and its group, left with no category, too');
       db.close();
     }
 
@@ -336,11 +338,12 @@ app.whenReady().then(async () => {
       const impact = categories.mergeCategories(db, food, groceries);
       eq(impact, { entries: 3, months: 2 }, 'reports the entries and months it moved');
 
-      // Home is left with nothing, so it shows empty, as after deleting its last item.
-      eq(shape(months, db, sep), [['Bills', ['Groceries']], ['Home', []]], 'September\'s line now reads Groceries, in its group');
+      // Home is left with no category, so it is deleted, as after deleting its last item.
+      eq(shape(months, db, sep), [['Bills', ['Groceries']]], 'September\'s line now reads Groceries, in its group');
+      eq(db.prepare(`SELECT COUNT(*) n FROM budget_groups WHERE id = ?`).get(home).n, 0, 'the emptied group is deleted');
       eq(months.getItemById(db, sepFood).allocated, 100, 'a month only A had keeps its line and amount');
       eq(months.getItemById(db, sepFood).actuals.length, 2, 'and its entries');
-      eq(shape(months, db, oct), [['Bills', ['Rent', 'Groceries']], ['Home', []]], 'October has one Groceries line');
+      eq(shape(months, db, oct), [['Bills', ['Rent', 'Groceries']]], 'October has one Groceries line');
       const octLine = months.getItemById(db, octGroc);
       eq(octLine.allocated, 300, 'the shared month sums the planned amounts');
       eq(octLine.actuals.length, 2, 'and holds both lines\' entries');
