@@ -227,6 +227,7 @@ app.whenReady().then(() => {
       eq(cleanDescriptor('EXAMPLE GYM 03/09/2026'), 'EXAMPLE GYM', 'and DD/MM/YYYY');
       eq(cleanDescriptor('EXAMPLE GYM 2026-09-03'), 'EXAMPLE GYM', 'and an ISO date');
       eq(cleanDescriptor('03SEP26 EXAMPLE GYM'), 'EXAMPLE GYM', 'and a 03SEP26 one');
+      eq(cleanDescriptor(' 03SEP26  12345678 '), '03SEP26 12345678', 'a descriptor nothing would survive is only trimmed');
     }
 
     /* ---- detection is an exact match on the set of names ---- */

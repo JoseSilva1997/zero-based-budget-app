@@ -22,7 +22,8 @@ function isDate(token: string): boolean {
 }
 
 export function cleanDescriptor(text: string): string {
-  return String(text || '')
+  const trimmed = String(text || '').trim().replace(/\s+/g, ' ');
+  const cleaned = trimmed
     // A card fragment: "*1234", "**1234*".
     .replace(/\*+\d{4}\b\*?/g, ' ')
     // What's left of a *: the separator in "SQ *SHOP" or "ZETTLE_*SHOP".
@@ -30,4 +31,6 @@ export function cleanDescriptor(text: string): string {
     .split(/\s+/)
     .filter((token) => token && !isReference(token) && !isDate(token))
     .join(' ');
+  // An entry needs a name: when every token was noise, keep them all.
+  return cleaned || trimmed;
 }
