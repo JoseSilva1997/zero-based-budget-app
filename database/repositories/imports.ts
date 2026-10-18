@@ -25,7 +25,7 @@ import type {
 } from '../../shared/types';
 import { readStatement, hashText } from '../../main/import/pipeline';
 import { assessRow, type RowAssessment, type RowDecisions } from '../../main/import/labels';
-import type { Prediction } from '../../main/import/classifier';
+import { train, type Classifier, type Prediction, type TrainingExample } from '../../main/import/classifier';
 import { getAccountById, listAccounts } from './accounts';
 import { getBank, listBanks, setAccountIdentifier } from './banks';
 import { cleanName } from './categories';
@@ -227,6 +227,60 @@ function duplicatesOf(db: Database.Database, row: StoredRow): ImportDuplicate[] 
     .all({ amount: row.amount_cents, spentOn: row.spent_on, account: row.bank_account_id, rowId: row.id }) as ImportDuplicate[];
 }
 
+/**
+ * A row in another batch with the same fingerprint that is in the budget:
+ * an entry was written from it, or (in an imported batch) it was matched to
+ * an entry you had typed.
+ */
+const ALREADY_IMPORTED_SQL = `
+  SELECT 1 FROM import_rows o
+    JOIN import_files f ON f.id = o.file_id
+    JOIN import_batches b ON b.id = f.batch_id
+   WHERE o.fingerprint = ? AND f.batch_id <> ?
+     AND (EXISTS (SELECT 1 FROM budget_item_actual_entries e WHERE e.import_row_id = o.id)
+          OR (b.status = 'imported' AND o.linked_entry_id IS NOT NULL))
+   LIMIT 1`;
+
+/**
+ * The classifier, trained now on every row outside this batch whose answer
+ * is known: (a) a row an entry points back at (written from it, or matched
+ * to it at confirm), labelled with that entry's category as it is today, so
+ * a merge or a move is followed; (b) a row you marked a transfer, in an
+ * imported batch.
+ */
+function trainFor(db: Database.Database, batchId: number): Classifier {
+  const rows = db
+    .prepare(
+      `SELECT r.descriptor_clean, r.features, f.bank_account_id, r.amount_cents, it.category_id AS label
+         FROM import_rows r
+         JOIN import_files f ON f.id = r.file_id
+         JOIN budget_item_actual_entries e ON e.import_row_id = r.id
+         JOIN budget_items it ON it.id = e.budget_item_id
+        WHERE f.batch_id <> @batchId
+       UNION ALL
+       SELECT r.descriptor_clean, r.features, f.bank_account_id, r.amount_cents, 'transfer' AS label
+         FROM import_rows r
+         JOIN import_files f ON f.id = r.file_id
+         JOIN import_batches b ON b.id = f.batch_id
+        WHERE f.batch_id <> @batchId AND b.status = 'imported' AND r.kind = 'transfer'`
+    )
+    .all({ batchId }) as Array<{
+    descriptor_clean: string;
+    features: string;
+    bank_account_id: number;
+    amount_cents: number | null;
+    label: number | 'transfer';
+  }>;
+  const examples: TrainingExample[] = rows.map((r) => ({
+    descriptorClean: r.descriptor_clean,
+    features: JSON.parse(r.features || '{}'),
+    accountId: r.bank_account_id,
+    amountCents: r.amount_cents,
+    label: r.label,
+  }));
+  return train(examples);
+}
+
 interface AssessedRow {
   row: StoredRow;
   prediction: Prediction | null;
@@ -244,8 +298,15 @@ function assessBatch(db: Database.Database, batch: ImportBatch, month: BudgetMon
       }>
     ).map((x) => x.category_id)
   );
+  const classifier = trainFor(db, batch.id);
+  const imported = db.prepare(ALREADY_IMPORTED_SQL);
   return batchRows(db, batch.id).map((row) => {
-    const prediction: Prediction | null = null;
+    const prediction = classifier.predict({
+      descriptorClean: row.descriptor_clean,
+      features: JSON.parse(row.features || '{}'),
+      accountId: row.bank_account_id,
+      amountCents: row.amount_cents,
+    });
     const duplicates = duplicatesOf(db, row);
     const assessment = assessRow({
       monthKey: month.month,
@@ -254,7 +315,7 @@ function assessBatch(db: Database.Database, batch: ImportBatch, month: BudgetMon
       descriptorClean: row.descriptor_clean,
       parseError: row.parse_error,
       notCompleted: !!row.not_completed,
-      alreadyImported: false,
+      alreadyImported: row.fingerprint !== null && !!imported.get(row.fingerprint, batch.id),
       duplicates: duplicates.length,
       prediction,
       inMonth: (id) => planned.has(id),

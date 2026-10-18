@@ -342,6 +342,79 @@ app.whenReady().then(() => {
       db.close();
     }
 
+    /* ---- end to end: upload, match, confirm, re-upload, learn, undo ---- */
+    {
+      const { HIGH_CONFIDENCE } = require(path.join(root, 'build', 'main', 'import', 'classifier.js'));
+      const categories = b('repositories', 'categories.js');
+      const { db, sep, joint } = setup();
+      const oct = months.insertMonth(db, '2026-10');
+      const home = months.insertGroup(db, { name: 'Home', kind: 'spend', sort_order: 0, collapsed: 0 });
+      const out = months.addItemByName(db, { monthId: sep, groupId: home, name: 'Eating out', bank_account_id: joint });
+      const toil = months.addItemByName(db, { monthId: sep, groupId: home, name: 'Toiletries', bank_account_id: joint });
+      const groc = months.addItemByName(db, { monthId: sep, groupId: home, name: 'Groceries', bank_account_id: joint });
+      const cat = (item) => months.getItemById(db, item).category_id;
+      // Hand-typed before any upload.
+      const typedShop = months.insertActualEntry(db, { budget_item_id: groc, spent_on: '2026-09-27', amount_cents: 2900, name: 'Sainsburys', note: null });
+      months.insertActualEntry(db, { budget_item_id: out, spent_on: '2026-09-10', amount_cents: 4000, name: 'Birthday dinner', note: null });
+      const transfers = (date, value) => [
+        'Date,Type,Description,Value,Balance,Account Name,Account Number',
+        `${date},OTR,"ALEX EXAMPLE , FP ${date.slice(0, 2)}/09/26 1000 , 400000000000000000",${value},10.00,Joint Example,600000-11112222`,
+      ].join('\n');
+
+      // 1-2. Upload September, match the shop to its typed entry, mark the transfer.
+      const sepFile = imports.addFile(db, { monthId: sep, accountId: joint, filename: 'sep.csv', text: fixture('natwest') });
+      imports.addFile(db, { monthId: sep, accountId: joint, filename: 'transfers.csv', text: transfers('20 Sep 2026', '-50.00') });
+      const [deli, superdrug, sainsburys, alex] = imports.getReview(db, sep).accounts[0].rows;
+      eq(sainsburys.duplicates.map((d) => d.id), [typedShop], 'the typed shop is offered as the same spend');
+      imports.updateRow(db, deli.id, { categoryId: cat(out) });
+      imports.updateRow(db, superdrug.id, { categoryId: cat(toil) });
+      imports.updateRow(db, sainsburys.id, { linkedEntryId: typedShop });
+      imports.updateRow(db, alex.id, { kind: 'transfer' });
+
+      // 3. Confirm.
+      eq(imports.confirmBatch(db, sepFile.batchId), { entries: 2, totalCents: 1949, linked: 1, linesCreated: 0 }, 'September confirmed');
+
+      // 4. The same statement uploaded into October is already in.
+      imports.addFile(db, { monthId: oct, accountId: joint, filename: 'sep-again.csv', text: fixture('natwest') });
+      let octRows = imports.getReview(db, oct).accounts[0].rows;
+      eq(octRows.map((r) => [r.labels.map((l) => l.key), r.included]), [
+        [['already_imported'], false], [['already_imported'], false], [['already_imported'], false],
+      ], 'imported rows and the matched one are already imported');
+
+      // 6. A new statement: the classifier learned from September.
+      const octCsv = [
+        'Date,Type,Description,Value,Balance,Account Name,Account Number',
+        '16 Oct 2026,POS,"4321 15OCT26 CD , DELI AB1 , SPRINGFIELD GB",-3.10,90.00,Joint Example,600000-11112222',
+        '13 Oct 2026,POS,"4321 12OCT26 CD , SAINSBURYS S/MKTS , LITTLE TOWN GB",-41.00,93.10,Joint Example,600000-11112222',
+      ].join('\n');
+      imports.addFile(db, { monthId: oct, accountId: joint, filename: 'oct.csv', text: octCsv });
+      imports.addFile(db, { monthId: oct, accountId: joint, filename: 'oct-transfers.csv', text: transfers('21 Oct 2026', '-60.00') });
+      octRows = imports.getReview(db, oct).accounts[0].rows;
+      const [newArta, newShop, newAlex] = octRows.slice(3);
+      eq(newArta.prediction.label, cat(out), 'a merchant imported before is predicted as its category');
+      assert(newArta.prediction.confidence >= HIGH_CONFIDENCE, 'confidently');
+      eq([newArta.categoryId, newArta.labels.map((l) => l.key)], [cat(out), ['not_in_month']], "and pre-filled, though October has no line for it yet");
+      eq(newShop.prediction.label, cat(groc), "a matched entry teaches its category too");
+      eq([newAlex.kind, newAlex.labels.map((l) => l.key)], ['transfer', ['transfer']], 'a marked transfer teaches transfers');
+
+      // Merging categories is followed, since labels are read through the entry.
+      categories.mergeCategories(db, cat(out), cat(groc));
+      eq(imports.getReview(db, oct).accounts[0].rows[3].prediction.label, cat(groc), 'a merged category is predicted as its target');
+
+      // 5. Undo September: exactly its entries go, and what it taught goes with them.
+      imports.undoImport(db, sepFile.batchId);
+      eq(
+        months.getMonthTree(db, sep).groups[0].items.map((i) => [i.name, i.actuals.map((a) => a.name)]),
+        [['Toiletries', []], ['Groceries', ['Birthday dinner', 'Sainsburys']]],
+        'only the hand-typed entries remain'
+      );
+      octRows = imports.getReview(db, oct).accounts[0].rows;
+      eq(octRows.slice(0, 3).map((r) => r.labels.some((l) => l.key === 'already_imported')), [false, false, false], 'nothing is already imported any more');
+      eq([octRows[3].prediction, octRows[5].kind], [null, 'spend'], 'and nothing is learned from an undone import');
+      eq(db.pragma('foreign_key_check'), [], 'no dangling references');
+      db.close();
+    }
+
     console.log('IMPORT_REPO_OK');
   } catch (err) {
     console.error('IMPORT_REPO_FAIL', err && err.stack ? err.stack : err);
