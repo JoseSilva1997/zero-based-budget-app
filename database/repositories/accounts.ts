@@ -43,13 +43,15 @@ export function updateAccount(
 }
 
 /**
- * Deletes an account. budget_items.bank_account_id has NO ON DELETE action, so
- * the delete would fail while items still reference it - null those references
- * first, both inside one transaction (gotcha #2).
+ * Deletes an account. budget_items.bank_account_id and categories.bank_account_id
+ * have NO ON DELETE action, so the delete would fail while plan lines or
+ * category defaults still reference it - null those references first, all
+ * inside one transaction (gotcha #2).
  */
 export function deleteAccount(db: Database.Database, id: number): void {
   const tx = db.transaction(() => {
     db.prepare(`UPDATE budget_items SET bank_account_id = NULL WHERE bank_account_id = ?`).run(id);
+    db.prepare(`UPDATE categories SET bank_account_id = NULL WHERE bank_account_id = ?`).run(id);
     db.prepare(`DELETE FROM bank_accounts WHERE id = ?`).run(id);
   });
   tx();

@@ -41,28 +41,45 @@ CREATE TABLE budget_incomes (
   FOREIGN KEY (household_member_id) REFERENCES household_members(id) ON DELETE RESTRICT
 );
 
+-- Groups and categories are month-independent: "Groceries" in September and
+-- in October is one category, which is what the transaction classifier
+-- predicts. A month holds plan lines (budget_items) that point at a category.
 CREATE TABLE budget_groups (
   id INTEGER PRIMARY KEY,
-  budget_month_id INTEGER NOT NULL,
   name TEXT NOT NULL,
   kind TEXT NOT NULL DEFAULT 'spend' CHECK (kind IN ('spend','savings','debt')),
   collapsed INTEGER NOT NULL DEFAULT 0,
+  archived INTEGER NOT NULL DEFAULT 0,
   sort_order INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (budget_month_id) REFERENCES budget_months(id) ON DELETE CASCADE
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE budget_items (
+CREATE TABLE categories (
   id INTEGER PRIMARY KEY,
-  budget_group_id INTEGER NOT NULL,
+  group_id INTEGER NOT NULL,
   name TEXT NOT NULL,
-  planned_cents INTEGER NOT NULL DEFAULT 0 CHECK (planned_cents >= 0),
-  bank_account_id INTEGER REFERENCES bank_accounts(id),
+  bank_account_id INTEGER REFERENCES bank_accounts(id), -- default for a new plan line
+  archived INTEGER NOT NULL DEFAULT 0,
   sort_order INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (budget_group_id) REFERENCES budget_groups(id) ON DELETE CASCADE
+  FOREIGN KEY (group_id) REFERENCES budget_groups(id) ON DELETE RESTRICT
+);
+
+-- A month's plan line for one category.
+CREATE TABLE budget_items (
+  id INTEGER PRIMARY KEY,
+  budget_month_id INTEGER NOT NULL,
+  category_id INTEGER NOT NULL,
+  planned_cents INTEGER NOT NULL DEFAULT 0 CHECK (planned_cents >= 0),
+  bank_account_id INTEGER REFERENCES bank_accounts(id),
+  sort_order INTEGER NOT NULL DEFAULT 0, -- within its group, in this month
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (budget_month_id, category_id),
+  FOREIGN KEY (budget_month_id) REFERENCES budget_months(id) ON DELETE CASCADE,
+  FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT
 );
 
 CREATE TABLE budget_item_actual_entries (
@@ -83,7 +100,9 @@ CREATE TABLE app_meta (
 );
 
 CREATE INDEX idx_budget_incomes_month ON budget_incomes(budget_month_id);
-CREATE INDEX idx_budget_groups_month ON budget_groups(budget_month_id);
-CREATE INDEX idx_budget_items_group ON budget_items(budget_group_id);
+-- Backstop for the normalised-name check in the repository (which also
+-- trims and collapses whitespace).
+CREATE UNIQUE INDEX idx_categories_group_name ON categories(group_id, name COLLATE NOCASE);
+CREATE INDEX idx_budget_items_category ON budget_items(category_id);
 CREATE INDEX idx_actual_entries_item ON budget_item_actual_entries(budget_item_id);
 CREATE INDEX idx_actual_entries_spent_on ON budget_item_actual_entries(spent_on);

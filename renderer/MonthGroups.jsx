@@ -448,7 +448,7 @@ function AddItemSearch({ month, groupId, currency, dispatch, onClose, itemCount 
     if (inputRef.current) inputRef.current.focus();
   };
   const selectCandidate = (candidate) => {
-    submit({ type: "addItem", month, groupId, name: candidate.name, allocated: candidate.allocated, account: candidate.account });
+    submit({ type: "addItem", month, groupId, categoryId: candidate.categoryId, name: candidate.name, allocated: candidate.allocated, account: candidate.account });
   };
   const createItem = () => {
     if (!trimmed) { onClose(); return; }
@@ -470,7 +470,7 @@ function AddItemSearch({ month, groupId, currency, dispatch, onClose, itemCount 
       </div>
       <div className="add-item-results">
         {shown.length > 0 ? shown.map((candidate) => (
-          <button key={`${candidate.month}:${candidate.name}`} type="button" disabled={saving}
+          <button key={candidate.categoryId} type="button" disabled={saving}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => selectCandidate(candidate)}
             className="picker-option add-item-option">

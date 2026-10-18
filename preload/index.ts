@@ -77,13 +77,16 @@ const api = {
     id: number,
     patch: { name?: string; collapsed?: boolean; isSavings?: boolean; kind?: GroupKind }
   ) => invoke<Ok>('group:update', { id, patch }),
-  groupDelete: (id: number) => invoke<Ok>('group:delete', { id }),
+  groupDelete: (id: number, monthId: number) => invoke<Ok>('group:delete', { id, monthId }),
   groupReorder: (monthId: number, id: number, targetId: number, after: boolean) =>
     invoke<Ok>('group:reorder', { monthId, id, targetId, after }),
 
   /* ---------- items ---------- */
-  itemAdd: (groupId: number, fields: { name?: string; allocated?: number; account?: number | null }) =>
-    invoke<ItemRead>('item:add', { groupId, ...fields }),
+  itemAdd: (
+    monthId: number,
+    groupId: number,
+    fields: { categoryId?: number | null; name?: string; allocated?: number; account?: number | null }
+  ) => invoke<ItemRead>('item:add', { monthId, groupId, ...fields }),
   itemUpdate: (
     id: number,
     patch: { name?: string; allocated?: number; account?: number | null }

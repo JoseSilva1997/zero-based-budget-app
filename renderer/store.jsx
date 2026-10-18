@@ -339,14 +339,16 @@ export function StoreProvider({ children }) {
             return row;
           }
           case "deleteGroup":
-            await api.groupDelete(Number(A.groupId));
+            // Groups are shared by every month: this takes it out of this one.
+            await api.groupDelete(Number(A.groupId), idForKey(mk));
             return refreshMonth(mk);
           case "addItem": {
-            const row = await api.itemAdd(Number(A.groupId), {
-              name: A.name,
-              allocated: A.allocated,
-              account: idify(A.account),
-            });
+            // A pick from another month carries its category, and lands in that
+            // category's group. An account left out takes the category's default.
+            const fields = { name: A.name, allocated: A.allocated };
+            if (A.categoryId != null) fields.categoryId = Number(A.categoryId);
+            if (A.account !== undefined) fields.account = idify(A.account);
+            const row = await api.itemAdd(idForKey(mk), Number(A.groupId), fields);
             await refreshMonth(mk);
             return row;
           }

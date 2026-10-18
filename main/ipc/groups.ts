@@ -1,6 +1,8 @@
 /* ============================================================
    IPC: group mutations. 'group:add' returns the new row; the rest are
    optimistic. 'group:update' folds rename, toggle-collapse, and set-savings.
+   Groups are shared by every month, so add, update and reorder are global;
+   'group:delete' takes the group out of ONE month (its plan lines there).
    ============================================================ */
 import { ipcMain } from 'electron';
 import { getDb } from '../db';
@@ -27,13 +29,12 @@ export function registerGroupIpc(): void {
     guardAsync(async () => {
       const db = getDb();
       const id = insertGroup(db, {
-        budget_month_id: p.monthId,
         name: p.name || 'New group',
         kind: 'spend',
         collapsed: 0,
-        sort_order: nextGroupSort(db, p.monthId),
+        sort_order: nextGroupSort(db),
       });
-      return getGroupById(db, id);
+      return getGroupById(db, id, p.monthId);
     })
   );
 
@@ -49,9 +50,9 @@ export function registerGroupIpc(): void {
     })
   );
 
-  ipcMain.handle('group:delete', (_e, p: { id: number }) =>
+  ipcMain.handle('group:delete', (_e, p: { id: number; monthId: number }) =>
     guardAsync(async () => {
-      deleteGroup(getDb(), p.id);
+      deleteGroup(getDb(), p.id, p.monthId);
       return { ok: true };
     })
   );
@@ -60,7 +61,7 @@ export function registerGroupIpc(): void {
     'group:reorder',
     (_e, p: { monthId: number; id: number; targetId: number; after: boolean }) =>
       guardAsync(async () => {
-        reorderGroups(getDb(), p.monthId, p.id, p.targetId, p.after);
+        reorderGroups(getDb(), p.id, p.targetId, p.after);
         return { ok: true };
       })
   );

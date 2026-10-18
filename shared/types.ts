@@ -54,24 +54,40 @@ export interface BudgetIncome {
   updated_at: string;
 }
 
+/** Month-independent: a group's name, kind and collapsed state apply to every
+ *  month it shows in. */
 export interface BudgetGroup {
   id: number;
-  budget_month_id: number;
   name: string;
   kind: GroupKind;
   collapsed: number;
+  archived: number;
   sort_order: number;
   created_at: string;
   updated_at: string;
 }
 
+/** What a plan line and its spending are FOR ("Groceries"), the same in every
+ *  month. 'bank_account_id' is only the default a new plan line starts with. */
+export interface Category {
+  id: number;
+  group_id: number;
+  name: string;
+  bank_account_id: number | null;
+  archived: number;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A month's plan line for one category (at most one per month). */
 export interface BudgetItem {
   id: number;
-  budget_group_id: number;
-  name: string;
+  budget_month_id: number;
+  category_id: number;
   planned_cents: number;
   bank_account_id: number | null;
-  sort_order: number;
+  sort_order: number; // within its group, in this month
   created_at: string;
   updated_at: string;
 }
@@ -181,8 +197,9 @@ export interface ActualRead {
 }
 
 export interface ItemRead {
-  id: number;
-  name: string;
+  id: number; // the plan line (budget_items.id)
+  category_id: number;
+  name: string; // the category's
   allocated: number; // dollars
   account: number | null; // bank_account id
   actuals: ActualRead[];
@@ -249,6 +266,7 @@ export interface TrendPoint {
 }
 
 export interface ReusableCandidate {
+  categoryId: number;
   name: string;
   allocated: number; // dollars
   account: number | null;

@@ -34,6 +34,15 @@ BEGIN
   WHERE id = NEW.id;
 END;
 
+CREATE TRIGGER categories_set_updated_at
+AFTER UPDATE ON categories
+FOR EACH ROW
+BEGIN
+  UPDATE categories
+  SET updated_at = CURRENT_TIMESTAMP
+  WHERE id = NEW.id;
+END;
+
 CREATE TRIGGER budget_items_set_updated_at
 AFTER UPDATE ON budget_items
 FOR EACH ROW

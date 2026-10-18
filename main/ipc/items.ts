@@ -1,18 +1,19 @@
 /* ============================================================
-   IPC: item mutations. 'item:add' returns the new row; the rest are
-   optimistic. 'item:update' folds rename, set-allocated, and set-account.
+   IPC: item mutations. An item is a month's plan line for a category.
+   'item:add' returns the new row; the rest are optimistic. 'item:update' folds
+   rename (of the category, so every month), set-allocated, and set-account.
    ============================================================ */
 import { ipcMain } from 'electron';
 import { getDb } from '../db';
 import { guardAsync } from './envelope';
 import { dollarsToCents } from '../../database/conversions';
 import {
-  insertItem,
+  addItemByName,
+  addItemForCategory,
   updateItem,
   deleteItem,
   reorderItems,
   getItemById,
-  nextItemSort,
   moveItem,
 } from '../../database/repositories/months';
 
@@ -23,18 +24,40 @@ interface ItemPatch {
 }
 
 export function registerItemIpc(): void {
+  /* By name inside a group (the category is reused or created), or by
+     'categoryId' for a pick from another month's items. An omitted 'account'
+     takes the category's default. */
   ipcMain.handle(
     'item:add',
-    (_e, p: { groupId: number; name?: string; allocated?: number; account?: number | null }) =>
+    (
+      _e,
+      p: {
+        monthId: number;
+        groupId: number;
+        categoryId?: number | null;
+        name?: string;
+        allocated?: number;
+        account?: number | null;
+      }
+    ) =>
       guardAsync(async () => {
         const db = getDb();
-        const id = insertItem(db, {
-          budget_group_id: p.groupId,
-          name: p.name || 'New item',
-          planned_cents: dollarsToCents(p.allocated || 0),
-          bank_account_id: p.account ?? null,
-          sort_order: nextItemSort(db, p.groupId),
-        });
+        const planned_cents = dollarsToCents(p.allocated || 0);
+        const id =
+          p.categoryId != null
+            ? addItemForCategory(db, {
+                monthId: p.monthId,
+                categoryId: p.categoryId,
+                planned_cents,
+                bank_account_id: p.account,
+              })
+            : addItemByName(db, {
+                monthId: p.monthId,
+                groupId: p.groupId,
+                name: p.name || 'New item',
+                planned_cents,
+                bank_account_id: p.account,
+              });
         return getItemById(db, id);
       })
   );
