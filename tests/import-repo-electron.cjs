@@ -454,6 +454,14 @@ app.whenReady().then(async () => {
       categories.mergeCategories(db, cat(out), cat(groc));
       eq(imports.getReview(db, oct).accounts[0].rows[3].prediction.label, cat(groc), 'a merged category is predicted as its target');
 
+      // An archived category is retired: the picker no longer offers it, so
+      // nothing is predicted into it (it would show as "No category" while
+      // ticked, and confirming would bring it back).
+      categories.setCategoryArchived(db, cat(groc), true);
+      const retired = imports.getReview(db, oct).accounts[0].rows[3];
+      eq([retired.prediction, retired.categoryId], [null, null], 'a retired category is not predicted');
+      categories.setCategoryArchived(db, cat(groc), false);
+
       // 5. Undo September: exactly its entries go, and what it taught goes with them.
       imports.undoImport(db, sepFile.batchId);
       eq(

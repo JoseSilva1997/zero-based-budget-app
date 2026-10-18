@@ -270,8 +270,9 @@ const ALREADY_IMPORTED_SQL = `
  * The classifier, trained now on every row outside this batch whose answer
  * is known: (a) a row an entry points back at (written from it, or matched
  * to it at confirm), labelled with that entry's category as it is today, so
- * a merge or a move is followed; (b) a row you marked a transfer, in an
- * imported batch.
+ * a merge or a move is followed, unless that category is archived (retired:
+ * the picker doesn't offer it, so nothing should be predicted into it);
+ * (b) a row you marked a transfer, in an imported batch.
  */
 function trainFor(db: Database.Database, batchId: number): Classifier {
   const rows = db
@@ -281,7 +282,8 @@ function trainFor(db: Database.Database, batchId: number): Classifier {
          JOIN import_files f ON f.id = r.file_id
          JOIN budget_item_actual_entries e ON e.import_row_id = r.id
          JOIN budget_items it ON it.id = e.budget_item_id
-        WHERE f.batch_id <> @batchId
+         JOIN categories c ON c.id = it.category_id
+        WHERE f.batch_id <> @batchId AND c.archived = 0
        UNION ALL
        SELECT r.descriptor_clean, r.features, f.bank_account_id, r.amount_cents, 'transfer' AS label
          FROM import_rows r
