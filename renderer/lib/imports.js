@@ -9,8 +9,14 @@
    ============================================================ */
 import { MONTH_NAMES } from "./dates.js";
 
-/** A row that cannot be imported: any label of block severity. */
+/** A row that cannot be imported as it stands: any label of block severity. */
 export const isBlocked = (row) => row.labels.some((l) => l.severity === "block");
+
+/** A row nothing can be done about: blocked for a reason other than a
+ *  missing category (money in, already imported, unreadable, not completed).
+ *  An uncategorised row is blocked only until a category is picked, so it
+ *  stays live, in place, with its picker open to that choice. */
+export const isInert = (row) => row.labels.some((l) => l.severity === "block" && l.key !== "uncategorised");
 
 /** "2026-10-03" -> "3 Oct"; null (a row that could not be read) -> "". */
 export function shortDate(iso) {
@@ -19,10 +25,10 @@ export function shortDate(iso) {
   return `${d} ${MONTH_NAMES[m - 1].slice(0, 3)}`;
 }
 
-/** A section's rows with the blocked ones sunk to the bottom, each half in
+/** A section's rows with the inert ones sunk to the bottom, each half in
  *  the statement's own order. */
 export function sinkBlocked(rows) {
-  return [...rows.filter((r) => !isBlocked(r)), ...rows.filter(isBlocked)];
+  return [...rows.filter((r) => !isInert(r)), ...rows.filter(isInert)];
 }
 
 /* The order the filter chips are offered in: what wants a look first, then

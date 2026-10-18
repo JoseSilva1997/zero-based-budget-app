@@ -86,6 +86,7 @@ const L = {
   credit: { key: 'credit', severity: 'block', text: 'Money in' },
   parse: { key: 'parse_error', severity: 'block', text: "Couldn't read" },
   transfer: { key: 'transfer', severity: 'info', text: 'Transfer' },
+  uncat: { key: 'uncategorised', severity: 'block', text: 'No category' },
 };
 const row = (id, accountId, o = {}) => ({
   id, accountId, fileId: accountId === 1 ? 201 : 202, rowIndex: id,
@@ -112,6 +113,7 @@ const reviewRows = () => [
   row(11, 2, { name: 'Card shop', categoryId: 14, amountCents: 1500, labels: [L.nim] }),
   row(12, 2, { name: 'To savings', kind: 'transfer', categoryId: null, amountCents: 10000, labels: [L.transfer] }),
   row(13, 2, { name: 'Florist', categoryId: 14, amountCents: 2500, included: true }),
+  row(14, 2, { name: 'Mystery', categoryId: null, amountCents: 700, labels: [L.uncat] }),
 ];
 
 const review = () => ({
@@ -370,7 +372,7 @@ window.__runTests = async () => {
   check('one merged list, a section per account with rows', sections().map((x) => x.getAttribute('data-account-section')).join(',') === '1,2', sections().length + '');
   const sep = (id) => section(id) && section(id).querySelector('[data-account-separator]');
   check('a separator names the account and its bank', sep(1) && /Main/.test(sep(1).textContent) && /Lloyds/.test(sep(1).textContent), sep(1) && sep(1).textContent);
-  check('with a quiet row count', sep(1) && /8 rows/.test(sep(1).textContent) && sep(2) && /5 rows/.test(sep(2).textContent), (sep(1) && sep(1).textContent) + ' / ' + (sep(2) && sep(2).textContent));
+  check('with a quiet row count', sep(1) && /8 rows/.test(sep(1).textContent) && sep(2) && /6 rows/.test(sep(2).textContent), (sep(1) && sep(1).textContent) + ' / ' + (sep(2) && sep(2).textContent));
   check('the second account names its bank too', sep(2) && /Joint/.test(sep(2).textContent) && /NatWest Joint/.test(sep(2).textContent), sep(2) && sep(2).textContent);
   const rowEl = (id) => document.querySelector('[data-row-id="' + id + '"]');
   check('a row shows its date, name and amount', rowEl(1) && /3 Oct/.test(rowEl(1).textContent) && rowEl(1).querySelector('input[aria-label="Name for Tesco"]') && rowEl(1).textContent.includes('£42.10'), rowEl(1) && rowEl(1).textContent);
@@ -396,6 +398,9 @@ window.__runTests = async () => {
   check('a blocked row is dimmed', rowEl(2).classList.contains('is-blocked'));
   check('its tick cannot be ticked', rowEl(2).querySelector('input[type="checkbox"]').disabled && !rowEl(2).querySelector('input[type="checkbox"]').checked);
   check('nor its category changed', rowEl(2).querySelector('select').disabled);
+  check('a row blocked only for want of a category stays where it is', order(2).join() === '11,12,13,14,9,10', order(2).join());
+  check('not dimmed, its category still to be picked', rowEl(14) && !rowEl(14).classList.contains('is-blocked') && !rowEl(14).querySelector('select').disabled, rowEl(14) && rowEl(14).className);
+  check('but not tickable until it has one', rowEl(14) && rowEl(14).querySelector('input[type="checkbox"]').disabled);
   check('an unblocked row stays live', !rowEl(1).classList.contains('is-blocked') && !rowEl(1).querySelector('input[type="checkbox"]').disabled);
 
   /* ---- 7. filter chips across every account ------------------------- */

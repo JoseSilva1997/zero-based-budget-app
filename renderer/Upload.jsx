@@ -14,7 +14,7 @@
    ============================================================ */
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, ConfirmDialog, EmptyState, Icons, Sheet, TextInline } from './ui/index.js';
-import { cx, fmt, importOutcome, isBlocked, labelCounts, monthLabel, onlyOutOfMonth, shortDate, sinkBlocked } from './lib/index.js';
+import { cx, fmt, importOutcome, isBlocked, isInert, labelCounts, monthLabel, onlyOutOfMonth, shortDate, sinkBlocked } from './lib/index.js';
 import { useStore } from './store.jsx';
 
 /* The statement formats House Budget reads, by preset key, as a household
@@ -234,19 +234,22 @@ function UploadStep({ review, month, onChanged, onReview }) {
    on the entry after import if they need fixing. What is yours to decide is
    the tick, the name and the category. */
 function ReviewRow({ row, review, currency, onUpdate }) {
+  // Blocked: cannot be ticked. Inert: nothing about it can be changed, so it
+  // is dimmed and sunk. They differ only for a row waiting on a category.
   const blocked = isBlocked(row);
+  const inertRow = isInert(row);
   const transfer = row.kind === "transfer";
   const linkedId = row.decisions.linkedEntryId;
   const linked = linkedId != null ? (row.duplicates.find((d) => d.id === linkedId) || { id: linkedId, name: null, spentOn: null }) : null;
   const [picking, setPicking] = useState(false);
-  const inert = blocked || !!linked;
+  const inert = inertRow || !!linked;
 
   const link = (d) => { setPicking(false); onUpdate(row, { linkedEntryId: d.id }); };
 
   return (
     <>
-      <div className={cx("upload-row", blocked && "is-blocked", linked && "is-linked")} data-row-id={row.id}>
-        <input type="checkbox" className="upload-tick" checked={row.included && !inert} disabled={inert}
+      <div className={cx("upload-row", inertRow && "is-blocked", linked && "is-linked")} data-row-id={row.id}>
+        <input type="checkbox" className="upload-tick" checked={row.included && !blocked && !linked} disabled={blocked || !!linked}
           aria-label={`Import ${row.name}`}
           onChange={() => onUpdate(row, { included: !row.included })} />
         <span className="num upload-date">{shortDate(row.spentOn)}</span>
@@ -268,7 +271,7 @@ function ReviewRow({ row, review, currency, onUpdate }) {
               onClick={() => onUpdate(row, { linkedEntryId: null })}>Unlink</button>
           ) : (
             <>
-              {row.duplicates.length > 0 && !blocked && (
+              {row.duplicates.length > 0 && !inertRow && (
                 <button type="button" data-same aria-expanded={picking}
                   className={cx("upload-toggle", picking && "is-open")}
                   title="This is a spend you already typed in: match it instead of importing it twice"
@@ -277,7 +280,7 @@ function ReviewRow({ row, review, currency, onUpdate }) {
               {/* Excludes the row and teaches the classifier that this payee is
                   a transfer. Pressed is drawn even at rest, so a row marked as
                   one says so without being hovered. */}
-              <button type="button" data-transfer aria-pressed={transfer} disabled={blocked && !transfer}
+              <button type="button" data-transfer aria-pressed={transfer} disabled={inertRow && !transfer}
                 className={cx("upload-toggle", transfer && "is-on")}
                 title={transfer ? "Treat this as spending again" : "Money moved between your own accounts, not spent"}
                 onClick={() => onUpdate(row, { kind: transfer ? "spend" : "transfer" })}>Transfer</button>
