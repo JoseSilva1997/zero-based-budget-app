@@ -76,6 +76,21 @@ app.whenReady().then(() => {
       db.close();
     }
 
+    /* ---- renaming ---- */
+    {
+      const db = freshDb();
+      const nat = banks.createBank(db, { name: 'NatWest', preset: 'natwest' });
+      banks.createBank(db, { name: 'Lloyds', preset: 'lloyds' });
+      banks.renameBank(db, nat, ' Joint  NatWest');
+      eq(banks.getBank(db, nat).name, 'Joint NatWest', 'a rename is stored cleaned');
+      banks.renameBank(db, nat, 'JOINT NATWEST');
+      eq(banks.getBank(db, nat).name, 'JOINT NATWEST', 'a bank may change the case of its own name');
+      throws(() => banks.renameBank(db, nat, 'lloyds'), 'There\'s already a bank called "Lloyds".', 'another bank\'s name is refused');
+      throws(() => banks.renameBank(db, nat, ''), 'A bank needs a name.', 'a blank name is refused');
+      eq(banks.getBank(db, nat).name, 'JOINT NATWEST', 'a refused rename changes nothing');
+      db.close();
+    }
+
     console.log('BANKS_OK');
   } catch (err) {
     console.error('BANKS_FAIL', err && err.stack ? err.stack : err);

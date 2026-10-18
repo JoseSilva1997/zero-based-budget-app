@@ -47,3 +47,10 @@ export function getBank(db: Database.Database, id: number): Bank | undefined {
 export function listBanks(db: Database.Database): Bank[] {
   return db.prepare(`SELECT * FROM banks ORDER BY name COLLATE NOCASE, id`).all() as Bank[];
 }
+
+/** Renames a bank. Another bank's name is refused; its own, in another
+ *  case, is fine. */
+export function renameBank(db: Database.Database, id: number, name: string): void {
+  assertBankName(db, name, id);
+  db.prepare(`UPDATE banks SET name = ? WHERE id = ?`).run(cleanName(name), id);
+}
