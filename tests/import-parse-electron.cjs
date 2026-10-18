@@ -129,6 +129,11 @@ app.whenReady().then(() => {
         ['Both Debit Amount and Credit Amount are filled in', 'Neither Debit Amount nor Credit Amount is filled in'],
         'Lloyds: a row must have exactly one of the two amounts'
       );
+      eq(
+        brief(lloyds.parse([{ ...file.records[2], 'Credit Amount': '.06' }], { bankProduct: null })[0]).slice(3, 5),
+        [6, 'credit'],
+        'Lloyds: an amount under a pound may be written without the leading zero'
+      );
     }
 
     /* ---- Revolut ---- */

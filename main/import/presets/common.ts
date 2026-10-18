@@ -11,11 +11,12 @@ export function sameHeader(a: string[], b: string[]): boolean {
   return norm(a) === norm(b);
 }
 
-/** '-8.74' -> -874, '92' -> 9200. Null when the text is not an amount. */
+/** '-8.74' -> -874, '92' -> 9200, '.06' -> 6. Null when the text is not
+ *  an amount. */
 export function parseSignedCents(text: string): number | null {
-  const m = /^([+-])?(\d+)(?:\.(\d{1,2}))?$/.exec(String(text).trim());
-  if (!m) return null;
-  const cents = Number(m[2]) * 100 + Number((m[3] || '').padEnd(2, '0'));
+  const m = /^([+-])?(\d*)(?:\.(\d{1,2}))?$/.exec(String(text).trim());
+  if (!m || (m[2] === '' && m[3] === undefined)) return null;
+  const cents = Number(m[2] || '0') * 100 + Number((m[3] || '').padEnd(2, '0'));
   return m[1] === '-' ? -cents : cents;
 }
 
