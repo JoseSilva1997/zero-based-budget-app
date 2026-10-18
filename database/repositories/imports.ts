@@ -15,7 +15,9 @@ import type {
   BankAccount,
   BudgetMonth,
   ImportCategoryOption,
+  ImportConfirmResult,
   ImportDuplicate,
+  ImportHistoryRow,
   ImportPlanLine,
   ImportReview,
   ImportRowPatch,
@@ -28,6 +30,7 @@ import { getAccountById, listAccounts } from './accounts';
 import { getBank, listBanks, setAccountIdentifier } from './banks';
 import { cleanName } from './categories';
 import { patchById } from './_sql';
+import { addItemForCategory } from './months';
 
 export interface ImportBatch {
   id: number;
@@ -420,4 +423,91 @@ function assertLinkable(db: Database.Database, entryId: number, rowId: number): 
       )
       .get(entryId, rowId);
   if (taken) throw new Error('That entry is already matched to another transaction.');
+}
+
+/* ---------- confirm, history ---------------------------------------------- */
+
+/** Entries a batch created: from its rows, except a row matched to an
+ *  existing entry (that entry was yours before the import). */
+const CREATED_ENTRIES_SQL = `
+  SELECT e.id FROM budget_item_actual_entries e
+    JOIN import_rows r ON r.id = e.import_row_id
+    JOIN import_files f ON f.id = r.file_id
+   WHERE f.batch_id = ? AND r.linked_entry_id IS NULL`;
+
+/**
+ * Imports a pending batch, in one transaction: every ticked row becomes an
+ * entry on its category's plan line in the batch's month (a line the month
+ * lacks is created at £0, on the category's usual account), named as
+ * decided and pointing back at its row. A row matched to an existing entry
+ * writes nothing, but marks that entry as its own, so a re-upload knows it
+ * is in and the classifier learns from it. Refused when nothing is ticked or
+ * matched.
+ */
+export function confirmBatch(db: Database.Database, batchId: number): ImportConfirmResult {
+  const tx = db.transaction((): ImportConfirmResult => {
+    const batch = batchById(db, batchId);
+    assertPending(batch);
+    const month = monthById(db, batch.budget_month_id);
+    const assessed = assessBatch(db, batch, month);
+    const ticked = assessed.filter((a) => a.assessment.included);
+    const linked = assessed.filter((a) => a.row.linked_entry_id !== null);
+    if (ticked.length === 0 && linked.length === 0) {
+      throw new Error('Tick at least one transaction, or match one to an entry, before importing.');
+    }
+
+    const lineFor = new Map(
+      (
+        db.prepare(`SELECT id, category_id FROM budget_items WHERE budget_month_id = ?`).all(month.id) as Array<{
+          id: number;
+          category_id: number;
+        }>
+      ).map((l) => [l.category_id, l.id])
+    );
+    let linesCreated = 0;
+    let totalCents = 0;
+    const insertEntry = db.prepare(
+      `INSERT INTO budget_item_actual_entries (budget_item_id, spent_on, amount_cents, name, note, import_row_id)
+       VALUES (?, ?, ?, ?, NULL, ?)`
+    );
+    for (const a of ticked) {
+      const categoryId = a.assessment.categoryId as number;
+      let itemId = lineFor.get(categoryId);
+      if (itemId === undefined) {
+        itemId = addItemForCategory(db, { monthId: month.id, categoryId, planned_cents: 0 });
+        lineFor.set(categoryId, itemId);
+        linesCreated++;
+      }
+      insertEntry.run(itemId, a.row.spent_on, a.row.amount_cents, a.assessment.name, a.row.id);
+      totalCents += a.row.amount_cents as number;
+    }
+    const claim = db.prepare(
+      `UPDATE budget_item_actual_entries SET import_row_id = ? WHERE id = ? AND import_row_id IS NULL`
+    );
+    for (const a of linked) claim.run(a.row.id, a.row.linked_entry_id);
+    db.prepare(`UPDATE import_batches SET status = 'imported', imported_at = CURRENT_TIMESTAMP WHERE id = ?`).run(
+      batch.id
+    );
+    return { entries: ticked.length, totalCents, linked: linked.length, linesCreated };
+  });
+  return tx();
+}
+
+/** The month's imported batches, newest first: when, which files, and how
+ *  many of the entries each created are still there. */
+export function listImports(db: Database.Database, monthId: number): ImportHistoryRow[] {
+  const batches = db
+    .prepare(
+      `SELECT id, imported_at FROM import_batches
+        WHERE budget_month_id = ? AND status = 'imported' ORDER BY imported_at DESC, id DESC`
+    )
+    .all(monthId) as Array<{ id: number; imported_at: string }>;
+  const filenames = db.prepare(`SELECT filename FROM import_files WHERE batch_id = ? ORDER BY id`);
+  const entries = db.prepare(`SELECT COUNT(*) AS n FROM (${CREATED_ENTRIES_SQL})`);
+  return batches.map((b) => ({
+    id: b.id,
+    importedAt: b.imported_at,
+    filenames: (filenames.all(b.id) as Array<{ filename: string }>).map((f) => f.filename),
+    entries: (entries.get(b.id) as { n: number }).n,
+  }));
 }

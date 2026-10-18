@@ -245,6 +245,51 @@ app.whenReady().then(() => {
       db.close();
     }
 
+    /* ---- confirming ---- */
+    {
+      const { db, sep, joint } = setup();
+      const bills = months.insertGroup(db, { name: 'Bills', kind: 'spend', sort_order: 0, collapsed: 0 });
+      const food = months.addItemByName(db, { monthId: sep, groupId: bills, name: 'Food', planned_cents: 5000 });
+      const foodCat = months.getItemById(db, food).category_id;
+      const oct = months.insertMonth(db, '2026-10');
+      const octToil = months.addItemByName(db, { monthId: oct, groupId: bills, name: 'Toiletries', bank_account_id: joint });
+      const toilCat = months.getItemById(db, octToil).category_id;
+      const typed = months.insertActualEntry(db, { budget_item_id: food, spent_on: '2026-09-26', amount_cents: 2900, name: 'Big shop', note: 'typed' });
+
+      const file = imports.addFile(db, { monthId: sep, accountId: joint, filename: 'sep.csv', text: fixture('natwest') });
+      throws(() => imports.confirmBatch(db, file.batchId), 'Tick at least one transaction', 'nothing ticked, nothing to confirm');
+      const [deli, superdrug, sainsburys] = imports.getReview(db, sep).accounts[0].rows;
+      imports.updateRow(db, deli.id, { categoryId: foodCat });
+      imports.updateRow(db, superdrug.id, { categoryId: toilCat, name: 'Shampoo' });
+      eq(imports.getReview(db, sep).accounts[0].rows[1].labels.map((l) => l.key), ['not_in_month'], 'a category the month lacks says so');
+      imports.updateRow(db, superdrug.id, { included: true });
+      imports.updateRow(db, sainsburys.id, { linkedEntryId: typed });
+
+      const result = imports.confirmBatch(db, file.batchId);
+      eq(result, { entries: 2, totalCents: 1949, linked: 1, linesCreated: 1 }, 'writes the ticked rows and reports it');
+
+      const tree = months.getMonthTree(db, sep);
+      const lines = tree.groups[0].items.map((i) => [i.name, i.allocated, i.account, i.actuals.map((a) => [a.spent_on, a.amount, a.name, a.note])]);
+      eq(
+        lines,
+        [
+          ['Food', 50, null, [['2026-09-26', 29, 'Big shop', 'typed'], ['2026-09-28', 2.5, 'DELI AB1', '']]],
+          ['Toiletries', 0, joint, [['2026-09-26', 16.99, 'Shampoo', '']]],
+        ],
+        'entries land on their lines; the missing line is created at £0 on the category\'s account'
+      );
+
+      eq(imports.getReview(db, sep).batch, null, 'the month has no upload in progress after confirming');
+      const history = imports.listImports(db, sep);
+      eq(history.map((h) => [h.id, h.filenames, h.entries]), [[file.batchId, ['sep.csv'], 2]], 'the import is listed with its files and entries');
+      assert(/^\d{4}-\d{2}-\d{2}/.test(history[0].importedAt), 'with when it was imported');
+
+      throws(() => imports.confirmBatch(db, file.batchId), 'already been imported', 'confirming twice is refused');
+      throws(() => imports.updateRow(db, deli.id, { included: false }), 'already been imported', 'an imported row can no longer be changed');
+      throws(() => imports.removeFile(db, file.id), 'already been imported', 'nor its file removed');
+      db.close();
+    }
+
     console.log('IMPORT_REPO_OK');
   } catch (err) {
     console.error('IMPORT_REPO_FAIL', err && err.stack ? err.stack : err);
