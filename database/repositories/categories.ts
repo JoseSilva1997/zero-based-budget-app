@@ -94,3 +94,11 @@ export function assertNameFree(
     );
   }
 }
+
+/** Deletes the category when no plan line refers to it any more. */
+export function pruneCategory(db: Database.Database, id: number): void {
+  db.prepare(
+    `DELETE FROM categories
+      WHERE id = ? AND NOT EXISTS (SELECT 1 FROM budget_items WHERE category_id = ?)`
+  ).run(id, id);
+}

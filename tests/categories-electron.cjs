@@ -147,6 +147,30 @@ app.whenReady().then(() => {
       db.close();
     }
 
+    /* ---- deleting a line; the category goes once nothing refers to it ---- */
+    {
+      const db = freshDb();
+      const sep = months.insertMonth(db, '2026-09');
+      const oct = months.insertMonth(db, '2026-10');
+      const bills = months.insertGroup(db, { name: 'Bills', kind: 'spend', sort_order: 0, collapsed: 0 });
+      const sepGym = months.addItemByName(db, { monthId: sep, groupId: bills, name: 'Gym' });
+      const octGym = months.addItemByName(db, { monthId: oct, groupId: bills, name: 'Gym' });
+      months.insertActualEntry(db, { budget_item_id: octGym, spent_on: '2026-10-02', amount_cents: 3000, name: 'Fee', note: null });
+      const gymCat = months.getItemById(db, octGym).category_id;
+      const catCount = () => db.prepare(`SELECT COUNT(*) n FROM categories`).get().n;
+
+      months.deleteItem(db, octGym);
+      eq(shape(months, db, oct), [], 'gone from this month (Bills still has a line in September)');
+      eq(db.prepare(`SELECT COUNT(*) n FROM budget_item_actual_entries`).get().n, 0, 'its entries went with it');
+      eq(shape(months, db, sep), [['Bills', ['Gym']]], 'the other month keeps its line');
+      eq(months.getItemById(db, sepGym).category_id, gymCat, 'so the category stays');
+
+      months.deleteItem(db, sepGym);
+      eq(catCount(), 0, 'its last line gone, the category is deleted');
+      eq(shape(months, db, sep), [['Bills', []]], 'the group stays, empty');
+      db.close();
+    }
+
     console.log('CATEGORIES_OK');
   } catch (err) {
     console.error('CATEGORIES_FAIL', err && err.stack ? err.stack : err);

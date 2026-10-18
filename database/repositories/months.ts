@@ -44,6 +44,7 @@ import {
   findCategoryByName,
   renameCategory,
   assertNameFree,
+  pruneCategory,
 } from './categories';
 
 /* ---------- inserts ------------------------------------------------------ */
@@ -298,9 +299,20 @@ export function updateItem(
   tx();
 }
 
-/** Deletes a plan line; cascades to its actual entries. */
+/**
+ * Deletes a plan line from its month; cascades to its actual entries. Its
+ * category goes too once no month has a line for it (entries hang off lines,
+ * so no line means nothing at all refers to it).
+ */
 export function deleteItem(db: Database.Database, id: number): void {
-  db.prepare(`DELETE FROM budget_items WHERE id = ?`).run(id);
+  const tx = db.transaction(() => {
+    const row = db.prepare(`SELECT category_id FROM budget_items WHERE id = ?`).get(id) as
+      | { category_id: number }
+      | undefined;
+    db.prepare(`DELETE FROM budget_items WHERE id = ?`).run(id);
+    if (row) pruneCategory(db, row.category_id);
+  });
+  tx();
 }
 
 export function updateActual(
