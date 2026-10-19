@@ -15,3 +15,9 @@ The full flow is in [README.md, "Branches and releasing"](README.md#branches-and
 - **Staging builds** (`.github/workflows/staging.yml`) are artifacts, not releases: a separate app "House Budget Staging", versioned `X.Y.Z-staging.N`, with the updater off. Keep it that way, so they never touch the real install or its data.
 
 When a workflow or ruleset changes, update the README section, the comment at the top of the workflow, and this file together.
+
+## Docs
+
+Read [docs/README.md](docs/README.md) before starting a feature or fix PR, and when asked why something works the way it does.
+- **Docs:** each feature PR adds a spec, a key-decisions file and an overview in `docs/`, named by its PR number, and updates its feature doc in `docs/features/`. Start with a draft PR to get the number.
+- **Data in commits:** this repo is public. Docs, fixtures and tests use invented names, merchants, places, account and card numbers, references and amounts. Real statements stay in the gitignored `bank_statements/`.
