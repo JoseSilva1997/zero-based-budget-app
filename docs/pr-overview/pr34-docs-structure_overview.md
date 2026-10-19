@@ -24,6 +24,8 @@ flowchart TD
 
 It also backfills the files for #32 (categories) and #33 (upload transactions), and adds the two feature docs.
 
+It also adds two user-invoked skills that run this workflow end to end: `/feature-workflow` stops for the Engineer after every slice and PR, and `/feature-workflow-afk` settles open questions itself and stops only before outward steps (push, PR edits). Both follow one shared workflow file, which writes these docs as part of every PR.
+
 ## How it works
 
 - **Workflow:**
@@ -46,6 +48,8 @@ It also backfills the files for #32 (categories) and #33 (upload transactions), 
 | `docs/specs/`, `docs/key-decisions/`, `docs/pr-overview/` | The per-PR files |
 | `CLAUDE.md` → "Docs" | Points agents at the conventions and the privacy rule |
 | `README.md` → "Contributing" | Points people at `docs/` |
+| `.claude/skills/feature-workflow/`, `.claude/skills/feature-workflow-afk/` | The two skills: they set only which gates stop |
+| `.claude/workflows/feature-workflow.md`, `feature-workflow-briefs.md` | The shared workflow and the Coding and Reviewer Agent brief templates |
 | `.gitignore` | Stops ignoring `docs/`, and ignores `bank_statements/` (real statements, kept local) |
 
 ## Limits
