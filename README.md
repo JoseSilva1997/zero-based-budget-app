@@ -219,7 +219,7 @@ The committed `database/schema.sql` and `database/triggers.sql` are the baseline
 
 Issues and pull requests are welcome. To get set up, follow [Installation](#installation), then run `npm run dev`. When changing the database schema, add a new migration rather than editing the baseline or an existing migration.
 
-Each feature PR comes with a spec, its key decisions and a short overview in [`docs/`](docs/README.md), named by PR number. New to the code? Start with the overviews there.
+Each feature has a living doc in [`docs/features/`](docs/README.md), and each feature PR comes with a spec, its key decisions and a short overview, named by PR number. New to the code? Start with the feature docs.
 
 ## License
 
