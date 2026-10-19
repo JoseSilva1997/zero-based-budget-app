@@ -1,8 +1,8 @@
 # PR 32 key decisions: month-independent categories
 
-**Related:** needed by [#33 upload transactions](pr33-upload-transactions_decisions.md) · [overview](../pr-overview/pr32-categories_overview.md) · [spec](../specs/pr32-categories_spec.md)
+**Related:** feature [categories](../features/categories_feature.md) · needed by [#33 upload transactions](pr33-upload-transactions_decisions.md) · [overview](../pr-overview/pr32-categories_overview.md) · [spec](../specs/pr32-categories_spec.md)
 
-"Owner" is the project owner. "Planner" is the agent that ran the build and made calls the owner delegated.
+**Engineer** is the person who worked on the feature. Agents are named by role: the **Planner Agent** ran the build and made the calls the Engineer delegated; **Coding Agents** built each part; **Reviewer Agents** reviewed the finished branch.
 
 ## 1. Refactor the schema instead of adding a `lineage_id`
 
@@ -11,8 +11,8 @@
 - **Alternatives:**
   - A `lineage_id` on `budget_items`, carried forward by `copyMonth`.
   - Matching on (group name, item name).
-- **Why:** "Groceries in October is technically different from Groceries in September, but they're the same category." The owner chose to model that properly over patching it with a link column. Name matching breaks on the first rename.
-- **Decided by:** owner.
+- **Why:** "Groceries in October is technically different from Groceries in September, but they're the same category." The Engineer chose to model that properly over patching it with a link column. Name matching breaks on the first rename.
+- **Decided by:** Engineer.
 
 ## 2. Groups are global
 
@@ -20,7 +20,7 @@
 - **Decision:** `budget_groups` loses `budget_month_id` and is shared by all months.
 - **Alternatives:** keep groups per month, with only categories global.
 - **Why:** a group's name and kind then mean the same thing everywhere, so History and charts can aggregate by group without matching names.
-- **Decided by:** owner.
+- **Decided by:** Engineer.
 
 ## 3. Account lives on the plan line, with a default on the category
 
@@ -28,7 +28,7 @@
 - **Decision:** `budget_items.bank_account_id` stays per month. `categories.bank_account_id` is only the default for new lines, and it's updated whenever a line's account changes.
 - **Alternatives:** the account only on the category, which would rewrite past months' Wallet views whenever it changed.
 - **Why:** keeps history stable while still remembering the latest choice.
-- **Decided by:** planner.
+- **Decided by:** Planner Agent.
 
 ## 4. Renames and moves apply to every month
 
@@ -36,7 +36,7 @@
 - **Decision:** renaming or moving changes the category in all months, past ones included. If it's really a different thing, create a new category and archive the old one.
 - **Alternatives:** per-month name overrides.
 - **Why:** that's what "the same category" means. Overrides would bring back the ambiguity the refactor removes.
-- **Decided by:** owner.
+- **Decided by:** Engineer.
 
 ## 5. Archive, don't delete, anything still referenced
 
@@ -46,7 +46,7 @@
   - Deleting a line from a month deletes only that line; the category is then pruned automatically if nothing references it.
 - **Alternatives:** always archive (never auto-delete); allow hard deletes with cascades.
 - **Why:** nothing with history is ever lost. An unreferenced category carries no information, so pruning it keeps lists clean.
-- **Decided by:** owner (archive); planner (auto-pruning).
+- **Decided by:** Engineer (archive); Planner Agent (auto-pruning).
 
 ## 6. Migration merges on normalised names, after a backup
 
@@ -57,14 +57,14 @@
   - Take an automatic backup before any pending migration; refuse to start if the backup fails.
 - **Alternatives:** an interactive mapping step at upgrade time.
 - **Why:** exact merging is safe and automatic. Names that only look different ("Food" vs "Groceries") stay separate, and the merge action fixes them by hand.
-- **Decided by:** owner (approach); planner (backup hook, refusal on backup failure).
+- **Decided by:** Engineer (approach); Planner Agent (backup hook, refusal on backup failure).
 
 ## 7. Keep item IDs as plan-line IDs during migration
 
 - **Context:** entries point at `budget_item_id`.
 - **Decision:** each old item becomes a plan line with the same id. Same-month duplicates merge into one line, and their entries move with them.
 - **Why:** entries never have to be rewritten, so the migration can't detach them.
-- **Decided by:** planner.
+- **Decided by:** Planner Agent.
 
 ## 8. Merge categories: summed lines, preview first, backup always
 
@@ -76,7 +76,7 @@
   - The UI shows the impact before writing and takes a backup first; the backup is the only undo.
 - **Alternatives:** keep both lines; a built-in undo.
 - **Why:** summing keeps the month's total plan unchanged, which a zero-based budget depends on. A full backup is simpler and safer than an undo log.
-- **Decided by:** owner (merge semantics, in scope for this PR); planner (automatic backup).
+- **Decided by:** Engineer (merge semantics, in scope for this PR); Planner Agent (automatic backup).
 
 ## 9. Group visibility and lifecycle (rules A–G)
 
@@ -92,7 +92,7 @@
   - Show only groups with lines in the month, which leads to the duplicate-group bug.
   - A per-month membership table.
 - **Why:** this is the simplest rule set that never creates duplicates and never shows retired groups.
-- **Decided by:** planner, after the reviewer flagged the gap.
+- **Decided by:** Planner Agent, after a Reviewer Agent flagged the gap.
 
 ## 10. Drop cached months after any edit
 
@@ -100,4 +100,4 @@
 - **Decision:** after an edit, keep only the edited and active months, and refetch the others on their next visit.
 - **Alternatives:** patch every cached tree in place.
 - **Why:** correct by construction, and the cost is one fetch per revisited month.
-- **Decided by:** planner (a bug the review found).
+- **Decided by:** Reviewer Agent (found and fixed during review).

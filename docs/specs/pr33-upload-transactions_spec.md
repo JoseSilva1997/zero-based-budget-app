@@ -1,8 +1,8 @@
 # PR 33 spec: upload transactions from bank statements
 
-**Related:** builds on [#32 categories](pr32-categories_spec.md) · [overview](../pr-overview/pr33-upload-transactions_overview.md) · [decisions](../key-decisions/pr33-upload-transactions_decisions.md)
+**Related:** feature [upload transactions](../features/upload-transactions_feature.md) · builds on [#32 categories](pr32-categories_spec.md) · [overview](../pr-overview/pr33-upload-transactions_overview.md) · [decisions](../key-decisions/pr33-upload-transactions_decisions.md)
 
-This file records the plan as built. The original plan was agreed on 2026-10-18; changes made during the build and its review are folded in. All examples use invented data.
+Sections 1–7 describe what was built. Section 8 lists what changed from the plan, and section 9 keeps the original plan, agreed on 2026-10-18, unedited except that its examples were replaced with invented data. All examples use invented data.
 
 ## 1. Goal
 
@@ -239,3 +239,139 @@ A stable hash of `(bank_account_id, spent_on, amount_cents, direction, descripto
   - Real exports parsed locally with 0 errors (never committed).
   - A bootstrap run on a copy of a real database.
   - A synthetic 400-row statement for scale.
+
+## 8. Changes from the original plan
+
+| Change | Why |
+|---|---|
+| `import_rows.kind` is **nullable** (NULL = use the prediction), as is `included` | Without it, a user's decision couldn't be told apart from the default. (Planner Agent) |
+| **"No category" is amber (warn), not a block**; the "needs a category to be ticked" rule is separate | On a first import almost every row is uncategorised, so red made the list a wall of failure. (Planner Agent) |
+| **Descriptor casing is kept**, not uppercased | The cleaned descriptor becomes the entry's default name; the classifier lowercases internally. (Coding Agent) |
+| Revolut cost is **Amount − Fee** (fee subtracted from a signed amount) | Matches how the balance column moves; same result as "abs(amount) + fee" for debits. (Coding Agent) |
+| **Extra refusals:** an empty file, or one with no rows for the account; `needs_bank` also for a multi-product Revolut file | A file that parsed to zero rows was silently accepted. (Coding Agent, Reviewer Agent) |
+| The **account identifier is forgotten** when every file naming it is removed or discarded | Dropping another account's statement first locked the account out of its real statements. (Reviewer Agent) |
+| **`already_imported` also checks earlier files in the same upload** | Two overlapping statements in one upload imported shared transactions twice. (Reviewer Agent) |
+| **Archived categories are excluded from training** | The classifier kept predicting retired categories, which Confirm then revived. (Reviewer Agent) |
+| **Matched rows count towards Confirm** even without a category | Bootstrapping (all rows "Same as existing") left Confirm disabled. (Reviewer Agent) |
+| **Discard deletes** the batch rather than marking it `discarded` | Nothing references a discarded upload's rows, and keeping them only keeps a copy of a statement. (Coding Agent) |
+| **Block labels stand alone** | A "Money in" row also showing "No category" was noise. (Coding Agent) |
+| Rows only `out_of_month` **fold** under a disclosure | A nine-month export puts hundreds of rows outside the month. (Planner Agent) |
+| The Wallet's overlay became a shared **`Sheet` component** | Reuse rather than a second overlay. (Coding Agent) |
+
+## 9. Original plan
+
+As agreed on 2026-10-18, before any code was written. Unedited, except that its examples were replaced with invented data.
+
+> **Pipeline**
+> 1. Upload one or more CSVs per account.
+> 2. Parse them with the bank's preset into normalised rows.
+> 3. Clean the descriptors.
+> 4. Categorise with the classifier.
+> 5. Reconcile against existing entries.
+> 6. Compute labels.
+> 7. Review the list.
+> 8. Confirm, which writes the entries.
+>
+> **Entry point and flow**
+> - An **"Upload transactions"** button in Month Budget opens a **sheet** (the Wallet's overlay shape in DESIGN.md: centred, capped at 1120px, with the modal's veil, keyframe and focus trap).
+> - The **target month** is the month you are on.
+> - **Upload step**: one drop zone per bank account, each accepting one or more CSVs. Each file is listed in its zone and can be removed. A **Review** button parses everything.
+> - **Review step**: one merged list with a separator per account. A **Confirm** button at the bottom writes the entries.
+> - **Back to files** returns to the upload step and keeps every decision already made. Rows from a removed file disappear; a new file's rows appear in its account's section.
+>
+> **Banks and presets**
+> - A new **`banks`** table holds the name you give the bank and a `preset` key. Each `bank_account` points at its bank.
+> - **Presets** are built in, one adapter per bank in code: `monzo`, `lloyds`, `revolut`, `natwest`. Each one produces the same normalised row and is unit-tested on real sample rows (anonymised before being committed).
+> - On the first upload to an account with no bank, the app detects the preset from the header. You confirm it and pick or create the bank.
+> - `bank_accounts` gets an optional **account identifier**, filled from the first file imported into it.
+> - A file is **rejected** before any rows are parsed when:
+>   - its header doesn't match the preset ("This doesn't look like a {bank} statement")
+>   - its account number differs from the stored one (Lloyds and NatWest only: "This is the statement for ••1234, not Joint")
+>   - its file hash is already in the batch
+> - A fifth bank gets a fifth preset. A user-configurable column mapping is parked.
+>
+> | | Monzo | Lloyds | Revolut | NatWest |
+> |---|---|---|---|---|
+> | Amount | Signed `Amount` | `Debit Amount` / `Credit Amount`, both positive | Signed `Amount` **plus `Fee`**, folded into the entry amount | Signed `Value` |
+> | `spent_on` | `Date` (`DD/MM/YYYY`) | `Transaction Date` (`DD/MM/YYYY`) | `Started Date` (ISO) | Date inside the description (`28SEP26`), falling back to `Date` (`29 Sep 2026`) |
+> | Descriptor | `Name` | `Transaction Description` | `Description` | Merchant segment of `Description` |
+> | Account check | header only | `Sort Code` (strip the leading `'`) + `Account Number` | header + `Product` | `Account Number` |
+> | Dropped silently | `Type = Pot transfer` (moves money inside the account; not spending) | | Rows whose `Product` isn't this account's (picked when the account is bound) | |
+> | Features for the classifier | `Category`, `Type` | `Transaction Type` (`DEB`/`FPO`/`FPI`/`DD`) | `Type` | `Type` |
+>
+> Revolut rows that aren't `COMPLETED` get the `not_completed` label.
+>
+> **Descriptor cleaning**
+> - Generic rules first: uppercase, strip dates, card fragments and reference-number runs, collapse whitespace.
+> - Then the preset's own rules, for example removing `#5550001234` from Lloyds, and taking the merchant segment from NatWest's `4321 28SEP26 CD , MERCHANT , TOWN GB`.
+> - The cleaned descriptor feeds the classifier and becomes the entry's default `name`.
+>
+> **Categorisation**
+> - A local classifier (TF-IDF, then kNN or naive Bayes) written in TypeScript, with no native or Python dependency.
+> - **Features**: the cleaned descriptor, amount, account, and the bank's own signals (category and type codes).
+> - **Classes**: categories, plus `transfer`.
+> - **Training data**: staging rows linked to a category (through an imported entry or a "Same as existing" link) and rows marked as transfers.
+> - **Never saved to disk**: it is rebuilt in memory every time the sheet opens, so it always reflects the latest approvals.
+> - **Confidence**: below a threshold the suggestion is pre-filled and labelled `low_confidence`. Below a lower threshold there is no suggestion and the row is `uncategorised`. Tune both thresholds on the bootstrapped data.
+> - If the predicted category has no line in the target month, the row keeps that category and is labelled `not_in_month`.
+>
+> **Reconcile**
+> - **`possible_duplicate`**: an existing entry with the same amount, a date within ±3 days, and an item on the same account.
+> - **`already_imported`**: the fingerprint matches an imported row. The fingerprint is `(account, date, amount, raw descriptor, occurrence number among identical rows in the file)`, for every bank, including Monzo even though it provides IDs.
+>
+> **Labels**
+>
+> Computed every time the sheet opens, never stored, because `possible_duplicate`, `already_imported` and `not_in_month` depend on database state that changes while a batch is pending.
+> - A row can carry several labels. Its default comes from the worst one.
+> - Every label has display text in the UI.
+> - Labels are **colour-coded by severity**. This is a named exception to The One Failure Rule, scoped to the Review list's label chips, and DESIGN.md must record it in the same PR. **Block** uses the existing failure hue (Ember). **Warn** uses one new amber token, checked for AA against Lamplit Slate. **Info** is neutral. `ok` gets no chip.
+>
+> | Label | Severity | Default |
+> |---|---|---|
+> | `ok` | none | ticked |
+> | `uncategorised` | blocks until a category is picked | ticked once categorised |
+> | `low_confidence` | warn ("Check category") | unticked |
+> | `not_in_month` | warn ("Not in this month's plan") | unticked; importing creates the line with £0 planned |
+> | `possible_duplicate` | warn | unticked |
+> | `out_of_month` | warn | unticked; imports into the target month with its real date |
+> | `transfer` | info | unticked; can be ticked if the row's kind is switched back to spend |
+> | `credit` | block | can't be ticked (refunds are out of scope) |
+> | `already_imported` | block | can't be ticked |
+> | `parse_error` | block | can't be ticked |
+> | `not_completed` | block | can't be ticked |
+>
+> **Review list**
+> - Label filter chips (e.g. "Possible duplicate · 3") sit above the list and apply across all accounts.
+> - Blocked rows sink to the bottom of their account's section.
+> - **Editable per row**: category (a picker over non-archived categories, with this month's lines first); name; ticked or not; a **Transfer** toggle, which excludes the row and teaches the classifier; **Same as existing entry**, which links the row to an existing entry, creating no entry and adding a training pair.
+> - **Not editable**: date and amount, which are the bank's facts. Fix them on the entry after import if needed.
+> - **Over-plan line**, next to Confirm, in the failure hue: "Over plan after import: Groceries +£42.10". It also helps spot a row that is in the wrong category.
+>
+> **Confirm**
+> - Writes all ticked rows as entries in one transaction. Missing plan lines for `not_in_month` rows are created with £0 planned.
+> - Each entry gets `name` = the edited cleaned descriptor, `note` empty, and `import_row_id` set.
+> - Imported entries are ordinary entries everywhere else in the app.
+>
+> **Staging data**
+> - **`import_batches`**: `budget_month_id`, `status` (`pending` / `imported` / `discarded`), `created_at`, `imported_at`. A partial unique index allows at most one `pending` batch per month.
+> - **`import_files`**: `batch_id`, `bank_account_id`, `filename`, `file_hash`, `created_at`.
+> - **`import_rows`**: parsed fields `file_id`, `row_index`, `raw` (the original line as JSON), `posted_on`, `amount_cents`, `direction`, `descriptor_raw`, `descriptor_clean`; decisions `category_id`, `name`, `kind` (`spend` / `transfer`), `included`, `linked_entry_id`.
+> - **`budget_item_actual_entries.import_row_id`**: nullable, `ON DELETE SET NULL`.
+> - Only your decisions are stored. Predictions and labels are recomputed.
+>
+> **Batch lifecycle**
+> - Opening the sheet resumes the month's pending batch: on Review if it has rows, on Upload if not. Discarding is an explicit action.
+> - **Previous imports**, at the bottom of the sheet, lists this month's imported batches (date, files, entry count) with **Undo**. Undo deletes exactly the entries that batch created, even edited ones, and returns the batch to `pending`.
+>
+> **Bootstrapping the classifier**
+>
+> There is no separate training tool:
+> - Run the import on past months you entered by hand. Nearly every row comes up as `possible_duplicate`, and **Same as existing** turns each one into a labelled pair.
+> - For months with no hand-typed entries, importing them normally is the labelling.
+>
+> **Parked**
+> - Refunds and credits (would need negative amounts or a refund concept).
+> - Splitting one row across categories.
+> - A user-configurable CSV mapping.
+> - Automatic transfer pairing across accounts.
+> - Attributing joint-account spend to a member by card last-4 (NatWest).
