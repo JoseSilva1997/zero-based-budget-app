@@ -1,18 +1,16 @@
 # PR 33 overview: upload transactions from bank statements
 
-**Related:** builds on [#32 categories](pr32-categories_overview.md) · [spec](../specs/pr33-upload-transactions_spec.md) · [decisions](../key-decisions/pr33-upload-transactions_decisions.md) · [PR #33](https://github.com/JoseSilva1997/zero-based-budget-app/pull/33)
+**Related:** feature [upload transactions](../features/upload-transactions_feature.md) · builds on [#32 categories](pr32-categories_overview.md) · [spec](../specs/pr33-upload-transactions_spec.md) · [decisions](../key-decisions/pr33-upload-transactions_decisions.md) · [PR #33](https://github.com/JoseSilva1997/zero-based-budget-app/pull/33)
+
+## Context
+
+Every actual entry was typed by hand. A month of spending across several bank accounts meant dozens of entries, each a chance for a typo or a missed transaction. The banks already hold that data and export it as CSV. The Engineer wanted the app to read those exports without giving up control: every row is still seen and approved before it reaches the budget.
 
 ## What it does
 
-House Budget is a desktop budgeting app: each month has plan lines ("Groceries £400"), and you record **actual entries** against them as you spend. Until this PR, every entry was typed by hand.
-
-Now you can **upload the bank-statement CSVs** you download from your bank. The app reads every transaction, suggests a category for each, flags anything suspicious, and shows it all in a review list. You fix what's wrong and press **Confirm** once. Nothing goes into the budget without that review.
+You can now **upload the bank-statement CSVs** you download from your bank. The app reads every transaction, suggests a category for each, flags anything suspicious, and shows it all in a review list. You fix what's wrong and press **Confirm** once.
 
 Supported banks: **Monzo, Lloyds, Revolut, NatWest**.
-
-## Why
-
-Typing a month of transactions takes time and invites mistakes. The bank already has the data, so this PR uses it without giving up control: you still see and approve every row.
 
 ## How it works
 

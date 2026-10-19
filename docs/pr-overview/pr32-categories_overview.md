@@ -1,22 +1,18 @@
 # PR 32 overview: month-independent categories
 
-**Related:** needed by [#33 upload transactions](pr33-upload-transactions_overview.md) · [spec](../specs/pr32-categories_spec.md) · [decisions](../key-decisions/pr32-categories_decisions.md) · [PR #32](https://github.com/JoseSilva1997/zero-based-budget-app/pull/32)
+**Related:** feature [categories](../features/categories_feature.md) and [upload transactions](../features/upload-transactions_feature.md) · needed by [#33 upload transactions](pr33-upload-transactions_overview.md) · [spec](../specs/pr32-categories_spec.md) · [decisions](../key-decisions/pr32-categories_decisions.md) · [PR #32](https://github.com/JoseSilva1997/zero-based-budget-app/pull/32)
 
-## The app in one paragraph
+## Context
 
-House Budget is a desktop app (Electron + React, with a local SQLite database) for **zero-based budgeting**. Each month, you give every pound of income a job by planning amounts against budget lines ("Groceries £400"), grouped into groups ("Daily living"). As money is spent, you record **actual entries** against those lines, and the app shows planned vs actual.
+Starting a new month **cloned** the previous month's groups and items with **new IDs**, so nothing in the database said that September's "Groceries" and October's "Groceries" were the same thing. Renames had to be repeated month by month, and duplicates couldn't be cleaned up across history. It also blocked the next feature, uploading bank statements ([#33](pr33-upload-transactions_overview.md)): its classifier learns "this shop → this category", which only works if a category means the same thing in every month.
 
-## What this PR does
+## What it does
 
-It gives each budget line a **category that is the same thing in every month**. "Groceries" in September and "Groceries" in October are now one category with one plan line per month, instead of two unrelated rows.
+It gives each budget line a **category that is the same in every month**. "Groceries" in September and October is now one category with one plan line per month, instead of two unrelated rows.
 
 For the user:
 - Renaming or moving a line renames or moves it in every month.
-- **Settings → Categories** lists every category. It can archive old ones and **merge** duplicates, showing the impact first and backing up before writing.
-
-## Why
-
-Each new month used to **clone** the previous month's groups and items with **new IDs**. Nothing in the database said two months' "Groceries" were related. That blocked the next feature, uploading bank statements ([#33](pr33-upload-transactions_overview.md)): its classifier learns "this shop → this category", and that only works if a category means the same thing in every month.
+- **Settings → Categories** lists every category. You can archive old ones and **merge** duplicates; the app shows the impact first and backs up before writing.
 
 ## How it works
 
