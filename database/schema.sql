@@ -154,6 +154,9 @@ CREATE TABLE import_rows (
   kind TEXT CHECK (kind IN ('spend','transfer')), -- NULL: the classifier's prediction
   included INTEGER CHECK (included IN (0,1)), -- NULL: the labels' default
   linked_entry_id INTEGER REFERENCES budget_item_actual_entries(id) ON DELETE SET NULL,
+  -- Set at confirm: an unticked row whose category you picked, which trains
+  -- the classifier without becoming an entry. Cleared by undo.
+  teaches INTEGER NOT NULL DEFAULT 0 CHECK (teaches IN (0,1)),
   UNIQUE (file_id, row_index),
   FOREIGN KEY (file_id) REFERENCES import_files(id) ON DELETE CASCADE
 );

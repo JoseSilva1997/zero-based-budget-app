@@ -410,6 +410,9 @@ export interface ImportRowRead {
   name: string;
   kind: 'spend' | 'transfer';
   included: boolean;
+  /** Unticked, but confirming trains the classifier on it: a spend whose
+   *  category you picked, not matched and not blocked. */
+  teaches: boolean;
   /** The classifier's guess (a category id, or 'transfer'), or null. */
   prediction: { label: number | 'transfer'; confidence: number } | null;
   labels: ImportLabel[];
@@ -503,6 +506,8 @@ export interface ImportConfirmResult {
   linked: number;
   /** Plan lines created at £0 for categories the month didn't have. */
   linesCreated: number;
+  /** Unticked rows that trained the classifier without becoming entries. */
+  learnt: number;
 }
 
 /** An imported batch, as "Previous imports" lists it. */

@@ -2,7 +2,8 @@
    imports: "Upload transactions". Statements are staged in a month's
    pending batch (import_batches -> import_files -> import_rows) until you
    confirm, which writes the ticked rows as ordinary entries in one
-   transaction. Only the parsed rows and your decisions are stored;
+   transaction. Only the parsed rows, your decisions and, once confirmed,
+   which unticked rows taught the classifier are stored;
    predictions and labels are recomputed on every read of the review,
    because they depend on everything else in the database.
 
@@ -202,6 +203,7 @@ interface StoredRow {
   kind: 'spend' | 'transfer' | null;
   included: 0 | 1 | null;
   linked_entry_id: number | null;
+  teaches: 0 | 1;
   bank_account_id: number;
 }
 
@@ -272,7 +274,9 @@ const ALREADY_IMPORTED_SQL = `
  * to it at confirm), labelled with that entry's category as it is today, so
  * a merge or a move is followed, unless that category is archived (retired:
  * the picker doesn't offer it, so nothing should be predicted into it);
- * (b) a row you marked a transfer, in an imported batch.
+ * (b) a row you marked a transfer, in an imported batch; (c) a row that
+ * taught without being imported (unticked, with a category you picked),
+ * labelled with that category, unless it is archived.
  */
 function trainFor(db: Database.Database, batchId: number): Classifier {
   const rows = db
@@ -289,7 +293,14 @@ function trainFor(db: Database.Database, batchId: number): Classifier {
          FROM import_rows r
          JOIN import_files f ON f.id = r.file_id
          JOIN import_batches b ON b.id = f.batch_id
-        WHERE f.batch_id <> @batchId AND b.status = 'imported' AND r.kind = 'transfer'`
+        WHERE f.batch_id <> @batchId AND b.status = 'imported' AND r.kind = 'transfer'
+       UNION ALL
+       SELECT r.descriptor_clean, r.features, f.bank_account_id, r.amount_cents, r.category_id AS label
+         FROM import_rows r
+         JOIN import_files f ON f.id = r.file_id
+         JOIN import_batches b ON b.id = f.batch_id
+         JOIN categories c ON c.id = r.category_id
+        WHERE f.batch_id <> @batchId AND b.status = 'imported' AND r.teaches = 1 AND c.archived = 0`
     )
     .all({ batchId }) as Array<{
     descriptor_clean: string;
@@ -376,6 +387,7 @@ function toRowRead(a: AssessedRow): ImportRowRead {
     name: a.assessment.name,
     kind: a.assessment.kind,
     included: a.assessment.included,
+    teaches: a.assessment.teaches,
     prediction: a.prediction,
     labels: a.assessment.labels,
     duplicates: a.duplicates,
@@ -534,8 +546,10 @@ const CREATED_ENTRIES_SQL = `
  * lacks is created at £0, on the category's usual account), named as
  * decided and pointing back at its row. A row matched to an existing entry
  * writes nothing, but marks that entry as its own, so a re-upload knows it
- * is in and the classifier learns from it. Refused when nothing is ticked or
- * matched.
+ * is in and the classifier learns from it. An unticked row whose category
+ * you picked writes nothing either, but is marked as teaching, so the
+ * classifier learns its category. Refused when nothing is ticked, matched
+ * or teaching.
  */
 export function confirmBatch(db: Database.Database, batchId: number): ImportConfirmResult {
   const tx = db.transaction((): ImportConfirmResult => {
@@ -545,7 +559,8 @@ export function confirmBatch(db: Database.Database, batchId: number): ImportConf
     const assessed = assessBatch(db, batch, month);
     const ticked = assessed.filter((a) => a.assessment.included);
     const linked = assessed.filter((a) => a.row.linked_entry_id !== null);
-    if (ticked.length === 0 && linked.length === 0) {
+    const teaching = assessed.filter((a) => a.assessment.teaches);
+    if (ticked.length === 0 && linked.length === 0 && teaching.length === 0) {
       throw new Error('Tick at least one transaction, or match one to an entry, before importing.');
     }
 
@@ -578,10 +593,12 @@ export function confirmBatch(db: Database.Database, batchId: number): ImportConf
       `UPDATE budget_item_actual_entries SET import_row_id = ? WHERE id = ? AND import_row_id IS NULL`
     );
     for (const a of linked) claim.run(a.row.id, a.row.linked_entry_id);
+    const teach = db.prepare(`UPDATE import_rows SET teaches = 1 WHERE id = ?`);
+    for (const a of teaching) teach.run(a.row.id);
     db.prepare(`UPDATE import_batches SET status = 'imported', imported_at = CURRENT_TIMESTAMP WHERE id = ?`).run(
       batch.id
     );
-    return { entries: ticked.length, totalCents, linked: linked.length, linesCreated };
+    return { entries: ticked.length, totalCents, linked: linked.length, linesCreated, learnt: teaching.length };
   });
   return tx();
 }
@@ -630,7 +647,8 @@ export function discardBatch(db: Database.Database, batchId: number): void {
 /**
  * Undoes an import, in one transaction: deletes exactly the entries it
  * wrote (edited since or not), releases the entries its rows were matched
- * to, and returns the batch to pending with every decision kept. Plan lines
+ * to, forgets what its unticked rows taught, and returns the batch to
+ * pending with every decision kept. Plan lines
  * it created at £0 stay, like any line you added. Refused while the month
  * has another upload in progress, since a month has only one.
  */
@@ -647,6 +665,9 @@ export function undoImport(db: Database.Database, batchId: number): void {
       `UPDATE budget_item_actual_entries SET import_row_id = NULL
         WHERE import_row_id IN (SELECT r.id FROM import_rows r JOIN import_files f ON f.id = r.file_id
                                  WHERE f.batch_id = ? AND r.linked_entry_id IS NOT NULL)`
+    ).run(batchId);
+    db.prepare(
+      `UPDATE import_rows SET teaches = 0 WHERE file_id IN (SELECT id FROM import_files WHERE batch_id = ?)`
     ).run(batchId);
     db.prepare(`UPDATE import_batches SET status = 'pending', imported_at = NULL WHERE id = ?`).run(batchId);
   });

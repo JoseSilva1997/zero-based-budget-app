@@ -42,7 +42,7 @@ import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { StoreProvider, useStore } from './renderer/store.jsx';
 import { UploadSheet } from './renderer/Upload.jsx';
-import { importOutcome, onlyOutOfMonth } from './renderer/lib/imports.js';
+import { confirmReceipt, importOutcome, onlyOutOfMonth } from './renderer/lib/imports.js';
 
 const results = [];
 const check = (name, cond, msg) => results.push({ name, ok: !!cond, msg: cond ? '' : (msg || '') });
@@ -95,7 +95,7 @@ const row = (id, accountId, o = {}) => ({
   descriptorRaw: (o.name || 'SHOP').toUpperCase(), descriptorClean: (o.name || 'SHOP').toUpperCase(),
   features: {}, parseError: o.parseError || null, notCompleted: false,
   categoryId: 'categoryId' in o ? o.categoryId : 11, name: o.name || 'Shop', kind: o.kind || 'spend',
-  included: !!o.included, prediction: null, labels: o.labels || [], duplicates: o.duplicates || [],
+  included: !!o.included, teaches: !!o.teaches, prediction: null, labels: o.labels || [], duplicates: o.duplicates || [],
   decisions: { categoryId: null, name: null, kind: null, included: null, linkedEntryId: o.linkedEntryId || null },
 });
 const reviewRows = () => [
@@ -110,7 +110,7 @@ const reviewRows = () => [
     duplicates: [{ id: 900, spentOn: '2026-10-04', amountCents: 1234, name: 'Sainsburys big shop', categoryName: 'Groceries' }] }),
   row(9, 2, { name: 'Refund', amountCents: 2000, direction: 'credit', labels: [L.credit] }),
   row(10, 2, { name: 'GARBLED', categoryId: null, amountCents: null, spentOn: null, parseError: 'The amount "x" is not a number.', labels: [L.parse] }),
-  row(11, 2, { name: 'Card shop', categoryId: 14, amountCents: 1500, labels: [L.nim] }),
+  row(11, 2, { name: 'Card shop', categoryId: 14, amountCents: 1500, labels: [L.nim], teaches: true }),
   row(12, 2, { name: 'To savings', kind: 'transfer', categoryId: null, amountCents: 10000, labels: [L.transfer] }),
   row(13, 2, { name: 'Florist', categoryId: 14, amountCents: 2500, included: true }),
   row(14, 2, { name: 'Mystery', categoryId: null, amountCents: 700, labels: [L.uncat] }),
@@ -300,6 +300,22 @@ function unitTests() {
     r({ categoryId: null, included: false, labels: [lbl('uncategorised', 'warn')], decisions: { linkedEntryId: 900 } }),
   ] }] });
   check('unit: a matched row with no category of its own still counts as matched', matchedOnly.linked === 1 && matchedOnly.count === 0, JSON.stringify(matchedOnly));
+  // An unticked row whose category you picked teaches the classifier on
+  // confirm; the server says which rows do, and the footer counts them.
+  const taught = importOutcome({ plan, categories, accounts: [{ rows: [
+    r({ included: false, teaches: true }), r({ included: false, teaches: true }), r({ included: false }),
+  ] }] });
+  check('unit: rows that only teach are counted apart', taught.learnt === 2 && taught.count === 0, JSON.stringify(taught));
+  const pounds = (cents) => '£' + (cents / 100).toFixed(2);
+  check('unit: the receipt says what was imported',
+    confirmReceipt({ entries: 3, totalCents: 7510, linked: 1, linesCreated: 1, learnt: 0 }, pounds) === 'Imported 3 entries · £75.10, 1 matched, 1 new plan line.',
+    confirmReceipt({ entries: 3, totalCents: 7510, linked: 1, linesCreated: 1, learnt: 0 }, pounds));
+  check('unit: and what was learnt',
+    confirmReceipt({ entries: 1, totalCents: 250, linked: 0, linesCreated: 0, learnt: 2 }, pounds) === 'Imported 1 entry · £2.50, 2 learnt.',
+    confirmReceipt({ entries: 1, totalCents: 250, linked: 0, linesCreated: 0, learnt: 2 }, pounds));
+  check('unit: with nothing imported, only what was learnt',
+    confirmReceipt({ entries: 0, totalCents: 0, linked: 0, linesCreated: 0, learnt: 3 }, pounds) === 'Learnt 3 categories.',
+    confirmReceipt({ entries: 0, totalCents: 0, linked: 0, linesCreated: 0, learnt: 3 }, pounds));
   // "No category" is an amber chip but not a reason to look: a row with no
   // category outside the month still folds, as most of a long statement does.
   check('unit: a row outside the month with no category yet still folds',
@@ -497,6 +513,7 @@ window.__runTests = async () => {
   const overLine = () => document.querySelector('[data-over-plan]');
   check('a button labelled exactly Confirm', !!confirmBtn());
   check('with a quiet summary of what it will do', summary() && summary().textContent.includes('4 entries · £105.10'), summary() && summary().textContent);
+  check('counting the unticked rows that will teach the classifier', summary() && summary().textContent.endsWith('· 1 to learn from'), summary() && summary().textContent);
   check('the over-plan line lists what goes over, worst first', overLine() && overLine().textContent === 'Over plan after import: Groceries +£52.10, Gifts +£25.00, Eating out +£8.00', overLine() && overLine().textContent);
   await press(rowEl(4).querySelector('input[type="checkbox"]'), 'the tick on Shell (off)');
   check('it follows a tick', overLine() && overLine().textContent === 'Over plan after import: Gifts +£25.00, Groceries +£22.10, Eating out +£8.00', overLine() && overLine().textContent);

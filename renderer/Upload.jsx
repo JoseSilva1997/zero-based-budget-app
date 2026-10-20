@@ -14,7 +14,7 @@
    ============================================================ */
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, ConfirmDialog, EmptyState, Icons, Sheet, TextInline } from './ui/index.js';
-import { cx, fmt, importOutcome, isBlocked, isInert, labelCounts, monthLabel, onlyOutOfMonth, shortDate, sinkBlocked } from './lib/index.js';
+import { confirmReceipt, cx, fmt, importOutcome, isBlocked, isInert, labelCounts, monthLabel, onlyOutOfMonth, shortDate, sinkBlocked } from './lib/index.js';
 import { useStore } from './store.jsx';
 
 /* The statement formats House Budget reads, by preset key, as a household
@@ -457,6 +457,7 @@ function ReviewFoot({ review, currency, busy, onBack, onDiscard, onConfirm }) {
   const money = (cents) => fmt(currency, cents / 100);
   const parts = [`${out.count} ${out.count === 1 ? "entry" : "entries"} · ${money(out.totalCents)}`];
   if (out.linked) parts.push(`${out.linked} matched`);
+  if (out.learnt) parts.push(`${out.learnt} to learn from`);
   return (
     <div className="upload-foot upload-review-foot">
       <button className="link-btn upload-back" onClick={onBack}><Icons.left size={14} /> Back to files</button>
@@ -468,7 +469,7 @@ function ReviewFoot({ review, currency, busy, onBack, onDiscard, onConfirm }) {
         </span>
       )}
       <span className="num upload-summary" data-confirm-summary>{parts.join(" · ")}</span>
-      <button className="btn btn-primary" disabled={busy || (out.count === 0 && out.linked === 0)} onClick={onConfirm}>Confirm</button>
+      <button className="btn btn-primary" disabled={busy || (out.count === 0 && out.linked === 0 && out.learnt === 0)} onClick={onConfirm}>Confirm</button>
     </div>
   );
 }
@@ -563,10 +564,7 @@ function UploadSheet({ month, currency, onClose }) {
     setBusy(true);
     try {
       const res = await imports.confirm(month, review.batch.id);
-      const parts = [`Imported ${res.entries} ${res.entries === 1 ? "entry" : "entries"} · ${fmt(currency, res.totalCents / 100)}`];
-      if (res.linked) parts.push(`${res.linked} matched`);
-      if (res.linesCreated) parts.push(`${res.linesCreated} new plan ${res.linesCreated === 1 ? "line" : "lines"}`);
-      toast(`${parts.join(", ")}.`);
+      toast(confirmReceipt(res, (cents) => fmt(currency, cents / 100)));
       onClose();
     } catch (err) {
       toast(err.message, "error");

@@ -17,6 +17,7 @@ Every actual entry used to be typed by hand: a month of spending across several 
   - money in
 - You review one list, fix what's wrong, and press **Confirm** once. The entries are written together.
 - **Same as existing** links a bank row to an entry you already typed instead of creating a new one, and teaches the classifier.
+- **Teach without importing.** Pick a category for a row and leave it unticked: Confirm writes no entry for it, but the classifier learns its category. The footer counts these ("3 to learn from"), and Confirm works even when they are all there is.
 - **Undo** reverses an upload, removing only the entries it created.
 
 ## How it works
@@ -36,7 +37,7 @@ flowchart LR
 ```
 
 - **Banks.** Each account is linked once to a bank. A built-in preset per bank turns its CSV into the same row shape.
-- **Classifier.** Runs locally (TF-IDF + nearest neighbours) and learns from confirmed rows and "Same as existing" links. It depends on [categories](categories_feature.md): it predicts a category that means the same thing in every month.
+- **Classifier.** Runs locally (TF-IDF + nearest neighbours) and learns from confirmed rows, "Same as existing" links, rows marked as transfers, and unticked rows whose category you picked. A category it guessed itself never teaches it. It depends on [categories](categories_feature.md): it predicts a category that means the same thing in every month.
 - **Labels** decide each row's default (ticked or not) and are colour-coded by severity: amber for "check this", red for "can't be imported".
 - **Lifecycle.** Each month has at most one pending upload, saved until you confirm or discard it.
 
