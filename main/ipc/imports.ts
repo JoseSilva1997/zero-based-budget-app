@@ -41,7 +41,8 @@
    'import:updateRow'   { rowId, patch: ImportRowPatch }
                         -> { ok: true }. patch: any of categoryId, name,
                            kind ('spend' | 'transfer'), included (boolean),
-                           linkedEntryId ("Same as existing entry"); null
+                           linkedEntryId ("Same as existing entry"),
+                           note (written on the entry); null
                            clears one back to the default, a key left out
                            is unchanged. Pending batches only. An entry
                            already matched to another row, or imported, is

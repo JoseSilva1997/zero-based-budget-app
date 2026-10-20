@@ -198,7 +198,7 @@ app.whenReady().then(async () => {
       );
       eq([r.categoryId, r.name, r.kind, r.included, r.prediction], [null, 'SUPERDRUG STORES PLC', 'spend', false, null], 'with nothing learned, no category and unticked');
       eq(r.labels, [{ key: 'uncategorised', severity: 'warn', text: 'No category' }], 'labelled uncategorised');
-      eq(r.decisions, { categoryId: null, name: null, kind: null, included: null, linkedEntryId: null }, 'and no decisions yet');
+      eq(r.decisions, { categoryId: null, name: null, kind: null, included: null, linkedEntryId: null, note: null }, 'and no decisions yet');
       eq(review.accounts[1].rows, [], "another account's section is empty");
 
       eq(review.plan, [{ itemId: food, categoryId: foodCat, name: 'Food', plannedCents: 30000, actualCents: 1000 }], "the month's plan with spending so far");
@@ -327,8 +327,10 @@ app.whenReady().then(async () => {
       const file = imports.addFile(db, { monthId: sep, accountId: joint, filename: 'sep.csv', text: fixture('natwest') });
       throws(() => imports.confirmBatch(db, file.batchId), 'Tick at least one transaction', 'nothing ticked, nothing to confirm');
       const [deli, superdrug, sainsburys] = imports.getReview(db, sep).accounts[0].rows;
-      imports.updateRow(db, deli.id, { categoryId: foodCat });
-      imports.updateRow(db, superdrug.id, { categoryId: toilCat, name: 'Shampoo' });
+      imports.updateRow(db, deli.id, { categoryId: foodCat, note: '  coffee with Sam  ' });
+      imports.updateRow(db, superdrug.id, { categoryId: toilCat, name: 'Shampoo', note: 'gone wrong' });
+      imports.updateRow(db, superdrug.id, { note: '   ' });
+      eq(imports.getReview(db, sep).accounts[0].rows.slice(0, 2).map((r) => r.decisions.note), ['coffee with Sam', null], 'a note is trimmed, and a blank one clears it');
       eq(imports.getReview(db, sep).accounts[0].rows[1].labels.map((l) => l.key), ['not_in_month'], 'a category the month lacks says so');
       imports.updateRow(db, superdrug.id, { included: true });
       imports.updateRow(db, sainsburys.id, { linkedEntryId: typed });
@@ -341,10 +343,10 @@ app.whenReady().then(async () => {
       eq(
         lines,
         [
-          ['Food', 50, null, [['2026-09-26', 29, 'Big shop', 'typed'], ['2026-09-28', 2.5, 'DELI AB1', '']]],
+          ['Food', 50, null, [['2026-09-26', 29, 'Big shop', 'typed'], ['2026-09-28', 2.5, 'DELI AB1', 'coffee with Sam']]],
           ['Toiletries', 0, joint, [['2026-09-26', 16.99, 'Shampoo', '']]],
         ],
-        'entries land on their lines; the missing line is created at £0 on the category\'s account'
+        'entries land on their lines with their notes; the missing line is created at £0 on the category\'s account'
       );
 
       eq(imports.getReview(db, sep).batch, null, 'the month has no upload in progress after confirming');

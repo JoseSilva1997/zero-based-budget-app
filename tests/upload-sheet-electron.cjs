@@ -473,6 +473,19 @@ window.__runTests = async () => {
   check('and the review is read again', server.calls.reviews > reads, server.calls.reviews + ' vs ' + reads);
   check('the row shows the new name', !!rowEl(1).querySelector('input[aria-label="Name for Tesco Extra"]'), rowEl(1).outerHTML.slice(0, 200));
 
+  // A note sits on a line under the row, opened from the row's actions.
+  const noteField = (name) => document.querySelector('input[aria-label="Note on ' + name + '"]');
+  check('a row has no note line until asked', !noteField('Tesco Extra'));
+  await press(byLabel('Add a note to Tesco Extra'), 'Note on Tesco Extra');
+  check('Note opens a field under the row', !!noteField('Tesco Extra'));
+  await setValue(noteField('Tesco Extra'), 'Weekly shop, for both');
+  noteField('Tesco Extra').dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+  await settle();
+  check('writing a note sends it', lastUpdate() === '[1,{"note":"Weekly shop, for both"}]', lastUpdate());
+  check('and a written note stays on show', noteField('Tesco Extra') && noteField('Tesco Extra').value === 'Weekly shop, for both');
+  check('a transfer takes no note', !byLabel('Add a note to To savings'));
+  check('nor does a row that cannot be imported', !byLabel('Add a note to Refund'));
+
   await setValue(rowEl(4).querySelector('select'), '11');
   check('picking a category sends it', lastUpdate() === '[4,{"categoryId":11}]', lastUpdate());
   check('the picker groups by group, this month first', (() => {
@@ -503,6 +516,7 @@ window.__runTests = async () => {
   check('the row shows as matched', rowEl(8).classList.contains('is-linked') && /Same as Sainsburys big shop/.test(rowEl(8).textContent), rowEl(8).textContent);
   check('the candidate list closes', !document.querySelector('[data-candidates-for="8"]'));
   check('a matched row cannot also be ticked', rowEl(8).querySelector('input[type="checkbox"]').disabled);
+  check('nor take a note: its entry keeps its own', !byLabel('Add a note to Sainsburys'));
   await press(byLabel('Unlink Sainsburys'), 'Unlink Sainsburys');
   check('unlinking clears the match', lastUpdate() === '[8,{"linkedEntryId":null}]', lastUpdate());
   check('and the row is unmatched again', !rowEl(8).classList.contains('is-linked'), rowEl(8).className);

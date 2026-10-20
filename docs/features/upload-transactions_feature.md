@@ -17,6 +17,7 @@ Every actual entry used to be typed by hand: a month of spending across several 
   - money in
 - You review one list, fix what's wrong, and press **Confirm** once. The entries are written together.
 - **Same as existing** links a bank row to an entry you already typed instead of creating a new one, and teaches the classifier.
+- **Notes.** The pencil in a row's actions opens a note under it, written onto the entry on Confirm. A matched row, a transfer or a blocked row takes none, since it writes no entry.
 - **Teach without importing.** Pick a category for a row and leave it unticked: Confirm writes no entry for it, but the classifier learns its category. The footer counts these ("3 to learn from"), and Confirm works even when they are all there is.
 - **Undo** reverses an upload, removing only the entries it created.
 
@@ -72,7 +73,7 @@ stateDiagram-v2
 
 1. [#32](../pr-overview/pr32-categories_overview.md): month-independent categories, so a predicted category means the same thing in every month (groundwork).
 2. [#33](../pr-overview/pr33-upload-transactions_overview.md): banks, presets, classifier, reconcile, labels, the upload sheet, Confirm and Undo.
-3. [#37](https://github.com/JoseSilva1997/zero-based-budget-app/pull/37): review improvements: teaching the classifier from unticked rows, and reading headers that end in a comma.
+3. [#37](https://github.com/JoseSilva1997/zero-based-budget-app/pull/37): review improvements: notes on rows, teaching the classifier from unticked rows, and reading headers that end in a comma.
 
 ## Changelog
 
@@ -82,3 +83,4 @@ stateDiagram-v2
 | 2026-10-18 | #33 | Feature introduced: Monzo, Lloyds, Revolut and NatWest CSV uploads with review, Confirm and Undo. |
 | 2026-10-20 | #37 | Unticked rows with a category you picked teach the classifier without being imported. |
 | 2026-10-20 | #37 | Fix: a Lloyds statement whose header line ends in a comma is no longer refused. |
+| 2026-10-20 | #37 | Notes on review rows, written onto their entries. |

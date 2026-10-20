@@ -203,6 +203,7 @@ interface StoredRow {
   kind: 'spend' | 'transfer' | null;
   included: 0 | 1 | null;
   linked_entry_id: number | null;
+  note: string | null;
   teaches: 0 | 1;
   bank_account_id: number;
 }
@@ -397,6 +398,7 @@ function toRowRead(a: AssessedRow): ImportRowRead {
       kind: r.kind,
       included: r.included === null ? null : r.included === 1,
       linkedEntryId: r.linked_entry_id,
+      note: r.note,
     },
   };
 }
@@ -479,7 +481,8 @@ export function getReview(db: Database.Database, monthId: number): ImportReview 
 
 /**
  * Records your decisions on a row: its category, name, kind (spend or
- * transfer), tick, and the existing entry it is the same as. Each can be
+ * transfer), tick, the existing entry it is the same as, and the note its
+ * entry is written with (trimmed; blank is none). Each can be
  * cleared back to the default with null; a field left out is left alone.
  * Only while its batch is pending. A linked entry must exist and not be
  * accounted for already (imported, or matched to another row).
@@ -505,6 +508,7 @@ export function updateRow(db: Database.Database, rowId: number, patch: ImportRow
     }
     fields.kind = patch.kind;
   }
+  if (patch.note !== undefined) fields.note = patch.note === null ? null : patch.note.trim() || null;
   if (patch.included !== undefined) fields.included = patch.included === null ? null : patch.included ? 1 : 0;
   if (patch.linkedEntryId !== undefined) {
     if (patch.linkedEntryId !== null) assertLinkable(db, patch.linkedEntryId, rowId);
@@ -543,8 +547,8 @@ const CREATED_ENTRIES_SQL = `
 /**
  * Imports a pending batch, in one transaction: every ticked row becomes an
  * entry on its category's plan line in the batch's month (a line the month
- * lacks is created at £0, on the category's usual account), named as
- * decided and pointing back at its row. A row matched to an existing entry
+ * lacks is created at £0, on the category's usual account), named and
+ * noted as decided and pointing back at its row. A row matched to an existing entry
  * writes nothing, but marks that entry as its own, so a re-upload knows it
  * is in and the classifier learns from it. An unticked row whose category
  * you picked writes nothing either, but is marked as teaching, so the
@@ -576,7 +580,7 @@ export function confirmBatch(db: Database.Database, batchId: number): ImportConf
     let totalCents = 0;
     const insertEntry = db.prepare(
       `INSERT INTO budget_item_actual_entries (budget_item_id, spent_on, amount_cents, name, note, import_row_id)
-       VALUES (?, ?, ?, ?, NULL, ?)`
+       VALUES (?, ?, ?, ?, ?, ?)`
     );
     for (const a of ticked) {
       const categoryId = a.assessment.categoryId as number;
@@ -586,7 +590,7 @@ export function confirmBatch(db: Database.Database, batchId: number): ImportConf
         lineFor.set(categoryId, itemId);
         linesCreated++;
       }
-      insertEntry.run(itemId, a.row.spent_on, a.row.amount_cents, a.assessment.name, a.row.id);
+      insertEntry.run(itemId, a.row.spent_on, a.row.amount_cents, a.assessment.name, a.row.note, a.row.id);
       totalCents += a.row.amount_cents as number;
     }
     const claim = db.prepare(

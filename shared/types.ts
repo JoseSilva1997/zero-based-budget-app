@@ -424,6 +424,8 @@ export interface ImportRowRead {
     kind: 'spend' | 'transfer' | null;
     included: boolean | null;
     linkedEntryId: number | null;
+    /** The note the entry is written with; null for none. */
+    note: string | null;
   };
 }
 
@@ -474,6 +476,7 @@ export interface ImportRowPatch {
   kind?: 'spend' | 'transfer' | null;
   included?: boolean | null;
   linkedEntryId?: number | null;
+  note?: string | null;
 }
 
 export interface ImportAddedFile {
