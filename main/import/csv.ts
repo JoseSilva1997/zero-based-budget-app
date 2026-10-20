@@ -55,7 +55,10 @@ export function parseCsv(text: string): CsvFile {
   const rows = readRows(text.replace(/^﻿/, '')).filter(
     (cells) => !(cells.length === 1 && cells[0] === '')
   );
-  const header = rows[0] ?? [];
+  // A header line ending in commas (some Lloyds exports) names nothing
+  // after them: those empty names are not columns.
+  const header = [...(rows[0] ?? [])];
+  while (header.length > 0 && header[header.length - 1].trim() === '') header.pop();
   const records = rows.slice(1).map((cells) => {
     const record: Record<string, string> = {};
     header.forEach((name, i) => (record[name] = cells[i] ?? ''));

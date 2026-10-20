@@ -53,6 +53,9 @@ app.whenReady().then(() => {
     eq(parseCsv('a,b\n1,2\n\n\r\n\n').records, [{ a: '1', b: '2' }], 'trailing blank lines are not records');
     eq(parseCsv('a,b\n1,2').records, [{ a: '1', b: '2' }], 'the last record needs no newline');
     eq(parseCsv('a,b\n1,"two\nlines"\n').records, [{ a: '1', b: 'two\nlines' }], 'a quoted field may span lines');
+    // Some exports (Lloyds', at times) end the header line with a comma.
+    eq(parseCsv('a,b,\n1,2\n'), { header: ['a', 'b'], records: [{ a: '1', b: '2' }] }, 'a trailing comma on the header is not a column');
+    eq(parseCsv('a,b,,\n1,2,,\n').header, ['a', 'b'], 'nor are several');
 
     const { detectPreset } = imp('presets', 'index.js');
     const fixture = (bank) => parseCsv(fs.readFileSync(path.join(__dirname, 'fixtures', 'import', `${bank}.csv`), 'utf8'));
@@ -259,6 +262,8 @@ app.whenReady().then(() => {
       eq(detectPreset([...header, 'Notes']), null, 'an extra column is not a match');
       eq(detectPreset(header.slice(1)), null, 'a missing column is not a match');
       eq(detectPreset(['Date', 'Amount']), null, 'an unknown statement matches nothing');
+      const trailing = fs.readFileSync(path.join(__dirname, 'fixtures', 'import', 'lloyds.csv'), 'utf8').replace(/Balance\r?\n/, 'Balance,\n');
+      eq(detectPreset(parseCsv(trailing).header).key, 'lloyds', 'a Lloyds header ending in a comma is still Lloyds');
     }
 
     console.log('IMPORT_PARSE_OK');

@@ -72,7 +72,7 @@ stateDiagram-v2
 
 1. [#32](../pr-overview/pr32-categories_overview.md): month-independent categories, so a predicted category means the same thing in every month (groundwork).
 2. [#33](../pr-overview/pr33-upload-transactions_overview.md): banks, presets, classifier, reconcile, labels, the upload sheet, Confirm and Undo.
-3. [#37](https://github.com/JoseSilva1997/zero-based-budget-app/pull/37): review improvements, starting with teaching the classifier from unticked rows.
+3. [#37](https://github.com/JoseSilva1997/zero-based-budget-app/pull/37): review improvements: teaching the classifier from unticked rows, and reading headers that end in a comma.
 
 ## Changelog
 
@@ -81,3 +81,4 @@ stateDiagram-v2
 | 2026-10-18 | #32 | Groundwork: categories shared across months. |
 | 2026-10-18 | #33 | Feature introduced: Monzo, Lloyds, Revolut and NatWest CSV uploads with review, Confirm and Undo. |
 | 2026-10-20 | #37 | Unticked rows with a category you picked teach the classifier without being imported. |
+| 2026-10-20 | #37 | Fix: a Lloyds statement whose header line ends in a comma is no longer refused. |
