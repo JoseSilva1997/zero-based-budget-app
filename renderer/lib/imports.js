@@ -74,7 +74,9 @@ export const willImport = (row) =>
 
 /**
  * What Confirm would do, worked out from the review as it stands:
- * { count, totalCents, linked, over }.
+ * { count, totalCents, linked, learnt, over }. `learnt` is the unticked
+ * rows that will teach the classifier without becoming entries; which rows
+ * those are is the server's call (row.teaches), not worked out here.
  *
  * `over` is "Over plan after import": per category the ticked rows land in,
  * what the month has spent so far plus those rows, against what was planned.
@@ -83,13 +85,14 @@ export const willImport = (row) =>
  * listed, worst first, as { categoryId, name, overCents }.
  */
 export function importOutcome(review) {
-  let count = 0, totalCents = 0, linked = 0;
+  let count = 0, totalCents = 0, linked = 0, learnt = 0;
   const added = new Map();
   for (const a of review.accounts) {
     for (const r of a.rows) {
       // A matched row needs no category of its own (the entry has one), so
       // only a hard block keeps it out.
       if (r.decisions.linkedEntryId != null && !isInert(r)) linked += 1;
+      if (r.teaches) learnt += 1;
       if (!willImport(r)) continue;
       count += 1;
       totalCents += r.amountCents;
@@ -104,5 +107,18 @@ export function importOutcome(review) {
     if (overCents > 0) over.push({ categoryId, name: line ? line.name : cat ? cat.name : "Uncategorised", overCents });
   }
   over.sort((a, b) => b.overCents - a.overCents);
-  return { count, totalCents, linked, over };
+  return { count, totalCents, linked, learnt, over };
+}
+
+/** The toast after Confirm, from what it did: "Imported 3 entries · £75.10,
+ *  1 matched, 2 learnt." With no entries written but rows learnt from, only
+ *  "Learnt 2 categories." `money` formats pence. */
+export function confirmReceipt(res, money) {
+  const learnt = res.learnt || 0;
+  if (res.entries === 0 && !res.linked && learnt > 0) return `Learnt ${learnt} ${learnt === 1 ? "category" : "categories"}.`;
+  const parts = [`Imported ${res.entries} ${res.entries === 1 ? "entry" : "entries"} · ${money(res.totalCents)}`];
+  if (res.linked) parts.push(`${res.linked} matched`);
+  if (res.linesCreated) parts.push(`${res.linesCreated} new plan ${res.linesCreated === 1 ? "line" : "lines"}`);
+  if (learnt) parts.push(`${learnt} learnt`);
+  return `${parts.join(", ")}.`;
 }

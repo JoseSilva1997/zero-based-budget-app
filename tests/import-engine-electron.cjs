@@ -224,6 +224,24 @@ app.whenReady().then(() => {
       eq(keys(assessRow(facts({ spentOn: '2026-10-01', duplicates: 1, prediction: { label: 13, confidence: 0.4 } }))).sort(),
         ['low_confidence', 'not_in_month', 'out_of_month', 'possible_duplicate'], 'a row can carry several labels');
 
+      // Teaching without importing: an unticked spend whose category you
+      // picked trains the classifier on confirm, though it writes no entry.
+      const teaches = (more) => assessRow(facts(more)).teaches;
+      eq(teaches(stored({ categoryId: GROC, included: 0 })), true, 'a category you picked, unticked, teaches');
+      eq(teaches({ prediction: null, ...stored({ categoryId: GROC, included: 0 }) }), true, 'whatever the row started as');
+      eq(teaches(stored({ categoryId: 12, included: 0 })), true, 'including a corrected guess');
+      eq(teaches({ duplicates: 1, ...stored({ categoryId: GROC }) }), true, 'a possible duplicate left unticked teaches');
+      eq(teaches({ spentOn: '2026-08-30', ...stored({ categoryId: GROC }) }), true, 'and so does a row outside the month');
+      eq(teaches(stored({ categoryId: GROC })), false, 'a ticked row is imported, not only taught');
+      eq(teaches(stored({ included: 0 })), false, 'an unticked guess you never chose does not teach');
+      eq(teaches({ prediction: null, ...stored({ included: 0 }) }), false, 'nor does a row with no category');
+      eq(teaches(stored({ categoryId: GROC, kind: 'transfer' })), false, 'a transfer teaches transfer, not its category');
+      eq(teaches({ prediction: { label: 'transfer', confidence: 0.9 }, ...stored({ categoryId: GROC }) }), false, 'nor does a predicted transfer');
+      eq(teaches({ duplicates: 1, ...stored({ categoryId: GROC, linkedEntryId: 5 }) }), false, 'a matched row teaches through its entry');
+      for (const more of [{ direction: 'credit' }, { alreadyImported: true }, { notCompleted: true }]) {
+        eq(teaches({ ...more, ...stored({ categoryId: GROC, included: 0 }) }), false, `a blocked row does not teach (${Object.keys(more)[0]})`);
+      }
+
       // The catalogue covers every label with display text.
       eq(Object.keys(LABELS).sort(), ['already_imported', 'credit', 'low_confidence', 'not_completed', 'not_in_month', 'ok', 'out_of_month', 'parse_error', 'possible_duplicate', 'transfer', 'uncategorised'], 'every label is catalogued');
       eq(LABELS.not_in_month.text, "Not in this month's plan", 'not_in_month copy');

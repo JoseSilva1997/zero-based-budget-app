@@ -198,7 +198,7 @@ app.whenReady().then(async () => {
       );
       eq([r.categoryId, r.name, r.kind, r.included, r.prediction], [null, 'SUPERDRUG STORES PLC', 'spend', false, null], 'with nothing learned, no category and unticked');
       eq(r.labels, [{ key: 'uncategorised', severity: 'warn', text: 'No category' }], 'labelled uncategorised');
-      eq(r.decisions, { categoryId: null, name: null, kind: null, included: null, linkedEntryId: null }, 'and no decisions yet');
+      eq(r.decisions, { categoryId: null, name: null, kind: null, included: null, linkedEntryId: null, note: null }, 'and no decisions yet');
       eq(review.accounts[1].rows, [], "another account's section is empty");
 
       eq(review.plan, [{ itemId: food, categoryId: foodCat, name: 'Food', plannedCents: 30000, actualCents: 1000 }], "the month's plan with spending so far");
@@ -327,24 +327,26 @@ app.whenReady().then(async () => {
       const file = imports.addFile(db, { monthId: sep, accountId: joint, filename: 'sep.csv', text: fixture('natwest') });
       throws(() => imports.confirmBatch(db, file.batchId), 'Tick at least one transaction', 'nothing ticked, nothing to confirm');
       const [deli, superdrug, sainsburys] = imports.getReview(db, sep).accounts[0].rows;
-      imports.updateRow(db, deli.id, { categoryId: foodCat });
-      imports.updateRow(db, superdrug.id, { categoryId: toilCat, name: 'Shampoo' });
+      imports.updateRow(db, deli.id, { categoryId: foodCat, note: '  coffee with Sam  ' });
+      imports.updateRow(db, superdrug.id, { categoryId: toilCat, name: 'Shampoo', note: 'gone wrong' });
+      imports.updateRow(db, superdrug.id, { note: '   ' });
+      eq(imports.getReview(db, sep).accounts[0].rows.slice(0, 2).map((r) => r.decisions.note), ['coffee with Sam', null], 'a note is trimmed, and a blank one clears it');
       eq(imports.getReview(db, sep).accounts[0].rows[1].labels.map((l) => l.key), ['not_in_month'], 'a category the month lacks says so');
       imports.updateRow(db, superdrug.id, { included: true });
       imports.updateRow(db, sainsburys.id, { linkedEntryId: typed });
 
       const result = imports.confirmBatch(db, file.batchId);
-      eq(result, { entries: 2, totalCents: 1949, linked: 1, linesCreated: 1 }, 'writes the ticked rows and reports it');
+      eq(result, { entries: 2, totalCents: 1949, linked: 1, linesCreated: 1, learnt: 0 }, 'writes the ticked rows and reports it');
 
       const tree = months.getMonthTree(db, sep);
       const lines = tree.groups[0].items.map((i) => [i.name, i.allocated, i.account, i.actuals.map((a) => [a.spent_on, a.amount, a.name, a.note])]);
       eq(
         lines,
         [
-          ['Food', 50, null, [['2026-09-26', 29, 'Big shop', 'typed'], ['2026-09-28', 2.5, 'DELI AB1', '']]],
+          ['Food', 50, null, [['2026-09-26', 29, 'Big shop', 'typed'], ['2026-09-28', 2.5, 'DELI AB1', 'coffee with Sam']]],
           ['Toiletries', 0, joint, [['2026-09-26', 16.99, 'Shampoo', '']]],
         ],
-        'entries land on their lines; the missing line is created at £0 on the category\'s account'
+        'entries land on their lines with their notes; the missing line is created at £0 on the category\'s account'
       );
 
       eq(imports.getReview(db, sep).batch, null, 'the month has no upload in progress after confirming');
@@ -410,6 +412,61 @@ app.whenReady().then(async () => {
       db.close();
     }
 
+    /* ---- teaching without importing: unticked rows you categorised ---- */
+    {
+      const categories = b('repositories', 'categories.js');
+      const { db, sep, joint } = setup();
+      const oct = months.insertMonth(db, '2026-10');
+      const home = months.insertGroup(db, { name: 'Home', kind: 'spend', sort_order: 0, collapsed: 0 });
+      const out = months.addItemByName(db, { monthId: sep, groupId: home, name: 'Eating out', bank_account_id: joint });
+      const toil = months.addItemByName(db, { monthId: sep, groupId: home, name: 'Toiletries', bank_account_id: joint });
+      const groc = months.addItemByName(db, { monthId: sep, groupId: home, name: 'Groceries', bank_account_id: joint });
+      const cat = (item) => months.getItemById(db, item).category_id;
+      months.insertActualEntry(db, { budget_item_id: groc, spent_on: '2026-09-27', amount_cents: 2900, name: 'Big shop', note: null });
+      const refund = [
+        'Date,Type,Description,Value,Balance,Account Name,Account Number',
+        '25 Sep 2026,POS,"4321 24SEP26 CD , PIZZA PLACE , SPRINGFIELD GB",12.00,880.00,Joint Example,600000-11112222',
+      ].join('\n');
+
+      const file = imports.addFile(db, { monthId: sep, accountId: joint, filename: 'sep.csv', text: fixture('natwest') });
+      imports.addFile(db, { monthId: sep, accountId: joint, filename: 'refund.csv', text: refund });
+      const [deli, superdrug, sainsburys, pizza] = imports.getReview(db, sep).accounts[0].rows;
+      imports.updateRow(db, deli.id, { categoryId: cat(out), included: false });
+      imports.updateRow(db, superdrug.id, { categoryId: cat(toil), included: false });
+      // A possible duplicate, left unticked rather than matched.
+      imports.updateRow(db, sainsburys.id, { categoryId: cat(groc) });
+      // Money in can't be ticked, so its category teaches nothing.
+      imports.updateRow(db, pizza.id, { categoryId: cat(out) });
+      const rows = imports.getReview(db, sep).accounts[0].rows;
+      eq(rows.map((r) => [r.included, r.teaches]), [[false, true], [false, true], [false, true], [false, false]], 'the review says which rows will teach');
+
+      eq(imports.confirmBatch(db, file.batchId), { entries: 0, totalCents: 0, linked: 0, linesCreated: 0, learnt: 3 }, 'a confirm that only teaches goes through');
+      eq(months.getMonthTree(db, sep).groups[0].items.map((i) => [i.name, i.actuals.length]), [['Eating out', 0], ['Toiletries', 0], ['Groceries', 1]], 'and writes no entry');
+      eq(imports.listImports(db, sep).map((h) => [h.id, h.entries]), [[file.batchId, 0]], 'it is listed as an import of nothing');
+
+      const octCsv = [
+        'Date,Type,Description,Value,Balance,Account Name,Account Number',
+        '16 Oct 2026,POS,"4321 15OCT26 CD , DELI AB1 , SPRINGFIELD GB",-3.10,90.00,Joint Example,600000-11112222',
+        '15 Oct 2026,POS,"8765 14OCT26 CD , SUPERDRUG STORES , PLC , LITTLE TOWN GB",-8.49,93.10,Joint Example,600000-11112222',
+        '13 Oct 2026,POS,"4321 12OCT26 CD , SAINSBURYS S/MKTS , LITTLE TOWN GB",-41.00,101.59,Joint Example,600000-11112222',
+        '12 Oct 2026,POS,"4321 11OCT26 CD , PIZZA PLACE , SPRINGFIELD GB",-14.00,142.59,Joint Example,600000-11112222',
+      ].join('\n');
+      imports.addFile(db, { monthId: oct, accountId: joint, filename: 'oct.csv', text: octCsv });
+      const predicted = () => imports.getReview(db, oct).accounts[0].rows.map((r) => r.prediction && r.prediction.label);
+      eq(predicted(), [cat(out), cat(toil), cat(groc), null], 'the classifier learned the taught rows, and nothing from money in');
+
+      categories.setCategoryArchived(db, cat(toil), true);
+      eq(predicted()[1], null, 'a taught row in a retired category is not predicted');
+      categories.setCategoryArchived(db, cat(toil), false);
+
+      imports.discardBatch(db, imports.getReview(db, oct).batch.id);
+      imports.undoImport(db, file.batchId);
+      imports.addFile(db, { monthId: oct, accountId: joint, filename: 'oct.csv', text: octCsv });
+      eq(predicted(), [null, null, null, null], 'an undone import takes its lessons back');
+      eq(db.pragma('foreign_key_check'), [], 'no dangling references');
+      db.close();
+    }
+
     /* ---- end to end: upload, match, confirm, re-upload, learn, undo ---- */
     {
       const { HIGH_CONFIDENCE } = require(path.join(root, 'build', 'main', 'import', 'classifier.js'));
@@ -440,7 +497,7 @@ app.whenReady().then(async () => {
       imports.updateRow(db, alex.id, { kind: 'transfer' });
 
       // 3. Confirm.
-      eq(imports.confirmBatch(db, sepFile.batchId), { entries: 2, totalCents: 1949, linked: 1, linesCreated: 0 }, 'September confirmed');
+      eq(imports.confirmBatch(db, sepFile.batchId), { entries: 2, totalCents: 1949, linked: 1, linesCreated: 0, learnt: 0 }, 'September confirmed');
 
       // 4. The same statement uploaded into October is already in.
       imports.addFile(db, { monthId: oct, accountId: joint, filename: 'sep-again.csv', text: fixture('natwest') });

@@ -12,9 +12,9 @@
    patching its own copy. Only the over-plan line is worked out here, because
    it has to follow every tick as it happens.
    ============================================================ */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, ConfirmDialog, EmptyState, Icons, Sheet, TextInline } from './ui/index.js';
-import { cx, fmt, importOutcome, isBlocked, isInert, labelCounts, monthLabel, onlyOutOfMonth, shortDate, sinkBlocked } from './lib/index.js';
+import { confirmReceipt, cx, fmt, importOutcome, isBlocked, isInert, labelCounts, monthLabel, onlyOutOfMonth, shortDate, sinkBlocked } from './lib/index.js';
 import { useStore } from './store.jsx';
 
 /* The statement formats House Budget reads, by preset key, as a household
@@ -244,7 +244,10 @@ function UploadStep({ review, month, onChanged, onReview }) {
 /* ---- one row of the review --------------------------------------------
    The bank's facts (date, amount) are shown and never edited: they are fixed
    on the entry after import if they need fixing. What is yours to decide is
-   the tick, the name and the category. */
+   the tick, the name, the category and the entry's note. The note sits on a
+   line under the row, opened from its actions and kept open once written; a
+   row that writes no entry of its own (matched, a transfer, blocked) takes
+   none. */
 function ReviewRow({ row, review, currency, onUpdate }) {
   // Blocked: cannot be ticked. Inert: nothing about it can be changed, so it
   // is dimmed and sunk. They differ only for a row waiting on a category.
@@ -254,7 +257,15 @@ function ReviewRow({ row, review, currency, onUpdate }) {
   const linkedId = row.decisions.linkedEntryId;
   const linked = linkedId != null ? (row.duplicates.find((d) => d.id === linkedId) || { id: linkedId, name: null, spentOn: null }) : null;
   const [picking, setPicking] = useState(false);
+  const [noting, setNoting] = useState(false);
   const inert = inertRow || !!linked;
+  const note = row.decisions.note || "";
+  const notable = !inert && !transfer;
+  const noteOpen = notable && (noting || note !== "");
+  const noteLine = useRef(null);
+  useEffect(() => {
+    if (noting) noteLine.current?.querySelector("input")?.focus();
+  }, [noting]);
 
   const link = (d) => { setPicking(false); onUpdate(row, { linkedEntryId: d.id }); };
 
@@ -289,6 +300,11 @@ function ReviewRow({ row, review, currency, onUpdate }) {
                   title="This is a spend you already typed in: match it instead of importing it twice"
                   onClick={() => setPicking((p) => !p)}>Same as existing</button>
               )}
+              {notable && (
+                <button type="button" className={cx("icon-btn compact subtle", noteOpen && "is-open")}
+                  aria-label={`Add a note to ${row.name}`} aria-expanded={noteOpen} title="Note"
+                  onClick={() => setNoting((n) => !n || note !== "")}><Icons.edit size={14} /></button>
+              )}
               {/* Excludes the row and teaches the classifier that this payee is
                   a transfer. Pressed is drawn even at rest, so a row marked as
                   one says so without being hovered. */}
@@ -300,6 +316,16 @@ function ReviewRow({ row, review, currency, onUpdate }) {
           )}
         </span>
       </div>
+      {noteOpen && (
+        <div className="upload-note" data-note-for={row.id} ref={noteLine}>
+          <TextInline value={note} allowEmpty className="upload-note-field" label={`Note on ${row.name}`}
+            placeholder="Add a note"
+            onCommit={(v) => {
+              if (v !== note) onUpdate(row, { note: v || null });
+              if (!v) setNoting(false);
+            }} />
+        </div>
+      )}
       {picking && !linked && (
         <div className="upload-candidates" data-candidates-for={row.id} role="group" aria-label={`Entries ${row.name} may be the same as`}>
           <div className="eyebrow upload-candidates-head">Already in this month</div>
@@ -457,6 +483,7 @@ function ReviewFoot({ review, currency, busy, onBack, onDiscard, onConfirm }) {
   const money = (cents) => fmt(currency, cents / 100);
   const parts = [`${out.count} ${out.count === 1 ? "entry" : "entries"} · ${money(out.totalCents)}`];
   if (out.linked) parts.push(`${out.linked} matched`);
+  if (out.learnt) parts.push(`${out.learnt} to learn from`);
   return (
     <div className="upload-foot upload-review-foot">
       <button className="link-btn upload-back" onClick={onBack}><Icons.left size={14} /> Back to files</button>
@@ -468,7 +495,7 @@ function ReviewFoot({ review, currency, busy, onBack, onDiscard, onConfirm }) {
         </span>
       )}
       <span className="num upload-summary" data-confirm-summary>{parts.join(" · ")}</span>
-      <button className="btn btn-primary" disabled={busy || (out.count === 0 && out.linked === 0)} onClick={onConfirm}>Confirm</button>
+      <button className="btn btn-primary" disabled={busy || (out.count === 0 && out.linked === 0 && out.learnt === 0)} onClick={onConfirm}>Confirm</button>
     </div>
   );
 }
@@ -563,10 +590,7 @@ function UploadSheet({ month, currency, onClose }) {
     setBusy(true);
     try {
       const res = await imports.confirm(month, review.batch.id);
-      const parts = [`Imported ${res.entries} ${res.entries === 1 ? "entry" : "entries"} · ${fmt(currency, res.totalCents / 100)}`];
-      if (res.linked) parts.push(`${res.linked} matched`);
-      if (res.linesCreated) parts.push(`${res.linesCreated} new plan ${res.linesCreated === 1 ? "line" : "lines"}`);
-      toast(`${parts.join(", ")}.`);
+      toast(confirmReceipt(res, (cents) => fmt(currency, cents / 100)));
       onClose();
     } catch (err) {
       toast(err.message, "error");
