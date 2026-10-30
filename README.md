@@ -80,7 +80,7 @@ All data is stored under Electron's per-user data directory:
 - `backups/` — dated database snapshots.
 - `cloud-backup.json` — this machine's cloud backup folder setting (see below).
 
-The exact location is printed to the console at startup (`[house-budget] userData: …`). When auto-backup is set to "on close", the app writes a snapshot when you quit (an empty, never-used database is skipped). You can also take manual backups from **Settings**.
+The exact location is printed to the console at startup (`[house-budget] userData: …`). Development launches use a separate folder; see [Development data folder](#development-data-folder). When auto-backup is set to "on close", the app writes a snapshot when you quit (an empty, never-used database is skipped). You can also take manual backups from **Settings**.
 
 ### Cloud backup folder
 
@@ -154,6 +154,30 @@ The git tags are the record of what has shipped: the next version is the highest
 | `npm test` | Build, then run the Electron test suites in `tests/`. |
 | `npm run dev:update` | Dev loop with a faked update, to see the update banner. |
 | `npm run dev:update:downloaded` | As above, starting from an update that is ready to install. |
+
+### Development data folder
+
+`npm run dev` and `npm start` (any launch where Electron is not packaged) keep
+their data in their own folder, **House Budget Dev**, beside the installed app's:
+
+- Linux: `~/.config/House Budget Dev`
+- Windows: `%APPDATA%\House Budget Dev`
+
+So a branch with a newer database schema migrates only this copy, never the
+installed app's database (`~/.config/house-budget` / `%APPDATA%\house-budget`),
+which the installed release could then no longer open. Staging builds do the
+same as *House Budget Staging*.
+
+To open the real data on purpose, set `HB_REAL_DATA=1`. The app then migrates
+it to this branch's schema, so back it up first:
+
+```bash
+HB_REAL_DATA=1 npm start
+```
+
+In PowerShell: `$env:HB_REAL_DATA=1; npm start`. An explicit
+`--user-data-dir=<folder>` (as the screenshot skill passes) always wins, and the
+tests set their own folder.
 
 ### Seeing the update banner
 
