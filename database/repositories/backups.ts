@@ -7,7 +7,10 @@
    - inspectBackupFile validates a candidate file BEFORE anything is
      overwritten: SQLite header, then a read-only open to confirm it is
      actually a House Budget database, then the counts the confirm dialogue
-     needs. restoreFromFile refuses to copy anything that fails this.
+     needs. A file a newer version saved (user_version above LATEST_VERSION)
+     is refused before any query, since initDb would refuse it after the
+     restore and leave the app with no database. restoreFromFile refuses to
+     copy anything that fails this.
    - restoreFromFile copies a chosen backup over the live DB file. The caller
      MUST close the connection first and reopen after.
    - pruneBackups keeps a rolling maximum (default 30), oldest first.
@@ -15,6 +18,7 @@
 import Database from 'better-sqlite3';
 import * as fs from 'fs';
 import * as path from 'path';
+import { getUserVersion, LATEST_VERSION } from '../migrations';
 import type { BackupInfo, BackupSummary, DbSummary } from '../../shared/types';
 
 const PREFIX = 'budget-';
@@ -159,6 +163,13 @@ export function inspectBackupFile(filePath: string): BackupSummary {
   let conn: Database.Database | null = null;
   try {
     conn = new Database(filePath, { readonly: true, fileMustExist: true });
+    // First: a newer schema can fail the queries below, which would wrongly
+    // call the file damaged.
+    if (getUserVersion(conn) > LATEST_VERSION) {
+      throw new Error(
+        "That backup was saved by a newer version of House Budget. Update the app to restore it."
+      );
+    }
     const table = conn
       .prepare(
         `SELECT COUNT(*) AS n FROM sqlite_master
