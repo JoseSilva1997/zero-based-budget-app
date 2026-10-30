@@ -351,11 +351,21 @@ export interface BootstrapData {
   activeMonth: string | null; // "YYYY-MM", null on a fresh/empty DB
 }
 
+/** What bootstrap resolves to instead of throwing when the database was saved
+ *  by a newer House Budget (main/db.ts DatabaseTooNewError): schema versions,
+ *  the file's and the highest this build reads. */
+export interface DbTooNew {
+  status: 'db_too_new';
+  message: string;
+  found: number;
+  supported: number;
+}
+
 /* ---------- 4. IPC envelope + payloads ----------------------------------- */
 
 /** A refusal may carry a machine-readable 'code' (and 'detail') beside its
  *  user-facing message, for the renderer to act on: 'needs_bank' from
- *  import:addFile. */
+ *  import:addFile, 'db_too_new' from any read of a newer build's database. */
 export type IpcResult<T> = { data: T } | { error: string; code?: string; detail?: unknown };
 
 /* ---------- Upload transactions (main/ipc/imports.ts) ---------------------

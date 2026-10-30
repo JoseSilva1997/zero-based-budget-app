@@ -197,6 +197,12 @@ export function StoreProvider({ children }) {
         return;
       }
       let bs = await api.bootstrap();
+      // A newer version saved this database. The preload hands the refusal
+      // back as a value (an Error's fields don't cross the bridge); thrown
+      // again here, it reaches the startup screen with its code and versions.
+      if (bs.status === "db_too_new") {
+        throw Object.assign(new Error(bs.message), { code: bs.status, found: bs.found, supported: bs.supported });
+      }
       if (!bs.monthList || bs.monthList.length === 0) {
         // Fresh/empty DB: seed the current month so the budget screen has a month.
         await api.monthCreate({ month: currentMonthKey() });
