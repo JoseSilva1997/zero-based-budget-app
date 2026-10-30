@@ -57,7 +57,7 @@ Existing databases were converted by migration 8, which runs after an automatic 
 - A category's name and group can't differ between months.
 - A merge can only be undone by restoring the backup it takes.
 
-## PRs
+## Changes
 
 1. [#32](../pr-overview/pr32-categories_overview.md): month-independent groups and categories, migration 8, archive and merge.
 

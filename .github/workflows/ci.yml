@@ -22,11 +22,13 @@ name: CI
 # what would break a release installer. Those suites open no window and pass
 # there today.
 
-# Runs on pull requests into staging (features, Dependabot) and into main (the
-# release PR from staging). Both branches only move by merging a pull request,
-# and their rulesets will not merge one until these checks pass.
+# Runs on pull requests into staging (Dependabot's) and into main (the release
+# PR from staging). main only moves by merging a pull request, and its ruleset
+# will not merge one until these checks pass.
 #
-# No push trigger. The main ruleset also requires the release PR to be up to
+# No push trigger, by choice: work is committed straight to staging, tested
+# locally with `npm test` before the push, and the release PR is where CI first
+# runs on it. The main ruleset also requires the release PR to be up to
 # date with main, so the merge commit is the tree that was already tested;
 # release.yml builds from that commit without re-testing it.
 on:

@@ -109,22 +109,22 @@ A local build is versioned `0.0.0`: the real version is stamped in by CI (see be
 
 ## Branches and releasing
 
-Two long-lived branches, and both only change through pull requests:
+Two long-lived branches:
 
-| Branch | What it is | Merging into it |
-|--------|------------|-----------------|
-| `staging` (default) | Where work gathers between releases. | Feature branches and Dependabot. Releases nothing. |
+| Branch | What it is | How it changes |
+|--------|------------|----------------|
+| `staging` (default) | Where work gathers between releases. | Commits pushed straight to it, and Dependabot's PRs. Releases nothing. Its ruleset only forbids deleting it and force-pushing. |
 | `main` | Exactly what users have. | Only release PRs from `staging`. Every merge is a release. |
 
 ```
-feat/x ──PR──▶ staging ──release PR──▶ main ──▶ tagged GitHub release ──▶ installed copies update
-dependabot ─PR─┘   │
-                   └──▶ staging build (installer + AppImage, workflow artifacts)
+commits ──push──▶ staging ──release PR──▶ main ──▶ tagged GitHub release ──▶ installed copies update
+dependabot ──PR──┘   │
+                     └──▶ staging build (installer + AppImage, workflow artifacts)
 ```
 
-1. **Develop.** Branch off `staging` and open a pull request back into it. CI runs the suites on Linux and Windows, and the PR cannot merge until both pass. Squash or merge commit, either is fine. Nothing is released until you decide it is time.
+1. **Develop.** Commit on `staging` and push. Run `npm test` first: CI runs the suites on pull requests only, so nothing checks a push to `staging`, and the release PR is the first place CI sees the work. Nothing is released until you decide it is time.
 2. **Try it.** Every push to `staging` runs the **Staging build** workflow, which leaves a Windows installer and a Linux AppImage on the run as artifacts for 14 days. Run the workflow by hand to get one for any other branch. A staging build is its own app, *House Budget Staging*, versioned like `1.2.1-staging.42`: it installs beside the real one with its own data folder, and never offers or installs updates.
-3. **Release.** First review the open Dependabot pull requests and merge them into `staging`. Then open a pull request from `staging` into `main`, titled with a version prefix (below). It needs the suites, the **Release source** check (the PR comes from `staging`) and the **Version prefix** check to pass, and `staging` to be up to date with `main`. Merge it with a **merge commit**, the only method `main` allows. A squash would leave `main` with a commit `staging` lacks, and every later release PR would conflict.
+3. **Release.** First review the open Dependabot pull requests and merge the green ones into `staging`. Then open a pull request from `staging` into `main`, titled with a version prefix (below). It needs the suites, the **Release source** check (the PR comes from `staging`) and the **Version prefix** check to pass, and `staging` to be up to date with `main`. Merge it with a **merge commit**, the only method `main` allows. A squash would leave `main` with a commit `staging` lacks, and every later release PR would conflict.
 4. **Publish.** The **Release** workflow tags the merge commit, builds the Windows installer and the Linux AppImage in parallel, and publishes the GitHub release once both are uploaded. Installed copies then offer the update.
 
 The release PR's title picks the version bump (case-insensitive; a scope like `med (ui):` is fine). A title without one of these fails the **Version prefix** check, and the pull request cannot merge until it is renamed. Pick the largest change in the batch:
@@ -135,7 +135,7 @@ The release PR's title picks the version bump (case-insensitive; a scope like `m
 | `med:` | minor | 1.4.2 → 1.5.0 |
 | `min:` | patch | 1.4.2 → 1.4.3 |
 
-Pull requests into `staging` need no prefix.
+Dependabot's pull requests into `staging` need no prefix.
 
 Dependabot (`.github/dependabot.yml`) opens its pull requests against `staging` once a week: one grouped PR for security updates, one for minor and patch updates, and one PR per major version bump. They wait there until release time, when you review and merge them before opening the release PR.
 

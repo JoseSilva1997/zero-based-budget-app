@@ -69,7 +69,7 @@ stateDiagram-v2
 - **Transfers:** not paired automatically across accounts.
 - **Thresholds:** the classifier's are untuned starting values.
 
-## PRs
+## Changes
 
 1. [#32](../pr-overview/pr32-categories_overview.md): month-independent categories, so a predicted category means the same thing in every month (groundwork).
 2. [#33](../pr-overview/pr33-upload-transactions_overview.md): banks, presets, classifier, reconcile, labels, the upload sheet, Confirm and Undo.
