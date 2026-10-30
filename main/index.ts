@@ -7,7 +7,7 @@
    ============================================================ */
 import { app, BrowserWindow } from 'electron';
 import * as path from 'path';
-import { initDb, getDb, closeDb } from './db';
+import { initDb, getDb, closeDb, isDbOpen, DatabaseTooNewError } from './db';
 import { userDataDir } from './paths';
 import { registerIpcHandlers } from './ipc';
 import { buildAppMenu } from './menu';
@@ -104,7 +104,15 @@ app.whenReady().then(() => {
   // through browser-window-created and never sees one created before it.
   enableHotReload();
   // DB and IPC must be ready before the renderer can call window.api.
-  initDb();
+  try {
+    initDb();
+  } catch (err) {
+    // A newer build's database: start anyway, unopened. The renderer's first
+    // read gets the same refusal and shows it, and the updater below still
+    // runs, because updating is the fix.
+    if (!(err instanceof DatabaseTooNewError)) throw err;
+    console.warn(`[db] ${err.message}`);
+  }
   registerIpcHandlers();
   buildAppMenu();
   createWindow();
@@ -129,6 +137,13 @@ app.on('window-all-closed', () => {
 // Auto-backup on close (when enabled), then close the DB cleanly.
 app.on('before-quit', (event) => {
   if (didCloseTasks) return;
+  // Startup refused the database (a newer build's file): there is nothing to
+  // back up or close, and getDb would only refuse it again. This is also the
+  // path an update's quitAndInstall takes from that state.
+  if (!isDbOpen()) {
+    didCloseTasks = true;
+    return;
+  }
 
   const db = getDb();
   // Back up on close when enabled, but skip an empty database (no months) so a

@@ -11,6 +11,7 @@ import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type {
   IpcResult,
   BootstrapData,
+  DbTooNew,
   MonthTree,
   MonthTotals,
   MonthDeleteResult,
@@ -62,7 +63,17 @@ async function invoke<T>(channel: string, payload?: unknown): Promise<T> {
 
 const api = {
   /* ---------- reads (SQL-computed) ---------- */
-  bootstrap: () => invoke<BootstrapData>('bootstrap:load'),
+  /** Resolves to { status: 'db_too_new', ... } rather than throwing when the
+   *  database was saved by a newer version, for the same reason as
+   *  importAddFile below: the startup screen needs the code and versions. */
+  bootstrap: async (): Promise<BootstrapData | DbTooNew> => {
+    const res = (await ipcRenderer.invoke('bootstrap:load')) as IpcResult<BootstrapData>;
+    if ('error' in res && res.code === 'db_too_new') {
+      const detail = res.detail as { found: number; supported: number };
+      return { status: 'db_too_new', message: res.error, found: detail.found, supported: detail.supported };
+    }
+    return unwrap(res);
+  },
   getMonth: (monthId: number) => invoke<MonthTree | null>('month:get', { monthId }),
   monthTotals: (monthId: number) => invoke<MonthTotals>('month:totals', { monthId }),
   fundingPlan: (monthId: number) => invoke<FundingPlanRow[]>('month:fundingPlan', { monthId }),
