@@ -20,6 +20,7 @@ New to the codebase? Read the **feature** docs first; they explain a whole featu
 | [#32](https://github.com/JoseSilva1997/zero-based-budget-app/pull/32) | Month-independent categories | [overview](pr-overview/pr32-categories_overview.md) | [spec](specs/pr32-categories_spec.md) | [decisions](key-decisions/pr32-categories_decisions.md) |
 | [#33](https://github.com/JoseSilva1997/zero-based-budget-app/pull/33) | Upload transactions from bank statements | [overview](pr-overview/pr33-upload-transactions_overview.md) | [spec](specs/pr33-upload-transactions_spec.md) | [decisions](key-decisions/pr33-upload-transactions_decisions.md) |
 | [#34](https://github.com/JoseSilva1997/zero-based-budget-app/pull/34) | This docs structure | [overview](pr-overview/pr34-docs-structure_overview.md) | — | — |
+| [#43](https://github.com/JoseSilva1997/zero-based-budget-app/pull/43) | Dev launches keep their own data folder | [overview](pr-overview/pr43-dev-data-folder_overview.md) | — | — |
 
 Add or update rows here in the same PR that adds or changes the files.
 
