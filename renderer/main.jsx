@@ -18,6 +18,7 @@ import { HistoryScreen } from './History.jsx';
 import { DashboardScreen } from './Dashboard.jsx';
 import { SettingsScreen } from './Settings.jsx';
 import { UpdateBanner } from './UpdateBanner.jsx';
+import { StartupErrorScreen } from './StartupError.jsx';
 import { FindBar } from './Find.jsx';
 import { DebugMenu } from './DebugMenu.jsx';
 
@@ -193,37 +194,6 @@ function LoadingScreen() {
       <div className="loading-screen-inner">
         <div className="brand-mark" aria-hidden="true">HB</div>
         Loading your budget…
-      </div>
-    </div>
-  );
-}
-
-/* ---- startup failure ----------------------------------------------------
-   The store never came up, so there is no app behind this and no toast to
-   show. Name the problem, say the data is still on disk, and offer the three
-   things that actually recover it. */
-function StartupErrorScreen({ error, onRetry }) {
-  const openFolder = async () => {
-    if (!can("revealDataFolder")) return;
-    try { await api.revealDataFolder(); } catch (e) { console.error(e); }
-  };
-  return (
-    <div className="startup-error">
-      <div className="panel startup-error-card">
-        <Tile icon={Icons.alert} size="lg" tone="breach" className="startup-error-icon" />
-        <h3 className="startup-error-title">House Budget couldn't open your data</h3>
-        <p className="startup-error-body">
-          Your budget file is still on this device, and nothing has been changed or deleted. This usually means the app is already running in another window, or the file is being synced by another program.
-        </p>
-        {/* A driver error string genuinely is code, so it takes the mono
-            face. */}
-        <p className="code startup-error-detail">
-          {error && error.message}
-        </p>
-        <div className="startup-error-actions">
-          <button className="btn btn-primary" onClick={onRetry}>Try again</button>
-          <button className="btn" onClick={openFolder}><Icons.folder size={15} /> Open data folder</button>
-        </div>
       </div>
     </div>
   );

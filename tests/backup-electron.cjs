@@ -10,6 +10,8 @@
    3. The cloud backup folder, against temp folders standing in for a synced
       one: local always first, a cloud failure never fails a backup, the
       marker guard, per-device pruning, catch-up, and restore staging.
+   4. A backup saved by a newer version: refused before restore, with a
+      message that says to update rather than calling the file damaged.
 
    Requires a prior `npm run build` (loads build/database/** and build/main/**).
    Run with (ELECTRON_RUN_AS_NODE must be unset so require('electron').app works):
@@ -81,6 +83,7 @@ app.whenReady().then(async () => {
     eq(res.error.includes('daily'), true, 'refusal names the value');
 
     preMigrationBackupChecks(b, sandbox);
+    newerBackupChecks(b, sandbox);
     await cloudFolderChecks(b, sandbox);
     await cloudServiceChecks(b, sandbox);
 
@@ -152,6 +155,62 @@ function preMigrationBackupChecks(b, sandbox) {
   dbm.initDb();
   dbm.closeDb();
   eq(before(), fresh + 1, 'an up-to-date database takes no backup');
+}
+
+/* ---- a backup a newer version saved is refused, and says why ---- */
+function newerBackupChecks(b, sandbox) {
+  const backups = b('database', 'repositories', 'backups.js');
+  const { LATEST_VERSION } = b('database', 'migrations.js');
+  const dir = path.join(sandbox, 'newer');
+  fs.mkdirSync(dir, { recursive: true });
+  const NEWER = "That backup was saved by a newer version of House Budget. Update the app to restore it.";
+
+  const refuses = (file, msg) => {
+    let err = null;
+    try {
+      backups.inspectBackupFile(file);
+    } catch (e) {
+      err = e;
+    }
+    assert(err, `${msg}: inspectBackupFile accepted it`);
+    eq(err.message, NEWER, msg);
+  };
+
+  // Only the version is newer: today's queries would all succeed, so without
+  // the check this one would be restored and then refused by initDb.
+  const plain = path.join(dir, 'plain.sqlite');
+  const p = makeDb(b, plain);
+  p.pragma(`user_version = ${LATEST_VERSION + 1}`);
+  p.close();
+  refuses(plain, 'a newer version is refused');
+
+  // A newer schema this build cannot read: the counts would fail, and the
+  // user would be told the file is damaged.
+  const reshaped = path.join(dir, 'reshaped.sqlite');
+  const r = makeDb(b, reshaped);
+  r.exec(`ALTER TABLE budget_item_actual_entries RENAME TO entries_v2`);
+  r.pragma(`user_version = ${LATEST_VERSION + 1}`);
+  r.close();
+  refuses(reshaped, 'a newer schema is refused, not called damaged');
+
+  // restoreFromFile re-checks, so the live database is never overwritten.
+  const live = path.join(dir, 'live.sqlite');
+  makeDb(b, live).close();
+  const liveBefore = fs.readFileSync(live);
+  let threw = false;
+  try {
+    backups.restoreFromFile(plain, live);
+  } catch (e) {
+    threw = true;
+    eq(e.message, NEWER, 'restore gives the same reason');
+  }
+  assert(threw, 'restoreFromFile refuses a newer backup');
+  assert(fs.readFileSync(live).equals(liveBefore), 'the live database is left as it was');
+
+  // The current version still restores.
+  const current = path.join(dir, 'current.sqlite');
+  makeDb(b, current).close();
+  eq(backups.inspectBackupFile(current).months, 1, 'a backup at the current version is accepted');
 }
 
 /* ---- the file layer: database/repositories/cloudFolder ---- */
