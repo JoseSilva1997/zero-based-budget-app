@@ -73,7 +73,7 @@ stateDiagram-v2
 
 1. [#32](../pr-overview/pr32-categories_overview.md): month-independent categories, so a predicted category means the same thing in every month (groundwork).
 2. [#33](../pr-overview/pr33-upload-transactions_overview.md): banks, presets, classifier, reconcile, labels, the upload sheet, Confirm and Undo.
-3. [#37](https://github.com/JoseSilva1997/zero-based-budget-app/pull/37): review improvements: notes on rows, teaching the classifier from unticked rows, and reading headers that end in a comma.
+3. [#37](../pr-overview/pr37-upload-review_overview.md): review improvements: notes on rows, teaching the classifier from unticked rows, and reading headers that end in a comma.
 
 ## Changelog
 
