@@ -11,6 +11,17 @@ export function sameHeader(a: string[], b: string[]): boolean {
   return norm(a) === norm(b);
 }
 
+/** True when 'header' has every 'required' name and nothing outside
+ *  'required' and 'optional': a bank whose export lets you choose columns
+ *  (Lloyds) or leave some out. Order, case and surrounding space don't
+ *  matter. */
+export function hasColumns(header: string[], required: string[], optional: string[] = []): boolean {
+  const norm = (n: string) => n.trim().toLowerCase();
+  const have = new Set(header.map(norm));
+  const known = new Set([...required, ...optional].map(norm));
+  return required.every((n) => have.has(norm(n))) && [...have].every((n) => known.has(n));
+}
+
 /** '-8.74' -> -874, '92' -> 9200, '.06' -> 6. Null when the text is not
  *  an amount. */
 export function parseSignedCents(text: string): number | null {
@@ -25,6 +36,14 @@ export function dmyToIso(text: string): string | null {
   const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(text).trim());
   if (!m) return null;
   return validIso(`${m[3]}-${m[2]}-${m[1]}`);
+}
+
+/** '28/10/26, 09:08' (DD/MM/YY, with or without a time after a comma) ->
+ *  '2026-10-28'. Null when it isn't one. Two-digit years are this century. */
+export function dmyShortToIso(text: string): string | null {
+  const m = /^(\d{2})\/(\d{2})\/(\d{2})(?:,\s*\d{1,2}:\d{2}(?::\d{2})?)?$/.exec(String(text).trim());
+  if (!m) return null;
+  return validIso(`20${m[3]}-${m[2]}-${m[1]}`);
 }
 
 /** The date if it exists on the calendar, else null. */

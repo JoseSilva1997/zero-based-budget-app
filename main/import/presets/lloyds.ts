@@ -5,15 +5,22 @@
    as text) and Account Number; the identifier is "112233-12345678", the
    same shape NatWest's export uses. Card descriptors often end in a
    "#<reference>", which is cleaned off.
+
+   Lloyds' export lets you choose its columns, so only date, description and
+   the two amounts are required. Without Sort Code and Account Number the
+   statement names no account, and none is checked.
    ============================================================ */
 import { cleanDescriptor } from '../clean';
-import { RowErrors, dmyToIso, sameHeader } from './common';
+import { RowErrors, dmyToIso, hasColumns } from './common';
 import type { CsvRecord, ParsedRow, Preset } from './types';
 
 const HEADER = [
   'Transaction Date', 'Transaction Type', 'Sort Code', 'Account Number',
   'Transaction Description', 'Debit Amount', 'Credit Amount', 'Balance',
 ];
+
+const REQUIRED = ['Transaction Date', 'Transaction Description', 'Debit Amount', 'Credit Amount'];
+const OPTIONAL = ['Transaction Type', 'Sort Code', 'Account Number', 'Balance'];
 
 function accountOf(raw: CsvRecord): string {
   const sortCode = (raw['Sort Code'] ?? '').replace(/^'/, '').replace(/\D/g, '');
@@ -29,7 +36,7 @@ export const lloyds: Preset = {
   key: 'lloyds',
   label: 'Lloyds',
   header: HEADER,
-  detect: (header) => sameHeader(header, HEADER),
+  detect: (header) => hasColumns(header, REQUIRED, OPTIONAL),
   parse(records) {
     return records.map((raw, rowIndex): ParsedRow => {
       const errors = new RowErrors();

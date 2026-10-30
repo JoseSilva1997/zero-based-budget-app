@@ -9,7 +9,7 @@ Every actual entry used to be typed by hand: a month of spending across several 
 ## What it does
 
 - **Upload transactions** in Month Budget opens a large overlay with a drop zone for each account. You drop the CSV statements downloaded from the bank.
-- Supported banks: **Monzo, Lloyds, Revolut, NatWest**.
+- Supported banks: **Monzo, Lloyds, Revolut, NatWest**. Monzo's shorter export (ID, Created, Title...) is read too, and a Lloyds export with only some of its columns chosen.
 - The app reads every transaction and suggests a category, learning from earlier uploads. It flags anything that needs attention:
   - possible duplicates of entries you already typed
   - transactions already imported
@@ -37,7 +37,7 @@ flowchart LR
     I --> J[Confirm: write entries]
 ```
 
-- **Banks.** Each account is linked once to a bank. A built-in preset per bank turns its CSV into the same row shape.
+- **Banks.** Each account is linked once to a bank. A built-in preset per bank turns its CSV into the same row shape. A preset recognises its bank by the columns it requires and the ones it may also write, so an export that leaves optional columns out (Lloyds without its account or balance) still matches; without account columns, the statement isn't checked against the account. Monzo's shorter export has no transaction type, so a pot move is recognised as two rows with the same title, opposite amounts and the same minute, and dropped.
 - **Classifier.** Runs locally (TF-IDF + nearest neighbours) and learns from confirmed rows, "Same as existing" links, rows marked as transfers, and unticked rows whose category you picked. A category it guessed itself never teaches it. It depends on [categories](categories_feature.md): it predicts a category that means the same thing in every month.
 - **Labels** decide each row's default (ticked or not) and are colour-coded by severity: amber for "check this", red for "can't be imported".
 - **Lifecycle.** Each month has at most one pending upload, saved until you confirm or discard it.
@@ -84,3 +84,4 @@ stateDiagram-v2
 | 2026-10-20 | #37 | Unticked rows with a category you picked teach the classifier without being imported. |
 | 2026-10-20 | #37 | Fix: a Lloyds statement whose header line ends in a comma is no longer refused. |
 | 2026-10-20 | #37 | Notes on review rows, written onto their entries. |
+| 2026-10-30 | — | Lloyds exports with only some columns, and Monzo's shorter export, are recognised (committed straight to `staging`). |

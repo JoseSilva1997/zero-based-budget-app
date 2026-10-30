@@ -99,6 +99,53 @@ app.whenReady().then(() => {
       eq(monzo.parse([file.records[4]], { bankProduct: null })[0].parseError, undefined, 'a good row has no parse error');
     }
 
+    /* ---- Monzo's shorter export: ID, Created, Title, Subtitle, Amount ---- */
+    {
+      const file = fixture('monzo-short');
+      const monzo = detectPreset(file.header);
+      eq(monzo && monzo.key, 'monzo', "Monzo's shorter export is Monzo too");
+      const rows = monzo.parse(file.records, { bankProduct: null });
+      eq(
+        rows.map((r) => [r.rowIndex, r.spentOn, r.amountCents, r.direction, r.descriptorRaw]),
+        [
+          [0, '2026-10-28', 25, 'credit', 'Round up'],
+          [1, '2026-10-28', 975, 'debit', 'Example Rail'],
+          [4, '2026-10-24', 1152, 'debit', 'Sam Sample'],
+          [7, '2026-10-20', 175, 'debit', 'Travel'],
+          [8, '2026-10-20', 175, 'credit', 'Travel'],
+          [9, '2026-10-19', 990, 'debit', 'Corner Cafe'],
+        ],
+        'Monzo short: a pot move (same title, opposite amounts, same minute) is dropped; Created "DD/MM/YY, HH:MM" is the date; Title is the descriptor'
+      );
+      eq(rows[1].features, { category: 'transport' }, 'Monzo short: Categories is a feature');
+      eq(monzo.fileAccountIdentifier(file.records), null, 'Monzo short: names no account');
+      // A pair is two rows: a third with the same title and amount stays.
+      const r = (id, amount) => ({ ID: id, Created: '01/11/26, 10:00', Title: 'Travel', Subtitle: '', Amount: amount, Currency: 'GBP', Categories: 'transfers' });
+      eq(monzo.parse([r('a', '5'), r('b', '-5'), r('c', '-5')], { bankProduct: null }).map((x) => x.rowIndex), [2], 'Monzo short: each row pairs once');
+      eq(monzo.parse([{ ...r('a', '-5'), Created: '2026-11-01' }], { bankProduct: null })[0].parseError,
+        'Created "2026-11-01" is not a DD/MM/YY date', 'Monzo short: an unreadable date is a parse error');
+    }
+
+    /* ---- Lloyds with only some columns chosen in the export ---- */
+    {
+      const file = fixture('lloyds-short');
+      const lloyds = detectPreset(file.header);
+      eq(lloyds && lloyds.key, 'lloyds', 'a Lloyds export without the account and balance columns is Lloyds');
+      eq(
+        lloyds.parse(file.records, { bankProduct: null }).map((r) => [r.rowIndex, r.spentOn, r.amountCents, r.direction, r.descriptorRaw, r.parseError]),
+        [
+          [0, '2026-10-29', 1200, 'debit', 'EXAMPLE RAIL.COM', undefined],
+          [1, '2026-10-28', 2500, 'credit', 'SAM SAMPLE', undefined],
+          [2, '2026-10-21', 5495, 'debit', 'WEBHOST#5550009876', undefined],
+        ],
+        'Lloyds short: read like the full export'
+      );
+      eq(lloyds.fileAccountIdentifier(file.records), null, 'Lloyds short: names no account, so none is checked');
+      const header = fixture('lloyds').header;
+      eq(detectPreset(header.filter((h) => h !== 'Balance')).key, 'lloyds', 'an optional column may be left out');
+      eq(detectPreset(header.filter((h) => h !== 'Debit Amount')), null, 'a required one may not');
+    }
+
     /* ---- Lloyds ---- */
     {
       const file = fixture('lloyds');
