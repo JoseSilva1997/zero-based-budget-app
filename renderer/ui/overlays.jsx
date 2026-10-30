@@ -3,10 +3,11 @@
    them. A dialog that can be tabbed out of is a dialog that has not really
    opened, so the trap, the initial focus and the focus restore are as much a
    part of these as the veil is - all three via useFocusTrap, which the Wallet
-   sheet in Accounts.jsx takes as well.
+   sheet takes as well.
    ============================================================ */
 import { useState, useLayoutEffect, useRef } from 'react';
 import { useFocusTrap } from './hooks.js';
+import { Icons } from './icons.jsx';
 
 function Modal({ children, onClose, width, label }) {
   const boxRef = useRef(null);
@@ -57,4 +58,31 @@ function ConfirmDialog({ title, children, confirmLabel, onConfirm, onClose, busy
   );
 }
 
-export { Modal, ConfirmDialog };
+/* ---- the sheet ----------------------------------------------------------
+   The third overlay shape: a centred surface capped at 1120px, holding a
+   screen's worth of work rather than a question. The Wallet and the upload
+   are the two things that open one, and they share this drawing so the veil,
+   the keyframe, the focus trap and the close button stay one object.
+
+   `head` is the caller's identity block (and anything that sits beside it);
+   the close button is always the last thing in the head, named by
+   `closeLabel`. The sheet sits inside the veil so the veil can centre it; the
+   target check is what keeps a click that lands on the sheet itself from
+   reaching the veil's own handler and closing it. */
+function Sheet({ label, head, closeLabel, onClose, className, children }) {
+  const boxRef = useRef(null);
+  useFocusTrap(boxRef, onClose);
+  return (
+    <div className="sheet-veil" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <aside ref={boxRef} className={className ? `sheet ${className}` : "sheet"} role="dialog" aria-modal="true" aria-label={label}>
+        <div className="sheet-head">
+          {head}
+          <button className="icon-btn sheet-close" onClick={onClose} aria-label={closeLabel} title="Close"><Icons.x size={18} /></button>
+        </div>
+        <div className="sheet-body">{children}</div>
+      </aside>
+    </div>
+  );
+}
+
+export { Modal, ConfirmDialog, Sheet };

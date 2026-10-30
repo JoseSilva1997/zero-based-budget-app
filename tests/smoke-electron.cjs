@@ -16,12 +16,17 @@ app.disableHardwareAcceleration();
 const EXPECTED_TABLES = [
   'app_meta',
   'bank_accounts',
+  'banks',
   'budget_groups',
   'budget_incomes',
   'budget_item_actual_entries',
   'budget_items',
   'budget_months',
+  'categories',
   'household_members',
+  'import_batches',
+  'import_files',
+  'import_rows',
 ];
 const REMOVED_TABLES = [
   'budget_group_templates',
@@ -75,6 +80,24 @@ app.whenReady().then(() => {
     assert(!entryCols.includes('description'), 'budget_item_actual_entries.description should be gone');
     assert(entryCols.includes('name'), 'budget_item_actual_entries.name is missing');
     assert(entryCols.includes('note'), 'budget_item_actual_entries.note is missing');
+
+    // Groups and categories are month-independent; a month holds plan lines.
+    assert(!columnNames(db, 'budget_groups').includes('budget_month_id'), 'budget_groups.budget_month_id should be gone');
+    assert(columnNames(db, 'budget_groups').includes('archived'), 'budget_groups.archived is missing');
+    const itemCols = columnNames(db, 'budget_items');
+    for (const c of ['budget_month_id', 'category_id', 'planned_cents', 'bank_account_id', 'sort_order']) {
+      assert(itemCols.includes(c), `budget_items.${c} is missing`);
+    }
+    for (const c of ['budget_group_id', 'name']) {
+      assert(!itemCols.includes(c), `budget_items.${c} should be gone`);
+    }
+
+    // Upload transactions: an account points at its bank, and an entry at the
+    // staging row it was imported from.
+    for (const c of ['bank_id', 'account_identifier', 'bank_product']) {
+      assert(columnNames(db, 'bank_accounts').includes(c), `bank_accounts.${c} is missing`);
+    }
+    assert(entryCols.includes('import_row_id'), 'budget_item_actual_entries.import_row_id is missing');
 
     const v = db.prepare('SELECT sqlite_version() AS v').get().v;
     console.log(

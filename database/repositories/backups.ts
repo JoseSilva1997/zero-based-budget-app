@@ -2,11 +2,15 @@
    Backup file operations.
 
    - createDbBackup uses better-sqlite3's online backup API for a consistent
-     snapshot (safe even with WAL in flight).
+     snapshot (safe even with WAL in flight). createDbBackupSync is the same
+     snapshot via VACUUM INTO, for the backup taken before a migration.
    - inspectBackupFile validates a candidate file BEFORE anything is
      overwritten: SQLite header, then a read-only open to confirm it is
      actually a House Budget database, then the counts the confirm dialogue
-     needs. restoreFromFile refuses to copy anything that fails this.
+     needs. A file a newer version saved (user_version above LATEST_VERSION)
+     is refused before any query, since initDb would refuse it after the
+     restore and leave the app with no database. restoreFromFile refuses to
+     copy anything that fails this.
    - restoreFromFile copies a chosen backup over the live DB file. The caller
      MUST close the connection first and reopen after.
    - pruneBackups keeps a rolling maximum (default 30), oldest first.
@@ -14,6 +18,7 @@
 import Database from 'better-sqlite3';
 import * as fs from 'fs';
 import * as path from 'path';
+import { getUserVersion, LATEST_VERSION } from '../migrations';
 import type { BackupInfo, BackupSummary, DbSummary } from '../../shared/types';
 
 const PREFIX = 'budget-';
@@ -54,6 +59,33 @@ export async function createDbBackup(
   const dest = path.join(backupsDir, fileName);
 
   await db.backup(dest);
+  pruneBackups(backupsDir);
+
+  const size = fs.existsSync(dest) ? fs.statSync(dest).size : 0;
+  return { path: dest, fileName, savedAt: friendlyDate(now), size };
+}
+
+/**
+ * The same snapshot, taken synchronously with VACUUM INTO, for main/db.ts to
+ * take before migrating an existing database (initDb is synchronous, and
+ * nothing else has the connection yet). 'label' is appended to the file name
+ * to say why it was taken, e.g. "before-v8"; the file is still a normal
+ * backup, listed and restorable like the rest.
+ */
+export function createDbBackupSync(
+  db: Database.Database,
+  backupsDir: string,
+  label: string
+): BackupInfo {
+  const now = new Date();
+  const fileName = `${PREFIX}${safeTimestamp(now)}-${label}${SUFFIX}`;
+  const dest = path.join(backupsDir, fileName);
+
+  // VACUUM INTO refuses an existing file. Two launches in one second would
+  // both try this name; the first snapshot already covers the second.
+  if (!fs.existsSync(dest)) {
+    db.prepare(`VACUUM INTO ?`).run(dest);
+  }
   pruneBackups(backupsDir);
 
   const size = fs.existsSync(dest) ? fs.statSync(dest).size : 0;
@@ -131,6 +163,13 @@ export function inspectBackupFile(filePath: string): BackupSummary {
   let conn: Database.Database | null = null;
   try {
     conn = new Database(filePath, { readonly: true, fileMustExist: true });
+    // First: a newer schema can fail the queries below, which would wrongly
+    // call the file damaged.
+    if (getUserVersion(conn) > LATEST_VERSION) {
+      throw new Error(
+        "That backup was saved by a newer version of House Budget. Update the app to restore it."
+      );
+    }
     const table = conn
       .prepare(
         `SELECT COUNT(*) AS n FROM sqlite_master

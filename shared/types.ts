@@ -34,6 +34,23 @@ export interface BankAccount {
   sort_order: number;
   created_at: string;
   updated_at: string;
+  /** Upload transactions: the bank whose statements this account reads. */
+  bank_id: number | null;
+  /** From the first statement imported (Lloyds and NatWest name it). */
+  account_identifier: string | null;
+  /** The Revolut product this account is ('Current'). */
+  bank_product: string | null;
+}
+
+/** The built-in statement readers, one per bank. */
+export type BankPreset = 'monzo' | 'lloyds' | 'revolut' | 'natwest';
+
+export interface Bank {
+  id: number;
+  name: string;
+  preset: BankPreset;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface BudgetMonth {
@@ -54,24 +71,40 @@ export interface BudgetIncome {
   updated_at: string;
 }
 
+/** Month-independent: a group's name, kind and collapsed state apply to every
+ *  month it shows in. */
 export interface BudgetGroup {
   id: number;
-  budget_month_id: number;
   name: string;
   kind: GroupKind;
   collapsed: number;
+  archived: number;
   sort_order: number;
   created_at: string;
   updated_at: string;
 }
 
+/** What a plan line and its spending are FOR ("Groceries"), the same in every
+ *  month. 'bank_account_id' is only the default a new plan line starts with. */
+export interface Category {
+  id: number;
+  group_id: number;
+  name: string;
+  bank_account_id: number | null;
+  archived: number;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A month's plan line for one category (at most one per month). */
 export interface BudgetItem {
   id: number;
-  budget_group_id: number;
-  name: string;
+  budget_month_id: number;
+  category_id: number;
   planned_cents: number;
   bank_account_id: number | null;
-  sort_order: number;
+  sort_order: number; // within its group, in this month
   created_at: string;
   updated_at: string;
 }
@@ -181,8 +214,9 @@ export interface ActualRead {
 }
 
 export interface ItemRead {
-  id: number;
-  name: string;
+  id: number; // the plan line (budget_items.id)
+  category_id: number;
+  name: string; // the category's
   allocated: number; // dollars
   account: number | null; // bank_account id
   actuals: ActualRead[];
@@ -248,7 +282,32 @@ export interface TrendPoint {
   byDay: number[]; // length 32, index 1..31 -> dollars spent on that day-of-month
 }
 
+/** A category as the Settings list shows it, with what archiving or merging
+ *  it would touch. */
+export interface CategoryRead {
+  id: number;
+  name: string;
+  groupId: number;
+  groupName: string;
+  archived: boolean;
+  lines: number; // months it has a plan line in
+  entries: number; // spending entries logged against it, every month
+}
+
+/** What merging one category into another moves, for the confirmation
+ *  ("Moves 143 entries across 9 months into Groceries") and the toast. */
+export interface MergeImpact {
+  entries: number;
+  months: number;
+}
+
+/** A merge as it reports back: the impact, plus the backup taken first. */
+export interface MergeResult extends MergeImpact {
+  backup: string; // file name, in the backups list
+}
+
 export interface ReusableCandidate {
+  categoryId: number;
   name: string;
   allocated: number; // dollars
   account: number | null;
@@ -292,9 +351,186 @@ export interface BootstrapData {
   activeMonth: string | null; // "YYYY-MM", null on a fresh/empty DB
 }
 
+/** What bootstrap resolves to instead of throwing when the database was saved
+ *  by a newer House Budget (main/db.ts DatabaseTooNewError): schema versions,
+ *  the file's and the highest this build reads. */
+export interface DbTooNew {
+  status: 'db_too_new';
+  message: string;
+  found: number;
+  supported: number;
+}
+
 /* ---------- 4. IPC envelope + payloads ----------------------------------- */
 
-export type IpcResult<T> = { data: T } | { error: string };
+/** A refusal may carry a machine-readable 'code' (and 'detail') beside its
+ *  user-facing message, for the renderer to act on: 'needs_bank' from
+ *  import:addFile, 'db_too_new' from any read of a newer build's database. */
+export type IpcResult<T> = { data: T } | { error: string; code?: string; detail?: unknown };
+
+/* ---------- Upload transactions (main/ipc/imports.ts) ---------------------
+   Money here is integer PENCE and dates "YYYY-MM-DD", unlike the blob. */
+
+export type ImportLabelKey =
+  | 'ok'
+  | 'uncategorised'
+  | 'low_confidence'
+  | 'not_in_month'
+  | 'possible_duplicate'
+  | 'out_of_month'
+  | 'transfer'
+  | 'credit'
+  | 'already_imported'
+  | 'parse_error'
+  | 'not_completed';
+
+export interface ImportLabel {
+  key: ImportLabelKey;
+  severity: 'none' | 'info' | 'warn' | 'block';
+  /** The chip's text; '' for 'ok', which has no chip. */
+  text: string;
+}
+
+/** An existing entry an upload row may be the same spend as. */
+export interface ImportDuplicate {
+  id: number;
+  spentOn: string;
+  amountCents: number;
+  name: string | null;
+  categoryName: string;
+}
+
+export interface ImportRowRead {
+  id: number;
+  fileId: number;
+  rowIndex: number;
+  /* The bank's facts, as parsed (dates, amount and direction are null only
+     on a parse error). */
+  postedOn: string | null;
+  spentOn: string | null;
+  amountCents: number | null;
+  direction: 'debit' | 'credit' | null;
+  descriptorRaw: string;
+  descriptorClean: string;
+  features: Record<string, string>;
+  parseError: string | null;
+  notCompleted: boolean;
+  /* Effective: your decision where you made one, else the default. */
+  categoryId: number | null;
+  name: string;
+  kind: 'spend' | 'transfer';
+  included: boolean;
+  /** Unticked, but confirming trains the classifier on it: a spend whose
+   *  category you picked, not matched and not blocked. */
+  teaches: boolean;
+  /** The classifier's guess (a category id, or 'transfer'), or null. */
+  prediction: { label: number | 'transfer'; confidence: number } | null;
+  labels: ImportLabel[];
+  duplicates: ImportDuplicate[];
+  /** What you decided; null means "the default". */
+  decisions: {
+    categoryId: number | null;
+    name: string | null;
+    kind: 'spend' | 'transfer' | null;
+    included: boolean | null;
+    linkedEntryId: number | null;
+    /** The note the entry is written with; null for none. */
+    note: string | null;
+  };
+}
+
+export interface ImportFileRead {
+  id: number;
+  filename: string;
+  rowCount: number;
+  createdAt: string;
+}
+
+export interface ImportReviewAccount {
+  account: BankAccount;
+  bank: Bank | null;
+  files: ImportFileRead[];
+  rows: ImportRowRead[];
+}
+
+/** A plan line in the target month, for "Over plan after import". */
+export interface ImportPlanLine {
+  itemId: number;
+  categoryId: number;
+  name: string;
+  plannedCents: number;
+  actualCents: number;
+}
+
+/** A category the picker offers. */
+export interface ImportCategoryOption {
+  id: number;
+  name: string;
+  groupId: number;
+  groupName: string;
+  /** Has a plan line in the target month (listed first). */
+  inMonth: boolean;
+}
+
+export interface ImportReview {
+  month: { id: number; month: string };
+  batch: { id: number; status: 'pending'; createdAt: string } | null;
+  accounts: ImportReviewAccount[];
+  plan: ImportPlanLine[];
+  categories: ImportCategoryOption[];
+}
+
+export interface ImportRowPatch {
+  categoryId?: number | null;
+  name?: string | null;
+  kind?: 'spend' | 'transfer' | null;
+  included?: boolean | null;
+  linkedEntryId?: number | null;
+  note?: string | null;
+}
+
+export interface ImportAddedFile {
+  id: number;
+  batchId: number;
+  accountId: number;
+  filename: string;
+  rowCount: number;
+}
+
+/** What the preload's importAddFile resolves to. 'needs_bank' is not an
+ *  error to show: the account needs its bank (or Revolut product) chosen,
+ *  and the file can then be sent again. */
+export type ImportAddOutcome =
+  | { status: 'added'; file: ImportAddedFile }
+  | {
+      status: 'needs_bank';
+      message: string;
+      /** The bank the file looks like, or null for none House Budget reads. */
+      preset: BankPreset | null;
+      /** Revolut only: the products in the file, to pick the account's. */
+      products: string[] | null;
+    };
+
+export interface ImportConfirmResult {
+  /** Entries written. */
+  entries: number;
+  totalCents: number;
+  /** Rows matched to an existing entry instead. */
+  linked: number;
+  /** Plan lines created at £0 for categories the month didn't have. */
+  linesCreated: number;
+  /** Unticked rows that trained the classifier without becoming entries. */
+  learnt: number;
+}
+
+/** An imported batch, as "Previous imports" lists it. */
+export interface ImportHistoryRow {
+  id: number;
+  importedAt: string;
+  filenames: string[];
+  /** Entries it created that still exist. */
+  entries: number;
+}
 
 /**
  * One documented keyboard shortcut, as the Settings section renders it.

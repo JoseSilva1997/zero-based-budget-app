@@ -1,0 +1,7 @@
+﻿Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance
+Topup,Current,2026-01-02 11:23:59,2026-01-02 11:24:01,Google Pay top-up by *1234,20.00,0.00,GBP,COMPLETED,40.00
+ATM,Current,2026-01-02 11:24:23,2026-01-03 04:28:33,Cash withdrawal at Central Market,-17.50,0.00,GBP,COMPLETED,22.50
+ATM,Current,2026-01-03 09:50:26,2026-01-04 04:24:36,Cash withdrawal at Central Market,-8.74,0.09,GBP,COMPLETED,13.67
+Card Payment,Current,2026-01-05 15:37:43,2026-01-06 07:29:22,Little Bakery,-1.21,0.00,GBP,COMPLETED,12.46
+Transfer,Savings,2026-01-06 08:00:00,2026-01-06 08:00:00,To pocket GBP Savings,5.00,0.00,GBP,COMPLETED,105.00
+Card Payment,Current,2026-01-07 09:12:00,,Corner Cafe,-3.20,0.00,GBP,PENDING,0.96

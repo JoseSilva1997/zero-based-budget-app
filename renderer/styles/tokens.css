@@ -214,6 +214,17 @@
   --info: oklch(0.72 0.13 240);
   --info-soft: oklch(0.31 0.08 240);
 
+  /* Lantern Amber: the one warning hue, and a named exception to the rule
+     above. It exists for the upload review's "warn" label chips alone ("Check
+     category", "Possible duplicate", "Outside this month"), where a row the
+     household should look at before ticking has to read apart both from a
+     row that cannot be imported (Ember) and from a plain note (neutral). It
+     is never a budget state and never appears outside those chips; see "The
+     One Failure Rule" in DESIGN.md for the scope. The chip is an outlined
+     caption whose text is this colour, so it is solved as text on --raised:
+     guarded at 4.5:1 in tests/tokens-electron.cjs (9.63:1 in obsidian). */
+  --caution: oklch(0.80 0.14 75);
+
   /* Elevation. Pure-black shadows, which is what a dark canvas wants and what
      a light theme would have to restate. */
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.4), 0 1px 1px rgba(0,0,0,0.3);

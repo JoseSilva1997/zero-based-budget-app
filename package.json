@@ -26,8 +26,8 @@
     "check:platform": "node scripts/check-platform.mjs",
     "test:tokens": "electron tests/tokens-electron.cjs",
     "test:tokens:report": "electron tests/tokens-electron.cjs --report",
-    "test": "electron tests/smoke-electron.cjs && electron tests/repo-electron.cjs && electron tests/backup-electron.cjs && electron tests/migration-electron.cjs && electron tests/updater-electron.cjs && electron tests/update-banner-electron.cjs && electron tests/sidebar-electron.cjs && electron tests/menu-electron.cjs && electron tests/tokens-electron.cjs && electron tests/bar-electron.cjs && electron tests/debug-screenshot-electron.cjs",
-    "test:core": "electron tests/smoke-electron.cjs && electron tests/repo-electron.cjs && electron tests/backup-electron.cjs && electron tests/migration-electron.cjs && electron tests/updater-electron.cjs && electron tests/menu-electron.cjs"
+    "test": "electron tests/smoke-electron.cjs && electron tests/dev-userdata-electron.cjs && electron tests/repo-electron.cjs && electron tests/categories-electron.cjs && electron tests/banks-electron.cjs && electron tests/backup-electron.cjs && electron tests/migration-electron.cjs && electron tests/newer-database-electron.cjs && electron tests/import-parse-electron.cjs && electron tests/import-engine-electron.cjs && electron tests/import-repo-electron.cjs && electron tests/updater-electron.cjs && electron tests/update-banner-electron.cjs && electron tests/settings-categories-electron.cjs && electron tests/upload-sheet-electron.cjs && electron tests/store-months-electron.cjs && electron tests/sidebar-electron.cjs && electron tests/menu-electron.cjs && electron tests/tokens-electron.cjs && electron tests/bar-electron.cjs && electron tests/debug-screenshot-electron.cjs",
+    "test:core": "electron tests/smoke-electron.cjs && electron tests/dev-userdata-electron.cjs && electron tests/repo-electron.cjs && electron tests/categories-electron.cjs && electron tests/banks-electron.cjs && electron tests/backup-electron.cjs && electron tests/migration-electron.cjs && electron tests/newer-database-electron.cjs && electron tests/import-parse-electron.cjs && electron tests/import-engine-electron.cjs && electron tests/import-repo-electron.cjs && electron tests/updater-electron.cjs && electron tests/menu-electron.cjs"
   },
   "build": {
     "appId": "com.housebudget.app",
@@ -74,23 +74,23 @@
     ]
   },
   "dependencies": {
-    "better-sqlite3": "^12.10.0",
-    "electron-updater": "^6.8.9",
+    "better-sqlite3": "^13.0.3",
+    "electron-updater": "^6.8.11",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "recharts": "^3.8.1"
+    "recharts": "^3.10.1"
   },
   "devDependencies": {
-    "@electron/rebuild": "^4.0.4",
+    "@electron/rebuild": "^4.2.1",
     "@fontsource/plus-jakarta-sans": "^5.3.0",
-    "@material-symbols/svg-400": "^0.45.10",
-    "@types/better-sqlite3": "^7.6.12",
-    "@types/node": "^22.10.5",
-    "electron": "^41.7.1",
-    "electron-builder": "^26.15.3",
+    "@material-symbols/svg-400": "^0.48.2",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^26.6.5",
+    "electron": "^42.11.16",
+    "electron-builder": "^26.18.0",
     "electron-reload": "^2.0.0-alpha.1",
-    "esbuild": "^0.28.0",
-    "playwright-core": "^1.62.1",
+    "esbuild": "^0.28.2",
+    "playwright-core": "^1.64.1",
     "typescript": "^5.7.3"
   }
 }

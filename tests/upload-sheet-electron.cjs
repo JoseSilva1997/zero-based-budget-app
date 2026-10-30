@@ -1,0 +1,632 @@
+/* ============================================================
+   Upload transactions sheet renderer test.
+
+   Mounts the real sheet inside the real store, in a hidden BrowserWindow,
+   against a fake window.api that keeps a small upload server of its own, the
+   way settings-categories-electron.cjs mounts its section. What it holds the
+   sheet to:
+
+     - the upload step draws one drop zone per account, lists each zone's
+       files, sets an account's bank up inline when a statement needs one and
+       retries the file, and only lets you on to Review once a file is in;
+     - the review is one list with a separator per account, label chips
+       coloured by severity, blocked rows sunk and inert, filter chips across
+       every account, and the rows outside the month folded away;
+     - every decision (name, category, transfer, tick, "Same as existing")
+       goes through importUpdateRow and the review is read again;
+     - the over-plan line is computed locally, Confirm imports and refreshes
+       the month, and Undo puts an import back to pending.
+
+   Also unit-tests the pure helpers in renderer/lib/imports.js.
+
+   esbuild compiles the JSX (the same bundler the app ships with).
+
+   Run with:  npx electron tests/upload-sheet-electron.cjs
+   ============================================================ */
+const { app, BrowserWindow } = require('electron');
+const esbuild = require('esbuild');
+const fs = require('fs');
+const path = require('path');
+
+app.disableHardwareAcceleration();
+
+const root = path.join(__dirname, '..');
+const outDir = path.join(app.getPath('temp'), 'house-budget-upload-sheet-test');
+
+function assert(cond, msg) {
+  if (!cond) throw new Error(msg);
+}
+
+const PAGE_SUITE = /* js */ `
+import { createElement } from 'react';
+import { createRoot } from 'react-dom/client';
+import { StoreProvider, useStore } from './renderer/store.jsx';
+import { UploadSheet } from './renderer/Upload.jsx';
+import { confirmReceipt, importOutcome, onlyOutOfMonth } from './renderer/lib/imports.js';
+
+const results = [];
+const check = (name, cond, msg) => results.push({ name, ok: !!cond, msg: cond ? '' : (msg || '') });
+const tick = () => new Promise((r) => setTimeout(r, 0));
+const settle = async () => { for (let i = 0; i < 10; i++) await tick(); };
+
+/* ---- the fake upload server ------------------------------------------- */
+const LLOYDS = { id: 1, name: 'Lloyds', preset: 'lloyds' };
+const account = (id, name, bankId) => ({
+  id, name, kind: 'main', owner_member_id: null, color: '#888888', sort_order: id,
+  bank_id: bankId, account_identifier: null, bank_product: null,
+});
+const server = {
+  banks: [LLOYDS],
+  accounts: [account(1, 'Main', 1), account(2, 'Joint', null), account(3, 'Travel', null)],
+  batch: null,
+  files: [],     // { id, accountId, filename, rowCount }
+  rows: [],      // ImportRowRead, with accountId
+  history: [],
+  plan: [
+    { itemId: 1, categoryId: 11, name: 'Groceries', plannedCents: 30000, actualCents: 28000 },
+    { itemId: 2, categoryId: 12, name: 'Eating out', plannedCents: 5000, actualCents: 5000 },
+    { itemId: 3, categoryId: 13, name: 'Fuel', plannedCents: 10000, actualCents: 2000 },
+  ],
+  categories: [
+    { id: 11, name: 'Groceries', groupId: 1, groupName: 'Food', inMonth: true },
+    { id: 12, name: 'Eating out', groupId: 1, groupName: 'Food', inMonth: true },
+    { id: 13, name: 'Fuel', groupId: 2, groupName: 'Car', inMonth: true },
+    { id: 14, name: 'Gifts', groupId: 3, groupName: 'Other', inMonth: false },
+  ],
+  calls: { added: [], removed: [], updates: [], bankCreate: [], setBank: [], confirm: [], discard: [], undo: [], getMonth: 0 },
+};
+
+/* A row as the review reads it, with the account it belongs to beside it. */
+const L = {
+  dup: { key: 'possible_duplicate', severity: 'warn', text: 'Possible duplicate' },
+  low: { key: 'low_confidence', severity: 'warn', text: 'Check category' },
+  oom: { key: 'out_of_month', severity: 'warn', text: 'Outside this month' },
+  nim: { key: 'not_in_month', severity: 'warn', text: "Not in this month's plan" },
+  imported: { key: 'already_imported', severity: 'block', text: 'Already imported' },
+  credit: { key: 'credit', severity: 'block', text: 'Money in' },
+  parse: { key: 'parse_error', severity: 'block', text: "Couldn't read" },
+  transfer: { key: 'transfer', severity: 'info', text: 'Transfer' },
+  uncat: { key: 'uncategorised', severity: 'warn', text: 'No category' },
+};
+const row = (id, accountId, o = {}) => ({
+  id, accountId, fileId: accountId === 1 ? 201 : 202, rowIndex: id,
+  postedOn: 'spentOn' in o ? o.spentOn : '2026-10-05', spentOn: 'spentOn' in o ? o.spentOn : '2026-10-05',
+  amountCents: 'amountCents' in o ? o.amountCents : 1000, direction: o.direction || 'debit',
+  descriptorRaw: (o.name || 'SHOP').toUpperCase(), descriptorClean: (o.name || 'SHOP').toUpperCase(),
+  features: {}, parseError: o.parseError || null, notCompleted: false,
+  categoryId: 'categoryId' in o ? o.categoryId : 11, name: o.name || 'Shop', kind: o.kind || 'spend',
+  included: !!o.included, teaches: !!o.teaches, prediction: null, labels: o.labels || [], duplicates: o.duplicates || [],
+  decisions: { categoryId: null, name: null, kind: null, included: null, linkedEntryId: o.linkedEntryId || null },
+});
+const reviewRows = () => [
+  row(1, 1, { name: 'Tesco', spentOn: '2026-10-03', amountCents: 4210, included: true }),
+  row(2, 1, { name: 'Corner shop', amountCents: 500, labels: [L.imported] }),
+  row(3, 1, { name: 'Pret', categoryId: 12, amountCents: 800, included: true }),
+  row(4, 1, { name: 'Shell', categoryId: 13, amountCents: 3000, labels: [L.low] }),
+  row(5, 1, { name: 'Old shop A', spentOn: '2026-09-02', labels: [L.oom] }),
+  row(6, 1, { name: 'Old shop B', spentOn: '2026-09-12', labels: [L.oom] }),
+  row(7, 1, { name: 'Old shop C', spentOn: '2026-08-30', labels: [L.oom] }),
+  row(8, 1, { name: 'Sainsburys', amountCents: 1234, labels: [L.dup],
+    duplicates: [{ id: 900, spentOn: '2026-10-04', amountCents: 1234, name: 'Sainsburys big shop', categoryName: 'Groceries' }] }),
+  row(9, 2, { name: 'Refund', amountCents: 2000, direction: 'credit', labels: [L.credit] }),
+  row(10, 2, { name: 'GARBLED', categoryId: null, amountCents: null, spentOn: null, parseError: 'The amount "x" is not a number.', labels: [L.parse] }),
+  row(11, 2, { name: 'Card shop', categoryId: 14, amountCents: 1500, labels: [L.nim], teaches: true }),
+  row(12, 2, { name: 'To savings', kind: 'transfer', categoryId: null, amountCents: 10000, labels: [L.transfer] }),
+  row(13, 2, { name: 'Florist', categoryId: 14, amountCents: 2500, included: true }),
+  row(14, 2, { name: 'Mystery', categoryId: null, amountCents: 700, labels: [L.uncat] }),
+];
+
+const review = () => ({
+  month: { id: 1, month: '2026-10' },
+  batch: server.batch,
+  accounts: server.accounts.map((a) => ({
+    account: a,
+    bank: server.banks.find((b) => b.id === a.bank_id) || null,
+    files: server.files.filter((f) => f.accountId === a.id).map((f) => ({ id: f.id, filename: f.filename, rowCount: f.rowCount, createdAt: '' })),
+    rows: server.rows.filter((r) => r.accountId === a.id),
+  })),
+  plan: server.plan,
+  categories: server.categories,
+});
+
+window.api = {
+  bootstrap: async () => ({
+    settings: { currency: '£', theme: 'obsidian', members: [], accounts: server.accounts },
+    monthList: [{ id: 1, month: '2026-10' }],
+    activeMonth: '2026-10',
+  }),
+  getMonth: async () => { server.calls.getMonth += 1; return { month: '2026-10', incomes: [], groups: [] }; },
+  importReview: async () => { server.calls.reviews = (server.calls.reviews || 0) + 1; return review(); },
+  // Applies the patch to the row's effective fields, as the server would
+  // after recomputing; null puts a field back to its default.
+  importUpdateRow: async (rowId, patch) => {
+    server.calls.updates.push([rowId, patch]);
+    server.rows = server.rows.map((r) => {
+      if (r.id !== rowId) return r;
+      const next = { ...r, decisions: { ...r.decisions } };
+      for (const [k, v] of Object.entries(patch)) {
+        next.decisions[k] = v;
+        if (k !== 'linkedEntryId' && v !== null) next[k] = v;
+      }
+      if (patch.kind === 'transfer') next.labels = [...r.labels.filter((l) => l.key !== 'transfer'), L.transfer];
+      if (patch.kind === 'spend') next.labels = r.labels.filter((l) => l.key !== 'transfer');
+      return next;
+    });
+    return { ok: true };
+  },
+  importHistory: async () => server.history.map((h) => ({ ...h })),
+  banks: async () => server.banks.map((b) => ({ ...b })),
+  // The preload resolves needs_bank rather than throwing; other refusals throw.
+  importAddFile: async ({ accountId, filename, text }) => {
+    server.calls.added.push({ accountId, filename, text });
+    const acc = server.accounts.find((a) => a.id === accountId);
+    if (acc.bank_id == null) {
+      const revolut = /revolut/.test(filename);
+      return { status: 'needs_bank', message: 'Choose the bank for this account first.', preset: revolut ? 'revolut' : 'natwest', products: revolut ? ['Current', 'Savings'] : null };
+    }
+    if (server.files.some((f) => f.filename === filename)) throw new Error('That file is already in this upload.');
+    if (!server.batch) server.batch = { id: 7, status: 'pending', createdAt: '2026-10-18 10:00:00' };
+    const file = { id: server.files.length + 100, accountId, filename, rowCount: 3 };
+    server.files.push(file);
+    return { status: 'added', file: { ...file, batchId: 7 } };
+  },
+  bankCreate: async (name, preset) => {
+    server.calls.bankCreate.push([name, preset]);
+    const bank = { id: server.banks.length + 1, name, preset };
+    server.banks.push(bank);
+    return { ...bank };
+  },
+  accountSetBank: async (accountId, bankId, product) => {
+    server.calls.setBank.push([accountId, bankId, product]);
+    server.accounts = server.accounts.map((a) => (a.id === accountId ? { ...a, bank_id: bankId, bank_product: product } : a));
+    return { ok: true };
+  },
+  importConfirm: async (batchId) => {
+    server.calls.confirm.push(batchId);
+    server.history.unshift({ id: batchId, importedAt: '2026-10-18 10:30:00', filenames: server.files.map((f) => f.filename), entries: 3 });
+    server.batch = null; server.files = []; server.rows = [];
+    return { entries: 3, totalCents: 7510, linked: 1, linesCreated: 1 };
+  },
+  importUndo: async (batchId) => {
+    server.calls.undo.push(batchId);
+    server.history = server.history.filter((h) => h.id !== batchId);
+    server.batch = { id: batchId, status: 'pending', createdAt: '2026-10-18 10:00:00' };
+    server.files = [
+      { id: 201, accountId: 1, filename: 'main-oct.csv', rowCount: 8 },
+      { id: 202, accountId: 2, filename: 'joint-oct.csv', rowCount: 5 },
+    ];
+    server.rows = reviewRows();
+    return { ok: true };
+  },
+  importDiscard: async (batchId) => {
+    server.calls.discard.push(batchId);
+    server.batch = null; server.files = []; server.rows = [];
+    return { ok: true };
+  },
+  importRemoveFile: async (fileId) => {
+    server.calls.removed.push(fileId);
+    server.files = server.files.filter((f) => f.id !== fileId);
+    server.rows = server.rows.filter((r) => r.fileId !== fileId);
+    return { ok: true };
+  },
+};
+
+const host = document.getElementById('root');
+let root = null;
+let closed = 0;
+// The app's toast lives in main.jsx; this stands in for it, showing the
+// store's live message where the suite can read it.
+function ToastProbe() {
+  const { toastMsg } = useStore();
+  return createElement('output', { 'data-toast': toastMsg ? toastMsg.tone : '' }, toastMsg ? toastMsg.message : '');
+}
+const mount = async () => {
+  if (root) root.unmount();
+  closed = 0;
+  root = createRoot(host);
+  root.render(createElement(StoreProvider, null,
+    createElement(UploadSheet, { month: '2026-10', currency: '£', onClose: () => { closed += 1; } }),
+    createElement(ToastProbe)));
+  await settle();
+};
+const toastText = () => (document.querySelector('[data-toast]') || {}).textContent || '';
+const text = () => document.body.textContent;
+const zones = () => [...document.querySelectorAll('[data-account-zone]')];
+const zone = (id) => document.querySelector('[data-account-zone="' + id + '"]');
+const byLabel = (label) => document.querySelector('[aria-label="' + label + '"]');
+const buttonNamed = (label) =>
+  [...document.querySelectorAll('button')].find((b) => b.textContent.trim().toLowerCase().startsWith(label.toLowerCase()));
+const press = async (el, name) => {
+  check(name + ' is there to press', !!el, text().slice(0, 300));
+  if (el) el.click();
+  await settle();
+};
+// Hands files to a zone's picker, the way choosing them in the dialog does.
+const setValue = async (el, value) => {
+  const proto = el.tagName === 'SELECT' ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
+  Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, value);
+  el.dispatchEvent(new Event(el.tagName === 'SELECT' ? 'change' : 'input', { bubbles: true }));
+  await settle();
+};
+const choose = async (accountId, names) => {
+  const input = zone(accountId).querySelector('input[type="file"]');
+  const dt = new DataTransfer();
+  for (const n of names) dt.items.add(new File(['Date,Description,Value\\n'], n, { type: 'text/csv' }));
+  input.files = dt.files;
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+  await settle();
+};
+
+/* ---- the pure helper: what Confirm would do, and what goes over ------ */
+function unitTests() {
+  const lbl = (key, severity) => ({ key, severity, text: key });
+  const r = (o) => ({ included: true, kind: 'spend', categoryId: 11, amountCents: 1000, labels: [], decisions: { linkedEntryId: null }, ...o });
+  const plan = [
+    { itemId: 1, categoryId: 11, name: 'Groceries', plannedCents: 30000, actualCents: 28000 },
+    { itemId: 2, categoryId: 12, name: 'Eating out', plannedCents: 5000, actualCents: 5000 },
+    { itemId: 3, categoryId: 13, name: 'Fuel', plannedCents: 10000, actualCents: 2000 },
+  ];
+  const categories = [
+    { id: 11, name: 'Groceries' }, { id: 12, name: 'Eating out' }, { id: 13, name: 'Fuel' }, { id: 14, name: 'Gifts' },
+  ];
+  const out = importOutcome({ plan, categories, accounts: [
+    { rows: [
+      r({ categoryId: 11, amountCents: 4210 }),
+      r({ categoryId: 12, amountCents: 800 }),
+      r({ categoryId: 13, amountCents: 3000 }),
+      r({ categoryId: 11, amountCents: 999, included: false }),
+    ] },
+    { rows: [
+      r({ categoryId: 14, amountCents: 2500 }),
+      r({ categoryId: 11, amountCents: 5000, labels: [lbl('credit', 'block')] }),
+      r({ categoryId: 11, amountCents: 7000, kind: 'transfer' }),
+      r({ categoryId: 11, amountCents: 1234, decisions: { linkedEntryId: 900 } }),
+      r({ categoryId: 11, amountCents: null, labels: [lbl('parse_error', 'block')] }),
+    ] },
+  ] });
+  check('unit: counts only the rows Confirm writes', out.count === 4, JSON.stringify(out));
+  check('unit: totals them in pence', out.totalCents === 10510, out.totalCents + '');
+  check('unit: counts the matched rows apart', out.linked === 1, out.linked + '');
+  check('unit: a line already at plan goes over by what is added', JSON.stringify(out.over.find((o) => o.name === 'Eating out')) === '{"categoryId":12,"name":"Eating out","overCents":800}', JSON.stringify(out.over));
+  check('unit: over is actual plus the ticked rows, less the plan', out.over.find((o) => o.name === 'Groceries') && out.over.find((o) => o.name === 'Groceries').overCents === 2210, JSON.stringify(out.over));
+  check('unit: a category with no plan line is over by all of it', out.over.find((o) => o.name === 'Gifts') && out.over.find((o) => o.name === 'Gifts').overCents === 2500, JSON.stringify(out.over));
+  check('unit: a line with room left is not listed', !out.over.some((o) => o.name === 'Fuel'), JSON.stringify(out.over));
+  check('unit: the worst first', out.over.map((o) => o.name).join() === 'Gifts,Groceries,Eating out', out.over.map((o) => o.name).join());
+  const none = importOutcome({ plan, categories, accounts: [{ rows: [r({ categoryId: 13, amountCents: 100 })] }] });
+  check('unit: nothing over is an empty list', none.over.length === 0 && none.count === 1, JSON.stringify(none));
+  // Bootstrapping: a past month's rows matched to hand-typed entries carry no
+  // category of their own, and matching them is still something to confirm.
+  const matchedOnly = importOutcome({ plan, categories, accounts: [{ rows: [
+    r({ categoryId: null, included: false, labels: [lbl('uncategorised', 'warn')], decisions: { linkedEntryId: 900 } }),
+  ] }] });
+  check('unit: a matched row with no category of its own still counts as matched', matchedOnly.linked === 1 && matchedOnly.count === 0, JSON.stringify(matchedOnly));
+  // An unticked row whose category you picked teaches the classifier on
+  // confirm; the server says which rows do, and the footer counts them.
+  const taught = importOutcome({ plan, categories, accounts: [{ rows: [
+    r({ included: false, teaches: true }), r({ included: false, teaches: true }), r({ included: false }),
+  ] }] });
+  check('unit: rows that only teach are counted apart', taught.learnt === 2 && taught.count === 0, JSON.stringify(taught));
+  const pounds = (cents) => '£' + (cents / 100).toFixed(2);
+  check('unit: the receipt says what was imported',
+    confirmReceipt({ entries: 3, totalCents: 7510, linked: 1, linesCreated: 1, learnt: 0 }, pounds) === 'Imported 3 entries · £75.10, 1 matched, 1 new plan line.',
+    confirmReceipt({ entries: 3, totalCents: 7510, linked: 1, linesCreated: 1, learnt: 0 }, pounds));
+  check('unit: and what was learnt',
+    confirmReceipt({ entries: 1, totalCents: 250, linked: 0, linesCreated: 0, learnt: 2 }, pounds) === 'Imported 1 entry · £2.50, 2 learnt.',
+    confirmReceipt({ entries: 1, totalCents: 250, linked: 0, linesCreated: 0, learnt: 2 }, pounds));
+  check('unit: with nothing imported, only what was learnt',
+    confirmReceipt({ entries: 0, totalCents: 0, linked: 0, linesCreated: 0, learnt: 3 }, pounds) === 'Learnt 3 categories.',
+    confirmReceipt({ entries: 0, totalCents: 0, linked: 0, linesCreated: 0, learnt: 3 }, pounds));
+  // "No category" is an amber chip but not a reason to look: a row with no
+  // category outside the month still folds, as most of a long statement does.
+  check('unit: a row outside the month with no category yet still folds',
+    onlyOutOfMonth({ labels: [lbl('uncategorised', 'warn'), lbl('out_of_month', 'warn')] }));
+  check('unit: one with another warning does not',
+    !onlyOutOfMonth({ labels: [lbl('possible_duplicate', 'warn'), lbl('out_of_month', 'warn')] }));
+}
+
+window.__runTests = async () => {
+  unitTests();
+
+  /* ---- 1. one drop zone per account --------------------------------- */
+  await mount();
+  check('the sheet is a dialog named for the upload', !!document.querySelector('[role="dialog"][aria-label="Upload transactions"]'), text());
+  check('one zone per account, in display order', zones().map((z) => z.getAttribute('data-account-zone')).join(',') === '1,2,3', zones().length + '');
+  check('a zone names its account and bank', zones()[0] && /Main/.test(zones()[0].textContent) && /Lloyds/.test(zones()[0].textContent), zones()[0] && zones()[0].textContent);
+  check('an account with no bank says so', zones()[1] && /No bank yet/.test(zones()[1].textContent), zones()[1] && zones()[1].textContent);
+  check('Review waits for a file', buttonNamed('Review') && buttonNamed('Review').disabled, '');
+  check('each zone offers a file picker', zones().every((z) => z.querySelector('input[type="file"][multiple]')), '');
+
+
+  /* ---- files in a zone ------------------------------------------------ */
+  await choose(1, ['lloyds-sep.csv']);
+  check('a chosen file is sent as text for its account', server.calls.added.length === 1 && server.calls.added[0].accountId === 1 && server.calls.added[0].filename === 'lloyds-sep.csv' && /Date,Description/.test(server.calls.added[0].text), JSON.stringify(server.calls.added));
+  check('the zone lists the file with its row count', /lloyds-sep\.csv/.test(zone(1).textContent) && /3 rows/.test(zone(1).textContent), zone(1).textContent);
+  await press(byLabel('Remove lloyds-sep.csv'), 'Remove lloyds-sep.csv');
+  check('removing a file goes through the bridge', server.calls.removed.length === 1, JSON.stringify(server.calls.removed));
+  check('and it leaves the zone', !/lloyds-sep\.csv/.test(zone(1).textContent), zone(1).textContent);
+
+  /* ---- 2. an account with no bank is set up inline, then retried ------ */
+  await choose(2, ['joint-sep.csv']);
+  const bankSel = byLabel('Bank for Joint');
+  check('needs_bank opens a setup inside the zone, not a dialog', bankSel && zone(2).contains(bankSel) && !document.querySelector('.modal'), zone(2).textContent);
+  check('no matching bank yet, so it offers a new one', bankSel && bankSel.value === 'new', bankSel && bankSel.value);
+  check('the existing banks are offered too', bankSel && [...bankSel.options].some((o) => o.textContent === 'Lloyds'));
+  const fmtSel = byLabel('Statement format for Joint');
+  check('the format is pre-selected from the file', fmtSel && fmtSel.value === 'natwest', fmtSel && fmtSel.value);
+  const nameIn = byLabel('Name of the new bank');
+  check('the new bank is named after the format to start with', nameIn && nameIn.value === 'NatWest', nameIn && nameIn.value);
+  check('no product to pick for NatWest', !byLabel('Revolut account for Joint'));
+  if (nameIn) await setValue(nameIn, 'NatWest Joint');
+  await press(buttonNamed('Use this bank'), 'Use this bank');
+  check('creates the named bank with the chosen format', JSON.stringify(server.calls.bankCreate) === '[["NatWest Joint","natwest"]]', JSON.stringify(server.calls.bankCreate));
+  check('points the account at it', JSON.stringify(server.calls.setBank) === '[[2,2,null]]', JSON.stringify(server.calls.setBank));
+  check('and sends the file again', server.calls.added.filter((a) => a.filename === 'joint-sep.csv').length === 2, JSON.stringify(server.calls.added.map((a) => a.filename)));
+  check('the file is in the zone and the setup is gone', /joint-sep\.csv/.test(zone(2).textContent) && !byLabel('Bank for Joint'), zone(2).textContent);
+  check('the zone names its new bank', /NatWest Joint/.test(zone(2).textContent), zone(2).textContent);
+
+  // Revolut: the product is chosen as well.
+  await choose(3, ['revolut-jan.csv']);
+  const prodSel = byLabel('Revolut account for Travel');
+  check('a Revolut file asks which of its products this account is', prodSel && ['Current', 'Savings'].every((p) => [...prodSel.options].some((o) => o.value === p)), zone(3).textContent);
+  check('with the format pre-selected as Revolut', byLabel('Statement format for Travel') && byLabel('Statement format for Travel').value === 'revolut');
+  if (prodSel) await setValue(prodSel, 'Savings');
+  await press(buttonNamed('Use this bank'), 'Use this bank (Revolut)');
+  check('sets the product with the bank', JSON.stringify(server.calls.setBank[1]) === '[3,3,"Savings"]', JSON.stringify(server.calls.setBank));
+  check('and the Revolut file goes in', /revolut-jan\.csv/.test(zone(3).textContent), zone(3).textContent);
+
+  /* ---- refusals are said in the zone -------------------------------- */
+  await choose(1, ['main-oct.csv']);
+  await choose(1, ['main-oct.csv']);
+  check('a repeat file is refused in its own zone', /That file is already in this upload\./.test(zone(1).textContent) && !/already in this upload/.test(zone(2).textContent), zone(1).textContent);
+
+  /* ---- 3. the Review button ------------------------------------------ */
+  check('Review is ready once a file is in', buttonNamed('Review') && !buttonNamed('Review').disabled, '');
+  await press(buttonNamed('Review'), 'Review');
+  check('Review moves to the review step', !!document.querySelector('[data-review]') && zones().length === 0, text().slice(0, 300));
+  check('Back to files returns to the zones', !!buttonNamed('Back to files'));
+  await press(buttonNamed('Back to files'), 'Back to files');
+  check('and the zones are back with their files', zones().length === 3 && /joint-sep/.test(zone(2).textContent), text().slice(0, 300));
+
+  /* ---- 4. a pending upload with rows reopens on Review --------------- */
+  server.files = [
+    { id: 201, accountId: 1, filename: 'main-oct.csv', rowCount: 8 },
+    { id: 202, accountId: 2, filename: 'joint-oct.csv', rowCount: 5 },
+  ];
+  server.rows = reviewRows();
+  await mount();
+  check('reopens on Review', !!document.querySelector('[data-review]') && zones().length === 0, text().slice(0, 300));
+  const sections = () => [...document.querySelectorAll('[data-account-section]')];
+  const section = (id) => document.querySelector('[data-account-section="' + id + '"]');
+  check('one merged list, a section per account with rows', sections().map((x) => x.getAttribute('data-account-section')).join(',') === '1,2', sections().length + '');
+  const sep = (id) => section(id) && section(id).querySelector('[data-account-separator]');
+  check('a separator names the account and its bank', sep(1) && /Main/.test(sep(1).textContent) && /Lloyds/.test(sep(1).textContent), sep(1) && sep(1).textContent);
+  check('with a quiet row count', sep(1) && /8 rows/.test(sep(1).textContent) && sep(2) && /6 rows/.test(sep(2).textContent), (sep(1) && sep(1).textContent) + ' / ' + (sep(2) && sep(2).textContent));
+  check('the second account names its bank too', sep(2) && /Joint/.test(sep(2).textContent) && /NatWest Joint/.test(sep(2).textContent), sep(2) && sep(2).textContent);
+  const rowEl = (id) => document.querySelector('[data-row-id="' + id + '"]');
+  check('a row shows its date, name and amount', rowEl(1) && /3 Oct/.test(rowEl(1).textContent) && rowEl(1).querySelector('input[aria-label="Name for Tesco"]') && rowEl(1).textContent.includes('£42.10'), rowEl(1) && rowEl(1).textContent);
+
+  /* ---- 5. label chips, coloured by severity -------------------------- */
+  const chips = (id) => (rowEl(id) ? [...rowEl(id).querySelectorAll('.upload-chip')] : []);
+  check('a warn label is an amber chip with its text', chips(4).length === 1 && chips(4)[0].classList.contains('is-warn') && chips(4)[0].textContent === 'Check category', chips(4).map((c) => c.className + ':' + c.textContent).join());
+  check('a block label is an ember chip', chips(2).length === 1 && chips(2)[0].classList.contains('is-block') && chips(2)[0].textContent === 'Already imported', chips(2).map((c) => c.className).join());
+  check('an info label is a neutral chip', chips(12).length === 1 && chips(12)[0].classList.contains('is-info') && chips(12)[0].textContent === 'Transfer', chips(12).map((c) => c.className).join());
+  check('an ok row has no chip', chips(1).length === 0, chips(1).length + '');
+  check('a row with no category wears an amber chip, not an ember one', chips(14).length === 1 && chips(14)[0].classList.contains('is-warn') && chips(14)[0].textContent === 'No category', chips(14).map((c) => c.className).join());
+  check('a row that could not be read carries its reason on the chip', chips(10)[0] && chips(10)[0].title === 'The amount "x" is not a number.', chips(10)[0] && chips(10)[0].title);
+
+  /* ---- 6. blocked rows sink and are inert ---------------------------- */
+  const order = (id) => [...section(id).querySelectorAll('[data-row-id]')].map((r) => Number(r.getAttribute('data-row-id')));
+  const sunk = (id, blockedIds) => {
+    const o = order(id);
+    const firstBlocked = Math.min(...blockedIds.map((b) => o.indexOf(b)));
+    return blockedIds.every((b) => o.includes(b)) && o.slice(firstBlocked).every((r) => blockedIds.includes(r));
+  };
+  check('a blocked row sinks to the bottom of its section', sunk(1, [2]), order(1).join());
+  check('in every section', sunk(2, [9, 10]), order(2).join());
+  check('and otherwise keeps the statement order', order(2).slice(0, 3).join() === '11,12,13', order(2).join());
+  check('a blocked row is dimmed', rowEl(2).classList.contains('is-blocked'));
+  check('its tick cannot be ticked', rowEl(2).querySelector('input[type="checkbox"]').disabled && !rowEl(2).querySelector('input[type="checkbox"]').checked);
+  check('nor its category changed', rowEl(2).querySelector('select').disabled);
+  check('a row blocked only for want of a category stays where it is', order(2).join() === '11,12,13,14,9,10', order(2).join());
+  check('not dimmed, its category still to be picked', rowEl(14) && !rowEl(14).classList.contains('is-blocked') && !rowEl(14).querySelector('select').disabled, rowEl(14) && rowEl(14).className);
+  check('but not tickable until it has one', rowEl(14) && rowEl(14).querySelector('input[type="checkbox"]').disabled);
+  check('an unblocked row stays live', !rowEl(1).classList.contains('is-blocked') && !rowEl(1).querySelector('input[type="checkbox"]').disabled);
+
+  /* ---- 7. filter chips across every account ------------------------- */
+  const filter = (key) => document.querySelector('[data-filter="' + key + '"]');
+  check('a filter chip per label, with its count', filter('possible_duplicate') && filter('possible_duplicate').textContent === 'Possible duplicate · 1', filter('possible_duplicate') && filter('possible_duplicate').textContent);
+  check('counted across every account', filter('out_of_month') && filter('out_of_month').textContent === 'Outside this month · 3' && filter('transfer') && /· 1$/.test(filter('transfer').textContent), filter('out_of_month') && filter('out_of_month').textContent);
+  check('the filter row sits above the list', (() => { const f = document.querySelector('[data-filters]'); const l = document.querySelector('[data-account-section]'); return f && l && (f.compareDocumentPosition(l) & Node.DOCUMENT_POSITION_FOLLOWING); })());
+  check('no chip for ok', !filter('ok'));
+  await press(filter('possible_duplicate'), 'the Possible duplicate filter');
+  const visibleRows = () => [...document.querySelectorAll('[data-row-id]')].map((r) => Number(r.getAttribute('data-row-id')));
+  check('filtering keeps only the rows carrying that label', visibleRows().join() === '8', visibleRows().join());
+  check('the chip says it is on', filter('possible_duplicate').getAttribute('aria-pressed') === 'true');
+  check('a section with nothing left drops out', !section(2), sections().length + '');
+  await press(filter('not_in_month'), 'the Not in this month filter');
+  check('another label filters across accounts too', visibleRows().join() === '11', visibleRows().join());
+  await press(filter('not_in_month'), 'the Not in this month filter again');
+  check('pressing it again shows everything', visibleRows().length >= 10 && !!section(2), visibleRows().join());
+
+  /* ---- 8. rows outside the month fold away -------------------------- */
+  const fold = (id) => section(id) && section(id).querySelector('[data-out-of-month]');
+  check('rows whose only warning is the month fold under a disclosure', fold(1) && fold(1).textContent.includes('3 rows outside this month'), fold(1) && fold(1).textContent);
+  check('closed by default', fold(1) && fold(1).getAttribute('aria-expanded') === 'false' && ![5, 6, 7].some((id) => rowEl(id)), visibleRows().join());
+  check('the rest of the section is still there', [1, 3, 4, 8, 2].every((id) => rowEl(id)), visibleRows().join());
+  check('a section with none has no disclosure', !fold(2));
+  await press(fold(1), 'the outside-this-month disclosure');
+  check('opening it shows them', fold(1).getAttribute('aria-expanded') === 'true' && [5, 6, 7].every((id) => rowEl(id)), visibleRows().join());
+  await press(fold(1), 'the disclosure again');
+  check('and it closes again', ![5, 6, 7].some((id) => rowEl(id)), visibleRows().join());
+  await press(filter('out_of_month'), 'the Outside this month filter');
+  check('filtering for them shows them without the fold', !fold(1) && visibleRows().join() === '5,6,7', visibleRows().join());
+  await press(filter('out_of_month'), 'the Outside this month filter again');
+
+  /* ---- 9. decisions go through importUpdateRow ---------------------- */
+  const lastUpdate = () => JSON.stringify(server.calls.updates[server.calls.updates.length - 1]);
+  let reads = server.calls.reviews;
+  const nameField = rowEl(1).querySelector('input[aria-label="Name for Tesco"]');
+  await setValue(nameField, 'Tesco Extra');
+  nameField.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+  await settle();
+  check('renaming a row sends its name', lastUpdate() === '[1,{"name":"Tesco Extra"}]', lastUpdate());
+  check('and the review is read again', server.calls.reviews > reads, server.calls.reviews + ' vs ' + reads);
+  check('the row shows the new name', !!rowEl(1).querySelector('input[aria-label="Name for Tesco Extra"]'), rowEl(1).outerHTML.slice(0, 200));
+
+  // A note sits on a line under the row, opened from the row's actions.
+  const noteField = (name) => document.querySelector('input[aria-label="Note on ' + name + '"]');
+  check('a row has no note line until asked', !noteField('Tesco Extra'));
+  await press(byLabel('Add a note to Tesco Extra'), 'Note on Tesco Extra');
+  check('Note opens a field under the row', !!noteField('Tesco Extra'));
+  await setValue(noteField('Tesco Extra'), 'Weekly shop, for both');
+  noteField('Tesco Extra').dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+  await settle();
+  check('writing a note sends it', lastUpdate() === '[1,{"note":"Weekly shop, for both"}]', lastUpdate());
+  check('and a written note stays on show', noteField('Tesco Extra') && noteField('Tesco Extra').value === 'Weekly shop, for both');
+  check('a transfer takes no note', !byLabel('Add a note to To savings'));
+  check('nor does a row that cannot be imported', !byLabel('Add a note to Refund'));
+
+  await setValue(rowEl(4).querySelector('select'), '11');
+  check('picking a category sends it', lastUpdate() === '[4,{"categoryId":11}]', lastUpdate());
+  check('the picker groups by group, this month first', (() => {
+    const groups = [...rowEl(4).querySelectorAll('optgroup')].map((g) => g.label);
+    return groups.join('|') === 'Food|Car|Other · not this month';
+  })(), [...rowEl(4).querySelectorAll('optgroup')].map((g) => g.label).join('|'));
+
+  await press(rowEl(4).querySelector('input[type="checkbox"]'), 'the tick on Shell');
+  check('ticking a row sends it', lastUpdate() === '[4,{"included":true}]', lastUpdate());
+  check('and the tick follows the server', rowEl(4).querySelector('input[type="checkbox"]').checked);
+
+  const transferBtn = (id) => rowEl(id) && rowEl(id).querySelector('button[data-transfer]');
+  check('a row has a Transfer toggle, off for spending', transferBtn(1) && transferBtn(1).getAttribute('aria-pressed') === 'false');
+  await press(transferBtn(1), 'Transfer on Tesco Extra');
+  check('marking a transfer sends the kind', lastUpdate() === '[1,{"kind":"transfer"}]', lastUpdate());
+  check('the toggle shows it on', transferBtn(1).getAttribute('aria-pressed') === 'true');
+  await press(transferBtn(1), 'Transfer on Tesco Extra again');
+  check('and back to spending', lastUpdate() === '[1,{"kind":"spend"}]', lastUpdate());
+
+  /* ---- 10. "Same as existing entry" ---------------------------------- */
+  const sameBtn = (id) => rowEl(id) && rowEl(id).querySelector('button[data-same]');
+  check('only a row with candidates offers Same as existing', sameBtn(8) && !sameBtn(1) && !sameBtn(3), '');
+  await press(sameBtn(8), 'Same as existing on Sainsburys');
+  const cands = document.querySelector('[data-candidates-for="8"]');
+  check('it lists the candidate entries with date, amount, name and category', cands && ['4 Oct', '£12.34', 'Sainsburys big shop', 'Groceries'].every((t) => cands.textContent.includes(t)), cands && cands.textContent);
+  await press(byLabel('Match to Sainsburys big shop'), 'Match to Sainsburys big shop');
+  check('choosing one links the row to that entry', lastUpdate() === '[8,{"linkedEntryId":900}]', lastUpdate());
+  check('the row shows as matched', rowEl(8).classList.contains('is-linked') && /Same as Sainsburys big shop/.test(rowEl(8).textContent), rowEl(8).textContent);
+  check('the candidate list closes', !document.querySelector('[data-candidates-for="8"]'));
+  check('a matched row cannot also be ticked', rowEl(8).querySelector('input[type="checkbox"]').disabled);
+  check('nor take a note: its entry keeps its own', !byLabel('Add a note to Sainsburys'));
+  await press(byLabel('Unlink Sainsburys'), 'Unlink Sainsburys');
+  check('unlinking clears the match', lastUpdate() === '[8,{"linkedEntryId":null}]', lastUpdate());
+  check('and the row is unmatched again', !rowEl(8).classList.contains('is-linked'), rowEl(8).className);
+
+  /* ---- 11. the footer: summary and the over-plan line ---------------- */
+  const confirmBtn = () => [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Confirm');
+  const summary = () => document.querySelector('[data-confirm-summary]');
+  const overLine = () => document.querySelector('[data-over-plan]');
+  check('a button labelled exactly Confirm', !!confirmBtn());
+  check('with a quiet summary of what it will do', summary() && summary().textContent.includes('4 entries · £105.10'), summary() && summary().textContent);
+  check('counting the unticked rows that will teach the classifier', summary() && summary().textContent.endsWith('· 1 to learn from'), summary() && summary().textContent);
+  check('the over-plan line lists what goes over, worst first', overLine() && overLine().textContent === 'Over plan after import: Groceries +£52.10, Gifts +£25.00, Eating out +£8.00', overLine() && overLine().textContent);
+  await press(rowEl(4).querySelector('input[type="checkbox"]'), 'the tick on Shell (off)');
+  check('it follows a tick', overLine() && overLine().textContent === 'Over plan after import: Gifts +£25.00, Groceries +£22.10, Eating out +£8.00', overLine() && overLine().textContent);
+  check('and so does the summary', summary() && summary().textContent.includes('3 entries · £75.10'), summary() && summary().textContent);
+
+  /* ---- discarding the upload, with a confirmation -------------------- */
+  const dialog = () => document.querySelector('.modal[role="dialog"]');
+  await press(buttonNamed('Discard'), 'Discard');
+  check('Discard asks first', dialog() && /discard/i.test(dialog().textContent), dialog() ? dialog().textContent : 'no dialog');
+  check('nothing discarded yet', server.calls.discard.length === 0);
+  await press(dialog() && [...dialog().querySelectorAll('button')].find((b) => /Cancel/.test(b.textContent)), 'Cancel');
+  check('cancelling keeps the review', !dialog() && !!document.querySelector('[data-review]') && server.calls.discard.length === 0);
+  await press(buttonNamed('Discard'), 'Discard again');
+  await press(dialog() && [...dialog().querySelectorAll('button')].find((b) => /Discard upload/.test(b.textContent)), 'Discard upload');
+  check('confirming discards the pending upload', JSON.stringify(server.calls.discard) === '[7]', JSON.stringify(server.calls.discard));
+  check('and goes back to empty zones', zones().length === 3 && !document.querySelector('[data-review]') && !/main-oct/.test(text()), text().slice(0, 300));
+
+  /* ---- 12. Confirm imports and refreshes the month ------------------- */
+  server.batch = { id: 8, status: 'pending', createdAt: '2026-10-18 10:00:00' };
+  server.files = [
+    { id: 201, accountId: 1, filename: 'main-oct.csv', rowCount: 8 },
+    { id: 202, accountId: 2, filename: 'joint-oct.csv', rowCount: 5 },
+  ];
+  server.rows = reviewRows();
+  await mount();
+  const monthLoads = server.calls.getMonth;
+  await press(confirmBtn(), 'Confirm');
+  check('Confirm imports the pending upload', JSON.stringify(server.calls.confirm) === '[8]', JSON.stringify(server.calls.confirm));
+  check('the month is read again so the entries appear', server.calls.getMonth > monthLoads, server.calls.getMonth + ' vs ' + monthLoads);
+  check('a toast says what was imported', /3 entries/.test(toastText()) && toastText().includes('£75.10') && /1 matched/.test(toastText()) && /1 new plan line/.test(toastText()), toastText());
+  check('and the sheet closes', closed === 1, 'closed ' + closed);
+
+  /* ---- 13. previous imports, with Undo ------------------------------- */
+  await mount();
+  const prev = () => document.querySelector('[data-previous-imports]');
+  check('this month imports are listed at the foot of the sheet', prev() && prev().textContent.includes('18 Oct') && prev().textContent.includes('main-oct.csv') && prev().textContent.includes('joint-oct.csv') && /3 entries/.test(prev().textContent), prev() && prev().textContent);
+  check('below the zones', prev() && zones()[0] && (zones()[0].compareDocumentPosition(prev()) & Node.DOCUMENT_POSITION_FOLLOWING));
+  const loadsBeforeUndo = server.calls.getMonth;
+  await press(byLabel('Undo the import of 18 Oct'), 'Undo the import');
+  check('Undo asks first', dialog() && /undo/i.test(dialog().textContent) && /3 entries/.test(dialog().textContent), dialog() ? dialog().textContent : 'no dialog');
+  check('nothing undone yet', server.calls.undo.length === 0);
+  await press(dialog() && [...dialog().querySelectorAll('button')].find((b) => /Undo import/.test(b.textContent)), 'Undo import');
+  check('confirming undoes that import', JSON.stringify(server.calls.undo) === '[8]', JSON.stringify(server.calls.undo));
+  check('the month is read again', server.calls.getMonth > loadsBeforeUndo);
+  check('the upload is back in progress, on Review', !!document.querySelector('[data-review]') && !!document.querySelector('[data-row-id="1"]'), text().slice(0, 300));
+  check('and it leaves the list of previous imports', !prev() || !prev().textContent.includes('main-oct.csv'), prev() && prev().textContent);
+
+  return results;
+};
+`;
+
+app.whenReady().then(async () => {
+  let win = null;
+  let code = 0;
+  try {
+    fs.mkdirSync(outDir, { recursive: true });
+    await esbuild.build({
+      stdin: { contents: PAGE_SUITE, resolveDir: root, loader: 'jsx', sourcefile: 'suite.jsx' },
+      bundle: true,
+      format: 'iife',
+      platform: 'browser',
+      target: 'chrome120',
+      jsx: 'automatic',
+      define: { 'process.env.NODE_ENV': '"development"' },
+      outfile: path.join(outDir, 'suite.js'),
+    });
+    fs.writeFileSync(
+      path.join(outDir, 'index.html'),
+      '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><div id="root"></div><script src="suite.js"></script></body></html>',
+      'utf8'
+    );
+
+    win = new BrowserWindow({ show: false, webPreferences: { contextIsolation: false, sandbox: false } });
+    const pageErrors = [];
+    win.webContents.on('console-message', (...args) => {
+      // Electron 41 passes an event object; older builds pass positional args.
+      const e = args[0];
+      const level = typeof e === 'object' && e ? e.level : args[1];
+      const message = typeof e === 'object' && e ? e.message : args[2];
+      if (level === 'error' || level === 3) pageErrors.push(message);
+    });
+    await win.loadFile(path.join(outDir, 'index.html'));
+    const results = await win.webContents.executeJavaScript('window.__runTests()');
+
+    assert(Array.isArray(results) && results.length > 0, 'the page suite returned nothing');
+    const failed = results.filter((r) => !r.ok);
+    for (const f of failed) console.error(`  FAIL ${f.name}${f.msg ? ` (${f.msg.slice(0, 400)})` : ''}`);
+    assert(failed.length === 0, `${failed.length}/${results.length} upload sheet assertions failed`);
+    assert(pageErrors.length === 0, `console errors in the renderer: ${pageErrors.join(' | ')}`);
+
+    console.log(`UPLOAD_SHEET_OK ${results.length} assertions`);
+  } catch (err) {
+    console.error('UPLOAD_SHEET_FAIL', err && err.message ? err.message : err);
+    code = 1;
+  } finally {
+    if (win && !win.isDestroyed()) win.destroy();
+    fs.rmSync(outDir, { recursive: true, force: true });
+    // app.exit, not process.exitCode + app.quit: quitting resets the code to 0,
+    // which would let a failure here pass silently in the npm test chain.
+    app.exit(code);
+  }
+});

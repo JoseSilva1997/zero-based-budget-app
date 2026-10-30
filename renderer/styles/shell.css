@@ -332,7 +332,7 @@ button.brand-mark:hover .brand-mark-chev, button.brand-mark:focus-visible .brand
 /* The driver's own error string. It arrives as one unbroken token often
    enough (a file path, a lock name) that it has to be allowed to break
    mid-word, or it pushes the card wider than the viewport. Pairs with .code
-   in main.jsx, which is what keeps it in the mono face. */
+   in StartupError.jsx, which is what keeps it in the mono face. */
 .startup-error-detail {
   margin: 0 0 var(--space-7); color: var(--muted);
   font-size: var(--text-12); line-height: 1.5; word-break: break-word;

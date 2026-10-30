@@ -19,8 +19,8 @@
    contract, 'value' carries the newly-inserted row for the add actions and is
    undefined for the rest.
    ============================================================ */
-import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from "react";
-import { api, can, hasApi, spentOn, dayFromMonthDay } from "./lib/api.js";
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { api, can, hasApi, spentOn, dayFromMonthDay, uploadStatement } from "./lib/api.js";
 import { THEME_IDS, DEFAULT_THEME_ID, buildEmpty, monthLabel } from "./lib/index.js";
 
 const DEFAULT_COLOR = "#7a7a7a";
@@ -197,6 +197,12 @@ export function StoreProvider({ children }) {
         return;
       }
       let bs = await api.bootstrap();
+      // A newer version saved this database. The preload hands the refusal
+      // back as a value (an Error's fields don't cross the bridge); thrown
+      // again here, it reaches the startup screen with its code and versions.
+      if (bs.status === "db_too_new") {
+        throw Object.assign(new Error(bs.message), { code: bs.status, found: bs.found, supported: bs.supported });
+      }
       if (!bs.monthList || bs.monthList.length === 0) {
         // Fresh/empty DB: seed the current month so the budget screen has a month.
         await api.monthCreate({ month: currentMonthKey() });
@@ -220,16 +226,24 @@ export function StoreProvider({ children }) {
     }
   }, []);
 
-  /* ---- targeted refreshes ---- */
+  /* ---- targeted refreshes ----
+     Groups and categories are shared by every month, so a write made in one
+     month (a rename, a collapse, a move, a group reorder) can change how any
+     other month reads. Every other cached tree is therefore dropped, and
+     'setActive' fetches it again on the next visit; the active month, when it
+     is not the one written, is refetched alongside. */
   const refreshMonth = useCallback(async (key) => {
     const id = idForKey(key);
     if (id == null || !hasApi()) return;
     const tree = await api.getMonth(id);
+    const active = stateRef.current ? stateRef.current.activeMonth : null;
+    const activeId = active && active !== key ? idForKey(active) : null;
+    const activeTree = activeId != null ? await api.getMonth(activeId) : null;
     setState((s) => {
       if (!s) return s;
-      const months = { ...s.months };
+      const months = {};
       if (tree) months[key] = treeToBlobMonth(tree);
-      else delete months[key];
+      if (activeTree) months[active] = treeToBlobMonth(activeTree);
       return { ...s, months };
     });
   }, [idForKey]);
@@ -339,20 +353,35 @@ export function StoreProvider({ children }) {
             return row;
           }
           case "deleteGroup":
-            await api.groupDelete(Number(A.groupId));
+            // Groups are shared by every month: this takes it out of this one.
+            await api.groupDelete(Number(A.groupId), idForKey(mk));
             return refreshMonth(mk);
           case "addItem": {
-            const row = await api.itemAdd(Number(A.groupId), {
-              name: A.name,
-              allocated: A.allocated,
-              account: idify(A.account),
-            });
+            // A pick from another month carries its category, and lands in that
+            // category's group. An account left out takes the category's default.
+            const fields = { name: A.name, allocated: A.allocated };
+            if (A.categoryId != null) fields.categoryId = Number(A.categoryId);
+            if (A.account !== undefined) fields.account = idify(A.account);
+            const row = await api.itemAdd(idForKey(mk), Number(A.groupId), fields);
             await refreshMonth(mk);
             return row;
           }
           case "deleteItem":
             await api.itemDelete(Number(A.itemId));
             return refreshMonth(mk);
+
+          case "setCategoryArchived":
+            // The month tree does not change, but the reusable picks it offers
+            // do, so the month is refetched like any other item edit.
+            await api.categorySetArchived(Number(A.id), !!A.archived);
+            return refreshMonth(mk);
+          case "mergeCategories": {
+            // Folds lines across every month and takes a backup first, so the
+            // cached months and 'lastBackup' are all stale: rehydrate.
+            const res = await api.categoryMerge(Number(A.fromId), Number(A.intoId));
+            await reload();
+            return res;
+          }
 
           case "reorderGroup":
             await api.groupReorder(idForKey(mk), Number(A.groupId), Number(A.targetId), !!A.after);
@@ -490,6 +519,14 @@ export function StoreProvider({ children }) {
     return list.map((s) => ({ ...s, monthLabel: monthLabel(s.month).short }));
   }, [idForKey]);
 
+  /* Categories, as Settings lists them, and what a merge would move. Both
+     write nothing; the writes are the two category actions on dispatch. */
+  const categories = useCallback(async () => (hasApi() ? api.categories() : []), []);
+  const previewMerge = useCallback(
+    (fromId, intoId) => api.categoryPreviewMerge(Number(fromId), Number(intoId)),
+    []
+  );
+
   const getMonth = useCallback(async (key) => {
     if (!hasApi()) return null;
     const id = idForKey(key);
@@ -497,6 +534,39 @@ export function StoreProvider({ children }) {
     const tree = await api.getMonth(id);
     return tree ? treeToBlobMonth(tree) : null;
   }, [idForKey]);
+
+  /* Upload transactions (main/ipc/imports.ts). Months are named by their
+     "YYYY-MM" key here like everywhere else in the store, and resolved to the
+     id the channels want. The review is recomputed on every read, so the sheet
+     reads it again after each of these rather than patching its copy. Only
+     the two calls that write or delete entries refresh the month, since the
+     rest touch nothing but the pending upload. They throw rather than toast:
+     a refusal belongs next to the file or the button that caused it. */
+  const imports = useMemo(() => ({
+    review: (key) => api.importReview(idForKey(key)),
+    history: (key) => api.importHistory(idForKey(key)),
+    upload: (key, accountId, file) => uploadStatement(idForKey(key), Number(accountId), file),
+    removeFile: (fileId) => api.importRemoveFile(Number(fileId)),
+    updateRow: (rowId, patch) => api.importUpdateRow(Number(rowId), patch),
+    discard: (batchId) => api.importDiscard(Number(batchId)),
+    confirm: async (key, batchId) => {
+      const res = await api.importConfirm(Number(batchId));
+      await refreshMonth(key);
+      return res;
+    },
+    undo: async (key, batchId) => {
+      await api.importUndo(Number(batchId));
+      await refreshMonth(key);
+    },
+    banks: () => api.banks(),
+    /* An account's bank, chosen or named inline in its drop zone. A new bank
+       is created first, so the account can point at it. */
+    setUpBank: async ({ accountId, bankId, newBank, product }) => {
+      let id = bankId;
+      if (id == null) id = (await api.bankCreate(newBank.name, newBank.preset)).id;
+      await api.accountSetBank(Number(accountId), Number(id), product || null);
+    },
+  }), [idForKey, refreshMonth]);
 
   const value = {
     state,
@@ -513,7 +583,10 @@ export function StoreProvider({ children }) {
     trends,
     reusableItems,
     entrySuggestions,
+    categories,
+    previewMerge,
     getMonth,
+    imports,
   };
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

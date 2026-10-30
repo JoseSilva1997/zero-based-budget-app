@@ -9,6 +9,7 @@ import { api, can } from './lib/api.js';
 import { StoreProvider, useStore } from './store.jsx';
 import { Avatar, ConfirmDialog, EmptyState, Icons, MsIcons, Section, Tile } from './ui/index.js';
 import { WalletSheet } from './Accounts.jsx';
+import { UploadSheet } from './Upload.jsx';
 import { GroupCard, NewMonthModal, useBudgetDrag } from './MonthGroups.jsx';
 import { IncomeSection } from './MonthBudget.jsx';
 import { MonthBar } from './MonthBar.jsx';
@@ -17,6 +18,7 @@ import { HistoryScreen } from './History.jsx';
 import { DashboardScreen } from './Dashboard.jsx';
 import { SettingsScreen } from './Settings.jsx';
 import { UpdateBanner } from './UpdateBanner.jsx';
+import { StartupErrorScreen } from './StartupError.jsx';
 import { FindBar } from './Find.jsx';
 import { DebugMenu } from './DebugMenu.jsx';
 
@@ -28,6 +30,7 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
   const [addingGroup, setAddingGroup] = useState(false);
   const [newGroup, setNewGroup] = useState("");
   const [walletOpen, setWalletOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [confirmMonth, setConfirmMonth] = useState(false);
   // Deleting the last remaining month would leave the budget screen with
   // nothing to show, and the delete needs the desktop bridge to exist at all.
@@ -53,6 +56,14 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
           )}
         </div>
         <div className="topbar-actions">
+          {/* A plain secondary: the accent in this bar already belongs to "New
+              month" and to the Wallet's glyph, and uploading is an occasional
+              chore rather than the thing the screen is for. */}
+          {can("importReview") && (
+            <button className="btn" onClick={() => setUploadOpen(true)} title="Import a bank statement into this month">
+              <Icons.upload size={16} /> Upload transactions
+            </button>
+          )}
           <button className="btn wallet-btn" onClick={() => setWalletOpen(true)} title="Open Wallet - funding plan by account">
             <Icons.wallet size={16} />
             Wallet
@@ -118,6 +129,8 @@ function MonthBudgetScreen({ state, dispatch, currency, onNewMonth }) {
         <button className="btn btn-ghost btn-quiet add-group-btn" onClick={() => setAddingGroup(true)}><Icons.plus size={16} /> Add group</button>
       )}
 
+      {uploadOpen && <UploadSheet month={mid} currency={currency} onClose={() => setUploadOpen(false)} />}
+
       {walletOpen && <WalletSheet mo={mo} accounts={state.settings.accounts} members={state.settings.members} currency={currency} month={mid} onClose={() => setWalletOpen(false)} />}
 
       {confirmMonth && (
@@ -181,37 +194,6 @@ function LoadingScreen() {
       <div className="loading-screen-inner">
         <div className="brand-mark" aria-hidden="true">HB</div>
         Loading your budget…
-      </div>
-    </div>
-  );
-}
-
-/* ---- startup failure ----------------------------------------------------
-   The store never came up, so there is no app behind this and no toast to
-   show. Name the problem, say the data is still on disk, and offer the three
-   things that actually recover it. */
-function StartupErrorScreen({ error, onRetry }) {
-  const openFolder = async () => {
-    if (!can("revealDataFolder")) return;
-    try { await api.revealDataFolder(); } catch (e) { console.error(e); }
-  };
-  return (
-    <div className="startup-error">
-      <div className="panel startup-error-card">
-        <Tile icon={Icons.alert} size="lg" tone="breach" className="startup-error-icon" />
-        <h3 className="startup-error-title">House Budget couldn't open your data</h3>
-        <p className="startup-error-body">
-          Your budget file is still on this device, and nothing has been changed or deleted. This usually means the app is already running in another window, or the file is being synced by another program.
-        </p>
-        {/* A driver error string genuinely is code, so it takes the mono
-            face. */}
-        <p className="code startup-error-detail">
-          {error && error.message}
-        </p>
-        <div className="startup-error-actions">
-          <button className="btn btn-primary" onClick={onRetry}>Try again</button>
-          <button className="btn" onClick={openFolder}><Icons.folder size={15} /> Open data folder</button>
-        </div>
       </div>
     </div>
   );

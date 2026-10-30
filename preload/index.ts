@@ -11,6 +11,7 @@ import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type {
   IpcResult,
   BootstrapData,
+  DbTooNew,
   MonthTree,
   MonthTotals,
   MonthDeleteResult,
@@ -22,6 +23,17 @@ import type {
   IncomeRead,
   GroupRead,
   ItemRead,
+  CategoryRead,
+  MergeImpact,
+  Bank,
+  BankPreset,
+  ImportAddOutcome,
+  ImportAddedFile,
+  ImportConfirmResult,
+  ImportHistoryRow,
+  ImportReview,
+  ImportRowPatch,
+  MergeResult,
   ActualRead,
   HouseholdMember,
   BankAccount,
@@ -51,7 +63,17 @@ async function invoke<T>(channel: string, payload?: unknown): Promise<T> {
 
 const api = {
   /* ---------- reads (SQL-computed) ---------- */
-  bootstrap: () => invoke<BootstrapData>('bootstrap:load'),
+  /** Resolves to { status: 'db_too_new', ... } rather than throwing when the
+   *  database was saved by a newer version, for the same reason as
+   *  importAddFile below: the startup screen needs the code and versions. */
+  bootstrap: async (): Promise<BootstrapData | DbTooNew> => {
+    const res = (await ipcRenderer.invoke('bootstrap:load')) as IpcResult<BootstrapData>;
+    if ('error' in res && res.code === 'db_too_new') {
+      const detail = res.detail as { found: number; supported: number };
+      return { status: 'db_too_new', message: res.error, found: detail.found, supported: detail.supported };
+    }
+    return unwrap(res);
+  },
   getMonth: (monthId: number) => invoke<MonthTree | null>('month:get', { monthId }),
   monthTotals: (monthId: number) => invoke<MonthTotals>('month:totals', { monthId }),
   fundingPlan: (monthId: number) => invoke<FundingPlanRow[]>('month:fundingPlan', { monthId }),
@@ -77,13 +99,16 @@ const api = {
     id: number,
     patch: { name?: string; collapsed?: boolean; isSavings?: boolean; kind?: GroupKind }
   ) => invoke<Ok>('group:update', { id, patch }),
-  groupDelete: (id: number) => invoke<Ok>('group:delete', { id }),
+  groupDelete: (id: number, monthId: number) => invoke<Ok>('group:delete', { id, monthId }),
   groupReorder: (monthId: number, id: number, targetId: number, after: boolean) =>
     invoke<Ok>('group:reorder', { monthId, id, targetId, after }),
 
   /* ---------- items ---------- */
-  itemAdd: (groupId: number, fields: { name?: string; allocated?: number; account?: number | null }) =>
-    invoke<ItemRead>('item:add', { groupId, ...fields }),
+  itemAdd: (
+    monthId: number,
+    groupId: number,
+    fields: { categoryId?: number | null; name?: string; allocated?: number; account?: number | null }
+  ) => invoke<ItemRead>('item:add', { monthId, groupId, ...fields }),
   itemUpdate: (
     id: number,
     patch: { name?: string; allocated?: number; account?: number | null }
@@ -93,6 +118,53 @@ const api = {
     invoke<Ok>('item:reorder', { groupId, id, targetId }),
   itemMove: (id: number, toGroupId: number, targetId: number | null) =>
     invoke<Ok>('item:move', { id, toGroupId, targetId }),
+
+  /* ---------- categories ----------
+     What an item is FOR, the same in every month. Merging is previewed first
+     (writes nothing), and the merge itself backs up before it writes. */
+  categories: () => invoke<CategoryRead[]>('category:list'),
+  categorySetArchived: (id: number, archived: boolean) =>
+    invoke<Ok>('category:setArchived', { id, archived }),
+  categoryPreviewMerge: (fromId: number, intoId: number) =>
+    invoke<MergeImpact>('category:previewMerge', { fromId, intoId }),
+  categoryMerge: (fromId: number, intoId: number) =>
+    invoke<MergeResult>('category:merge', { fromId, intoId }),
+
+  /* ---------- upload transactions ----------
+     Channels documented in main/ipc/imports.ts. Money is pence, dates
+     "YYYY-MM-DD". After any change, read importReview again: predictions and
+     labels are recomputed on the main side. */
+  importReview: (monthId: number) => invoke<ImportReview>('import:review', { monthId }),
+  /** Resolves to { status: 'needs_bank', ... } rather than throwing when the
+   *  account's bank must be set up first: an Error's extra fields don't
+   *  survive the context bridge, so the refusal's code is read here. */
+  importAddFile: async (p: {
+    monthId: number;
+    accountId: number;
+    filename: string;
+    text: string;
+  }): Promise<ImportAddOutcome> => {
+    const res = (await ipcRenderer.invoke('import:addFile', p)) as IpcResult<ImportAddedFile>;
+    if ('error' in res && res.code === 'needs_bank') {
+      const detail = res.detail as { preset: BankPreset | null; products: string[] | null };
+      return { status: 'needs_bank', message: res.error, preset: detail.preset, products: detail.products };
+    }
+    return { status: 'added', file: unwrap(res) };
+  },
+  importRemoveFile: (fileId: number) => invoke<Ok>('import:removeFile', { fileId }),
+  importUpdateRow: (rowId: number, patch: ImportRowPatch) =>
+    invoke<Ok>('import:updateRow', { rowId, patch }),
+  importConfirm: (batchId: number) => invoke<ImportConfirmResult>('import:confirm', { batchId }),
+  importDiscard: (batchId: number) => invoke<Ok>('import:discard', { batchId }),
+  importHistory: (monthId: number) => invoke<ImportHistoryRow[]>('import:history', { monthId }),
+  importUndo: (batchId: number) => invoke<Ok>('import:undo', { batchId }),
+
+  /* ---------- banks ---------- */
+  banks: () => invoke<Bank[]>('bank:list'),
+  bankCreate: (name: string, preset: BankPreset) => invoke<Bank>('bank:create', { name, preset }),
+  bankRename: (id: number, name: string) => invoke<Ok>('bank:rename', { id, name }),
+  accountSetBank: (accountId: number, bankId: number | null, product: string | null) =>
+    invoke<Ok>('account:setBank', { accountId, bankId, product }),
 
   /* ---------- actuals ---------- */
   actualAdd: (

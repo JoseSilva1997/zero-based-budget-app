@@ -66,20 +66,20 @@ app.whenReady().then(() => {
       budget_month_id: mid, household_member_id: alex, label: 'Salary', amount_cents: 300000, sort_order: 0,
     });
 
-    const gSpend = months.insertGroup(db, { budget_month_id: mid, name: 'Bills', kind: 'spend', sort_order: 0, collapsed: 0 });
-    const gSave = months.insertGroup(db, { budget_month_id: mid, name: 'Savings', kind: 'savings', sort_order: 1, collapsed: 0 });
+    const gSpend = months.insertGroup(db, { name: 'Bills', kind: 'spend', sort_order: 0, collapsed: 0 });
+    const gSave = months.insertGroup(db, { name: 'Savings', kind: 'savings', sort_order: 1, collapsed: 0 });
 
     // Rent: planned 100000, actual 90000 (under) on Main.
-    const rent = months.insertItem(db, { budget_group_id: gSpend, name: 'Rent', planned_cents: 100000, bank_account_id: main, sort_order: 0 });
+    const rent = months.addItemByName(db, { monthId: mid, groupId: gSpend, name: 'Rent', planned_cents: 100000, bank_account_id: main });
     months.insertActualEntry(db, { budget_item_id: rent, spent_on: '2026-06-01', amount_cents: 50000, name: null, note: null });
     months.insertActualEntry(db, { budget_item_id: rent, spent_on: '2026-06-02', amount_cents: 40000, name: 'part 2', note: 'landlord asked to split it' });
 
     // Food: planned 20000, actual 25000 (OVER) on Wallet.
-    const food = months.insertItem(db, { budget_group_id: gSpend, name: 'Food', planned_cents: 20000, bank_account_id: wallet, sort_order: 1 });
+    const food = months.addItemByName(db, { monthId: mid, groupId: gSpend, name: 'Food', planned_cents: 20000, bank_account_id: wallet });
     months.insertActualEntry(db, { budget_item_id: food, spent_on: '2026-06-05', amount_cents: 25000, name: null, note: null });
 
     // Emergency (savings): planned 50000, no actuals, unassigned account.
-    const emerg = months.insertItem(db, { budget_group_id: gSave, name: 'Emergency', planned_cents: 50000, bank_account_id: null, sort_order: 0 });
+    const emerg = months.addItemByName(db, { monthId: mid, groupId: gSave, name: 'Emergency', planned_cents: 50000, bank_account_id: null });
 
     /* ---- monthTotals: actual == summed entries ---- */
     const totals = months.monthTotals(db, mid);
@@ -141,7 +141,7 @@ app.whenReady().then(() => {
     eq(JSON.stringify(reordered), JSON.stringify(['Food', 'Rent']), 'items reordered');
 
     /* ---- reorderGroups rewrites sort_order ---- */
-    months.reorderGroups(db, mid, gSave, gSpend, false); // move Savings before Bills
+    months.reorderGroups(db, gSave, gSpend, false); // move Savings before Bills
     const groupOrder = months.getMonthTree(db, mid).groups.map((g) => g.name);
     eq(JSON.stringify(groupOrder), JSON.stringify(['Savings', 'Bills']), 'groups reordered');
 
@@ -187,8 +187,8 @@ app.whenReady().then(() => {
     const cands = months.reusableItemCandidates(db, mid, '');
     cands.forEach((c) => assert(['Rent', 'Food', 'Emergency'].includes(c.name), 'candidate name'));
     // Add a unique item to July, then it should surface for June.
-    const julBills = months.getMonthTree(db, julId).groups[0].id;
-    months.insertItem(db, { budget_group_id: julBills, name: 'Holiday Fund', planned_cents: 1000, bank_account_id: null, sort_order: 9 });
+    const julBills = months.getMonthTree(db, julId).groups.find((g) => g.name === 'Bills').id;
+    months.addItemByName(db, { monthId: julId, groupId: julBills, name: 'Holiday Fund', planned_cents: 1000, bank_account_id: null });
     const cands2 = months.reusableItemCandidates(db, mid, 'holiday');
     eq(cands2.length, 1, 'reusable filtered count');
     eq(cands2[0].name, 'Holiday Fund', 'reusable filtered name');
@@ -203,7 +203,7 @@ app.whenReady().then(() => {
     eq(sugg[0].amount, 400, 'suggestion last amount');
     // Logged against an item July has but June does not: no home here, so the
     // renderer has to ask which item it belongs to.
-    const julHoliday = months.getMonthTree(db, julId).groups[0].items.find((i) => i.name === 'Holiday Fund').id;
+    const julHoliday = months.getMonthTree(db, julId).groups.find((g) => g.name === 'Bills').items.find((i) => i.name === 'Holiday Fund').id;
     months.insertActualEntry(db, { budget_item_id: julHoliday, spent_on: '2026-07-04', amount_cents: 2500, name: 'Flights', note: null });
     const orphan = months.actualEntrySuggestions(db, mid, 'flights');
     eq(orphan.length, 1, 'orphan suggestion count');
@@ -249,17 +249,17 @@ app.whenReady().then(() => {
     /* ---- moveItem: an item changes group, keeping its spending ---- */
     // Its own month, so the aggregate assertions further up are not disturbed.
     const movId = months.insertMonth(db, '2026-11');
-    const gA = months.insertGroup(db, { budget_month_id: movId, name: 'A', kind: 'spend', sort_order: 0, collapsed: 0 });
-    const gB = months.insertGroup(db, { budget_month_id: movId, name: 'B', kind: 'spend', sort_order: 1, collapsed: 0 });
-    const a1 = months.insertItem(db, { budget_group_id: gA, name: 'A1', planned_cents: 100, bank_account_id: null, sort_order: 0 });
-    const a2 = months.insertItem(db, { budget_group_id: gA, name: 'A2', planned_cents: 200, bank_account_id: null, sort_order: 1 });
-    const a3 = months.insertItem(db, { budget_group_id: gA, name: 'A3', planned_cents: 300, bank_account_id: null, sort_order: 2 });
-    const b1 = months.insertItem(db, { budget_group_id: gB, name: 'B1', planned_cents: 400, bank_account_id: null, sort_order: 0 });
-    const b2 = months.insertItem(db, { budget_group_id: gB, name: 'B2', planned_cents: 500, bank_account_id: null, sort_order: 1 });
+    const gA = months.insertGroup(db, { name: 'A', kind: 'spend', sort_order: 0, collapsed: 0 });
+    const gB = months.insertGroup(db, { name: 'B', kind: 'spend', sort_order: 1, collapsed: 0 });
+    const a1 = months.addItemByName(db, { monthId: movId, groupId: gA, name: 'A1', planned_cents: 100, bank_account_id: null });
+    const a2 = months.addItemByName(db, { monthId: movId, groupId: gA, name: 'A2', planned_cents: 200, bank_account_id: null });
+    const a3 = months.addItemByName(db, { monthId: movId, groupId: gA, name: 'A3', planned_cents: 300, bank_account_id: null });
+    const b1 = months.addItemByName(db, { monthId: movId, groupId: gB, name: 'B1', planned_cents: 400, bank_account_id: null });
+    const b2 = months.addItemByName(db, { monthId: movId, groupId: gB, name: 'B2', planned_cents: 500, bank_account_id: null });
     months.insertActualEntry(db, { budget_item_id: a2, spent_on: '2026-11-03', amount_cents: 1500, name: 'kept', note: null });
 
-    const namesIn = (gid) => months.listItems(db, gid).map((i) => i.name);
-    const ordersIn = (gid) => months.listItems(db, gid).map((i) => i.sort_order);
+    const namesIn = (gid) => months.listItems(db, movId, gid).map((i) => i.name);
+    const ordersIn = (gid) => months.listItems(db, movId, gid).map((i) => i.sort_order);
 
     // Positional: A2 lands immediately BEFORE B2, which is what the drop-line
     // on the target row's top border promises.
@@ -286,10 +286,6 @@ app.whenReady().then(() => {
     months.moveItem(db, a1, gB, b1);
     eq(JSON.stringify(namesIn(gB)), JSON.stringify(['A1', 'B1', 'A2', 'B2']), 'same-group move reorders');
 
-    // A group in another month is refused rather than silently corrupting the tree.
-    throws(() => months.moveItem(db, a3, gSpend, null), 'same month', 'cross-month move refused');
-    eq(JSON.stringify(namesIn(gA)), JSON.stringify(['A3']), 'refused move left the item alone');
-
     // A destination that is gone is refused; an item that is gone is not. A drop
     // can land after its own row was deleted in another window, and that is not
     // worth an error toast.
@@ -302,7 +298,7 @@ app.whenReady().then(() => {
     // the case the "falls back to the end" comment at months.ts:297-300 is
     // actually about, not just an outright-unknown id. A4 stays behind in A,
     // so its id is real but absent from destIds when A3 moves into B.
-    const a4 = months.insertItem(db, { budget_group_id: gA, name: 'A4', planned_cents: 350, bank_account_id: null, sort_order: 3 });
+    const a4 = months.addItemByName(db, { monthId: movId, groupId: gA, name: 'A4', planned_cents: 350, bank_account_id: null });
     months.moveItem(db, a3, gB, a4);
     eq(JSON.stringify(namesIn(gB)), JSON.stringify(['A1', 'B1', 'A2', 'B2', 'A3']), 'target outside destination group falls back to append');
     eq(JSON.stringify(namesIn(gA)), JSON.stringify(['A4']), 'moved item left source; unrelated target item untouched');
