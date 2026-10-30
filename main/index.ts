@@ -14,6 +14,11 @@ import { buildAppMenu } from './menu';
 import { readAutoBackupMode } from '../database/repositories/meta';
 import { backupNow, catchUpCloud } from './cloudBackup';
 import { initUpdater, checkForUpdates } from './updater';
+import { isolateDevUserData } from './devUserData';
+
+// Before anything reads userData: keeps npm start / npm run dev off the
+// installed app's database (see devUserData.ts).
+isolateDevUserData();
 
 let mainWindow: BrowserWindow | null = null;
 let didCloseTasks = false;
