@@ -74,6 +74,7 @@ stateDiagram-v2
 1. [#32](../pr-overview/pr32-categories_overview.md): month-independent categories, so a predicted category means the same thing in every month (groundwork).
 2. [#33](../pr-overview/pr33-upload-transactions_overview.md): banks, presets, classifier, reconcile, labels, the upload sheet, Confirm and Undo.
 3. [#37](../pr-overview/pr37-upload-review_overview.md): review improvements: notes on rows, teaching the classifier from unticked rows, and reading headers that end in a comma.
+4. [#47](../pr-overview/pr47-bank-export-variants_overview.md): Lloyds exports with chosen columns, and Monzo's shorter export.
 
 ## Changelog
 
@@ -84,4 +85,4 @@ stateDiagram-v2
 | 2026-10-20 | #37 | Unticked rows with a category you picked teach the classifier without being imported. |
 | 2026-10-20 | #37 | Fix: a Lloyds statement whose header line ends in a comma is no longer refused. |
 | 2026-10-20 | #37 | Notes on review rows, written onto their entries. |
-| 2026-10-30 | — | Lloyds exports with only some columns, and Monzo's shorter export, are recognised (committed straight to `staging`). |
+| 2026-10-30 | #47 | Lloyds exports with only some columns, and Monzo's shorter export, are recognised. |
