@@ -438,6 +438,24 @@ function importStagingBehaves(db, label) {
   eq(db.pragma('foreign_key_check'), [], `${label}: no foreign-key violations`);
 }
 
+/** A database migrated by an early build of #37, whose version 10 added
+ *  import_rows.teaches but not yet note: it must still gain note. */
+function earlyV10GainsNote(Database, runner) {
+  const { runMigrations, getUserVersion, LATEST_VERSION } = runner;
+  const fs = require('fs');
+  const root = path.join(__dirname, '..');
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  db.exec(fs.readFileSync(path.join(root, 'database', 'schema.sql'), 'utf8'));
+  db.exec(fs.readFileSync(path.join(root, 'database', 'triggers.sql'), 'utf8'));
+  db.exec('ALTER TABLE import_rows DROP COLUMN note');
+  db.pragma('user_version = 10');
+  runMigrations(db);
+  eq(getUserVersion(db), LATEST_VERSION, 'an early v10 database reaches the latest version');
+  assert(db.prepare('PRAGMA table_info(import_rows)').all().some((c) => c.name === 'note'), 'and gains import_rows.note');
+  db.close();
+}
+
 function importStaging(Database, runner) {
   const { runMigrations, getUserVersion, LATEST_VERSION } = runner;
   const fs = require('fs');
@@ -555,6 +573,7 @@ app.whenReady().then(() => {
     );
 
     importStaging(Database, require(path.join(__dirname, '..', 'build', 'database', 'migrations.js')));
+    earlyV10GainsNote(Database, require(path.join(__dirname, '..', 'build', 'database', 'migrations.js')));
 
     console.log(`MIGRATION_OK version=${LATEST_VERSION} tables=${tables.length}`);
   } catch (err) {

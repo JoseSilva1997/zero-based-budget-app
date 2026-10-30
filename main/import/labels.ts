@@ -20,6 +20,11 @@
 
    A row the bank already rules out (a hard block) carries only that label:
    whether it is a duplicate, or which category it would be, is noise.
+
+   A row can teach without being imported: an unticked spend whose category
+   you picked, not matched to an entry and not blocked, trains the classifier
+   once its batch is confirmed, though it writes no entry. A category the
+   classifier guessed never teaches, so it can't learn from its own guesses.
    ============================================================ */
 import { HIGH_CONFIDENCE, LOW_CONFIDENCE, type Prediction } from './classifier';
 
@@ -91,6 +96,8 @@ export interface RowAssessment {
   name: string;
   kind: 'spend' | 'transfer';
   included: boolean;
+  /** Confirming would train the classifier on this row without importing it. */
+  teaches: boolean;
 }
 
 const label = (key: LabelKey): Label => ({ key, ...LABELS[key] });
@@ -107,7 +114,7 @@ export function assessRow(f: RowFacts): RowAssessment {
   if (f.direction === 'credit') hard.push(label('credit'));
   if (f.notCompleted) hard.push(label('not_completed'));
   if (f.alreadyImported) hard.push(label('already_imported'));
-  if (hard.length > 0) return { labels: hard, categoryId, name, kind, included: false };
+  if (hard.length > 0) return { labels: hard, categoryId, name, kind, included: false, teaches: false };
 
   const labels: Label[] = [];
   // Whatever decided the kind or category was the classifier's middling guess.
@@ -128,5 +135,6 @@ export function assessRow(f: RowFacts): RowAssessment {
   const importable = !blocked && kind === 'spend' && categoryId !== null && s.linkedEntryId === null;
   const byDefault = labels.length === 0;
   const included = importable && (s.included === null ? byDefault : s.included === 1);
-  return { labels: labels.length ? labels : [label('ok')], categoryId, name, kind, included };
+  const teaches = !included && kind === 'spend' && s.categoryId !== null && s.linkedEntryId === null;
+  return { labels: labels.length ? labels : [label('ok')], categoryId, name, kind, included, teaches };
 }

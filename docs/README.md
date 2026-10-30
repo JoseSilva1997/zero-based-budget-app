@@ -11,7 +11,7 @@ New to the codebase? Read the **feature** docs first; they explain a whole featu
 | Feature | Doc | PRs |
 |---|---|---|
 | Categories | [categories](features/categories_feature.md) | #32 |
-| Upload transactions | [upload-transactions](features/upload-transactions_feature.md) | #32, #33 |
+| Upload transactions | [upload-transactions](features/upload-transactions_feature.md) | #32, #33, #37 |
 
 ### Pull requests
 
@@ -20,6 +20,7 @@ New to the codebase? Read the **feature** docs first; they explain a whole featu
 | [#32](https://github.com/JoseSilva1997/zero-based-budget-app/pull/32) | Month-independent categories | [overview](pr-overview/pr32-categories_overview.md) | [spec](specs/pr32-categories_spec.md) | [decisions](key-decisions/pr32-categories_decisions.md) |
 | [#33](https://github.com/JoseSilva1997/zero-based-budget-app/pull/33) | Upload transactions from bank statements | [overview](pr-overview/pr33-upload-transactions_overview.md) | [spec](specs/pr33-upload-transactions_spec.md) | [decisions](key-decisions/pr33-upload-transactions_decisions.md) |
 | [#34](https://github.com/JoseSilva1997/zero-based-budget-app/pull/34) | This docs structure | [overview](pr-overview/pr34-docs-structure_overview.md) | — | — |
+| [#37](https://github.com/JoseSilva1997/zero-based-budget-app/pull/37) | Upload review improvements | [overview](pr-overview/pr37-upload-review_overview.md) | — | [decisions](key-decisions/pr37-upload-review_decisions.md) |
 | [#42](https://github.com/JoseSilva1997/zero-based-budget-app/pull/42) | A database from a newer version | [overview](pr-overview/pr42-newer-database_overview.md) | [spec](specs/pr42-newer-database_spec.md) | [decisions](key-decisions/pr42-newer-database_decisions.md) |
 | [#43](https://github.com/JoseSilva1997/zero-based-budget-app/pull/43) | Dev launches keep their own data folder | [overview](pr-overview/pr43-dev-data-folder_overview.md) | — | — |
 | [#44](https://github.com/JoseSilva1997/zero-based-budget-app/pull/44) | Restoring a backup from a newer version | [overview](pr-overview/pr44-restore-newer-backup_overview.md) | — | — |

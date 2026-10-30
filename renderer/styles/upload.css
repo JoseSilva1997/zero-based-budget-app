@@ -219,6 +219,15 @@
 .upload-toggle.is-open { border-color: var(--accent); color: var(--ink); }
 .upload-actions > .is-open { opacity: 1; pointer-events: auto; }
 
+/* ---- the note -----------------------------------------------------------
+   A line under its row, not a tray: it belongs to the row rather than
+   opening something else. It starts where the name does (the tick, the date
+   and their gaps in), so the two read as one entry, and it is set a step
+   quieter than the name. */
+.upload-note { padding: 0 var(--space-6) var(--space-2) calc(var(--space-6) + 22px + 52px + 2 * var(--space-4)); }
+.upload-note-field { width: 100%; font-size: var(--text-12); color: var(--ink-2); }
+.upload-note + .upload-row { border-top: 1px solid var(--rule-faint); }
+
 /* ---- "Same as existing" --------------------------------------------------
    The candidates open under the row as a tray, the way an item's entries
    open under it on the budget: Tray Wash, so the row and what it opened read
