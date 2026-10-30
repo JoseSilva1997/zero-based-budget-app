@@ -343,14 +343,22 @@ const MIGRATIONS: Migration[] = [
   },
   {
     version: 10,
-    name: 'upload rows: a note, and unticked rows that teach the classifier',
-    // Additive and guarded, like 9: a fresh install already has the columns.
+    name: 'unticked upload rows that teach the classifier',
+    // Additive and guarded, like 9: a fresh install already has the column.
+    up: (db) => {
+      if (!hasColumn(db, 'import_rows', 'teaches')) {
+        db.exec(`ALTER TABLE import_rows ADD COLUMN teaches INTEGER NOT NULL DEFAULT 0 CHECK (teaches IN (0,1));`);
+      }
+    },
+  },
+  {
+    version: 11,
+    name: "an upload row's note",
+    // Its own version, not part of 10: a development build ran 10 on a real
+    // database before note existed, and a version runs only once.
     up: (db) => {
       if (!hasColumn(db, 'import_rows', 'note')) {
         db.exec(`ALTER TABLE import_rows ADD COLUMN note TEXT;`);
-      }
-      if (!hasColumn(db, 'import_rows', 'teaches')) {
-        db.exec(`ALTER TABLE import_rows ADD COLUMN teaches INTEGER NOT NULL DEFAULT 0 CHECK (teaches IN (0,1));`);
       }
     },
   },
