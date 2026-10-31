@@ -9,7 +9,7 @@
    one is archived. A category nothing refers to any more is deleted outright.
    ============================================================ */
 import type Database from 'better-sqlite3';
-import type { Category, CategoryRead, MergeImpact } from '../../shared/types';
+import type { Category, CategoryRead, GroupKind, MergeImpact } from '../../shared/types';
 import { nextSortOrder } from './_sql';
 
 /** The form two names are compared in: trimmed, inner whitespace collapsed,
@@ -137,7 +137,7 @@ export function listCategories(db: Database.Database): CategoryRead[] {
   const rows = db
     .prepare(
       `SELECT c.id AS id, c.name AS name, g.id AS group_id, g.name AS group_name,
-              c.archived AS archived,
+              g.kind AS group_kind, c.archived AS archived,
               (SELECT COUNT(*) FROM budget_items it WHERE it.category_id = c.id) AS lines,
               (SELECT COUNT(*) FROM budget_item_actual_entries e
                  JOIN budget_items it ON it.id = e.budget_item_id
@@ -150,6 +150,7 @@ export function listCategories(db: Database.Database): CategoryRead[] {
     name: string;
     group_id: number;
     group_name: string;
+    group_kind: GroupKind;
     archived: number;
     lines: number;
     entries: number;
@@ -159,6 +160,7 @@ export function listCategories(db: Database.Database): CategoryRead[] {
     name: r.name,
     groupId: r.group_id,
     groupName: r.group_name,
+    groupKind: r.group_kind,
     archived: !!r.archived,
     lines: r.lines,
     entries: r.entries,

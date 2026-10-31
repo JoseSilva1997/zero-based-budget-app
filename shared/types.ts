@@ -311,8 +311,34 @@ export interface TrendPoint {
   byGroup: Record<string, number>; // group name -> actual (dollars)
   savingsByCat: Record<string, number>; // item name -> allocated (dollars)
   overCount: number;
-  over: OverBudgetRow[]; // the over-budget items themselves (for chronic-offender charts)
+  over: OverBudgetRow[]; // the over-budget items themselves
   byDay: number[]; // length 32, index 1..31 -> dollars spent on that day-of-month
+  /* What the Dashboard's cards read. "Spending" in these means money out of
+     spend and debt groups: what went into a savings group is not spending. */
+  savingsActual: number; // actual entered against savings groups (dollars)
+  byGroupId: Record<number, number>; // group id -> actual (dollars), every kind
+  byCategoryId: Record<number, number>; // category id -> actual (dollars), every kind
+  savingsByCatId: Record<number, number>; // savings category id -> allocated (dollars)
+  purchases: number; // spend entries outside savings groups (refunds not counted)
+  purchaseTotal: number; // what those purchases add up to (dollars)
+  purchaseAmounts: number[]; // each of those purchases (dollars), for the median purchase
+  weekendSpend: number; // spending on a Saturday or Sunday, net of refunds (dollars)
+  spendByDay: number[]; // like byDay, without savings
+}
+
+/** One of the Dashboard's cards: which stat it shows, the choice that stat
+ *  needs (if any), and where it sits on the 4-column, 3-row card grid. The
+ *  stat ids are the renderer's (renderer/lib/dashboardStats.js); the main
+ *  process only checks the shape. */
+export interface DashboardCard {
+  stat: string;
+  of?: { kind: 'group' | 'category'; id: number }; // a group or category to look at
+  goal?: number; // a savings category id
+  percent?: number; // a share of income, for the saving streak
+  x: number; // column of the top-left cell, 1-4
+  y: number; // row of the top-left cell, 1-3
+  w: number; // columns it spans
+  h: number; // rows it spans
 }
 
 /** A category as the Settings list shows it, with what archiving or merging
@@ -322,6 +348,7 @@ export interface CategoryRead {
   name: string;
   groupId: number;
   groupName: string;
+  groupKind: GroupKind;
   archived: boolean;
   lines: number; // months it has a plan line in
   entries: number; // spending entries logged against it, every month
