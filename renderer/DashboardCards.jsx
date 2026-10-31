@@ -8,7 +8,9 @@
    which number leads by making that card bigger, not by the order it comes
    in.
 
-   Reading: only the rows the cards reach take space. Each card's menu button
+   Reading: only the rows the cards reach take space. A card is its stat's
+   title over its figure; the sentence explaining the figure is its tooltip.
+   Each card's menu button
    (quiet until the card is hovered or holds focus) opens the list of stats;
    a stat that needs a choice (a group or category, a savings goal, a share
    of income) asks for it in the same menu as a second step.
@@ -30,7 +32,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { AnchoredMenu, Icons } from './ui/index.js';
 import { cx } from './lib/index.js';
-import { PERCENT_CHOICES, SECTIONS, STATS, choicesFor, computeStat, statById } from './lib/dashboardStats.js';
+import { PERCENT_CHOICES, SECTIONS, STATS, choicesFor, computeStat } from './lib/dashboardStats.js';
 import { GRID_COLS, GRID_ROWS, cardAt, fits, freeCells, moveCard, placeCard, rectBetween, resizeCard, sizeOf, swapCards } from './lib/cardGrid.js';
 
 /* grid-column / grid-row for a rectangle. Runtime values, so inline. */
@@ -53,7 +55,7 @@ function CardMenu({ anchorRef, card, ctx, onPick, onClose }) {
           <button type="button" className="move-menu-item dash-menu-back" onClick={() => setAsking(null)}>
             <span className="dash-menu-back-text"><Icons.left size={13} /> All stats</span>
           </button>
-          <div className="eyebrow move-menu-label">{asking.label.replace(/…$/, "")}</div>
+          <div className="eyebrow move-menu-label">{asking.label.replace(/\u2026$/, "")}</div>
           {asking.needs === "percent" && PERCENT_CHOICES.map((p, i) => (
             <button key={p} type="button" className="move-menu-item" autoFocus={i === 0}
               onClick={() => done({ percent: p }, close)}>
@@ -119,9 +121,7 @@ const KEY_STEP = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], Arr
 function DashCard({ card, ctx, currency, editing, autoOpen, helpId, dragging, onPick, onKeyChange, onRemove, onStartDrag, onMenuClosed }) {
   const btn = useRef(null);
   const [open, setOpen] = useState(!!autoOpen);
-  const { figure, note } = computeStat(card, ctx, currency);
-  const s = statById(card.stat);
-  const name = s ? s.label.replace(/…$/, "") : "No stat chosen";
+  const { title, figure, note } = computeStat(card, ctx, currency);
   const close = () => { setOpen(false); onMenuClosed(); };
 
   const onKeyDown = (e) => {
@@ -148,25 +148,31 @@ function DashCard({ card, ctx, currency, editing, autoOpen, helpId, dragging, on
 
   return (
     <div data-dash-card className={cx("dash-card", `is-${sizeOf(card)}`, editing && "is-editing", dragging && "is-dragging", open && "is-open")}
-      style={placement(card)} tabIndex={editing ? 0 : undefined}
-      aria-label={editing ? `${name}: ${figure}` : undefined} aria-describedby={editing ? helpId : undefined}
+      style={placement(card)} tabIndex={editing ? 0 : undefined} title={note}
+      aria-label={editing ? `${title}: ${figure}` : undefined} aria-describedby={editing ? helpId : undefined}
       onKeyDown={onKeyDown} onPointerDown={onPointerDown}>
-      <div className="dash-card-text">
-        <span className={cx("num dash-card-figure", figure === "—" && "is-blank")}>{figure}</span>
-        <span className="dash-card-note">{note}</span>
-      </div>
-      <div className="dash-card-tools">
+      {/* The title on top, the figure under it, nothing else. The sentence
+          that explains the figure is the card's tooltip, and is read out
+          after the figure. */}
+      <div className="dash-card-head">
+        <span className="dash-card-title">{title}</span>
+        <div className="dash-card-tools">
         <button ref={btn} type="button" data-dash-card-menu className={cx("icon-btn compact subtle dash-card-btn", open && "is-open")}
-          aria-label={`Change this card: ${name}`} aria-expanded={open} title="Change this card"
+          aria-label={`Change this card: ${title}`} aria-expanded={open} title="Change this card"
           onClick={() => (open ? close() : setOpen(true))}>
           <Icons.down size={14} />
         </button>
         {editing && (
           <button type="button" data-dash-card-remove className="icon-btn compact subtle dash-card-btn"
-            aria-label={`Remove this card: ${name}`} title="Remove this card" onClick={onRemove}>
+            aria-label={`Remove this card: ${title}`} title="Remove this card" onClick={onRemove}>
             <Icons.x size={14} />
           </button>
         )}
+        </div>
+      </div>
+      <div className="dash-card-body">
+        <span className={cx("num dash-card-figure", figure === "—" && "is-blank")}>{figure}</span>
+        <span className="sr-only">{`, ${note}`}</span>
       </div>
       {editing && <span data-dash-card-resize className="dash-card-resize" aria-hidden="true" title="Drag to resize" />}
       {open && <CardMenu anchorRef={btn} card={card} ctx={ctx} onPick={onPick} onClose={close} />}

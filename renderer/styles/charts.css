@@ -111,20 +111,24 @@
 .dash-cards.is-editing { grid-template-rows: repeat(3, minmax(104px, auto)); user-select: none; }
 
 /* A card is a raised surface: the cards differ in size, and an edge is what
-   shows how big each one is. Its figure and note sit in the middle of its
-   height, so a tall card does not read as a short one with empty space under
-   it; the tools stay in the top corner. */
+   shows how big each one is. It holds two things: the stat's title along
+   the top, with the tools beside it, and the figure under it. The figure
+   sits in the middle of the space left, so a tall card does not read as a
+   short one with empty space under it. */
 .dash-card {
   position: relative; min-width: 0;
-  display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-2);
-  padding: var(--space-6) var(--space-6) var(--space-5);
+  display: flex; flex-direction: column; gap: var(--space-3);
+  padding: var(--space-5) var(--space-6) var(--space-6);
   background: var(--raised); border: 1px solid var(--rule-faint); border-radius: 12px;
 }
-.dash-card-text { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; align-self: center; }
+.dash-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-2); }
+/* The title is the card's label: one size on every card, as .stat-label is
+   one size at every rung, so only the figure says how big the card is. */
+.dash-card-title { font-size: var(--text-13); font-weight: 500; color: var(--muted); line-height: 1.35; min-width: 0; }
+.dash-card-body { flex: 1 1 auto; display: flex; align-items: center; min-width: 0; }
 /* A figure is sometimes a name or a range, not a number, so it may wrap; a
    single long word breaks rather than overflowing its card. */
 .dash-card-figure { font-weight: 600; line-height: 1.15; color: var(--ink); overflow-wrap: anywhere; }
-.dash-card-note { font-size: var(--text-12); color: var(--faint); line-height: 1.4; }
 
 /* Three rungs, by the cells a card covers: the .stat card rung (20), the
    .stat surface rung (30), and the headline (46) for a card of three cells
@@ -136,14 +140,13 @@
   font-size: var(--text-46); font-weight: 700; letter-spacing: -0.03em; line-height: 1.05;
   color: var(--accent-text);
 }
-.dash-card.is-lg .dash-card-note { font-size: var(--text-14); color: var(--muted); }
 /* A stat with too little to go on shows a dash, which is absence, not a
    figure: no accent on it, even on a large card. */
 .dash-card .dash-card-figure.is-blank { color: var(--faint); }
 
 /* The tools are quiet until the card is hovered or holds focus, like an
    upload row's; an open menu keeps its button drawn. */
-.dash-card-tools { display: flex; gap: var(--space-1); flex: none; margin: -6px -8px 0 0; }
+.dash-card-tools { display: flex; gap: var(--space-1); flex: none; margin: -5px -10px -5px 0; }
 .dash-card-btn { opacity: 0; transition: opacity .12s; }
 .dash-card:hover .dash-card-btn, .dash-card:focus-within .dash-card-btn, .dash-card-btn.is-open { opacity: 1; }
 

@@ -197,6 +197,11 @@ export const STATS = [
   ),
   {
     id: "totalSpendOn", section: "Spending", label: "Total spent in the last 12 months on…", needs: "of",
+    // Says how many months it covers when the history is shorter than 12.
+    title: (ctx, name) => {
+      const n = ctx.window.length;
+      return `Total spent in ${n === 1 ? "the last month" : `the last ${n || 12} months`} on ${name}`;
+    },
     compute: (ctx, card, money) => {
       const t = target(ctx, card.of);
       if (!t) return empty(NO_TARGET);
@@ -430,11 +435,32 @@ export function buildContext({ allSeries, now, categories }) {
 }
 
 /* A card's figure and the line under it. */
+/* A card's title: the stat's name, with the card's choice written into it
+   ("Average monthly spend on Food", "Saved toward Holiday"). A choice not
+   made yet, or one that no longer exists, keeps the open name. */
+function titleFor(s, card, ctx) {
+  if (s.needs === "of") {
+    const t = target(ctx, card.of);
+    if (!t) return s.label;
+    return s.title ? s.title(ctx, t.name) : s.label.replace(/\u2026$/, ` ${t.name}`);
+  }
+  if (s.needs === "goal") {
+    const goal = card.goal != null && ctx.categories.get(card.goal);
+    return goal ? `Saved toward ${goal.name}` : s.label;
+  }
+  if (s.needs === "percent") return `Longest run saving ${card.percent || DEFAULT_PERCENT}% of income or more`;
+  return s.label;
+}
+
+/* What a card shows: its title and figure. `note` is the sentence that
+   explains the figure (which month, up or down from what, or what a dash is
+   waiting for); the card keeps it as its tooltip and its description for a
+   screen reader rather than printing it. */
 export function computeStat(card, ctx, currency) {
   const s = statById(card.stat);
-  if (!s) return empty("choose a stat from this card's menu");
+  if (!s) return { title: "No stat chosen", ...empty("choose a stat from this card's menu") };
   const money = (v) => fmt(currency, v, { cents: false });
-  return s.compute(ctx, card, money);
+  return { title: titleFor(s, card, ctx), ...s.compute(ctx, card, money) };
 }
 
 /* What a card's menu offers for a stat's choice: spend groups with their

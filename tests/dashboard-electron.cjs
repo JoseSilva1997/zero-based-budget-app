@@ -185,7 +185,11 @@ const categories = [
   { id: HOLIDAY, name: 'Holiday', groupId: SAVE, groupName: 'Savings', groupKind: 'savings', archived: false },
 ];
 const ctx = buildContext({ allSeries: series, now: '2026-10', categories });
-const stat = (card) => computeStat(card, ctx, '£');
+// Most checks are about the figure and the detail line; titles are checked
+// on their own below.
+const noTitle = ({ title, ...rest }) => rest;
+const stat = (card) => noTitle(computeStat(card, ctx, '£'));
+const titleOf = (card, c = ctx) => computeStat(card, c, '£').title;
 
 window.__runTests = async () => {
   eq('the window is the 12 finished months', ctx.window.map((m) => m.month), windowMonths);
@@ -208,7 +212,7 @@ window.__runTests = async () => {
   eq('total spent on a group over the window', stat({ stat: 'totalSpendOn', of: { kind: 'group', id: FOOD } }), { figure: '£7,200', note: 'spent on Food in the last 12 months' });
   eq('total spent on a category over the window', stat({ stat: 'totalSpendOn', of: { kind: 'category', id: EAT } }), { figure: '£2,400', note: 'spent on Eating out in the last 12 months' });
   eq('a shorter history says how many months it covers',
-     computeStat({ stat: 'totalSpendOn', of: { kind: 'group', id: FOOD } }, buildContext({ allSeries: series.slice(-6), now: '2026-10', categories }), '£'),
+     noTitle(computeStat({ stat: 'totalSpendOn', of: { kind: 'group', id: FOOD } }, buildContext({ allSeries: series.slice(-6), now: '2026-10', categories }), '£')),
      { figure: '£2,400', note: 'spent on Food in the last 4 months' });
   eq('and one month says so plainly',
      computeStat({ stat: 'totalSpendOn', of: { kind: 'group', id: FOOD } }, buildContext({ allSeries: series.slice(-3), now: '2026-10', categories }), '£').note,
@@ -255,6 +259,21 @@ window.__runTests = async () => {
      computeStat({ stat: 'medianIncome' }, buildContext({ allSeries: [point('2026-08', { income: 2000 }), point('2026-09', { income: 3000 })], now: '2026-10', categories }), '£').figure,
      '£2,500');
 
+  // Titles: the stat's name, with the card's choice written in
+  eq('a plain stat is titled by its name', titleOf({ stat: 'savedAllTime' }), 'Saved, all time');
+  eq('a group or category goes into the title', [titleOf({ stat: 'avgSpendOn', of: { kind: 'group', id: FOOD } }),
+     titleOf({ stat: 'medianSpendOn', of: { kind: 'category', id: EAT } }), titleOf({ stat: 'shareOn', of: { kind: 'group', id: HOME } })],
+     ['Average monthly spend on Food', 'Median monthly spend on Eating out', 'Share of spending on Home']);
+  eq('one not chosen yet keeps the open title', titleOf({ stat: 'avgSpendOn' }), 'Average monthly spend on…');
+  eq('so does one that no longer exists', titleOf({ stat: 'avgSpendOn', of: { kind: 'group', id: 404 } }), 'Average monthly spend on…');
+  eq('a goal goes into the title', titleOf({ stat: 'goalTotal', goal: HOLIDAY }), 'Saved toward Holiday');
+  eq('a share of income goes into the title', titleOf({ stat: 'saveStreak', percent: 15 }), 'Longest run saving 15% of income or more');
+  eq('a total says how many months it covers', [titleOf({ stat: 'totalSpendOn', of: { kind: 'group', id: FOOD } }),
+     titleOf({ stat: 'totalSpendOn', of: { kind: 'group', id: FOOD } }, buildContext({ allSeries: series.slice(-6), now: '2026-10', categories })),
+     titleOf({ stat: 'totalSpendOn', of: { kind: 'group', id: FOOD } }, buildContext({ allSeries: series.slice(-3), now: '2026-10', categories }))],
+     ['Total spent in the last 12 months on Food', 'Total spent in the last 4 months on Food', 'Total spent in the last month on Food']);
+  eq('an unknown stat asks for one', titleOf({ stat: 'gone' }), 'No stat chosen');
+
   // Every stat in the list can be computed, and says something.
   const sample = { of: { kind: 'group', id: FOOD }, goal: HOLIDAY, percent: 10 };
   STATS.forEach((s) => {
@@ -268,7 +287,7 @@ window.__runTests = async () => {
   eq('no finished month shows a dash', none.figure, '—');
   check('and says why', /finished/.test(none.note), none.note);
   eq('a group that no longer exists shows a dash', stat({ stat: 'avgSpendOn', of: { kind: 'group', id: 404 } }).figure, '—');
-  eq('no month went over', computeStat({ stat: 'avgOverspend' }, buildContext({ allSeries: [point('2026-09', { spend: 2000, alloc: 2500 })], now: '2026-10', categories }), '£'),
+  eq('no month went over', noTitle(computeStat({ stat: 'avgOverspend' }, buildContext({ allSeries: [point('2026-09', { spend: 2000, alloc: 2500 })], now: '2026-10', categories }), '£')),
      { figure: '£0', note: 'no month went over the plan' });
 
   // The saved cards, made safe
@@ -337,8 +356,12 @@ window.__runTests = async () => {
      [['1 / span 2', '1 / span 2'], ['3 / span 1', '1 / span 1'], ['4 / span 1', '1 / span 1'], ['3 / span 2', '2 / span 1']]);
   check('the large card is drawn large', cardEls()[0].classList.contains('is-lg') && cardEls()[1].classList.contains('is-sm') && cardEls()[3].classList.contains('is-md'),
      cardEls().map((c) => c.className).join(' | '));
-  check('the large card shows its figure', cardEls()[0].textContent.includes('£6,120'), cardEls()[0].textContent);
+  check('the large card shows its figure', cardEls()[0].querySelector('.dash-card-figure').textContent === '£6,120', cardEls()[0].textContent);
   check('each card can be changed', cardEls().every((c) => c.querySelector('button[data-dash-card-menu]')));
+  eq('each card is titled by its stat', cardEls().map((c) => c.querySelector('.dash-card-title').textContent),
+     ['Saved, all time', 'Average share of income saved', 'Average monthly spend, with savings', 'Months within the plan']);
+  check('and shows only its title and figure', cardEls().every((c) => !c.querySelector('.dash-card-note')), host.innerHTML.slice(0, 200));
+  eq('the detail is kept as the card tooltip', cardEls()[3].getAttribute('title'), 'months stayed within the plan');
   check('no empty cells outside editing', !host.querySelector('[data-dash-cell]'));
   check('no remove button outside editing', !host.querySelector('[data-dash-card-remove]'));
 

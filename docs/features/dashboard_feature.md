@@ -1,6 +1,6 @@
 # Feature: dashboard
 
-**Changes:** [cards](../key-decisions/2026-10-31-dashboard-cards_decisions.md) · [swap](../key-decisions/2026-10-31-dashboard-card-swap_decisions.md)
+**Changes:** [cards](../key-decisions/2026-10-31-dashboard-cards_decisions.md) · [swap](../key-decisions/2026-10-31-dashboard-card-swap_decisions.md) · [titles](../key-decisions/2026-10-31-dashboard-card-titles_decisions.md)
 
 ## Context
 
@@ -11,6 +11,7 @@ The first version had a fixed headline (saved all time, share of income kept bac
 ## What it does
 
 - **Cards across the top, on a grid you arrange.** The grid is 4 columns wide and up to 3 rows deep, and each card covers a rectangle of cells, from one cell to the whole grid. Only the rows the cards reach take space, so the cards can fill one row, two or three. There can be no cards at all.
+- **A card is a title over a figure**, and nothing else. The title is the stat's name with the card's choice written in: "Average monthly spend on Food", "Saved toward Holiday", "Longest run saving 15% of income or more", "Total spent in the last 4 months on Food" when there are fewer than 12 finished months. The sentence that explains the figure (which month was best, up or down from what, what share the top group takes, what a dash is waiting for) is the card's tooltip, and a screen reader reads it after the figure.
 - **A card's size is its weight.** Its figure is drawn at one of three sizes by how many cells it covers: one cell, two cells, or three and more (the largest also wears the accent).
 - **Editing.** **Edit cards** in the screen's header shows all three rows, with each free cell drawn as a dashed box:
   - click a free cell, or drag across several, to add a card that size; its menu opens to choose the stat
@@ -89,7 +90,7 @@ flowchart LR
 
 - **Which months count.** "All time" and "this year" stats add every month up to and including the current one, never a month planned ahead. Every other stat reads the **window**: the last 12 *finished* months, meaning months before the current calendar month. The month in progress is half a month and would always look light and within plan. Inside the window a stat counts only the months that have what it measures (spending, income, or a plan with spending), so an untracked month is not read as a month of no spending.
 - **What "spending" means.** Money out of spend and debt groups. What went into a savings group is put aside, not spent, so it is left out of every spending stat except "with savings". The plan stats compare the whole plan with everything entered, savings included, because that is what the plan is.
-- **Too little to go on** shows a dash and says what the stat is waiting for, rather than a zero that reads as a fact.
+- **Too little to go on** shows a dash, and the card's tooltip says what the stat is waiting for, rather than a zero that reads as a fact.
 - **Data.** `trendSeries` returns, per month, what the charts read plus what only the cards read: `savingsActual`, spending by group and category **id** (`byGroupId`, `byCategoryId`, so a chosen group survives a rename), `savingsByCatId`, `purchases`, `purchaseTotal` and `purchaseAmounts` (spends outside savings, refunds not counted; the amounts are for the median purchase), `weekendSpend`, and `spendByDay` without savings. `listCategories` now carries each category's `groupKind`.
 - **The saved cards** are JSON in `app_meta` under `dashboardCards`, written through `settings:update`: a list of `{ stat, of?, goal?, percent?, x, y, w, h }`, where `x`, `y` is the top-left cell (from 1) and `w`, `h` the columns and rows it spans. The main process checks only the shape (at most twelve cards, each naming a stat, inside the grid, none overlapping, with any choice in the right form) and refuses anything else. The stat ids belong to the renderer: a card with an id it does not know keeps its place and asks for a stat. An unreadable saved value reads as "none chosen", which means the defaults; an empty list is a choice and stays empty.
 - **The grid's rules** (`renderer/lib/cardGrid.js`) are pure functions: whether a rectangle fits, moving, resizing, the rectangle between two cells, the free cells, and a card's size rung. A drag reads the cell under the pointer from the grid's resolved tracks, so rows of different heights are measured as drawn.
@@ -120,3 +121,4 @@ flowchart LR
 | 2026-10-31 | cards | Cards the household picks and arranges on a 4 × 3 grid replace the fixed headline; "Category trends" and "Runs over most often" removed; Saved each month made full width. |
 | 2026-10-31 | swap | A card moved onto another swaps places with it, by drag or with the arrows. |
 | 2026-10-31 | no median saving rate | "Median share of income saved" removed; a card that showed it asks for a stat. |
+| 2026-10-31 | titles | A card is the stat's title over its figure; the explaining sentence moved to the tooltip. |
