@@ -39,6 +39,33 @@
   display: grid; grid-template-columns: 1fr 1fr;
   gap: 64px 32px; margin-top: 52px; align-items: start;
 }
+/* Two charts on one row of the grid, split 3:2: the twelve bars of
+   "Saved each month" need the width more than the pie beside them. */
+.dash-pair {
+  grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 32px; align-items: start;
+}
+
+/* ---- spending by group (the pie) ----
+   The month and the Total/% toggle sit in one row above the chart; the
+   legend beside the pie names every slice with its figure, so no slice is
+   known by its colour alone. */
+.pie-controls { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-4); }
+.pie-month { max-width: 220px; }
+.pie-mode .seg-item { padding: 5px var(--space-4); }
+/* The chosen option is the accent's solid fill, as the currency picker's
+   chosen chip is (.chip-radio in controls.css): on a chart, a raised grey
+   chip barely parts from the tray. */
+.pie-mode .seg-item.is-on {
+  background: var(--accent-btn); box-shadow: none;
+  color: color-mix(in srgb, var(--on-accent) 88%, var(--accent-btn) 12%);
+}
+.pie-split { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(0, 1fr); gap: var(--space-5); align-items: center; }
+.pie-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.pie-row { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-13); min-width: 0; }
+.pie-swatch { flex: none; width: 10px; height: 10px; border-radius: 3px; }
+.pie-name { flex: 1 1 auto; color: var(--ink-2); min-width: 0; }
+.pie-value { flex: none; color: var(--ink); font-weight: 600; }
 
 /* ---- the shared tooltip -------------------------------------------------
    The dark var(--ink) box. pointer-events: none because recharts positions it

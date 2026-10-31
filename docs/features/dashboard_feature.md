@@ -1,6 +1,6 @@
 # Feature: dashboard
 
-**Changes:** [cards](../key-decisions/2026-10-31-dashboard-cards_decisions.md) · [swap](../key-decisions/2026-10-31-dashboard-card-swap_decisions.md) · [titles](../key-decisions/2026-10-31-dashboard-card-titles_decisions.md)
+**Changes:** [cards](../key-decisions/2026-10-31-dashboard-cards_decisions.md) · [swap](../key-decisions/2026-10-31-dashboard-card-swap_decisions.md) · [titles](../key-decisions/2026-10-31-dashboard-card-titles_decisions.md) · [spending by group](../key-decisions/2026-10-31-dashboard-spending-by-group_decisions.md)
 
 ## Context
 
@@ -27,7 +27,8 @@ The first version had a fixed headline (saved all time, share of income kept bac
   - a **share of income** (Longest run saving a share of income), from 5% to 30%.
 
   The same stat can be on more than one card with different choices, such as spending on Groceries and on Eating out.
-- **The charts below:** Saved each month, Savings by goal adding up, Planned against spent, and When money leaves in the month. They show the last 12 months, the current one included.
+- **The charts below:** Saved each month, with Spending by group beside it; then Savings by goal adding up, Planned against spent, and When money leaves in the month. They show the last 12 months, the current one included.
+- **Spending by group** is a pie of where the spending went, savings groups left out. It opens on **All months (average)**: the average month over the finished months of the window, so half a month in progress does not shrink every slice. A select picks any one month of the window instead, the month in progress included, and a Total / % toggle shows each group as an amount or as its share. The legend beside the pie names every group with its figure; hovering a slice shows both the amount and the share. A group keeps its colour whichever month is shown. Past eight groups, the smallest fold into one grey "Other" slice. The month and the toggle are not remembered: the chart opens on the average, as amounts, each time.
 
 ### The stats
 
@@ -102,6 +103,7 @@ flowchart LR
 - `renderer/lib/cardGrid.js`: the grid's rules.
 - `renderer/lib/dashboardStats.js`: every stat's arithmetic, the defaults, `normaliseCards`, `buildContext`.
 - `renderer/DashboardCharts.jsx`: the charts.
+- `renderer/lib/groupSpend.js`: the pie's slices: a month or the average month, colour slots, folding into Other.
 - `database/repositories/months.ts` (`trendSeries`), `database/repositories/dashboardCards.ts`, `main/ipc/settings.ts`.
 - `renderer/styles/charts.css`.
 - Tests: `tests/dashboard-electron.cjs`.
@@ -112,7 +114,8 @@ flowchart LR
 - A swap between cards of different sizes is refused when either would no longer fit; nothing is pushed aside to make room.
 - The window is fixed at the last 12 finished months; there is no period picker.
 - A card pointing at a group or category that was deleted or merged away shows a dash until another is chosen.
-- The charts still include the month in progress; only the cards leave it out.
+- The charts still include the month in progress; only the cards and the pie's average leave it out.
+- The pie's month and Total / % choices are not saved.
 
 ## Changelog
 
@@ -122,3 +125,4 @@ flowchart LR
 | 2026-10-31 | swap | A card moved onto another swaps places with it, by drag or with the arrows. |
 | 2026-10-31 | no median saving rate | "Median share of income saved" removed; a card that showed it asks for a stat. |
 | 2026-10-31 | titles | A card is the stat's title over its figure; the explaining sentence moved to the tooltip. |
+| 2026-10-31 | spending by group | A pie of spending by group beside Saved each month, for one month or the average month, as amounts or shares. |

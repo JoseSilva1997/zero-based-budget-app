@@ -135,6 +135,8 @@ import { createElement as h, useState } from 'react';
 import { buildContext, computeStat, normaliseCards, DEFAULT_CARDS, STATS } from './renderer/lib/dashboardStats.js';
 import { fits, moveCard, resizeCard, rectBetween, usedRows, sizeOf, freeCells, swapCards, cardAt } from './renderer/lib/cardGrid.js';
 import { DashboardCards } from './renderer/DashboardCards.jsx';
+import { groupSpending } from './renderer/lib/groupSpend.js';
+import { GroupSpendChart } from './renderer/DashboardCharts.jsx';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const out = [];
@@ -334,6 +336,42 @@ window.__runTests = async () => {
   eq('free cells, row by row', freeCells(grid), [at(1, 3), at(2, 3), at(3, 3)]);
   eq('a card\\'s size follows its area', [sizeOf(at(1, 1)), sizeOf(at(1, 1, 2, 1)), sizeOf(at(1, 1, 1, 3)), sizeOf(at(1, 1, 2, 2)), sizeOf(at(1, 1, 3, 1))],
      ['sm', 'md', 'lg', 'lg', 'lg']);
+
+  /* ---- spending by group (the pie) ---- */
+  const pie = groupSpending(ctx.window, ctx.groups, null);
+  eq('the average month, biggest group first, savings left out', pie.slices.map((x) => [x.name, Math.round(x.value), Math.round(x.share * 100)]),
+     [['Home', 1000, 49], ['Food', 600, 30], ['Other', 433, 21]]);
+  eq('its total is a month of spending', Math.round(pie.total), 2033);
+  const jan = groupSpending(ctx.window, ctx.groups, '2026-01');
+  eq('one month on its own', jan.slices.map((x) => [x.name, x.value]), [['Home', 1000], ['Other', 1000], ['Food', 600]]);
+  eq('a group keeps its colour whichever month is shown', [pie.slices.map((x) => x.slot), jan.slices.map((x) => x.slot)], [[0, 1, 2], [0, 2, 1]]);
+  eq('a month with no spending has no slices', groupSpending(ctx.window, ctx.groups, '2030-01').slices, []);
+  const many = new Map(Array.from({ length: 9 }, (_, i) => [i + 1, { name: 'G' + (i + 1), kind: 'spend', categories: [] }]));
+  const manyMonths = [{ month: '2026-09', byGroupId: Object.fromEntries(Array.from({ length: 9 }, (_, i) => [i + 1, 90 - i * 10])) }];
+  const folded = groupSpending(manyMonths, many, null);
+  eq('past eight groups, the smallest fold into Other', folded.slices.map((x) => [x.name, x.value, x.slot]),
+     [['G1', 90, 0], ['G2', 80, 1], ['G3', 70, 2], ['G4', 60, 3], ['G5', 50, 4], ['G6', 40, 5], ['G7', 30, 6], ['Other', 30, 'other']]);
+
+  const pieHost = document.createElement('div');
+  pieHost.style.width = '600px';
+  document.body.appendChild(pieHost);
+  const pieRoot = createRoot(pieHost);
+  await act(async () => { pieRoot.render(h(GroupSpendChart, { series: [...ctx.window, ...series.slice(-2)], ctx, currency: '£', now: '2026-10' })); });
+  const legend = () => [...pieHost.querySelectorAll('[data-pie-row]')].map((r) => r.textContent);
+  eq('it opens on the average month, as amounts', legend(), ['Home£1,000', 'Food£600', 'Other£433']);
+  const sel = pieHost.querySelector('select[data-pie-month]');
+  eq('the months to choose: the average first, then each month newest first', [...sel.options].slice(0, 3).map((o) => o.textContent),
+     ['All months (average)', 'Oct 2026', 'Sep 2026']);
+  await act(async () => { pieHost.querySelector('[data-pie-mode="share"]').click(); });
+  eq('the toggle shows shares instead', legend(), ['Home49%', 'Food30%', 'Other21%']);
+  check('and says which is on', pieHost.querySelector('[data-pie-mode="share"]').getAttribute('aria-checked') === 'true');
+  await act(async () => {
+    const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set;
+    set.call(sel, '2026-01');
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  eq('choosing a month shows that month', legend(), ['Home38%', 'Other38%', 'Food23%']);
+  await act(async () => { pieRoot.unmount(); });
 
   /* ---- mounted ---- */
   const host = document.createElement('div');

@@ -1,9 +1,11 @@
 /* ============================================================
    Dashboard chart toolkit - Recharts widgets + shared tooltip
    ============================================================ */
+import { useState } from 'react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
-         AreaChart, Area, ComposedChart, Line, LabelList } from 'recharts';
-import { GROUP_PALETTE, cx, fmt, round2 } from './lib/index.js';
+         AreaChart, Area, ComposedChart, Line, LabelList, PieChart, Pie, Cell } from 'recharts';
+import { GROUP_PALETTE, cx, fmt, monthLabel, round2 } from './lib/index.js';
+import { groupSpending } from './lib/groupSpend.js';
 
 /* short "Jan" style x-axis label from a "Jan 2025" series label */
 const shortMo = (label) => String(label).split(" ")[0];
@@ -162,6 +164,99 @@ function SavingsChart({ series, currency, onOpenMonth }) {
   );
 }
 
+/* ---- spending by group (pie) ---------------------------------------------
+   One month, or the average month, split across spend groups. Savings groups
+   are left out: money put aside is not spending.
+
+   The average is of the finished months in the window; the month in progress
+   is half a month and would pull every slice down. It can still be picked on
+   its own. A group's colour follows the group across every view (see
+   lib/groupSpend.js), and the legend beside the pie carries every name and
+   figure, so no slice is told apart by colour alone. */
+const pieColor = (slot) => (slot === "other" ? "var(--muted)" : GROUP_PALETTE[slot]);
+const PIE_MODES = [["total", "Total"], ["share", "%"]];
+
+function GroupSpendChart({ series, ctx, currency, now }) {
+  const [pick, setPick] = useState(null);
+  const [mode, setMode] = useState("total");
+  const spent = (m) => m.actual - (m.savingsActual || 0);
+  const months = series.filter((m) => spent(m) > 0);
+  const finished = months.filter((m) => m.month < now);
+  const averageOver = finished.length ? finished : months;
+  const shown = pick && months.some((m) => m.month === pick) ? pick : null;
+  const { slices, total } = groupSpending(months, ctx.groups, shown, averageOver);
+
+  if (!months.length) return <ChartEmpty note="No spending tracked yet." />;
+  const money = (v) => fmt(currency, v, { cents: false });
+  const show = (s) => (mode === "share" ? `${Math.round(s.share * 100)}%` : money(s.value));
+  const what = shown
+    ? `in ${monthLabel(shown).short}`
+    : `in the average of ${averageOver.length} ${finished.length ? "finished " : ""}month${averageOver.length === 1 ? "" : "s"}`;
+  const summary = slices.length
+    ? `Pie chart of spending by group ${what}, ${money(total)} in all: `
+      + slices.map((s) => `${s.name} ${money(s.value)}, ${Math.round(s.share * 100)}%`).join("; ") + "."
+    : `No spending by group ${what}.`;
+
+  return (
+    <>
+      <div className="pie-controls">
+        <select data-pie-month className="btn btn-sm pie-month" aria-label="Month to show"
+          value={shown || "all"} onChange={(e) => setPick(e.target.value === "all" ? null : e.target.value)}>
+          <option value="all">All months (average)</option>
+          {[...months].reverse().map((m) => <option key={m.month} value={m.month}>{monthLabel(m.month).short}</option>)}
+        </select>
+        <div role="radiogroup" aria-label="Show as" className="chip-tray pie-mode">
+          {PIE_MODES.map(([value, label]) => (
+            <button key={value} type="button" role="radio" aria-checked={mode === value} data-pie-mode={value}
+              className={cx("seg-item", mode === value && "is-on")} onClick={() => setMode(value)}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {slices.length ? (
+        <div className="pie-split">
+          <div className="pie-plot">
+          <ChartBody summary={summary}>
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                {/* The slices are parted by a real gap, not a stroke: the
+                    canvas behind is a gradient, so no one stroke colour
+                    matches it. No animation either: a slice growing in from
+                    nothing on every month change reads as the data changing. */}
+                <Pie data={slices} dataKey="value" nameKey="name" outerRadius="92%" startAngle={90} endAngle={-270}
+                  paddingAngle={slices.length > 1 ? 1.5 : 0} stroke="none" isAnimationActive={false}>
+                  {slices.map((s) => <Cell key={s.id} fill={pieColor(s.slot)} />)}
+                </Pie>
+                <Tooltip content={
+                  <DashTooltip currency={currency} heading={(l, p) => p[0] && p[0].name} rows={(p) => {
+                    const d = p[0] && p[0].payload;
+                    return d ? [
+                      { label: shown ? "Spent" : "A month", color: pieColor(d.slot), value: money(d.value) },
+                      { label: "Share", value: `${Math.round(d.share * 100)}%` },
+                    ] : [];
+                  }} />
+                } />
+              </PieChart>
+            </ResponsiveContainer>
+          </ChartBody>
+          </div>
+          <ul className="pie-legend">
+            {slices.map((s) => (
+              <li key={s.id} data-pie-row className="pie-row">
+                {/* The swatch's colour is the group's own, so it is inline. */}
+                <span aria-hidden="true" className="pie-swatch" style={{ background: pieColor(s.slot) }} />
+                <span className="pie-name truncate" title={s.name}>{s.name}</span>
+                <span className="num pie-value">{show(s)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : <ChartEmpty note={`No spending by group ${what}.`} />}
+    </>
+  );
+}
+
 /* ---- 3. cumulative savings by goal (stacked area) ---------------------- */
 function CumulativeSavingsChart({ series, currency, onOpenMonth }) {
   const cats = [];
@@ -289,6 +384,6 @@ function SpendingTiming({ series, currency }) {
 }
 
 export {
-  DashTooltip, ChartEmpty, SavingsChart,
+  DashTooltip, ChartEmpty, SavingsChart, GroupSpendChart,
   CumulativeSavingsChart, BudgetAccuracyChart, SpendingTiming,
 };

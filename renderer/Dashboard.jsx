@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, ChartCard, EmptyState, Icons, PageHeader } from './ui/index.js';
 import { useStore } from './store.jsx';
-import { BudgetAccuracyChart, CumulativeSavingsChart, SavingsChart, SpendingTiming } from './DashboardCharts.jsx';
+import { BudgetAccuracyChart, CumulativeSavingsChart, GroupSpendChart, SavingsChart, SpendingTiming } from './DashboardCharts.jsx';
 import { DashboardCards } from './DashboardCards.jsx';
 import { buildContext, normaliseCards } from './lib/dashboardStats.js';
 import { cx } from './lib/index.js';
@@ -81,10 +81,16 @@ function DashboardScreen({ currency, onOpenMonth }) {
               the second series is, and what the row of months underneath
               does. */}
 
-          {/* 2. savings over time */}
-          <ChartCard title="Saved each month" sub="Month labels open that month." wide>
-            <SavingsChart series={series} currency={currency} onOpenMonth={onOpenMonth} />
-          </ChartCard>
+          {/* 2. savings over time, beside where the spending went. The bars
+              need the width more than the pie, so the pair is split 3:2. */}
+          <div className="dash-pair">
+            <ChartCard title="Saved each month" sub="Month labels open that month.">
+              <SavingsChart series={series} currency={currency} onOpenMonth={onOpenMonth} />
+            </ChartCard>
+            <ChartCard title="Spending by group" sub="Savings are not counted as spending.">
+              <GroupSpendChart series={series} ctx={ctx} currency={currency} now={thisMonth()} />
+            </ChartCard>
+          </div>
 
           {/* 3. cumulative savings by goal */}
           <ChartCard title="Savings by goal, adding up" wide>
