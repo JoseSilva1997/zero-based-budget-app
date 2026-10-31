@@ -5,11 +5,32 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, ChartCard, EmptyState, Icons, PageHeader } from './ui/index.js';
 import { useStore } from './store.jsx';
-import { BudgetAccuracyChart, CategoryTrends, CumulativeSavingsChart, HeadlineStats, SavingsChart, SpendingTiming } from './DashboardCharts.jsx';
+import { BudgetAccuracyChart, CumulativeSavingsChart, GroupSpendChart, SavingsChart, SpendingTiming } from './DashboardCharts.jsx';
+import { DashboardCards } from './DashboardCards.jsx';
+import { buildContext, normaliseCards } from './lib/dashboardStats.js';
+import { cx } from './lib/index.js';
+
+/* The current calendar month, "YYYY-MM": the cards count the months before
+   it as finished. */
+function thisMonth() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
 
 function DashboardScreen({ currency, onOpenMonth }) {
-  const { trends } = useStore();
+  const { state, dispatch, trends, categories } = useStore();
   const [allSeries, setAllSeries] = useState([]);
+  const [editing, setEditing] = useState(false);
+  // Names the groups and categories a card can look at. A failure here only
+  // costs those names (such a card shows a dash), so it is logged, not shown.
+  const [catList, setCatList] = useState([]);
+  useEffect(() => {
+    let live = true;
+    categories()
+      .then((list) => { if (live) setCatList(list); })
+      .catch((err) => console.error("category:list failed", err));
+    return () => { live = false; };
+  }, [categories]);
   // An empty dashboard and a failed read look identical, so the failure is
   // kept and said out loud rather than passed off as "no data yet".
   const [loadError, setLoadError] = useState(null);
@@ -22,6 +43,8 @@ function DashboardScreen({ currency, onOpenMonth }) {
     return () => { live = false; };
   }, [trends]);
   const series = useMemo(() => allSeries.slice(-12), [allSeries]);
+  const ctx = useMemo(() => buildContext({ allSeries, now: thisMonth(), categories: catList }), [allSeries, catList]);
+  const cards = normaliseCards(state && state.settings.dashboardCards);
   const hasAnyData = allSeries.some(s => s.actual > 0 || s.savings > 0);
   const windowLabel = series.length >= 2
     ? `${series[0].label} – ${series[series.length - 1].label}`
@@ -31,14 +54,21 @@ function DashboardScreen({ currency, onOpenMonth }) {
     <div className="fade-in">
       {/* The window is the only thing in the sub-line the figures below don't
           already say. */}
-      <PageHeader title="Dashboard" sub={windowLabel || "No months tracked yet"} />
+      <PageHeader title="Dashboard" sub={windowLabel || "No months tracked yet"}
+        actions={(
+          <button type="button" data-edit-cards aria-pressed={editing}
+            className={cx("btn btn-sm", editing && "btn-primary")} onClick={() => setEditing((on) => !on)}>
+            {editing ? "Done" : <><Icons.edit size={14} /> Edit cards</>}
+          </button>
+        )} />
 
       {loadError && (
         <Alert banner>Your months couldn't be read, so this overview is empty rather than complete. {loadError}</Alert>
       )}
 
-      {/* 1. headline stats */}
-      <HeadlineStats allSeries={allSeries} series={series} currency={currency} />
+      {/* 1. the cards the household picks and arranges */}
+      <DashboardCards cards={cards} ctx={ctx} currency={currency} editing={editing}
+        onChange={(next) => dispatch({ type: "updateSettings", patch: { dashboardCards: next } })} />
 
       {!hasAnyData ? (
         <EmptyState icon={Icons.monitor} title="Your overview will appear here" className="dash-empty">
@@ -51,28 +81,28 @@ function DashboardScreen({ currency, onOpenMonth }) {
               the second series is, and what the row of months underneath
               does. */}
 
-          {/* 2. savings over time */}
-          <ChartCard title="Saved each month" sub="Month labels open that month.">
-            <SavingsChart series={series} currency={currency} onOpenMonth={onOpenMonth} />
-          </ChartCard>
+          {/* 2. savings over time, beside where the spending went. The bars
+              need the width more than the pie, so the pair is split 3:2. */}
+          <div className="dash-pair">
+            <ChartCard title="Saved each month" sub="Month labels open that month.">
+              <SavingsChart series={series} currency={currency} onOpenMonth={onOpenMonth} />
+            </ChartCard>
+            <ChartCard title="Spending by group" sub="Savings are not counted as spending.">
+              <GroupSpendChart series={series} ctx={ctx} currency={currency} now={thisMonth()} />
+            </ChartCard>
+          </div>
 
-          {/* 6. category trends. Stretched to the savings chart's row height
-              so the two cards' bottom rules land on the same line. */}
-          <ChartCard title="Category trends" stretch>
-            <CategoryTrends series={series} currency={currency} />
-          </ChartCard>
-
-          {/* 4. cumulative savings by goal */}
+          {/* 3. cumulative savings by goal */}
           <ChartCard title="Savings by goal, adding up" wide>
             <CumulativeSavingsChart series={series} currency={currency} onOpenMonth={onOpenMonth} />
           </ChartCard>
 
-          {/* 5. budget accuracy */}
+          {/* 4. budget accuracy */}
           <ChartCard title="Planned against spent" sub="Outlined bar is the plan, solid is what went out." wide>
             <BudgetAccuracyChart series={series} currency={currency} onOpenMonth={onOpenMonth} />
           </ChartCard>
 
-          {/* 7. spending timing (de-emphasised) */}
+          {/* 5. spending timing (de-emphasised) */}
           <ChartCard title="When money leaves in the month" wide>
             <SpendingTiming series={series} currency={currency} />
           </ChartCard>

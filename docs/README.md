@@ -13,6 +13,7 @@ New to the codebase? Read the **feature** docs first; they explain a whole featu
 | Feature | Doc | Changes |
 |---|---|---|
 | Categories | [categories](features/categories_feature.md) | #32 |
+| Dashboard | [dashboard](features/dashboard_feature.md) | cards, swap, titles, spending by group |
 | Upload transactions | [upload-transactions](features/upload-transactions_feature.md) | #32, #33, #37, #47, refunds |
 
 ### Decisions
@@ -22,6 +23,10 @@ New to the codebase? Read the **feature** docs first; they explain a whole featu
 | 2026-10-30 | Develop directly on `staging`; PRs only for releases | Workflow | [decisions](key-decisions/2026-10-30-direct-to-staging_decisions.md) |
 | 2026-10-31 | Refunds and money back | Upload transactions | [decisions](key-decisions/2026-10-31-refunds_decisions.md) |
 | 2026-10-31 | Lock transfers | Upload transactions | [decisions](key-decisions/2026-10-31-lock-transfers_decisions.md) |
+| 2026-10-31 | Dashboard cards | Dashboard | [decisions](key-decisions/2026-10-31-dashboard-cards_decisions.md) |
+| 2026-10-31 | Dashboard card swap | Dashboard | [decisions](key-decisions/2026-10-31-dashboard-card-swap_decisions.md) |
+| 2026-10-31 | Dashboard card titles | Dashboard | [decisions](key-decisions/2026-10-31-dashboard-card-titles_decisions.md) |
+| 2026-10-31 | Dashboard spending by group | Dashboard | [decisions](key-decisions/2026-10-31-dashboard-spending-by-group_decisions.md) |
 
 ### Pull requests (until 2026-10-30)
 

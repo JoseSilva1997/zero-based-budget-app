@@ -47,6 +47,11 @@
      it a display of its own at the same specificity; this only wins by being
      imported later. */
   .col-diff, .item-diff-cell { display: none; }
+  /* The pie beside "Saved each month" is about 290px wide here: too narrow
+     for the pie and its legend side by side without cutting group names, so
+     the legend goes under the pie. */
+  .pie-split { grid-template-columns: minmax(0, 1fr); }
+  .pie-plot { width: 100%; max-width: 240px; margin: 0 auto; }
 }
 @media (max-width: 1023px) {
   :root {

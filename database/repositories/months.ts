@@ -1010,6 +1010,114 @@ export function trendSeries(db: Database.Database): TrendPoint[] {
     )
     .all() as Array<{ mid: number; day: number; c: number }>;
 
+  /* ---- what the Dashboard's cards read ----
+     Spending here is money out of spend and debt groups; what went into a
+     savings group is put aside, not spent, so it is left out. */
+  const savingsActualMap = sumByMonth(
+    `SELECT it.budget_month_id AS mid, COALESCE(SUM(e.amount_cents), 0) AS c
+       FROM budget_item_actual_entries e
+       JOIN budget_items it ON e.budget_item_id = it.id
+       JOIN categories c ON c.id = it.category_id
+       JOIN budget_groups g ON g.id = c.group_id
+      WHERE g.kind = 'savings' GROUP BY it.budget_month_id`
+  );
+  // actual per (month, group id) and (month, category id): ids rather than
+  // names, so a card's chosen group or category survives a rename.
+  const byCatIdRows = db
+    .prepare(
+      `SELECT it.budget_month_id AS mid, c.id AS cid, c.group_id AS gid, COALESCE(SUM(e.amount_cents), 0) AS c
+         FROM budget_item_actual_entries e
+         JOIN budget_items it ON e.budget_item_id = it.id
+         JOIN categories c ON c.id = it.category_id
+        GROUP BY it.budget_month_id, c.id`
+    )
+    .all() as Array<{ mid: number; cid: number; gid: number; c: number }>;
+  const savingsCatIdRows = db
+    .prepare(
+      `SELECT it.budget_month_id AS mid, c.id AS cid, COALESCE(SUM(it.planned_cents), 0) AS c
+         FROM budget_items it
+         JOIN categories c ON c.id = it.category_id
+         JOIN budget_groups g ON g.id = c.group_id
+        WHERE g.kind = 'savings'
+        GROUP BY it.budget_month_id, c.id`
+    )
+    .all() as Array<{ mid: number; cid: number; c: number }>;
+  // Purchases are spends only: a refund is money coming back, not a purchase.
+  // strftime('%w') is 0 for Sunday and 6 for Saturday.
+  const spendRows = db
+    .prepare(
+      `SELECT it.budget_month_id AS mid,
+              SUM(CASE WHEN e.kind = 'spend' THEN 1 ELSE 0 END) AS n,
+              COALESCE(SUM(CASE WHEN e.kind = 'spend' THEN e.amount_cents ELSE 0 END), 0) AS bought,
+              COALESCE(SUM(CASE WHEN strftime('%w', e.spent_on) IN ('0', '6') THEN e.amount_cents ELSE 0 END), 0) AS weekend
+         FROM budget_item_actual_entries e
+         JOIN budget_items it ON e.budget_item_id = it.id
+         JOIN categories c ON c.id = it.category_id
+         JOIN budget_groups g ON g.id = c.group_id
+        WHERE g.kind <> 'savings'
+        GROUP BY it.budget_month_id`
+    )
+    .all() as Array<{ mid: number; n: number; bought: number; weekend: number }>;
+  // Each purchase's amount, for the median purchase. The same rows as
+  // `purchases` above: spends outside savings groups, refunds left out.
+  const purchaseRows = db
+    .prepare(
+      `SELECT it.budget_month_id AS mid, e.amount_cents AS c
+         FROM budget_item_actual_entries e
+         JOIN budget_items it ON e.budget_item_id = it.id
+         JOIN categories c ON c.id = it.category_id
+         JOIN budget_groups g ON g.id = c.group_id
+        WHERE g.kind <> 'savings' AND e.kind = 'spend'`
+    )
+    .all() as Array<{ mid: number; c: number }>;
+  const purchaseAmounts = new Map<number, number[]>();
+  for (const r of purchaseRows) {
+    const list = purchaseAmounts.get(r.mid) || [];
+    list.push(centsToDollars(r.c));
+    purchaseAmounts.set(r.mid, list);
+  }
+  const spendByDayRows = db
+    .prepare(
+      `SELECT it.budget_month_id AS mid,
+              CAST(substr(e.spent_on, 9, 2) AS INTEGER) AS day,
+              COALESCE(SUM(e.amount_cents), 0) AS c
+         FROM budget_item_actual_entries e
+         JOIN budget_items it ON e.budget_item_id = it.id
+         JOIN categories c ON c.id = it.category_id
+         JOIN budget_groups g ON g.id = c.group_id
+        WHERE g.kind <> 'savings'
+        GROUP BY it.budget_month_id, day`
+    )
+    .all() as Array<{ mid: number; day: number; c: number }>;
+
+  const byGroupId = new Map<number, Record<number, number>>();
+  const byCategoryId = new Map<number, Record<number, number>>();
+  for (const r of byCatIdRows) {
+    const cats = byCategoryId.get(r.mid) || {};
+    cats[r.cid] = centsToDollars(r.c);
+    byCategoryId.set(r.mid, cats);
+    // Summed in cents and converted once, so a group's total is exact.
+    const groups = byGroupId.get(r.mid) || {};
+    groups[r.gid] = (groups[r.gid] || 0) + r.c;
+    byGroupId.set(r.mid, groups);
+  }
+  for (const groups of byGroupId.values()) {
+    for (const gid of Object.keys(groups)) groups[Number(gid)] = centsToDollars(groups[Number(gid)]);
+  }
+  const savingsByCatId = new Map<number, Record<number, number>>();
+  for (const r of savingsCatIdRows) {
+    const rec = savingsByCatId.get(r.mid) || {};
+    rec[r.cid] = centsToDollars(r.c);
+    savingsByCatId.set(r.mid, rec);
+  }
+  const spend = new Map(spendRows.map((r) => [r.mid, r]));
+  const spendByDay = new Map<number, number[]>();
+  for (const r of spendByDayRows) {
+    const arr = spendByDay.get(r.mid) || new Array(32).fill(0);
+    if (r.day >= 1 && r.day <= 31) arr[r.day] = centsToDollars(r.c);
+    spendByDay.set(r.mid, arr);
+  }
+
   const byGroup = new Map<number, Record<string, number>>();
   for (const r of byGroupRows) {
     const rec = byGroup.get(r.mid) || {};
@@ -1044,6 +1152,15 @@ export function trendSeries(db: Database.Database): TrendPoint[] {
       overCount: over.length,
       over,
       byDay: byDay.get(m.id) || new Array(32).fill(0),
+      savingsActual: centsToDollars(savingsActualMap.get(m.id) || 0),
+      byGroupId: byGroupId.get(m.id) || {},
+      byCategoryId: byCategoryId.get(m.id) || {},
+      savingsByCatId: savingsByCatId.get(m.id) || {},
+      purchases: spend.get(m.id)?.n || 0,
+      purchaseTotal: centsToDollars(spend.get(m.id)?.bought || 0),
+      purchaseAmounts: purchaseAmounts.get(m.id) || [],
+      weekendSpend: centsToDollars(spend.get(m.id)?.weekend || 0),
+      spendByDay: spendByDay.get(m.id) || new Array(32).fill(0),
     };
   });
 }

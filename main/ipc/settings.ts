@@ -1,13 +1,14 @@
 /* ============================================================
    IPC: settings:update - persists currency / theme / autoBackup /
-   sidebarCollapsed / lockTransfers to app_meta.
+   sidebarCollapsed / lockTransfers / dashboardCards to app_meta.
    (lastBackup is owned by the backup flow, not the renderer.)
    ============================================================ */
 import { ipcMain } from 'electron';
 import { getDb } from '../db';
 import { guardAsync } from './envelope';
 import { setMeta } from '../../database/repositories/meta';
-import type { AutoBackupMode } from '../../shared/types';
+import { writeDashboardCards } from '../../database/repositories/dashboardCards';
+import type { AutoBackupMode, DashboardCard } from '../../shared/types';
 
 interface SettingsPatch {
   currency?: string;
@@ -15,6 +16,7 @@ interface SettingsPatch {
   autoBackup?: AutoBackupMode;
   sidebarCollapsed?: boolean;
   lockTransfers?: boolean;
+  dashboardCards?: DashboardCard[];
 }
 
 export function registerSettingsIpc(): void {
@@ -26,6 +28,9 @@ export function registerSettingsIpc(): void {
         throw new Error(`Unknown automatic backup setting: ${String(mode)}`);
       }
       const db = getDb();
+      // First of the writes: it is the one that can refuse, and a refusal
+      // must leave the rest of the patch unwritten too.
+      if (p.patch.dashboardCards !== undefined) writeDashboardCards(db, p.patch.dashboardCards);
       if (p.patch.currency !== undefined) setMeta(db, 'currency', p.patch.currency);
       if (p.patch.theme !== undefined) setMeta(db, 'theme', p.patch.theme);
       if (p.patch.autoBackup !== undefined) setMeta(db, 'autoBackup', p.patch.autoBackup);

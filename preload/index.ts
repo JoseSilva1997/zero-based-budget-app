@@ -40,6 +40,7 @@ import type {
   BankAccount,
   GroupKind,
   AutoBackupMode,
+  DashboardCard,
   CloudCopyResult,
   CloudStatus,
   ListedBackup,
@@ -209,6 +210,7 @@ const api = {
     autoBackup?: AutoBackupMode;
     sidebarCollapsed?: boolean;
     lockTransfers?: boolean;
+    dashboardCards?: DashboardCard[];
   }) =>
     invoke<Ok>('settings:update', { patch }),
 

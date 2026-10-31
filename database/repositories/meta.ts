@@ -22,6 +22,9 @@ export type MetaKey =
   /* '1' or '0'. On the upload review: a transfer row's tick is disabled, so
      a transfer can only be imported by switching it back to a spend. */
   | 'lockTransfers'
+  /* JSON: the Dashboard's four cards (DashboardCard[]). Read and written only
+     through repositories/dashboardCards.ts, which checks the shape. */
+  | 'dashboardCards'
   | 'activeMonth';
 
 export function getMeta(db: Database.Database, key: MetaKey): string | null {
