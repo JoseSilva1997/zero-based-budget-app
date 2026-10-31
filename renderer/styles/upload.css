@@ -107,7 +107,7 @@
 .upload-list { display: flex; flex-direction: column; }
 .upload-row {
   display: grid; align-items: center; gap: var(--space-4);
-  grid-template-columns: 22px 52px minmax(0, 1.4fr) minmax(0, 1fr) 92px 190px 196px;
+  grid-template-columns: 22px 52px minmax(0, 1.4fr) minmax(0, 1fr) 92px 282px 104px;
   min-height: 40px; padding: 3px var(--space-6);
 }
 .upload-row + .upload-row { border-top: 1px solid var(--rule-faint); }
@@ -204,25 +204,23 @@
 .upload-fold.is-open + .upload-row { border-top: 1px solid var(--rule-faint); }
 
 /* ---- row actions ---------------------------------------------------------
-   Quiet until engaged: invisible and unreachable until the row is hovered or
+   Two buttons on every row, the note and a menu of the row's other options,
+   quiet until engaged: invisible and unreachable until the row is hovered or
    holds focus. A row that is a transfer, or matched, already says so at rest
-   (its Transfer chip, its "Same as" line), so the toggle that undoes it
-   needs no resting presence of its own; only an open candidate list keeps
-   its button drawn, since the tray under the row belongs to it. */
+   (its Transfer chip, its "Same as" line), so the option that undoes it
+   needs no resting presence of its own; an open note, menu or tray keeps its
+   button drawn, since what is open belongs to it. */
 .upload-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-1); }
 .upload-actions > * { opacity: 0; pointer-events: none; transition: opacity .12s; }
 .upload-row:hover .upload-actions > *, .upload-row:focus-within .upload-actions > * { opacity: 1; pointer-events: auto; }
-.upload-toggle {
-  padding: 3px 9px; border-radius: var(--radius-3xs);
-  border: 1px solid var(--rule-strong); background: transparent; color: var(--muted);
-  font-size: var(--text-11); font-weight: 600; white-space: nowrap;
-  transition: background-color .12s, color .12s, border-color .12s;
-}
-.upload-toggle:hover { background: var(--well); color: var(--ink); }
-.upload-toggle.is-on { background: var(--well); border-color: transparent; color: var(--ink-2); }
-.upload-toggle:disabled { cursor: not-allowed; }
-.upload-toggle.is-open { border-color: var(--accent); color: var(--ink); }
 .upload-actions > .is-open { opacity: 1; pointer-events: auto; }
+/* A row's menu: above the sheet it opens from (.sheet-veil is 70), and each
+   option says in a line what it does. */
+.move-menu.upload-row-menu { z-index: 75; min-width: 230px; max-width: 280px; }
+.upload-row-menu .move-menu-item:disabled { opacity: .45; cursor: not-allowed; background: transparent; }
+.upload-row-menu .move-menu-item > svg { flex: none; color: var(--ink-2); }
+.upload-menu-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.upload-menu-hint { font-size: var(--text-11); color: var(--faint); }
 
 /* ---- the note -----------------------------------------------------------
    A line under its row, not a tray: it belongs to the row rather than
@@ -245,7 +243,7 @@
 .upload-candidates-head { color: var(--faint); margin: 0 var(--space-6) var(--space-2) calc(var(--space-6) + 22px + var(--space-4)); }
 .upload-candidate {
   display: grid; align-items: center; gap: var(--space-4);
-  grid-template-columns: 22px 52px minmax(0, 1.4fr) minmax(0, 1fr) 92px 190px 196px;
+  grid-template-columns: 22px 52px minmax(0, 1.4fr) minmax(0, 1fr) 92px 282px 104px;
   padding: var(--space-1) var(--space-6); font-size: var(--text-13);
 }
 .upload-candidate > :first-child { grid-column: 2; }
@@ -273,7 +271,6 @@
 .upload-tail > .upload-refund { flex: 1; min-width: 0; }
 .upload-tail > .upload-actions { flex: none; }
 .upload-refund { flex-wrap: nowrap; align-items: center; }
-.upload-refund > button { flex: none; }
 .upload-refund > .upload-linked { display: block; flex: 0 1 auto; min-width: 0; }
 .upload-candidate-none > :first-child { grid-column: 3; }
 /* The search sits where a candidate's name would, spanning to the amount. */

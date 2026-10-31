@@ -2,9 +2,8 @@
    Groups & Items - collapsible groups, inline edit, quick-add,
    reorder, delete-this-month-only, and the New Month flow.
    ============================================================ */
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { ConfirmDialog, DayField, DiffPill, FieldChip, Icons, MiniBar, Modal, MoneyInput, TextInline } from './ui/index.js';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { AnchoredMenu, ConfirmDialog, DayField, DiffPill, FieldChip, Icons, MiniBar, Modal, MoneyInput, TextInline } from './ui/index.js';
 import { actualDay, cx, evalMoney, fmt, groupActual, groupAllocated, isExpr, itemActual, makeActualDate, monthLabel, nextEntryDay, nextMonthId, normalizeItemName, refundOfNote, returnsNote, round2 } from './lib/index.js';
 import { useStore } from './store.jsx';
 import { AccountSelect } from './Accounts.jsx';
@@ -143,84 +142,28 @@ function useMoveItem(month, dispatch, groups) {
   };
 }
 
-/* The group list the Move button opens. Portalled and fixed: the group card
-   clips its children, so a popover drawn inside the row would be cut off at the
-   card's edge. It starts off-screen and is placed after measuring, so it never
-   flashes in the wrong spot. */
+/* The group list the Move button opens, in the shared anchored menu
+   (ui/overlays.jsx), which places it, dismisses it and gives focus back. */
 function MoveMenu({ anchorRef, groups, itemName, onPick, onClose }) {
-  const ref = useRef(null);
-  const [pos, setPos] = useState({ top: -9999, left: -9999 });
-  useLayoutEffect(() => {
-    const btn = anchorRef.current, menu = ref.current;
-    if (!btn || !menu) return;
-    const a = btn.getBoundingClientRect(), m = menu.getBoundingClientRect();
-    const left = Math.max(8, Math.min(a.right - m.width, window.innerWidth - m.width - 8));
-    const below = a.bottom + 6;
-    const top = below + m.height > window.innerHeight - 8 ? Math.max(8, a.top - 6 - m.height) : below;
-    setPos({ top, left });
-  }, [anchorRef]);
-  // Closing just unmounts the portal, and the DOM node that currently holds
-  // focus (an autoFocused or arrowed-to menu item) goes with it, dropping the
-  // keyboard/screen-reader user on <body> with no reachable position. Focus
-  // only comes back to the anchor when it was still inside the menu at the
-  // moment of closing: an outside click has, by then, usually already moved
-  // focus to whatever the user just clicked, and reclaiming it here would
-  // yank it back away from that control.
-  const closeRestoringFocus = useCallback(() => {
-    if (anchorRef.current && ref.current && ref.current.contains(document.activeElement)) {
-      anchorRef.current.focus();
-    }
-    onClose();
-  }, [anchorRef, onClose]);
-  useEffect(() => {
-    // The anchor is excluded so its own click toggles the menu shut once,
-    // rather than closing here and reopening on the button's handler.
-    const onPointerDown = (e) => {
-      if (ref.current && ref.current.contains(e.target)) return;
-      if (anchorRef.current && anchorRef.current.contains(e.target)) return;
-      closeRestoringFocus();
-    };
-    // Fixed position cannot follow a scroll or a resize, so either dismisses
-    // it, EXCEPT a scroll that originates inside the menu's own list
-    // (.move-menu is 'overflow-y: auto' past nine or so groups): 'e.target' is
-    // the scrolled element for that case and 'document' for a page scroll, so
-    // a contains() check tells the two apart. Without it, a long group list
-    // could never be scrolled to reach the groups past the fold.
-    const onScroll = (e) => {
-      if (ref.current && ref.current.contains(e.target)) return;
-      closeRestoringFocus();
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    window.addEventListener("scroll", onScroll, true);
-    window.addEventListener("resize", closeRestoringFocus);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      window.removeEventListener("scroll", onScroll, true);
-      window.removeEventListener("resize", closeRestoringFocus);
-    };
-  }, [anchorRef, closeRestoringFocus]);
-  return createPortal(
-    // A plain labelled group of buttons, not role="menu": the list is walked
-    // with Tab like any other button group, and none of the arrow-key/Home/End
-    // roving-tabindex contract a real menu role promises is implemented here.
-    // Claiming the role without the behaviour is worse than not claiming it.
-    <div ref={ref} className="move-menu" role="group" aria-label={`Move ${itemName} to another group`}
-      style={{ top: pos.top, left: pos.left }}
-      onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); closeRestoringFocus(); } }}>
-      <div className="eyebrow move-menu-label">Move to</div>
-      {groups.map((g, i) => (
-        <button key={g.id} type="button" className="move-menu-item" autoFocus={i === 0}
-          onClick={() => { onPick(g.id); closeRestoringFocus(); }}>
-          <span className="truncate">{g.name}</span>
-          {/* Savings is not a success state, so the marker is quiet rather than
-              green. Matches the neutral Savings badge on the group row. */}
-          {g.isSavings && <Icons.plant size={13} className="move-menu-savings" />}
-        </button>
-      ))}
-      {/* The group belongs to the category, not to this month's line. */}
-      <div className="move-menu-note">Moves it in every month</div>
-    </div>,
-    document.body
+  return (
+    <AnchoredMenu anchorRef={anchorRef} label={`Move ${itemName} to another group`} onClose={onClose}>
+      {(close) => (
+        <>
+          <div className="eyebrow move-menu-label">Move to</div>
+          {groups.map((g, i) => (
+            <button key={g.id} type="button" className="move-menu-item" autoFocus={i === 0}
+              onClick={() => { onPick(g.id); close(); }}>
+              <span className="truncate">{g.name}</span>
+              {/* Savings is not a success state, so the marker is quiet rather than
+                  green. Matches the neutral Savings badge on the group row. */}
+              {g.isSavings && <Icons.plant size={13} className="move-menu-savings" />}
+            </button>
+          ))}
+          {/* The group belongs to the category, not to this month's line. */}
+          <div className="move-menu-note">Moves it in every month</div>
+        </>
+      )}
+    </AnchoredMenu>
   );
 }
 

@@ -13,7 +13,7 @@
    it has to follow every tick as it happens.
    ============================================================ */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, ConfirmDialog, EmptyState, Icons, Sheet, TextInline } from './ui/index.js';
+import { Alert, AnchoredMenu, ConfirmDialog, EmptyState, Icons, Sheet, TextInline } from './ui/index.js';
 import { confirmReceipt, cx, fmt, importOutcome, isBlocked, isInert, labelCounts, monthLabel, onlyOutOfMonth, shortDate, sinkBlocked } from './lib/index.js';
 import { MONTH_NAMES } from './lib/dates.js';
 import { useStore } from './store.jsx';
@@ -252,9 +252,9 @@ function UploadStep({ review, month, onChanged, onReview }) {
 
    Money in has no category of its own. A refund takes its purchase's, and
    nets against it; money back is income. Where a "Same as existing" would
-   be, it has "Refund of": the purchases it could be, and "No purchase". On a
-   row with a purchase it leads the labels column, always shown, followed by
-   the purchase; otherwise it waits among the hover actions. */
+   be, its menu has "Refund of…": the purchases it could be, a search for
+   any other, and "No purchase". A row with a purchase says "Refund of H&M,
+   27 Oct" where its labels would be. */
 function ReviewRow({ row, review, currency, onUpdate }) {
   // Blocked: cannot be ticked. Inert: nothing about it can be changed, so it
   // is dimmed and sunk. They differ only for a row waiting on a category.
@@ -265,6 +265,9 @@ function ReviewRow({ row, review, currency, onUpdate }) {
   const linked = linkedId != null ? (row.duplicates.find((d) => d.id === linkedId) || { id: linkedId, name: null, spentOn: null }) : null;
   const [picking, setPicking] = useState(false);
   const [noting, setNoting] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+  const menuBtn = useRef(null);
   const inert = inertRow || !!linked;
   const moneyIn = row.direction === "credit";
   const note = row.decisions.note || "";
@@ -277,41 +280,51 @@ function ReviewRow({ row, review, currency, onUpdate }) {
 
   const link = (d) => { setPicking(false); onUpdate(row, { linkedEntryId: d.id }); };
   const refundCell = moneyIn && row.refund && !transfer && !inertRow;
+  /* Every row ends in the same two buttons: the note, and a menu with the
+     row's other options (Transfer, Refund of…, Same as existing…, Unlink).
+     The pencil stays in place, disabled, on a row that writes no entry of
+     its own, so the menu button never shifts between rows. */
+  const options = [];
+  if (linked) {
+    options.push({ key: "unlink", attr: { "data-unlink": "", "aria-label": `Unlink ${row.name}` }, text: "Unlink",
+      hint: "Import it as its own entry", run: () => onUpdate(row, { linkedEntryId: null }) });
+  } else {
+    if (moneyIn && !inertRow && !transfer) {
+      options.push({ key: "refund", attr: { "data-refund-of": "" }, text: "Refund of…",
+        hint: "Choose the purchase this money gives back for", run: () => setPicking(true) });
+    }
+    if (row.duplicates.length > 0 && !inertRow) {
+      options.push({ key: "same", attr: { "data-same": "" }, text: "Same as existing…",
+        hint: "Match a spend you already typed in", run: () => setPicking(true) });
+    }
+    // Excludes the row and teaches the classifier that this payee is a transfer.
+    options.push({ key: "transfer", attr: { "data-transfer": "", "aria-pressed": transfer }, text: "Transfer",
+      checked: transfer, disabled: inertRow && !transfer,
+      hint: transfer ? "Treat this as spending again" : "Money moved between your own accounts",
+      run: () => onUpdate(row, { kind: transfer ? "spend" : "transfer" }) });
+  }
   const actions = (
     <span className="upload-actions">
-      {linked ? (
-        <button type="button" className="upload-toggle is-on" aria-label={`Unlink ${row.name}`}
-          title="Not the same spend after all: import it as its own entry"
-          onClick={() => onUpdate(row, { linkedEntryId: null })}>Unlink</button>
-      ) : (
-        <>
-          {/* A refund shows this at the head of its labels instead. Any money
-              in has it: the purchase may be found by searching. */}
-          {moneyIn && !inertRow && !transfer && !row.refund && (
-            <button type="button" data-refund-of aria-expanded={picking}
-              className={cx("upload-toggle", picking && "is-open")}
-              title="Which purchase this money gives back for"
-              onClick={() => setPicking((p) => !p)}>Refund of…</button>
-          )}
-          {row.duplicates.length > 0 && !inertRow && (
-            <button type="button" data-same aria-expanded={picking}
-              className={cx("upload-toggle", picking && "is-open")}
-              title="This is a spend you already typed in: match it instead of importing it twice"
-              onClick={() => setPicking((p) => !p)}>Same as existing</button>
-          )}
-          {notable && (
-            <button type="button" className={cx("icon-btn compact subtle", noteOpen && "is-open")}
-              aria-label={`Add a note to ${row.name}`} aria-expanded={noteOpen} title="Note"
-              onClick={() => setNoting((n) => !n || note !== "")}><Icons.edit size={14} /></button>
-          )}
-          {/* Excludes the row and teaches the classifier that this payee is
-              a transfer. Pressed is drawn even at rest, so a row marked as
-              one says so without being hovered. */}
-          <button type="button" data-transfer aria-pressed={transfer} disabled={inertRow && !transfer}
-            className={cx("upload-toggle", transfer && "is-on")}
-            title={transfer ? "Treat this as spending again" : "Money moved between your own accounts, not spent"}
-            onClick={() => onUpdate(row, { kind: transfer ? "spend" : "transfer" })}>Transfer</button>
-        </>
+      <button type="button" className={cx("icon-btn compact subtle", noteOpen && "is-open")} disabled={!notable}
+        aria-label={`Add a note to ${row.name}`} aria-expanded={noteOpen}
+        title={notable ? "Note" : "This row writes no entry of its own, so it takes no note"}
+        onClick={() => setNoting((n) => !n || note !== "")}><Icons.edit size={14} /></button>
+      <button ref={menuBtn} type="button" data-row-menu className={cx("icon-btn compact subtle", (menuOpen || picking) && "is-open")}
+        aria-label={`More for ${row.name}`} aria-expanded={menuOpen} title="More"
+        onClick={() => (picking ? setPicking(false) : setMenuOpen((o) => !o))}><Icons.down size={14} /></button>
+      {menuOpen && (
+        <AnchoredMenu anchorRef={menuBtn} className="upload-row-menu" label={`Options for ${row.name}`} onClose={closeMenu}>
+          {(close) => options.map((o, i) => (
+            <button key={o.key} type="button" className="move-menu-item" autoFocus={i === 0} disabled={o.disabled} {...o.attr}
+              onClick={() => { close(); o.run(); }}>
+              <span className="upload-menu-text">
+                <span>{o.text}</span>
+                <span className="upload-menu-hint">{o.hint}</span>
+              </span>
+              {o.checked && <Icons.check size={14} />}
+            </button>
+          ))}
+        </AnchoredMenu>
       )}
     </span>
   );
@@ -339,7 +352,7 @@ function ReviewRow({ row, review, currency, onUpdate }) {
         {refundCell ? (
           /* The purchase runs on up to the actions, not just the labels column. */
           <span className="upload-tail">
-            <RefundOf row={row} picking={picking} onToggle={() => setPicking((p) => !p)} />
+            <RefundOf row={row} />
             {actions}
           </span>
         ) : (
@@ -393,20 +406,16 @@ const monthShort = (key) => MONTH_NAMES[Number(key.slice(5, 7)) - 1].slice(0, 3)
    a green "Refund" chip then "of H&M, 5 Sep", or for a purchase in an
    earlier month "Money back" then "for H&M, 5 Sep" (it counts as income
    this month, not against September's line). Any other label follows. */
-function RefundOf({ row, picking, onToggle }) {
+function RefundOf({ row }) {
   const p = row.refund.purchase;
-  // The button says what the row is, so the "Refund" or "Money back" chip
-  // would only repeat it (the destination column already says "Money back").
-  // Any other label follows the purchase.
+  // The words say what the row is, so no "Refund" or "Money back" chip
+  // repeats them (the destination column already says "Money back"). Any
+  // other label follows the purchase. Choosing another is in the row's menu.
   const rest = row.labels.filter((l) => SEVERITY_CLASS[l.severity] && l.key !== "refund" && l.key !== "money_back");
   return (
     <span className="upload-chips upload-refund" data-refund-for={row.id}>
-      <button type="button" data-refund-of aria-expanded={picking}
-        className={cx("upload-toggle", picking && "is-open")}
-        title="Which purchase this money gives back for"
-        onClick={onToggle}>Refund of…</button>
       <span className="upload-linked truncate" title={row.refund.suggested ? "Suggested: the likeliest purchase from this shop" : undefined}>
-        {p.name}, {shortDate(p.spentOn)}
+        Refund of {p.name}, {shortDate(p.spentOn)}
       </span>
       {rest.map((l) => <span key={l.key} className={cx("upload-chip", chipClass(l))}>{l.text}</span>)}
     </span>

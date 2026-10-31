@@ -519,8 +519,8 @@ window.__runTests = async () => {
   await settle();
   check('writing a note sends it', lastUpdate() === '[1,{"note":"Weekly shop, for both"}]', lastUpdate());
   check('and a written note stays on show', noteField('Tesco Extra') && noteField('Tesco Extra').value === 'Weekly shop, for both');
-  check('a transfer takes no note', !byLabel('Add a note to To savings'));
-  check('nor does a row that cannot be imported', !byLabel('Add a note to Pending'));
+  check('a transfer takes no note', byLabel('Add a note to To savings') && byLabel('Add a note to To savings').disabled);
+  check('nor does a row that cannot be imported', byLabel('Add a note to Pending') && byLabel('Add a note to Pending').disabled);
 
   await setValue(rowEl(4).querySelector('select'), '11');
   check('picking a category sends it', lastUpdate() === '[4,{"categoryId":11}]', lastUpdate());
@@ -533,18 +533,45 @@ window.__runTests = async () => {
   check('ticking a row sends it', lastUpdate() === '[4,{"included":true}]', lastUpdate());
   check('and the tick follows the server', rowEl(4).querySelector('input[type="checkbox"]').checked);
 
-  const transferBtn = (id) => rowEl(id) && rowEl(id).querySelector('button[data-transfer]');
-  check('a row has a Transfer toggle, off for spending', transferBtn(1) && transferBtn(1).getAttribute('aria-pressed') === 'false');
-  await press(transferBtn(1), 'Transfer on Tesco Extra');
+  // Every row ends in two buttons: the note, and a menu of its other options.
+  const menuBtn = (id) => rowEl(id) && rowEl(id).querySelector('button[data-row-menu]');
+  const openMenu = () => document.querySelector('.upload-row-menu');
+  const optionsOf = async (id) => {
+    await press(menuBtn(id), 'the menu on row ' + id);
+    const open = document.querySelectorAll('.upload-row-menu');
+    check('one menu open, for row ' + id, open.length === 1 && menuBtn(id).getAttribute('aria-expanded') === 'true', String(open.length));
+    return openMenu();
+  };
+  const pickOption = async (id, attr, name) => { const m = await optionsOf(id); await press(m && m.querySelector('button[' + attr + ']'), name); };
+  const hasOption = async (id, attr) => {
+    const m = await optionsOf(id);
+    const there = !!(m && m.querySelector('button[' + attr + ']'));
+    if (m) m.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await settle();
+    return there;
+  };
+  check('every row ends in a note and a menu', [...document.querySelectorAll('.upload-row')].every((r) => {
+    const b = [...r.querySelectorAll('.upload-actions > button')];
+    return b.length === 2 && /^Add a note to /.test(b[0].getAttribute('aria-label')) && b[1].hasAttribute('data-row-menu');
+  }), [...document.querySelectorAll('.upload-row .upload-actions')].map((a) => a.children.length).join());
+  check('no option sits on the row itself', !document.querySelector('.upload-row button[data-transfer], .upload-row button[data-refund-of], .upload-row button[data-same]'));
+  let menu = await optionsOf(1);
+  check('the menu opens above the sheet, named for its row', menu && menu.getAttribute('aria-label') === 'Options for Tesco Extra' && menuBtn(1).getAttribute('aria-expanded') === 'true');
+  check('it has Transfer, off for spending', menu && menu.querySelector('button[data-transfer]') && menu.querySelector('button[data-transfer]').getAttribute('aria-pressed') === 'false');
+  menu.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  await settle();
+  check('Escape closes the menu, not the sheet', !openMenu() && !!rowEl(1));
+  await pickOption(1, 'data-transfer', 'Transfer on Tesco Extra');
   check('marking a transfer sends the kind', lastUpdate() === '[1,{"kind":"transfer"}]', lastUpdate());
-  check('the toggle shows it on', transferBtn(1).getAttribute('aria-pressed') === 'true');
-  await press(transferBtn(1), 'Transfer on Tesco Extra again');
+  check('and the menu closes', !openMenu());
+  menu = await optionsOf(1);
+  check('the menu shows it on', menu && menu.querySelector('button[data-transfer]').getAttribute('aria-pressed') === 'true');
+  await press(menu && menu.querySelector('button[data-transfer]'), 'Transfer on Tesco Extra again');
   check('and back to spending', lastUpdate() === '[1,{"kind":"spend"}]', lastUpdate());
 
   /* ---- 10. "Same as existing entry" ---------------------------------- */
-  const sameBtn = (id) => rowEl(id) && rowEl(id).querySelector('button[data-same]');
-  check('only a row with candidates offers Same as existing', sameBtn(8) && !sameBtn(1) && !sameBtn(3), '');
-  await press(sameBtn(8), 'Same as existing on Sainsburys');
+  check('only a row with candidates offers Same as existing', await hasOption(8, 'data-same') && !(await hasOption(1, 'data-same')) && !(await hasOption(3, 'data-same')));
+  await pickOption(8, 'data-same', 'Same as existing on Sainsburys');
   const cands = document.querySelector('[data-candidates-for="8"]');
   check('it lists the candidate entries with date, amount, name and category', cands && ['4 Oct', '−£12.34', 'Sainsburys big shop', 'Groceries'].every((t) => cands.textContent.includes(t)), cands && cands.textContent);
   await press(byLabel('Match to Sainsburys big shop'), 'Match to Sainsburys big shop');
@@ -552,28 +579,25 @@ window.__runTests = async () => {
   check('the row shows as matched', rowEl(8).classList.contains('is-linked') && /Same as Sainsburys big shop/.test(rowEl(8).textContent), rowEl(8).textContent);
   check('the candidate list closes', !document.querySelector('[data-candidates-for="8"]'));
   check('a matched row cannot also be ticked', rowEl(8).querySelector('input[type="checkbox"]').disabled);
-  check('nor take a note: its entry keeps its own', !byLabel('Add a note to Sainsburys'));
+  check('nor take a note: its entry keeps its own', byLabel('Add a note to Sainsburys').disabled);
+  check('its menu has only Unlink', await (async () => { const m = await optionsOf(8); const ok = m && [...m.querySelectorAll('button')].map((x) => x.getAttribute('aria-label') || x.textContent).join() === 'Unlink Sainsburys'; return ok; })());
   await press(byLabel('Unlink Sainsburys'), 'Unlink Sainsburys');
   check('unlinking clears the match', lastUpdate() === '[8,{"linkedEntryId":null}]', lastUpdate());
   check('and the row is unmatched again', !rowEl(8).classList.contains('is-linked'), rowEl(8).className);
 
   /* ---- 10b. money in: refunds and money back ------------------------- */
-  const refundBtn = (id) => rowEl(id) && rowEl(id).querySelector('button[data-refund-of]');
   check('money in shows its amount with a plus', rowEl(15).textContent.includes('+£10.00') && rowEl(16).textContent.includes('+£3.00'), rowEl(15).textContent);
   check("a refund has no category picker, but names its purchase's line", !rowEl(15).querySelector('select') && rowEl(15).querySelector('.upload-destination').textContent === 'Fuel', rowEl(15).innerHTML.slice(0, 300));
-  const cellBtn = (id) => rowEl(id) && rowEl(id).querySelector('[data-refund-for] button[data-refund-of]');
-  check('a refund leads with its Refund of… button, then the purchase', cellBtn(15) && cellBtn(15).textContent === 'Refund of…' && /Refund of…\s*Shell, 5 Oct/.test(rowEl(15).querySelector('[data-refund-for]').textContent), rowEl(15).textContent);
-  check('with no Refund chip beside it', !chips(15).some((c) => c.textContent === 'Refund'), chips(15).map((c) => c.textContent).join());
+  check('a refund says what it is a refund of, with no button or Refund chip', rowEl(15).querySelector('[data-refund-for]') && rowEl(15).querySelector('[data-refund-for]').textContent === 'Refund of Shell, 5 Oct' && !rowEl(15).querySelector('[data-refund-for] button') && !chips(15).some((c) => c.textContent === 'Refund'), rowEl(15).textContent);
   check("the purchase shares the row's tail with the actions, so it can run up to them", (() => { const t = rowEl(15) && rowEl(15).querySelector('.upload-tail'); return t && t.querySelector('[data-refund-for]') && t.querySelector('.upload-actions'); })());
   check('a row without a refund keeps its own actions cell', !rowEl(16).querySelector('.upload-tail') && rowEl(16).querySelector(':scope > .upload-actions'));
-  check('and not again among the hover actions', !rowEl(15).querySelector('.upload-actions button[data-refund-of]'));
   const amountOf = (id) => rowEl(id) && rowEl(id).querySelector('.upload-amount');
   check('money in is green, money out is not', amountOf(15) && amountOf(15).classList.contains('is-in') && amountOf(16).classList.contains('is-in') && !amountOf(1).classList.contains('is-in'), [1, 15, 16].map((id) => amountOf(id) && amountOf(id).className).join());
   check('money-in chips are green, whatever their severity', chips(16)[0] && chips(16)[0].classList.contains('is-in'), chips(15).concat(chips(16)).map((c) => c.className + ':' + c.textContent).join());
   check('money in with no purchase is money back, flagged Money in', rowEl(16).querySelector('.upload-destination').textContent === 'Money back' && chips(16).map((c) => c.textContent).join() === 'Money in', rowEl(16).textContent);
-  check('all money in has Refund of…, and no Same as existing', refundBtn(15) && refundBtn(16) && !refundBtn(1) && !sameBtn(15));
-  check('a refund takes a note (it is an entry); money back does not', !!byLabel('Add a note to Shell refund') && !byLabel('Add a note to Cashback'));
-  await press(refundBtn(15), 'Refund of… on Shell refund');
+  check('all money in has Refund of…, and no Same as existing', await hasOption(15, 'data-refund-of') && await hasOption(16, 'data-refund-of') && !(await hasOption(1, 'data-refund-of')) && !(await hasOption(15, 'data-same')));
+  check('a refund takes a note (it is an entry); money back does not', !byLabel('Add a note to Shell refund').disabled && byLabel('Add a note to Cashback').disabled);
+  await pickOption(15, 'data-refund-of', 'Refund of… on Shell refund');
   const refundCands = () => document.querySelector('[data-refund-candidates-for="15"]');
   check('it lists the purchases it could be', refundCands() && ['Shell', 'Jacket', 'Fuel', 'Gifts'].every((t) => refundCands().textContent.includes(t)), refundCands() && refundCands().textContent);
   check('the one in use is marked, not offered', refundCands() && /In use/.test(refundCands().textContent) && !byLabel('A refund of Shell, 5 Oct'));
@@ -581,13 +605,13 @@ window.__runTests = async () => {
   await press(byLabel('A refund of Jacket, 20 Sep'), 'A refund of Jacket');
   check('choosing a purchase sends it', lastUpdate() === '[15,{"refundOf":{"entryId":950}}]', lastUpdate());
   check('and the list closes', !refundCands());
-  await press(refundBtn(15), 'Refund of… again');
+  await pickOption(15, 'data-refund-of', 'Refund of… again');
   await press(buttonNamed('No purchase'), 'No purchase');
   check('No purchase sends none', lastUpdate() === '[15,{"refundOf":"none"}]', lastUpdate());
 
   // Any purchase can be chosen, found by searching.
   const waitSearch = async () => { await new Promise((r) => setTimeout(r, 300)); await settle(); };
-  await press(refundBtn(16), 'Refund of… on Cashback, which matched no shop');
+  await pickOption(16, 'data-refund-of', 'Refund of… on Cashback, which matched no shop');
   await waitSearch();
   const cashCands = () => document.querySelector('[data-refund-candidates-for="16"]');
   const search = () => cashCands() && cashCands().querySelector('input[aria-label="Find a purchase"]');
@@ -595,16 +619,17 @@ window.__runTests = async () => {
   check('listing recent purchases from any shop', cashCands() && ['Rent share', 'Shell', 'Jacket'].every((t) => cashCands().textContent.includes(t)), cashCands() && cashCands().textContent);
   await setValue(search(), 'rent');
   await waitSearch();
-  check('typing searches', JSON.stringify(server.calls.refundQueries.at(-1)) === '[16,"rent"]', JSON.stringify(server.calls.refundQueries));
-  check('and lists what matches', cashCands().textContent.includes('Rent share') && !cashCands().textContent.includes('Jacket'), cashCands().textContent);
+  check('typing searches', JSON.stringify((server.calls.refundQueries || []).at(-1)) === '[16,"rent"]', JSON.stringify(server.calls.refundQueries));
+  check('and lists what matches', cashCands() && cashCands().textContent.includes('Rent share') && !cashCands().textContent.includes('Jacket'), cashCands() ? cashCands().textContent : 'no tray; open menu: ' + !!openMenu() + '; row: ' + (rowEl(16) && rowEl(16).outerHTML.slice(0, 200)));
   await press(byLabel('A refund of Rent share, 1 Oct'), 'A refund of Rent share');
   check('choosing one sends it', lastUpdate() === '[16,{"refundOf":{"entryId":960}}]', lastUpdate());
   check('and the list closes', !cashCands());
-  await press(refundBtn(15), 'Refund of… on Shell refund');
+  await pickOption(15, 'data-refund-of', 'Refund of… on Shell refund');
   await waitSearch();
   const shellCands = document.querySelector('[data-refund-candidates-for="15"]');
   check('a purchase already suggested is not listed twice', shellCands && (shellCands.textContent.match(/Jacket/g) || []).length === 1, shellCands && shellCands.textContent);
-  await press(refundBtn(15), 'Refund of… closed');
+  await press(menuBtn(15), 'the menu button, closing the open tray');
+  check('the menu button closes an open tray', !document.querySelector('[data-refund-candidates-for="15"]') && !openMenu());
 
   /* ---- 11. the footer: summary and the over-plan line ---------------- */
   const confirmBtn = () => [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Confirm');

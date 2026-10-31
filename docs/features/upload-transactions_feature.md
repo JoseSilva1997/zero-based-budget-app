@@ -16,11 +16,12 @@ Every actual entry used to be typed by hand: a month of spending across several 
   - transactions outside the month
   - money in with no purchase to refund
 - You review one list, fix what's wrong, and press **Confirm** once. The entries are written together.
+- **Row actions.** Every row ends in two buttons, shown on hover: the pencil for a note, and a menu (the chevron) with the row's other options. **Transfer** is always there (ticked when the row is one); **Refund of…** on money in; **Same as existing…** on a spend that may already be typed in; **Unlink** on a matched row.
 - **Same as existing** links a bank row to an entry you already typed instead of creating a new one, and teaches the classifier.
-- **Notes.** The pencil in a row's actions opens a note under it, written onto the entry on Confirm. A matched row, a transfer or a blocked row takes none, since it writes no entry.
+- **Notes.** The pencil opens a note under the row, written onto the entry on Confirm. A matched row, a transfer, money back or a blocked row takes none, since it writes no entry; its pencil is there but disabled.
 - **Transfers.** A row marked as a transfer, or guessed to be one, shows only its "Transfer" chip. It writes nothing, so a category check, a possible duplicate or a date outside the month has nothing to say about it.
 - **Teach without importing.** Pick a category for a row and leave it unticked: Confirm writes no entry for it, but the classifier learns its category. The footer counts these ("3 to learn from"), and Confirm works even when they are all there is.
-- **Refunds.** Money in is matched to the purchase it gives back for: a purchase on the same card, from the same shop, up to 90 days earlier, with enough of it not yet refunded. The review suggests the likeliest one: the row's labels read **Refund of…** H&M, 5 Oct, and the button lists the others plus **No purchase**. With no purchase in use, **Refund of…** waits among the row's hover actions.
+- **Refunds.** Money in is matched to the purchase it gives back for: a purchase on the same card, from the same shop, up to 90 days earlier, with enough of it not yet refunded. The review suggests the likeliest one, and the row reads "Refund of H&M, 5 Oct" where its labels would be. **Refund of…** in the row's menu lists the others plus **No purchase**.
   - Any money in can be chosen as a refund of **any purchase**, not only one from the same shop: **Refund of…** has a search that lists recent purchases on every card and narrows by name or category as you type. It offers purchases from the 90 days before the money came in, with room left for it.
   - A refund of a purchase **in this month** is written as a negative entry on the purchase's line, so the line shows what was kept. A full return nets to nothing.
   - A refund of a purchase **in an earlier month** is written as **money back**: an income line in this month, ready to be given a job. The earlier month stays as it was, overspent if it was.
@@ -114,3 +115,4 @@ stateDiagram-v2
 | 2026-10-31 | staging | A refund's labels lead with its **Refund of…** button instead of a "Refund" chip, which only repeated it. |
 | 2026-10-31 | staging | Fix: a refund's purchase name runs on up to the row's actions instead of being cut at the labels column. |
 | 2026-10-31 | staging | **Refund of…** on any money in, with a search to choose any purchase as what it refunds. |
+| 2026-10-31 | staging | Each row ends in a note button and a menu (Transfer, Refund of…, Same as existing…, Unlink) instead of a button for each. |
