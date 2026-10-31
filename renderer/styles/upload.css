@@ -266,7 +266,15 @@
    a spend; it takes no colour, since money arriving isn't a state to flag. */
 .upload-destination { padding-left: 9px; font-size: var(--text-13); color: var(--ink-2); }
 .upload-destination.is-income { color: var(--muted); }
+/* A refund's labels and its actions share the last two tracks, so the
+   purchase's name runs on up to the first action instead of stopping at the
+   labels column. The actions keep their room even while hidden at rest. */
+.upload-tail { grid-column: 6 / -1; display: flex; align-items: center; gap: var(--space-4); min-width: 0; }
+.upload-tail > .upload-refund { flex: 1; min-width: 0; }
+.upload-tail > .upload-actions { flex: none; }
 .upload-refund { flex-wrap: nowrap; align-items: center; }
+.upload-refund > button { flex: none; }
+.upload-refund > .upload-linked { display: block; flex: 0 1 auto; min-width: 0; }
 .upload-candidate-none > :first-child { grid-column: 3; }
 .upload-candidate > .upload-candidate-used { grid-column: 7; justify-self: end; font-size: var(--text-12); color: var(--muted); }
 

@@ -111,3 +111,4 @@ stateDiagram-v2
 | 2026-10-31 | staging | Review amounts carry their sign: "−" for money out, a green "+" for money in. |
 | 2026-10-31 | staging | Fix: a transfer shows only its "Transfer" chip, not "Check category" or other chips beside it. |
 | 2026-10-31 | staging | A refund's labels lead with its **Refund of…** button instead of a "Refund" chip, which only repeated it. |
+| 2026-10-31 | staging | Fix: a refund's purchase name runs on up to the row's actions instead of being cut at the labels column. |

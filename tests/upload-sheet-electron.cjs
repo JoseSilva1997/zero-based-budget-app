@@ -557,6 +557,8 @@ window.__runTests = async () => {
   const cellBtn = (id) => rowEl(id) && rowEl(id).querySelector('[data-refund-for] button[data-refund-of]');
   check('a refund leads with its Refund of… button, then the purchase', cellBtn(15) && cellBtn(15).textContent === 'Refund of…' && /Refund of…\s*Shell, 5 Oct/.test(rowEl(15).querySelector('[data-refund-for]').textContent), rowEl(15).textContent);
   check('with no Refund chip beside it', !chips(15).some((c) => c.textContent === 'Refund'), chips(15).map((c) => c.textContent).join());
+  check("the purchase shares the row's tail with the actions, so it can run up to them", (() => { const t = rowEl(15) && rowEl(15).querySelector('.upload-tail'); return t && t.querySelector('[data-refund-for]') && t.querySelector('.upload-actions'); })());
+  check('a row without a refund keeps its own actions cell', !rowEl(16).querySelector('.upload-tail') && rowEl(16).querySelector(':scope > .upload-actions'));
   check('and not again among the hover actions', !rowEl(15).querySelector('.upload-actions button[data-refund-of]'));
   const amountOf = (id) => rowEl(id) && rowEl(id).querySelector('.upload-amount');
   check('money in is green, money out is not', amountOf(15) && amountOf(15).classList.contains('is-in') && amountOf(16).classList.contains('is-in') && !amountOf(1).classList.contains('is-in'), [1, 15, 16].map((id) => amountOf(id) && amountOf(id).className).join());

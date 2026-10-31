@@ -276,6 +276,44 @@ function ReviewRow({ row, review, currency, onUpdate }) {
   }, [noting]);
 
   const link = (d) => { setPicking(false); onUpdate(row, { linkedEntryId: d.id }); };
+  const refundCell = moneyIn && row.refund && !transfer && !inertRow;
+  const actions = (
+    <span className="upload-actions">
+      {linked ? (
+        <button type="button" className="upload-toggle is-on" aria-label={`Unlink ${row.name}`}
+          title="Not the same spend after all: import it as its own entry"
+          onClick={() => onUpdate(row, { linkedEntryId: null })}>Unlink</button>
+      ) : (
+        <>
+          {/* A refund shows this at the head of its labels instead. */}
+          {moneyIn && !inertRow && !transfer && !row.refund && (row.refundCandidates.length > 0 || row.decisions.refundOf != null) && (
+            <button type="button" data-refund-of aria-expanded={picking}
+              className={cx("upload-toggle", picking && "is-open")}
+              title="Which purchase this money gives back for"
+              onClick={() => setPicking((p) => !p)}>Refund of…</button>
+          )}
+          {row.duplicates.length > 0 && !inertRow && (
+            <button type="button" data-same aria-expanded={picking}
+              className={cx("upload-toggle", picking && "is-open")}
+              title="This is a spend you already typed in: match it instead of importing it twice"
+              onClick={() => setPicking((p) => !p)}>Same as existing</button>
+          )}
+          {notable && (
+            <button type="button" className={cx("icon-btn compact subtle", noteOpen && "is-open")}
+              aria-label={`Add a note to ${row.name}`} aria-expanded={noteOpen} title="Note"
+              onClick={() => setNoting((n) => !n || note !== "")}><Icons.edit size={14} /></button>
+          )}
+          {/* Excludes the row and teaches the classifier that this payee is
+              a transfer. Pressed is drawn even at rest, so a row marked as
+              one says so without being hovered. */}
+          <button type="button" data-transfer aria-pressed={transfer} disabled={inertRow && !transfer}
+            className={cx("upload-toggle", transfer && "is-on")}
+            title={transfer ? "Treat this as spending again" : "Money moved between your own accounts, not spent"}
+            onClick={() => onUpdate(row, { kind: transfer ? "spend" : "transfer" })}>Transfer</button>
+        </>
+      )}
+    </span>
+  );
 
   return (
     <>
@@ -297,49 +335,23 @@ function ReviewRow({ row, review, currency, onUpdate }) {
             onChange={(categoryId) => onUpdate(row, { categoryId })} />
         )}
         <span className={cx("num upload-amount", moneyIn && "is-in")}>{row.amountCents == null ? "" : fmt(currency, (moneyIn ? 1 : -1) * row.amountCents / 100, { sign: true })}</span>
-        {moneyIn && row.refund && !transfer && !inertRow ? (
-          <RefundOf row={row} picking={picking} onToggle={() => setPicking((p) => !p)} />
-        ) : linked ? (
-          <span className="upload-linked truncate">
-            <Icons.check size={13} />
-            Same as {linked.name || "an existing entry"}{linked.spentOn ? `, ${shortDate(linked.spentOn)}` : ""}
+        {refundCell ? (
+          /* The purchase runs on up to the actions, not just the labels column. */
+          <span className="upload-tail">
+            <RefundOf row={row} picking={picking} onToggle={() => setPicking((p) => !p)} />
+            {actions}
           </span>
-        ) : <LabelChips row={row} />}
-        <span className="upload-actions">
-          {linked ? (
-            <button type="button" className="upload-toggle is-on" aria-label={`Unlink ${row.name}`}
-              title="Not the same spend after all: import it as its own entry"
-              onClick={() => onUpdate(row, { linkedEntryId: null })}>Unlink</button>
-          ) : (
-            <>
-              {/* A refund shows this at the head of its labels instead. */}
-              {moneyIn && !inertRow && !transfer && !row.refund && (row.refundCandidates.length > 0 || row.decisions.refundOf != null) && (
-                <button type="button" data-refund-of aria-expanded={picking}
-                  className={cx("upload-toggle", picking && "is-open")}
-                  title="Which purchase this money gives back for"
-                  onClick={() => setPicking((p) => !p)}>Refund of…</button>
-              )}
-              {row.duplicates.length > 0 && !inertRow && (
-                <button type="button" data-same aria-expanded={picking}
-                  className={cx("upload-toggle", picking && "is-open")}
-                  title="This is a spend you already typed in: match it instead of importing it twice"
-                  onClick={() => setPicking((p) => !p)}>Same as existing</button>
-              )}
-              {notable && (
-                <button type="button" className={cx("icon-btn compact subtle", noteOpen && "is-open")}
-                  aria-label={`Add a note to ${row.name}`} aria-expanded={noteOpen} title="Note"
-                  onClick={() => setNoting((n) => !n || note !== "")}><Icons.edit size={14} /></button>
-              )}
-              {/* Excludes the row and teaches the classifier that this payee is
-                  a transfer. Pressed is drawn even at rest, so a row marked as
-                  one says so without being hovered. */}
-              <button type="button" data-transfer aria-pressed={transfer} disabled={inertRow && !transfer}
-                className={cx("upload-toggle", transfer && "is-on")}
-                title={transfer ? "Treat this as spending again" : "Money moved between your own accounts, not spent"}
-                onClick={() => onUpdate(row, { kind: transfer ? "spend" : "transfer" })}>Transfer</button>
-            </>
-          )}
-        </span>
+        ) : (
+          <>
+            {linked ? (
+              <span className="upload-linked truncate">
+                <Icons.check size={13} />
+                Same as {linked.name || "an existing entry"}{linked.spentOn ? `, ${shortDate(linked.spentOn)}` : ""}
+              </span>
+            ) : <LabelChips row={row} />}
+            {actions}
+          </>
+        )}
       </div>
       {noteOpen && (
         <div className="upload-note" data-note-for={row.id} ref={noteLine}>
