@@ -17,11 +17,12 @@
    show, with every free cell drawn as a dashed box.
      - click a free cell, or drag across free cells, to add a card that size;
        its menu opens to choose the stat
-     - drag a card to move it, its corner to resize it
-     - keyboard: a card takes focus; the arrows move it, Shift and the arrows
-       resize it, Delete removes it
-   A move or resize that would leave the grid or cover another card is not
-   made. Every change is saved as it happens.
+     - drag a card to move it, its corner to resize it; dropped on another
+       card, the two swap places
+     - keyboard: a card takes focus; the arrows move it (onto a neighbour,
+       they swap), Shift and the arrows resize it, Delete removes it
+   A move, swap or resize that would leave the grid or cover another card is
+   not made. Every change is saved as it happens.
 
    The arithmetic lives in lib/dashboardStats.js, the grid's rules in
    lib/cardGrid.js; this file only draws them and turns gestures into calls.
@@ -30,7 +31,7 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { AnchoredMenu, Icons } from './ui/index.js';
 import { cx } from './lib/index.js';
 import { PERCENT_CHOICES, SECTIONS, STATS, choicesFor, computeStat, statById } from './lib/dashboardStats.js';
-import { GRID_COLS, GRID_ROWS, fits, freeCells, moveCard, placeCard, rectBetween, resizeCard, sizeOf } from './lib/cardGrid.js';
+import { GRID_COLS, GRID_ROWS, cardAt, fits, freeCells, moveCard, placeCard, rectBetween, resizeCard, sizeOf, swapCards } from './lib/cardGrid.js';
 
 /* grid-column / grid-row for a rectangle. Runtime values, so inline. */
 const placement = (r) => ({ gridColumn: `${r.x} / span ${r.w}`, gridRow: `${r.y} / span ${r.h}` });
@@ -202,40 +203,56 @@ function DashboardCards({ cards, ctx, currency, editing, onChange }) {
     };
   }, []);
 
-  const rectFor = useCallback((d, at) => {
-    if (d.mode === "draw") return rectBetween(d.from, at);
+  /* What dropping here would do: the cards it would leave, the rectangle the
+     dragged card would take, and, for a swap, where the other card would go.
+     A move with the pointer over another card is a swap; otherwise the card
+     shifts by as many cells as the pointer has. `ok` is false when the drop
+     would change nothing because it does not fit; dropping a card back where
+     it started is fine, it just changes nothing. */
+  const land = useCallback((d, at) => {
+    if (d.mode === "draw") {
+      const rect = rectBetween(d.from, at);
+      return { rect, next: fits(cards, rect) ? [...cards, { stat: "savedAllTime", ...rect }] : cards };
+    }
     const c = cards[d.i];
-    if (d.mode === "move") return { x: c.x + at.x - d.from.x, y: c.y + at.y - d.from.y, w: c.w, h: c.h };
-    return { x: c.x, y: c.y, w: Math.max(1, at.x - c.x + 1), h: Math.max(1, at.y - c.y + 1) };
+    if (d.mode === "move") {
+      const other = cardAt(cards, at, d.i);
+      if (other >= 0) {
+        const next = swapCards(cards, d.i, other);
+        const o = cards[other];
+        return next !== cards
+          ? { rect: next[d.i], swap: next[other], next }
+          : { rect: { ...c, x: o.x, y: o.y }, next };
+      }
+      const rect = { x: c.x + at.x - d.from.x, y: c.y + at.y - d.from.y, w: c.w, h: c.h };
+      return { rect, next: placeCard(cards, d.i, rect), stays: rect.x === c.x && rect.y === c.y };
+    }
+    const rect = { x: c.x, y: c.y, w: Math.max(1, at.x - c.x + 1), h: Math.max(1, at.y - c.y + 1) };
+    return { rect, next: placeCard(cards, d.i, rect), stays: rect.w === c.w && rect.h === c.h };
   }, [cards]);
+  const dragAt = useCallback((d, at) => {
+    const r = land(d, at);
+    return { ...d, ...r, ok: r.next !== cards || !!r.stays };
+  }, [land, cards]);
 
-  const start = (mode, i, from) => {
-    const d = { mode, i, from };
-    const rect = rectFor(d, from);
-    setDrag({ ...d, rect, ok: fits(cards, rect, mode === "draw" ? -1 : i) });
-  };
+  const start = (mode, i, from) => setDrag(dragAt({ mode, i, from }, from));
 
   useEffect(() => {
     if (!drag) return undefined;
     const onMove = (e) => {
-      const rect = rectFor(drag, cellAt(e.clientX, e.clientY));
-      setDrag((d) => d && { ...d, rect, ok: fits(cards, rect, d.mode === "draw" ? -1 : d.i) });
+      const at = cellAt(e.clientX, e.clientY);
+      setDrag((d) => d && dragAt(d, at));
     };
     const onUp = () => {
       setDrag(null);
-      if (!drag.ok) return;
-      if (drag.mode === "draw") {
-        setMenuFor(cards.length);
-        onChange([...cards, { stat: "savedAllTime", ...drag.rect }]);
-      } else {
-        const next = placeCard(cards, drag.i, drag.rect);
-        if (next !== cards) onChange(next);
-      }
+      if (drag.next === cards) return;
+      if (drag.mode === "draw") setMenuFor(cards.length);
+      onChange(drag.next);
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
     return () => { window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); };
-  }, [drag, cards, cellAt, rectFor, onChange]);
+  }, [drag, cards, cellAt, dragAt, onChange]);
 
   if (!cards.length && !editing) return null;
 
@@ -267,11 +284,14 @@ function DashboardCards({ cards, ctx, currency, editing, onChange }) {
             onStartDrag={(mode, e) => start(mode, i, cellAt(e.clientX, e.clientY))} />
         ))}
         {drag && <div aria-hidden="true" className={cx("dash-drop", !drag.ok && "is-blocked")} style={placement(drag.rect)} />}
+        {/* A swap also shows where the other card would go. */}
+        {drag && drag.swap && <div aria-hidden="true" className="dash-drop is-swap" style={placement(drag.swap)} />}
       </div>
       {editing && (
         <p id={helpId} className="dash-cards-help">
-          Click an empty cell, or drag across several, to add a card. Drag a card to move it, or its corner to resize it.
-          With the keyboard, the arrows move a card, Shift and the arrows resize it, and Delete removes it.
+          Click an empty cell, or drag across several, to add a card. Drag a card to move it, onto another card to swap the
+          two, or by its corner to resize it. With the keyboard, the arrows move a card, Shift and the arrows resize it, and
+          Delete removes it.
         </p>
       )}
     </div>

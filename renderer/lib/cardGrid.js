@@ -3,7 +3,8 @@
 
    A card covers a rectangle of cells, { x, y, w, h }: the column and row of
    its top-left cell (from 1), and how many columns and rows it spans. Cards
-   never overlap and never leave the grid. Every function here is pure and
+   never overlap and never leave the grid; a card moved onto another swaps
+   places with it. Every function here is pure and
    returns the cards it was given, untouched, when a change would break
    either rule, so a caller can tell "nothing happened" by identity.
 
@@ -37,8 +38,36 @@ export function placeCard(cards, i, rect) {
   return cards.map((card, j) => (j === i ? { ...card, x: rect.x, y: rect.y, w: rect.w, h: rect.h } : card));
 }
 
-export const moveCard = (cards, i, dx, dy) =>
-  (cards[i] ? placeCard(cards, i, { ...cards[i], x: cards[i].x + dx, y: cards[i].y + dy }) : cards);
+/* Cards `i` and `j` trade places: each takes the other's top-left cell and
+   keeps its own size. Two cards the same size swap exactly; for different
+   sizes the swap is made only if both still fit, inside the grid and clear
+   of each other and of every other card. */
+export function swapCards(cards, i, j) {
+  const a = cards[i], b = cards[j];
+  if (!a || !b || i === j) return cards;
+  const na = { ...a, x: b.x, y: b.y };
+  const nb = { ...b, x: a.x, y: a.y };
+  const others = cards.filter((_, k) => k !== i && k !== j);
+  if (overlaps(na, nb) || !fits(others, na) || !fits(others, nb)) return cards;
+  return cards.map((c, k) => (k === i ? na : k === j ? nb : c));
+}
+
+/* The index of the card covering `cell`, leaving out the one at `skip`, or
+   -1 when the cell is free. */
+export const cardAt = (cards, cell, skip = -1) =>
+  cards.findIndex((c, k) => k !== skip && overlaps(c, { x: cell.x, y: cell.y, w: 1, h: 1 }));
+
+/* Card `i` shifted by a step. Onto free cells it moves; onto exactly one
+   other card, the two swap places; anything else changes nothing. */
+export function moveCard(cards, i, dx, dy) {
+  const c = cards[i];
+  if (!c) return cards;
+  const rect = { ...c, x: c.x + dx, y: c.y + dy };
+  if (fits(cards, rect, i)) return placeCard(cards, i, rect);
+  if (!inGrid(rect)) return cards;
+  const hit = cards.map((other, k) => (k !== i && overlaps(other, rect) ? k : -1)).filter((k) => k >= 0);
+  return hit.length === 1 ? swapCards(cards, i, hit[0]) : cards;
+}
 
 export const resizeCard = (cards, i, dw, dh) =>
   (cards[i] ? placeCard(cards, i, { ...cards[i], w: cards[i].w + dw, h: cards[i].h + dh }) : cards);

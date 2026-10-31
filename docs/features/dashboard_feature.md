@@ -1,6 +1,6 @@
 # Feature: dashboard
 
-**Changes:** [cards](../key-decisions/2026-10-31-dashboard-cards_decisions.md)
+**Changes:** [cards](../key-decisions/2026-10-31-dashboard-cards_decisions.md) · [swap](../key-decisions/2026-10-31-dashboard-card-swap_decisions.md)
 
 ## Context
 
@@ -15,9 +15,10 @@ The first version had a fixed headline (saved all time, share of income kept bac
 - **Editing.** **Edit cards** in the screen's header shows all three rows, with each free cell drawn as a dashed box:
   - click a free cell, or drag across several, to add a card that size; its menu opens to choose the stat
   - drag a card to move it, or its corner to resize it
+  - drop a card on another and the two **swap places**: each takes the other's top-left cell and keeps its own size. The arrows do the same when they move a card onto a neighbour.
   - with the keyboard, a card takes focus; the arrows move it, Shift and the arrows resize it, and Delete (or its × button) removes it
 
-  A move or resize that would leave the grid or cover another card is not made; while dragging, the drop outline turns red and hatched where it would not fit. Every change is saved as it happens. **Done** ends editing.
+  A move, swap or resize that would leave the grid or cover another card is not made; while dragging, the drop outline turns red and hatched where it would not fit, and a swap shows a second, dashed outline where the other card would go. Every change is saved as it happens. **Done** ends editing.
 - **Each card has a menu** (shown on hover or focus) listing every stat, grouped under Saving, Spending, The plan and Income. Picking one changes that card, and the choice is remembered.
 - **Some stats ask for a choice** after they are picked, in the same menu:
   - a **group or category** (Average monthly spend on…, Total spent in the last 12 months on…, Share of spending on…). Spend groups are listed with their categories under them; savings groups are not spending, so they are not offered.
@@ -108,7 +109,7 @@ flowchart LR
 ## Limits and what's parked
 
 - The grid is fixed at 4 columns and 3 rows, and does not reflow on a narrow window: the cards narrow with it and their text wraps.
-- Moving a card onto another does not swap them; the move is refused.
+- A swap between cards of different sizes is refused when either would no longer fit; nothing is pushed aside to make room.
 - The window is fixed at the last 12 finished months; there is no period picker.
 - A card pointing at a group or category that was deleted or merged away shows a dash until another is chosen.
 - The charts still include the month in progress; only the cards leave it out.
@@ -118,3 +119,4 @@ flowchart LR
 | Date | Commit | What changed |
 |---|---|---|
 | 2026-10-31 | cards | Cards the household picks and arranges on a 4 × 3 grid replace the fixed headline; "Category trends" and "Runs over most often" removed; Saved each month made full width. |
+| 2026-10-31 | swap | A card moved onto another swaps places with it, by drag or with the arrows. |

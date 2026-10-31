@@ -133,7 +133,7 @@ import { createRoot } from 'react-dom/client';
 import { act } from 'react';
 import { createElement as h, useState } from 'react';
 import { buildContext, computeStat, normaliseCards, DEFAULT_CARDS, STATS } from './renderer/lib/dashboardStats.js';
-import { fits, moveCard, resizeCard, rectBetween, usedRows, sizeOf, freeCells } from './renderer/lib/cardGrid.js';
+import { fits, moveCard, resizeCard, rectBetween, usedRows, sizeOf, freeCells, swapCards, cardAt } from './renderer/lib/cardGrid.js';
 import { DashboardCards } from './renderer/DashboardCards.jsx';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -297,7 +297,16 @@ window.__runTests = async () => {
   check('nor one off the grid', !fits(grid, at(1, 3, 1, 2)) && !fits(grid, at(0, 1)));
   check('a card fits where it already is, when it is the one skipped', fits(grid, at(1, 1, 3, 2), 0));
   eq('moving into free cells', moveCard(grid, 0, 0, 1)[0], { stat: 'a', ...at(1, 2, 3, 2) });
-  check('moving onto another card changes nothing', moveCard(grid, 0, 1, 0) === grid);
+  const row = [{ stat: 'a', ...at(1, 1) }, { stat: 'b', ...at(2, 1) }, { stat: 'c', ...at(3, 1) }, { stat: 'e', ...at(4, 1) }, { stat: 'd', ...at(1, 2, 2, 2) }];
+  eq('two cards the same size swap places', swapCards(row, 0, 1).slice(0, 2), [{ stat: 'a', ...at(2, 1) }, { stat: 'b', ...at(1, 1) }]);
+  eq('cards of different sizes swap top-left cells and keep their sizes',
+     swapCards([{ stat: 'p', ...at(1, 3) }, { stat: 'q', ...at(3, 3, 2, 1) }], 0, 1),
+     [{ stat: 'p', ...at(3, 3) }, { stat: 'q', ...at(1, 3, 2, 1) }]);
+  check('a swap that would push a card off the grid changes nothing', swapCards(row, 3, 4) === row);
+  check('a swap that would land on a third card changes nothing', swapCards(row, 0, 4) === row);
+  eq('moving onto another card swaps the two', moveCard(row, 0, 1, 0).slice(0, 2), [{ stat: 'a', ...at(2, 1) }, { stat: 'b', ...at(1, 1) }]);
+  check('moving onto a card it cannot swap with changes nothing', moveCard(grid, 0, 1, 0) === grid);
+  eq('the card under a cell', [cardAt(row, { x: 4, y: 1 }), cardAt(row, { x: 2, y: 3 }), cardAt(row, { x: 3, y: 3 }), cardAt(row, { x: 1, y: 1 }, 0)], [3, 4, -1, -1]);
   eq('growing into free cells', resizeCard([{ stat: 'c', ...at(1, 1) }], 0, 1, 2)[0], { stat: 'c', ...at(1, 1, 2, 3) });
   check('shrinking below one cell changes nothing', resizeCard(grid, 1, -1, 0) === grid);
   eq('a dragged rectangle, either way round', [rectBetween({ x: 3, y: 2 }, { x: 1, y: 1 }), rectBetween({ x: 2, y: 1 }, { x: 2, y: 3 })],
@@ -367,7 +376,10 @@ window.__runTests = async () => {
   await key(cardEls()[4], 'ArrowRight', true);
   eq('shift and an arrow resizes it', saved[4], { stat: 'savedAllTime', ...at(3, 3, 2, 1) });
   await key(cardEls()[4], 'ArrowUp');
-  eq('a move onto another card is ignored', saved[4], { stat: 'savedAllTime', ...at(3, 3, 2, 1) });
+  eq('an arrow onto another card swaps them', [saved[3], saved[4]],
+     [{ stat: 'withinPlan', ...at(3, 3, 2, 1) }, { stat: 'savedAllTime', ...at(3, 2, 2, 1) }]);
+  await key(cardEls()[4], 'ArrowLeft');
+  eq('an arrow onto a card it cannot swap with is ignored', saved[4], { stat: 'savedAllTime', ...at(3, 2, 2, 1) });
   await act(async () => { cardEls()[0].querySelector('[data-dash-card-remove]').click(); });
   eq('the remove button removes it', saved.map((c) => c.stat), ['saveRate', 'avgSpendWithSavings', 'withinPlan', 'savedAllTime']);
   await key(cardEls()[0], 'Delete');

@@ -173,6 +173,9 @@
   pointer-events: none; z-index: 2; border-radius: 12px;
   border: 2px solid var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
+/* In a swap, the other card's new place: the same outline, dashed, so the
+   two read as a pair without one being mistaken for the card in hand. */
+.dash-drop.is-swap { border-style: dashed; background: color-mix(in srgb, var(--accent) 6%, transparent); }
 .dash-drop.is-blocked {
   border-color: var(--breach);
   background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--breach) 18%, transparent) 0 6px, transparent 6px 12px);
