@@ -197,6 +197,10 @@ app.whenReady().then(() => {
       eq([keys(back), back.kind, back.included], [['ok'], 'spend', true], 'switched back to spend, it can be ticked');
       const marked = assessRow(facts(stored({ kind: 'transfer' })));
       eq([keys(marked), marked.kind], [['transfer'], 'transfer'], 'you can mark a spend a transfer');
+      // A transfer writes nothing, so a category, a duplicate or the month says nothing about it.
+      const busy = { prediction: { label: 'transfer', confidence: (HIGH_CONFIDENCE + LOW_CONFIDENCE) / 2 }, duplicates: 1, spentOn: '2026-10-02' };
+      eq(keys(assessRow(facts(busy))), ['transfer'], 'a transfer shows only its own chip');
+      eq(keys(assessRow(facts({ ...busy, direction: 'credit', descriptorClean: 'ALEX EXAMPLE' }))), ['transfer'], 'and so does a transfer in');
 
       // Out of month and duplicates warn and start unticked; a tick overrides.
       const early = assessRow(facts({ spentOn: '2026-08-30' }));

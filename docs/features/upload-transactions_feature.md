@@ -18,6 +18,7 @@ Every actual entry used to be typed by hand: a month of spending across several 
 - You review one list, fix what's wrong, and press **Confirm** once. The entries are written together.
 - **Same as existing** links a bank row to an entry you already typed instead of creating a new one, and teaches the classifier.
 - **Notes.** The pencil in a row's actions opens a note under it, written onto the entry on Confirm. A matched row, a transfer or a blocked row takes none, since it writes no entry.
+- **Transfers.** A row marked as a transfer, or guessed to be one, shows only its "Transfer" chip. It writes nothing, so a category check, a possible duplicate or a date outside the month has nothing to say about it.
 - **Teach without importing.** Pick a category for a row and leave it unticked: Confirm writes no entry for it, but the classifier learns its category. The footer counts these ("3 to learn from"), and Confirm works even when they are all there is.
 - **Refunds.** Money in is matched to the purchase it gives back for: a purchase on the same card, from the same shop, up to 90 days earlier, with enough of it not yet refunded. The review suggests the likeliest one ("Refund of H&M, 5 Oct"), and **Refund of…** lists the others plus **No purchase**.
   - A refund of a purchase **in this month** is written as a negative entry on the purchase's line, so the line shows what was kept. A full return nets to nothing.
@@ -108,3 +109,4 @@ stateDiagram-v2
 | 2026-10-31 | staging | Refunds: money in is matched to its purchase and netted on its line in the same month, or written as money back in a later one. Migration 12. |
 | 2026-10-31 | staging | Money-in chips (Money in, Refund, Money back) are green, an owner-approved exception in DESIGN.md. |
 | 2026-10-31 | staging | Review amounts carry their sign: "−" for money out, a green "+" for money in. |
+| 2026-10-31 | staging | Fix: a transfer shows only its "Transfer" chip, not "Check category" or other chips beside it. |

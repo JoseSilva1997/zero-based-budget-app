@@ -9,7 +9,8 @@
    - block: the row can't be ticked, whatever was stored (already imported,
      unreadable, not completed);
    - warn: it starts unticked, and you may tick it;
-   - info: a transfer, unticked until you switch it back to a spend;
+   - info: a transfer, unticked until you switch it back to a spend. It
+     writes nothing, so it carries no other chip;
    - none: 'ok', no chip, ticked.
 
    One rule stands apart from severity: a spend with no category can't be
@@ -138,15 +139,16 @@ export function assessRow(f: RowFacts): RowAssessment {
   if (f.notCompleted) hard.push(label('not_completed'));
   if (f.alreadyImported) hard.push(label('already_imported'));
   if (hard.length > 0) return { labels: hard, categoryId, name, kind, included: false, teaches: false, writesAs: null };
-  if (f.direction === 'credit') return assessMoneyIn(f, kind, name, p);
+  // A transfer writes nothing, so no other chip has anything to say about it.
+  if (kind === 'transfer') {
+    return { labels: [label('transfer')], categoryId: f.direction === 'credit' ? null : categoryId, name, kind, included: false, teaches: false, writesAs: null };
+  }
+  if (f.direction === 'credit') return assessMoneyIn(f, name);
 
   const labels: Label[] = [];
   // Whatever decided the kind or category was the classifier's middling guess.
-  const guessed = kind === 'transfer' ? s.kind === null : s.categoryId === null;
-  if (guessed && p && p.confidence < HIGH_CONFIDENCE) labels.push(label('low_confidence'));
-  if (kind === 'transfer') {
-    labels.push(label('transfer'));
-  } else if (categoryId === null) {
+  if (s.categoryId === null && p && p.confidence < HIGH_CONFIDENCE) labels.push(label('low_confidence'));
+  if (categoryId === null) {
     labels.push(label('uncategorised'));
   } else if (!f.inMonth(categoryId)) {
     labels.push(label('not_in_month'));
@@ -174,15 +176,12 @@ export function assessRow(f: RowFacts): RowAssessment {
 /** Money in: a refund, money back, or a transfer in. Its category is its
  *  purchase's, which the caller knows, so none is predicted or kept here;
  *  and it never teaches the classifier. */
-function assessMoneyIn(f: RowFacts, kind: 'spend' | 'transfer', name: string, p: Prediction | null): RowAssessment {
+function assessMoneyIn(f: RowFacts, name: string): RowAssessment {
   const s = f.stored;
   const target = f.refundTarget ?? null;
   const labels: Label[] = [];
-  if (kind === 'transfer' && s.kind === null && p && p.confidence < HIGH_CONFIDENCE) labels.push(label('low_confidence'));
   let writesAs: WritesAs = null;
-  if (kind === 'transfer') {
-    labels.push(label('transfer'));
-  } else if (target === 'skipped') {
+  if (target === 'skipped') {
     labels.push(label('purchase_skipped'));
   } else if (target === 'same_month') {
     labels.push(label('refund'));
@@ -198,5 +197,5 @@ function assessMoneyIn(f: RowFacts, kind: 'spend' | 'transfer', name: string, p:
   const importable = writesAs !== null;
   const byDefault = labels.every((l) => l.key === 'refund' || l.key === 'money_back');
   const included = importable && (s.included === null ? byDefault : s.included === 1);
-  return { labels, categoryId: null, name, kind, included, teaches: false, writesAs };
+  return { labels, categoryId: null, name, kind: 'spend', included, teaches: false, writesAs };
 }
