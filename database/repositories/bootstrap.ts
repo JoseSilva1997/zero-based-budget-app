@@ -12,6 +12,7 @@ import { getMeta, readAutoBackupMode } from './meta';
 import { listMembers } from './members';
 import { listAccounts } from './accounts';
 import { listMonths } from './months';
+import { readDashboardCards } from './dashboardCards';
 
 /**
  * Lightweight startup read. A DB with no months is simply an empty app, so the
@@ -42,6 +43,8 @@ export function loadBootstrap(db: Database.Database): BootstrapData {
       sidebarCollapsed: getMeta(db, 'sidebarCollapsed') === '1',
       // Absent means off: ticking a transfer imports it as a spend.
       lockTransfers: getMeta(db, 'lockTransfers') === '1',
+      // Absent means the renderer's default four.
+      dashboardCards: readDashboardCards(db),
       members: listMembers(db),
       accounts: listAccounts(db),
     },

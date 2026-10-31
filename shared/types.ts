@@ -403,6 +403,10 @@ export interface BootstrapSettings {
   /** Upload review: transfers can't be ticked. Off, ticking a transfer
    *  makes it a spend. Not in BlobSettings, like sidebarCollapsed. */
   lockTransfers: boolean;
+  /** The Dashboard's cards, or null when none were ever chosen (or
+   *  the saved value could not be read): the renderer then uses its
+   *  defaults. Not in BlobSettings, like sidebarCollapsed. */
+  dashboardCards: DashboardCard[] | null;
   members: HouseholdMember[];
   accounts: BankAccount[];
 }

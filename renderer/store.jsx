@@ -47,6 +47,8 @@ function settingsFromBootstrap(bs) {
     lastBackup: bs.settings.lastBackup || null,
     sidebarCollapsed: bs.settings.sidebarCollapsed === true,
     lockTransfers: bs.settings.lockTransfers === true,
+    // Passed through as saved (or null); the Dashboard makes it four cards.
+    dashboardCards: bs.settings.dashboardCards || null,
     members: (bs.settings.members || []).map((m) => ({
       id: m.id,
       name: m.name,
