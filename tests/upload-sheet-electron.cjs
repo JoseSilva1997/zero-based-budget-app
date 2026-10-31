@@ -554,10 +554,13 @@ window.__runTests = async () => {
   const refundBtn = (id) => rowEl(id) && rowEl(id).querySelector('button[data-refund-of]');
   check('money in shows its amount with a plus', rowEl(15).textContent.includes('+£10.00') && rowEl(16).textContent.includes('+£3.00'), rowEl(15).textContent);
   check("a refund has no category picker, but names its purchase's line", !rowEl(15).querySelector('select') && rowEl(15).querySelector('.upload-destination').textContent === 'Fuel', rowEl(15).innerHTML.slice(0, 300));
-  check('and says what it is a refund of', /Refund ?of Shell, 5 Oct/.test(rowEl(15).textContent), rowEl(15).textContent);
+  const cellBtn = (id) => rowEl(id) && rowEl(id).querySelector('[data-refund-for] button[data-refund-of]');
+  check('a refund leads with its Refund of… button, then the purchase', cellBtn(15) && cellBtn(15).textContent === 'Refund of…' && /Refund of…\s*Shell, 5 Oct/.test(rowEl(15).querySelector('[data-refund-for]').textContent), rowEl(15).textContent);
+  check('with no Refund chip beside it', !chips(15).some((c) => c.textContent === 'Refund'), chips(15).map((c) => c.textContent).join());
+  check('and not again among the hover actions', !rowEl(15).querySelector('.upload-actions button[data-refund-of]'));
   const amountOf = (id) => rowEl(id) && rowEl(id).querySelector('.upload-amount');
   check('money in is green, money out is not', amountOf(15) && amountOf(15).classList.contains('is-in') && amountOf(16).classList.contains('is-in') && !amountOf(1).classList.contains('is-in'), [1, 15, 16].map((id) => amountOf(id) && amountOf(id).className).join());
-  check('money-in chips are green, whatever their severity', chips(16)[0] && chips(16)[0].classList.contains('is-in') && chips(15).some((c) => c.textContent === 'Refund' && c.classList.contains('is-in')), chips(15).concat(chips(16)).map((c) => c.className + ':' + c.textContent).join());
+  check('money-in chips are green, whatever their severity', chips(16)[0] && chips(16)[0].classList.contains('is-in'), chips(15).concat(chips(16)).map((c) => c.className + ':' + c.textContent).join());
   check('money in with no purchase is money back, flagged Money in', rowEl(16).querySelector('.upload-destination').textContent === 'Money back' && chips(16).map((c) => c.textContent).join() === 'Money in', rowEl(16).textContent);
   check('only money in with purchases to offer has Refund of…, and no Same as existing', refundBtn(15) && !refundBtn(16) && !refundBtn(1) && !sameBtn(15));
   check('a refund takes a note (it is an entry); money back does not', !!byLabel('Add a note to Shell refund') && !byLabel('Add a note to Cashback'));

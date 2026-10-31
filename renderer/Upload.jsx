@@ -252,7 +252,9 @@ function UploadStep({ review, month, onChanged, onReview }) {
 
    Money in has no category of its own. A refund takes its purchase's, and
    nets against it; money back is income. Where a "Same as existing" would
-   be, it has "Refund of": the purchases it could be, and "No purchase". */
+   be, it has "Refund of": the purchases it could be, and "No purchase". On a
+   row with a purchase it leads the labels column, always shown, followed by
+   the purchase; otherwise it waits among the hover actions. */
 function ReviewRow({ row, review, currency, onUpdate }) {
   // Blocked: cannot be ticked. Inert: nothing about it can be changed, so it
   // is dimmed and sunk. They differ only for a row waiting on a category.
@@ -296,7 +298,7 @@ function ReviewRow({ row, review, currency, onUpdate }) {
         )}
         <span className={cx("num upload-amount", moneyIn && "is-in")}>{row.amountCents == null ? "" : fmt(currency, (moneyIn ? 1 : -1) * row.amountCents / 100, { sign: true })}</span>
         {moneyIn && row.refund && !transfer && !inertRow ? (
-          <RefundOf row={row} />
+          <RefundOf row={row} picking={picking} onToggle={() => setPicking((p) => !p)} />
         ) : linked ? (
           <span className="upload-linked truncate">
             <Icons.check size={13} />
@@ -310,7 +312,8 @@ function ReviewRow({ row, review, currency, onUpdate }) {
               onClick={() => onUpdate(row, { linkedEntryId: null })}>Unlink</button>
           ) : (
             <>
-              {moneyIn && !inertRow && !transfer && (row.refundCandidates.length > 0 || row.decisions.refundOf != null) && (
+              {/* A refund shows this at the head of its labels instead. */}
+              {moneyIn && !inertRow && !transfer && !row.refund && (row.refundCandidates.length > 0 || row.decisions.refundOf != null) && (
                 <button type="button" data-refund-of aria-expanded={picking}
                   className={cx("upload-toggle", picking && "is-open")}
                   title="Which purchase this money gives back for"
@@ -377,21 +380,22 @@ const monthShort = (key) => MONTH_NAMES[Number(key.slice(5, 7)) - 1].slice(0, 3)
    a green "Refund" chip then "of H&M, 5 Sep", or for a purchase in an
    earlier month "Money back" then "for H&M, 5 Sep" (it counts as income
    this month, not against September's line). Any other label follows. */
-function RefundOf({ row }) {
+function RefundOf({ row, picking, onToggle }) {
   const p = row.refund.purchase;
-  const shown = row.labels.filter((l) => SEVERITY_CLASS[l.severity]);
-  // The green chip starts the sentence ("Refund" of H&M, 5 Oct), so chip and
-  // purchase fit the labels column on one line; any other label follows.
-  const lead = shown.find((l) => l.key === "refund" || l.key === "money_back");
-  const rest = shown.filter((l) => l !== lead);
-  const chip = (l) => <span key={l.key} className={cx("upload-chip", chipClass(l))}>{l.text}</span>;
+  // The button says what the row is, so the "Refund" or "Money back" chip
+  // would only repeat it (the destination column already says "Money back").
+  // Any other label follows the purchase.
+  const rest = row.labels.filter((l) => SEVERITY_CLASS[l.severity] && l.key !== "refund" && l.key !== "money_back");
   return (
     <span className="upload-chips upload-refund" data-refund-for={row.id}>
-      {lead && chip(lead)}
+      <button type="button" data-refund-of aria-expanded={picking}
+        className={cx("upload-toggle", picking && "is-open")}
+        title="Which purchase this money gives back for"
+        onClick={onToggle}>Refund of…</button>
       <span className="upload-linked truncate" title={row.refund.suggested ? "Suggested: the likeliest purchase from this shop" : undefined}>
-        {lead ? (p.sameMonth ? "of" : "for") : "Refund of"} {p.name}, {shortDate(p.spentOn)}
+        {p.name}, {shortDate(p.spentOn)}
       </span>
-      {rest.map(chip)}
+      {rest.map((l) => <span key={l.key} className={cx("upload-chip", chipClass(l))}>{l.text}</span>)}
     </span>
   );
 }
