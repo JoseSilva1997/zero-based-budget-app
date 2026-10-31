@@ -3,7 +3,6 @@
    ============================================================ */
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
          AreaChart, Area, ComposedChart, Line, LabelList } from 'recharts';
-import { Icons, Stat } from './ui/index.js';
 import { GROUP_PALETTE, cx, fmt, round2 } from './lib/index.js';
 
 /* short "Jan" style x-axis label from a "Jan 2025" series label */
@@ -119,46 +118,6 @@ const span = (series) => (series.length > 1
   ? `${series[0].label} to ${series[series.length - 1].label}`
   : series[0] ? series[0].label : "");
 
-/* ---- 1. headline figures -----------------------------------------------
-   Not four equal tiles in a row: that layout says every number here matters
-   the same amount. There is a single number a household actually opens this
-   screen to see - what it has put aside - so that one is set large and
-   unboxed, and the figures that qualify it run beneath it in a line,
-   separated by rules rather than each sealed in its own card. */
-function HeadlineStats({ allSeries, series, currency }) {
-  const totalSaved = round2(allSeries.reduce((a, s) => a + s.savings, 0));
-  const withIncome = allSeries.filter(s => s.income > 0);
-  const avgRate = withIncome.length ? Math.round(withIncome.reduce((a, s) => a + s.savings / s.income, 0) / withIncome.length * 100) : null;
-  const avgSpend = series.length ? round2(series.reduce((a, s) => a + s.actual, 0) / series.length) : 0;
-  const hasActuals = allSeries.some(s => s.actual > 0);
-
-  const secondary = [
-    { label: "Kept back", value: avgRate == null ? "—" : `${avgRate}%`, note: "of income, on average" },
-    { label: "Spent", value: fmt(currency, avgSpend, { cents: false }), note: "in a typical month" },
-  ];
-
-  return (
-    <div className="headline">
-      {!hasActuals && (
-        <div className="headline-note">Track a month to see your overview build up here.</div>
-      )}
-      <div className="headline-row">
-        <div className="headline-lead">
-          <span className="num headline-figure">
-            {fmt(currency, totalSaved, { cents: false })}
-          </span>
-          <span className="headline-caption">set aside, all time</span>
-        </div>
-        <div className="headline-secondary">
-          {secondary.map((s) => (
-            <Stat key={s.label} figure={s.value} note={`${s.label} ${s.note}`} />
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /* ---- 2. savings over time (amount + rate% label) ------------------------ */
 function SavingsChart({ series, currency, onOpenMonth }) {
   if (!series.length) return <ChartEmpty note="No months tracked yet." />;
@@ -203,7 +162,7 @@ function SavingsChart({ series, currency, onOpenMonth }) {
   );
 }
 
-/* ---- 4. cumulative savings by goal (stacked area) ---------------------- */
+/* ---- 3. cumulative savings by goal (stacked area) ---------------------- */
 function CumulativeSavingsChart({ series, currency, onOpenMonth }) {
   const cats = [];
   series.forEach(s => Object.keys(s.savingsByCat).forEach(n => { if (!cats.includes(n)) cats.push(n); }));
@@ -247,124 +206,38 @@ function CumulativeSavingsChart({ series, currency, onOpenMonth }) {
   );
 }
 
-/* ---- 5. budget accuracy: alloc vs actual + chronic offenders ----------- */
+/* ---- 4. budget accuracy: allocated against actual ---------------------- */
 function BudgetAccuracyChart({ series, currency, onOpenMonth }) {
+  if (!series.length) return <ChartEmpty note="No months tracked yet." />;
   const data = series.map(m => ({ name: shortMo(m.label), alloc: m.alloc, actual: m.actual }));
-  // chronic offenders: how many of the trailing months each group·item ran over
-  const freq = {};
-  series.forEach(s => s.over.forEach(o => {
-    const k = `${o.group} · ${o.item}`;
-    if (!freq[k]) freq[k] = { count: 0, totalOver: 0 };
-    freq[k].count += 1; freq[k].totalOver = round2(freq[k].totalOver + o.over);
-  }));
-  const offenders = Object.entries(freq)
-    .map(([k, v]) => ({ k, count: v.count, avgOver: round2(v.totalOver / v.count) }))
-    .sort((a, b) => b.count - a.count || b.avgOver - a.avgOver)
-    .slice(0, 6);
   const n = series.length;
   const overspent = series.filter(m => m.actual > m.alloc + 0.005).length;
   const summary = `Bar chart of allocated against actual for ${n} month${n === 1 ? "" : "s"}, ${span(series)}. `
     + (overspent === 0 ? "Actual stayed within the allocation every month." : `Actual came in over the allocation in ${overspent} of them.`);
   return (
-    <div className="accuracy-split">
-      <div>
-        {series.length ? (
-          <>
-            <ChartBody summary={summary}>
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={data} margin={{ top: 8, right: PLOT_RIGHT, left: 0, bottom: 0 }}>
-                  <CartesianGrid {...gridProps} />
-                  <XAxis dataKey="name" {...axisFor(onOpenMonth)} />
-                  <YAxis {...axisProps} tickFormatter={(v) => abbrMoney(v, currency)} width={PLOT_LEFT} />
-                  <Tooltip cursor={{ fill: "var(--well)", opacity: 0.4 }} content={<DashTooltip currency={currency} />} />
-                  {/* One hue, two weights. Allocated is the plan and is drawn
-                      as an outline; actual is the money that moved and is drawn
-                      solid. Same "plan vs actual" encoding the item rows use,
-                      and it costs no second hue. */}
-                  <Bar dataKey="alloc" name="Allocated" fill="var(--bar-plan)" stroke="var(--accent)" strokeWidth={1} radius={[3, 3, 0, 0]} maxBarSize={44} />
-                  <Bar dataKey="actual" name="Actual" fill="var(--accent)" radius={[3, 3, 0, 0]} maxBarSize={44} />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartBody>
-            <MonthAxis series={series} onOpenMonth={onOpenMonth} />
-          </>
-        ) : <ChartEmpty note="No months tracked yet." />}
-      </div>
-      <div>
-        {/* Phrased as an observation, not a diagnosis: the thing being
-            diagnosed would be the household reading it. */}
-        <div className="eyebrow offender-head">Runs over most often</div>
-        {offenders.length === 0 ? (
-          <div className="offender-none">
-            <Icons.check size={14} className="offender-none-icon" /> Nothing has run over budget.
-          </div>
-        ) : offenders.map(o => (
-          <div key={o.k} className="offender-row">
-            <div className="offender-text">
-              <div className="offender-name truncate">{o.k}</div>
-              <div className="offender-sub">over in {o.count} of {n} {n === 1 ? "month" : "months"} · avg {fmt(currency, o.avgOver, { cents: false })}</div>
-            </div>
-            <span className="pill pill-breach offender-count">{o.count}×</span>
-          </div>
-        ))}
-      </div>
-    </div>
+    <>
+      <ChartBody summary={summary}>
+        <ResponsiveContainer width="100%" height={250}>
+          <BarChart data={data} margin={{ top: 8, right: PLOT_RIGHT, left: 0, bottom: 0 }}>
+            <CartesianGrid {...gridProps} />
+            <XAxis dataKey="name" {...axisFor(onOpenMonth)} />
+            <YAxis {...axisProps} tickFormatter={(v) => abbrMoney(v, currency)} width={PLOT_LEFT} />
+            <Tooltip cursor={{ fill: "var(--well)", opacity: 0.4 }} content={<DashTooltip currency={currency} />} />
+            {/* One hue, two weights. Allocated is the plan and is drawn
+                as an outline; actual is the money that moved and is drawn
+                solid. Same "plan vs actual" encoding the item rows use,
+                and it costs no second hue. */}
+            <Bar dataKey="alloc" name="Allocated" fill="var(--bar-plan)" stroke="var(--accent)" strokeWidth={1} radius={[3, 3, 0, 0]} maxBarSize={44} />
+            <Bar dataKey="actual" name="Actual" fill="var(--accent)" radius={[3, 3, 0, 0]} maxBarSize={44} />
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartBody>
+      <MonthAxis series={series} onOpenMonth={onOpenMonth} />
+    </>
   );
 }
 
-/* ---- 6. category trends: recent vs earlier average --------------------- */
-function CategoryTrends({ series, currency }) {
-  const n = series.length;
-  if (n < 2) return <ChartEmpty note="Trends appear once you've tracked a second month." />;
-  const half = Math.floor(n / 2);
-  const earlier = series.slice(0, half);
-  const recent = series.slice(n - half);
-  const names = [];
-  series.forEach(s => Object.keys(s.byGroup).forEach(g => { if (!names.includes(g)) names.push(g); }));
-  const avg = (slice, g) => slice.reduce((a, s) => a + (s.byGroup[g] || 0), 0) / slice.length;
-  const rows = names.map(g => {
-    const e = avg(earlier, g), r = avg(recent, g);
-    const isNew = e <= 0.005;
-    const pct = isNew ? null : Math.round(((r - e) / e) * 100);
-    return { g, e, r, isNew, pct, abs: pct == null ? (r > 0 ? Infinity : 0) : Math.abs(pct) };
-  }).filter(row => row.r > 0 || row.e > 0)
-    .sort((a, b) => b.abs - a.abs)
-    .slice(0, 6);
-  if (!rows.length) return <ChartEmpty note="No spending recorded yet." />;
-  const rising = rows.filter(r => r.isNew || r.pct > 0).length;
-  const falling = rows.filter(r => !r.isNew && r.pct < 0).length;
-  const summary = `${rows.length} categor${rows.length === 1 ? "y" : "ies"} ranked by change, the last ${half} month${half === 1 ? "" : "s"} against the ${half} before: `
-    + `${rising} spending more, ${falling} spending less.`;
-  return (
-    <div role="group" aria-label={summary}>
-      {rows.map(row => {
-        const up = row.isNew ? true : row.pct > 0;
-        const flat = !row.isNew && row.pct === 0;
-        return (
-          <div key={row.g} className="trend-row">
-            <div className="trend-left">
-              <span className="trend-name">{row.g}</span>
-              {row.isNew && <span className="pill pill-neutral trend-new">new</span>}
-            </div>
-            <div className="trend-right">
-              <span className="num trend-amount">{fmt(currency, row.r, { cents: false })}/mo</span>
-              <span className={cx("trend-delta", flat && "is-flat")}>
-                {row.isNew ? "new" : (
-                  <>
-                    {!flat && (up ? <Icons.up size={14} /> : <Icons.down size={14} />)}
-                    <span className="num">{flat ? "0%" : `${Math.abs(row.pct)}%`}</span>
-                  </>
-                )}
-              </span>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-/* ---- 7. spending timing: avg spend by day-of-month --------------------- */
+/* ---- 5. spending timing: avg spend by day-of-month --------------------- */
 function SpendingTiming({ series, currency }) {
   const months = series.length;
   if (!months) return <ChartEmpty note="No months tracked yet." />;
@@ -416,6 +289,6 @@ function SpendingTiming({ series, currency }) {
 }
 
 export {
-  DashTooltip, ChartEmpty, HeadlineStats, SavingsChart,
-  CumulativeSavingsChart, BudgetAccuracyChart, CategoryTrends, SpendingTiming,
+  DashTooltip, ChartEmpty, SavingsChart,
+  CumulativeSavingsChart, BudgetAccuracyChart, SpendingTiming,
 };
