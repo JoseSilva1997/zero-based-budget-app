@@ -21,6 +21,7 @@ Every actual entry used to be typed by hand: a month of spending across several 
 - **Transfers.** A row marked as a transfer, or guessed to be one, shows only its "Transfer" chip. It writes nothing, so a category check, a possible duplicate or a date outside the month has nothing to say about it.
 - **Teach without importing.** Pick a category for a row and leave it unticked: Confirm writes no entry for it, but the classifier learns its category. The footer counts these ("3 to learn from"), and Confirm works even when they are all there is.
 - **Refunds.** Money in is matched to the purchase it gives back for: a purchase on the same card, from the same shop, up to 90 days earlier, with enough of it not yet refunded. The review suggests the likeliest one: the row's labels read **Refund of…** H&M, 5 Oct, and the button lists the others plus **No purchase**. With no purchase in use, **Refund of…** waits among the row's hover actions.
+  - Any money in can be chosen as a refund of **any purchase**, not only one from the same shop: **Refund of…** has a search that lists recent purchases on every card and narrows by name or category as you type. It offers purchases from the 90 days before the money came in, with room left for it.
   - A refund of a purchase **in this month** is written as a negative entry on the purchase's line, so the line shows what was kept. A full return nets to nothing.
   - A refund of a purchase **in an earlier month** is written as **money back**: an income line in this month, ready to be given a job. The earlier month stays as it was, overspent if it was.
   - Money in with **no purchase** (cashback, someone paying you back, a salary) starts unticked; ticked, it becomes money back.
@@ -82,7 +83,7 @@ stateDiagram-v2
 
 - **Formats:** CSV only, and only the four banks above.
 - **Duplicate matching:** needs the exact same amount within 3 days. An entry typed with a different amount or date, or one entry covering two bank rows, isn't found and can't be matched yet.
-- **Refunds:** one refund can't be split across two purchases. Refunds come from uploads only; a refund can't be typed by hand, and its amount is the bank's and can't be edited. A refund of a purchase on another card isn't suggested.
+- **Refunds:** one refund can't be split across two purchases. Refunds come from uploads only; a refund can't be typed by hand, and its amount is the bank's and can't be edited. A refund of a purchase on another card isn't suggested, though the search finds it.
 - **Money back** goes to the card's owner, or the first household member for a joint account; change it on the income line.
 - **Splitting:** one row can't be split across categories.
 - **Transfers:** not paired automatically across accounts.
@@ -112,3 +113,4 @@ stateDiagram-v2
 | 2026-10-31 | staging | Fix: a transfer shows only its "Transfer" chip, not "Check category" or other chips beside it. |
 | 2026-10-31 | staging | A refund's labels lead with its **Refund of…** button instead of a "Refund" chip, which only repeated it. |
 | 2026-10-31 | staging | Fix: a refund's purchase name runs on up to the row's actions instead of being cut at the labels column. |
+| 2026-10-31 | staging | **Refund of…** on any money in, with a search to choose any purchase as what it refunds. |

@@ -548,6 +548,7 @@ export function StoreProvider({ children }) {
     upload: (key, accountId, file) => uploadStatement(idForKey(key), Number(accountId), file),
     removeFile: (fileId) => api.importRemoveFile(Number(fileId)),
     updateRow: (rowId, patch) => api.importUpdateRow(Number(rowId), patch),
+    refundOptions: (rowId, query) => api.importRefundOptions(Number(rowId), String(query)),
     discard: (batchId) => api.importDiscard(Number(batchId)),
     confirm: async (key, batchId) => {
       const res = await api.importConfirm(Number(batchId));

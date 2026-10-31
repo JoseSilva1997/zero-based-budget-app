@@ -31,6 +31,7 @@ import type {
   ImportAddedFile,
   ImportConfirmResult,
   ImportHistoryRow,
+  ImportRefundPurchase,
   ImportReview,
   ImportRowPatch,
   MergeResult,
@@ -154,6 +155,8 @@ const api = {
   importRemoveFile: (fileId: number) => invoke<Ok>('import:removeFile', { fileId }),
   importUpdateRow: (rowId: number, patch: ImportRowPatch) =>
     invoke<Ok>('import:updateRow', { rowId, patch }),
+  importRefundOptions: (rowId: number, query: string) =>
+    invoke<ImportRefundPurchase[]>('import:refundOptions', { rowId, query }),
   importConfirm: (batchId: number) => invoke<ImportConfirmResult>('import:confirm', { batchId }),
   importDiscard: (batchId: number) => invoke<Ok>('import:discard', { batchId }),
   importHistory: (monthId: number) => invoke<ImportHistoryRow[]>('import:history', { monthId }),

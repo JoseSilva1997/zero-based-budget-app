@@ -48,6 +48,15 @@
                            is unchanged. Pending batches only. An entry
                            already matched to another row, or imported, is
                            refused.
+   'import:refundOptions' { rowId, query }
+                        -> ImportRefundPurchase[]: money in only. Every
+                           purchase it could be chosen as a refund of,
+                           whatever the shop or card: spends in the budget
+                           and debit rows of this upload being imported, up
+                           to 90 days before it, with its amount still
+                           unrefunded. Newest first, at most 30; query keeps
+                           those whose name, descriptor or category holds
+                           it. Choose one with updateRow's refundOf.
 
    CONFIRM AND AFTER
    'import:confirm'     { batchId } -> ImportConfirmResult { entries,
@@ -90,6 +99,7 @@ import {
   discardBatch,
   getReview,
   listImports,
+  refundOptions,
   removeFile,
   undoImport,
   updateRow,
@@ -108,6 +118,7 @@ import type {
   ImportAddedFile,
   ImportConfirmResult,
   ImportHistoryRow,
+  ImportRefundPurchase,
   ImportReview,
   ImportRowPatch,
 } from '../../shared/types';
@@ -143,6 +154,12 @@ export function registerImportIpc(): void {
       updateRow(getDb(), p.rowId, p.patch ?? {});
       return OK;
     })
+  );
+
+  ipcMain.handle('import:refundOptions', (_e, p: { rowId: number; query: string }) =>
+    guardAsync(async (): Promise<ImportRefundPurchase[]> =>
+      refundOptions(getDb(), p.rowId, String(p.query ?? ''))
+    )
   );
 
   /* ---------- confirm and after ---------- */

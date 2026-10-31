@@ -45,3 +45,11 @@ A household member orders far more online than they keep and returns most of it.
 - **Alternatives:** match on amount too (returns are usually partial); suggest nothing and always ask.
 - **Why:** partial returns rule out amount matching, and the same card plus the same shop within a season is nearly always right. Suggesting saves a click on most rows while staying visible and easy to change.
 - **Decided by:** Coding Agent.
+
+## 6. Any money in can be a refund of any purchase
+
+- **Context:** suggestions need a shared word in the merchant names, so cashback ("MYREWARDS") or a friend paying you back for a purchase had no way to be linked to it. The Engineer asked to choose any purchase.
+- **Decision:** every money-in row has **Refund of…**, and its panel has a search over purchases from the 90 days before the money came in, on any card, with at least its amount left unrefunded (counting the other money in the upload). Empty, it lists the most recent; typing narrows by name, bank descriptor or category. At most 30 are listed. The list is fetched when the panel opens (`import:refundOptions`), not sent with every row.
+- **Alternatives:** widen the suggestions themselves (they would stop being likely, and every row would carry a long list); allow any purchase ever made (the list grows without end, and a refund months later is rare).
+- **Why:** the suggestion stays a good guess for real returns, and the search covers what no name can match. Any card, because a friend's payment or cashback lands where it lands, not on the card that paid. The room check keeps a line from netting below what was spent.
+- **Decided by:** Engineer asked; Coding Agent chose the search and its limits.

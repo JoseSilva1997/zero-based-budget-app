@@ -285,8 +285,9 @@ function ReviewRow({ row, review, currency, onUpdate }) {
           onClick={() => onUpdate(row, { linkedEntryId: null })}>Unlink</button>
       ) : (
         <>
-          {/* A refund shows this at the head of its labels instead. */}
-          {moneyIn && !inertRow && !transfer && !row.refund && (row.refundCandidates.length > 0 || row.decisions.refundOf != null) && (
+          {/* A refund shows this at the head of its labels instead. Any money
+              in has it: the purchase may be found by searching. */}
+          {moneyIn && !inertRow && !transfer && !row.refund && (
             <button type="button" data-refund-of aria-expanded={picking}
               className={cx("upload-toggle", picking && "is-open")}
               title="Which purchase this money gives back for"
@@ -415,34 +416,74 @@ function RefundOf({ row, picking, onToggle }) {
 /* The purchases money in could be a refund of, best first, and "No
    purchase" (plain money in: money back if ticked). The one in use is marked
    rather than offered. A purchase in an earlier month says which: its
-   refund is money back here, not a refund on that month's line. */
+   refund is money back here, not a refund on that month's line.
+
+   Under the suggestions, a search finds any other purchase, whatever the
+   shop or card: cashback or someone paying you back names no shop. It lists
+   recent purchases as it opens and narrows as you type. */
+const SEARCH_DELAY = 150;
 function RefundCandidates({ row, currency, onPick }) {
+  const { imports } = useStore();
   const inUse = row.refund ? row.refund.purchase.ref : null;
   const same = (ref) => inUse && inUse.kind === ref.kind && inUse.id === ref.id;
   const chose = row.decisions.refundOf;
+  const [query, setQuery] = useState("");
+  const [found, setFound] = useState(null);
+  useEffect(() => {
+    let live = true;
+    const t = setTimeout(() => {
+      imports.refundOptions(row.id, query).then((list) => { if (live) setFound(list); }, () => { if (live) setFound([]); });
+    }, query ? SEARCH_DELAY : 0);
+    return () => { live = false; clearTimeout(t); };
+  }, [imports, row.id, query]);
+  const suggested = new Set(row.refundCandidates.map((p) => `${p.ref.kind}:${p.ref.id}`));
+  const others = (found || []).filter((p) => !suggested.has(`${p.ref.kind}:${p.ref.id}`));
+
+  const option = (p) => (
+    <div key={`${p.ref.kind}:${p.ref.id}`} className="upload-candidate">
+      <span className="num upload-date">{shortDate(p.spentOn)}</span>
+      <span className="upload-candidate-name truncate">{p.name}</span>
+      <span className="upload-candidate-cat truncate">
+        {[p.categoryName, p.sameMonth ? null : `${monthShort(p.month)} · money back`].filter(Boolean).join(" · ")}
+      </span>
+      <span className="num upload-amount" title={p.remainingCents < p.amountCents ? `${fmt(currency, p.remainingCents / 100)} not yet refunded` : undefined}>
+        {fmt(currency, -p.amountCents / 100)}
+      </span>
+      {same(p.ref) ? (
+        <span className="upload-candidate-used">In use</span>
+      ) : (
+        <button type="button" className="btn btn-sm" aria-label={`A refund of ${p.name}, ${shortDate(p.spentOn)}`}
+          onClick={() => onPick(p.ref.kind === "entry" ? { entryId: p.ref.id } : { rowId: p.ref.id })}>Use</button>
+      )}
+    </div>
+  );
+
   return (
     <div className="upload-candidates" data-refund-candidates-for={row.id} role="group" aria-label={`Purchases ${row.name} may be a refund of`}>
-      <div className="eyebrow upload-candidates-head">A refund of</div>
-      {row.refundCandidates.map((p) => (
-        <div key={`${p.ref.kind}:${p.ref.id}`} className="upload-candidate">
-          <span className="num upload-date">{shortDate(p.spentOn)}</span>
-          <span className="upload-candidate-name truncate">{p.name}</span>
-          <span className="upload-candidate-cat truncate">
-            {[p.categoryName, p.sameMonth ? null : `${monthShort(p.month)} · money back`].filter(Boolean).join(" · ")}
-          </span>
-          <span className="num upload-amount" title={p.remainingCents < p.amountCents ? `${fmt(currency, p.remainingCents / 100)} not yet refunded` : undefined}>
-            {fmt(currency, -p.amountCents / 100)}
-          </span>
-          {same(p.ref) ? (
-            <span className="upload-candidate-used">In use</span>
-          ) : (
-            <button type="button" className="btn btn-sm" aria-label={`A refund of ${p.name}, ${shortDate(p.spentOn)}`}
-              onClick={() => onPick(p.ref.kind === "entry" ? { entryId: p.ref.id } : { rowId: p.ref.id })}>Use</button>
-          )}
+      {row.refundCandidates.length > 0 && (
+        <>
+          <div className="eyebrow upload-candidates-head">A refund of</div>
+          {row.refundCandidates.map(option)}
+        </>
+      )}
+      <div className="upload-candidate upload-candidate-search">
+        <span className="upload-search">
+          <Icons.search size={14} />
+          <input className="tinput" type="search" value={query} aria-label="Find a purchase"
+            placeholder={row.refundCandidates.length ? "Another purchase" : "Find the purchase"}
+            autoFocus={row.refundCandidates.length === 0}
+            onChange={(e) => setQuery(e.target.value)} />
+        </span>
+      </div>
+      {others.map(option)}
+      {found && others.length === 0 && (
+        <div className="upload-candidate upload-candidate-none">
+          <span className="upload-candidate-name truncate">{query ? "No purchase matches" : "No other purchases"}</span>
+          <span className="upload-candidate-cat truncate">From the last 90 days, with room for this refund</span>
         </div>
-      ))}
+      )}
       <div className="upload-candidate upload-candidate-none">
-        <span className="upload-candidate-name truncate">{row.refundCandidates.length ? "None of these" : "No purchase found"}</span>
+        <span className="upload-candidate-name truncate">{row.refundCandidates.length || others.length ? "None of these" : "No purchase"}</span>
         <span className="upload-candidate-cat truncate">Money back if ticked</span>
         {chose === "none" ? (
           <span className="upload-candidate-used">In use</span>

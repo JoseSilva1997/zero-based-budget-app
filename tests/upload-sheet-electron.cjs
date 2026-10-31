@@ -103,6 +103,7 @@ const row = (id, accountId, o = {}) => ({
   decisions: { categoryId: null, name: null, kind: null, included: null, linkedEntryId: o.linkedEntryId || null, refundOf: null },
 });
 const shellBuy = { ref: { kind: 'row', id: 4 }, spentOn: '2026-10-05', amountCents: 3000, remainingCents: 3000, name: 'Shell', categoryId: 13, categoryName: 'Fuel', month: '2026-10', sameMonth: true };
+const rentBuy = { ref: { kind: 'entry', id: 960 }, spentOn: '2026-10-01', amountCents: 50000, remainingCents: 50000, name: 'Rent share', categoryId: 15, categoryName: 'Housing', month: '2026-10', sameMonth: true };
 const jacketBuy = { ref: { kind: 'entry', id: 950 }, spentOn: '2026-09-20', amountCents: 6000, remainingCents: 6000, name: 'Jacket', categoryId: 14, categoryName: 'Gifts', month: '2026-09', sameMonth: false };
 const reviewRows = () => [
   row(1, 1, { name: 'Tesco', spentOn: '2026-10-03', amountCents: 4210, included: true }),
@@ -162,6 +163,12 @@ window.api = {
       return next;
     });
     return { ok: true };
+  },
+  // Every purchase, whatever the shop; the query filters by name or category.
+  importRefundOptions: async (rowId, query) => {
+    server.calls.refundQueries = [...(server.calls.refundQueries || []), [rowId, query]];
+    const q = query.toLowerCase();
+    return [rentBuy, shellBuy, jacketBuy].filter((p) => !q || (p.name + ' ' + p.categoryName).toLowerCase().includes(q));
   },
   importHistory: async () => server.history.map((h) => ({ ...h })),
   banks: async () => server.banks.map((b) => ({ ...b })),
@@ -564,7 +571,7 @@ window.__runTests = async () => {
   check('money in is green, money out is not', amountOf(15) && amountOf(15).classList.contains('is-in') && amountOf(16).classList.contains('is-in') && !amountOf(1).classList.contains('is-in'), [1, 15, 16].map((id) => amountOf(id) && amountOf(id).className).join());
   check('money-in chips are green, whatever their severity', chips(16)[0] && chips(16)[0].classList.contains('is-in'), chips(15).concat(chips(16)).map((c) => c.className + ':' + c.textContent).join());
   check('money in with no purchase is money back, flagged Money in', rowEl(16).querySelector('.upload-destination').textContent === 'Money back' && chips(16).map((c) => c.textContent).join() === 'Money in', rowEl(16).textContent);
-  check('only money in with purchases to offer has Refund of…, and no Same as existing', refundBtn(15) && !refundBtn(16) && !refundBtn(1) && !sameBtn(15));
+  check('all money in has Refund of…, and no Same as existing', refundBtn(15) && refundBtn(16) && !refundBtn(1) && !sameBtn(15));
   check('a refund takes a note (it is an entry); money back does not', !!byLabel('Add a note to Shell refund') && !byLabel('Add a note to Cashback'));
   await press(refundBtn(15), 'Refund of… on Shell refund');
   const refundCands = () => document.querySelector('[data-refund-candidates-for="15"]');
@@ -577,6 +584,27 @@ window.__runTests = async () => {
   await press(refundBtn(15), 'Refund of… again');
   await press(buttonNamed('No purchase'), 'No purchase');
   check('No purchase sends none', lastUpdate() === '[15,{"refundOf":"none"}]', lastUpdate());
+
+  // Any purchase can be chosen, found by searching.
+  const waitSearch = async () => { await new Promise((r) => setTimeout(r, 300)); await settle(); };
+  await press(refundBtn(16), 'Refund of… on Cashback, which matched no shop');
+  await waitSearch();
+  const cashCands = () => document.querySelector('[data-refund-candidates-for="16"]');
+  const search = () => cashCands() && cashCands().querySelector('input[aria-label="Find a purchase"]');
+  check('it opens with a search for any purchase', !!search(), cashCands() && cashCands().innerHTML.slice(0, 300));
+  check('listing recent purchases from any shop', cashCands() && ['Rent share', 'Shell', 'Jacket'].every((t) => cashCands().textContent.includes(t)), cashCands() && cashCands().textContent);
+  await setValue(search(), 'rent');
+  await waitSearch();
+  check('typing searches', JSON.stringify(server.calls.refundQueries.at(-1)) === '[16,"rent"]', JSON.stringify(server.calls.refundQueries));
+  check('and lists what matches', cashCands().textContent.includes('Rent share') && !cashCands().textContent.includes('Jacket'), cashCands().textContent);
+  await press(byLabel('A refund of Rent share, 1 Oct'), 'A refund of Rent share');
+  check('choosing one sends it', lastUpdate() === '[16,{"refundOf":{"entryId":960}}]', lastUpdate());
+  check('and the list closes', !cashCands());
+  await press(refundBtn(15), 'Refund of… on Shell refund');
+  await waitSearch();
+  const shellCands = document.querySelector('[data-refund-candidates-for="15"]');
+  check('a purchase already suggested is not listed twice', shellCands && (shellCands.textContent.match(/Jacket/g) || []).length === 1, shellCands && shellCands.textContent);
+  await press(refundBtn(15), 'Refund of… closed');
 
   /* ---- 11. the footer: summary and the over-plan line ---------------- */
   const confirmBtn = () => [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Confirm');

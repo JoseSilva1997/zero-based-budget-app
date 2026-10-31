@@ -276,6 +276,12 @@
 .upload-refund > button { flex: none; }
 .upload-refund > .upload-linked { display: block; flex: 0 1 auto; min-width: 0; }
 .upload-candidate-none > :first-child { grid-column: 3; }
+/* The search sits where a candidate's name would, spanning to the amount. */
+.upload-candidate-search > .upload-search { grid-column: 3 / 6; }
+.upload-search { position: relative; display: flex; align-items: center; min-width: 0; }
+.upload-search > svg { position: absolute; left: 9px; color: var(--muted); pointer-events: none; }
+.upload-search > .tinput { padding-left: 30px; font-size: var(--text-13); background: var(--well); border-color: var(--rule); }
+.upload-search > .tinput::-webkit-search-cancel-button { display: none; }
 .upload-candidate > .upload-candidate-used { grid-column: 7; justify-self: end; font-size: var(--text-12); color: var(--muted); }
 
 /* The review's footer: Back to files on the left, then everything about

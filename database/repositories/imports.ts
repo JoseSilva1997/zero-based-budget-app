@@ -667,6 +667,81 @@ export function getReview(db: Database.Database, monthId: number): ImportReview 
  * Only while its batch is pending. A linked entry must exist and not be
  * accounted for already (imported, or matched to another row).
  */
+/** How many purchases "Refund of…" lists when you search. */
+const REFUND_OPTIONS = 30;
+
+/** Every purchase money in could be chosen as a refund of, whatever the
+ *  shop and whichever card: the review only suggests purchases from the same
+ *  shop on the same card, but cashback or a friend paying you back can be of
+ *  anything. A purchase is a spend in the budget, or a debit row of this
+ *  upload being imported, made up to REFUND_WINDOW_DAYS before the money came
+ *  in, with at least its amount not yet refunded (counting what other money
+ *  in this upload takes of it). Newest first; `query` keeps those whose
+ *  name, bank descriptor or category holds it, ignoring case. */
+export function refundOptions(db: Database.Database, rowId: number, query: string): ImportRefundPurchase[] {
+  const row = db
+    .prepare(`SELECT r.*, f.batch_id, f.bank_account_id FROM import_rows r JOIN import_files f ON f.id = r.file_id WHERE r.id = ?`)
+    .get(rowId) as (StoredRow & { batch_id: number }) | undefined;
+  if (!row) throw new Error('That transaction is no longer in this upload.');
+  const batch = batchById(db, row.batch_id);
+  assertPending(batch);
+  if (row.direction !== 'credit') throw new Error('Only money in can be a refund.');
+  if (row.spent_on === null || row.amount_cents === null) return [];
+  const month = monthById(db, batch.budget_month_id);
+  const assessed = assessBatch(db, batch, month);
+
+  const key = (p: ImportRefundPurchase) => `${p.ref.kind}:${p.ref.id}`;
+  const taken = new Map<string, number>();
+  for (const a of assessed) {
+    if (a.row.id === rowId || !a.refund || !a.assessment.included) continue;
+    if (a.assessment.writesAs !== 'refund' && a.assessment.writesAs !== 'money_back') continue;
+    const k = key(a.refund.purchase);
+    taken.set(k, (taken.get(k) ?? 0) + (a.row.amount_cents as number));
+  }
+
+  const entries = (
+    db
+      .prepare(
+        `${PURCHASE_ENTRY_SQL}
+           AND e.spent_on BETWEEN date(@on, '-${REFUND_WINDOW_DAYS} days') AND @on`
+      )
+      .all({ on: row.spent_on }) as PurchaseEntryRow[]
+  ).map((e) => ({ read: entryPurchase(e, month.month).read, words: [e.name, e.descriptor, e.categoryName] }));
+  const categoryName = new Map(
+    (db.prepare(`SELECT id, name FROM categories`).all() as Array<{ id: number; name: string }>).map((c) => [c.id, c.name])
+  );
+  const fromRows = assessed
+    .filter((a) => a.assessment.included && a.assessment.writesAs === 'entry' && a.row.spent_on !== null)
+    .filter((a) => (a.row.spent_on as string) <= (row.spent_on as string))
+    .map((a) => {
+      const cat = a.assessment.categoryId === null ? null : categoryName.get(a.assessment.categoryId) ?? null;
+      const read: ImportRefundPurchase = {
+        ref: { kind: 'row', id: a.row.id },
+        spentOn: a.row.spent_on as string,
+        amountCents: a.row.amount_cents as number,
+        remainingCents: a.row.amount_cents as number,
+        name: a.assessment.name,
+        categoryId: a.assessment.categoryId,
+        categoryName: cat,
+        month: month.month,
+        sameMonth: true,
+      };
+      return { read, words: [a.assessment.name, a.row.descriptor_clean, cat] };
+    });
+
+  const needle = query.trim().toLowerCase();
+  return [...entries, ...fromRows]
+    .map((o) => {
+      const remainingCents = o.read.remainingCents - (taken.get(key(o.read)) ?? 0);
+      return { ...o, read: { ...o.read, remainingCents } };
+    })
+    .filter((o) => o.read.remainingCents >= (row.amount_cents as number))
+    .filter((o) => !needle || o.words.some((w) => !!w && w.toLowerCase().includes(needle)))
+    .sort((a, b) => b.read.spentOn.localeCompare(a.read.spentOn) || b.read.ref.id - a.read.ref.id)
+    .slice(0, REFUND_OPTIONS)
+    .map((o) => o.read);
+}
+
 export function updateRow(db: Database.Database, rowId: number, patch: ImportRowPatch): void {
   const row = db
     .prepare(

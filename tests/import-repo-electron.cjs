@@ -652,6 +652,24 @@ app.whenReady().then(async () => {
       imports.updateRow(db, hmBack.id, { refundOf: { rowId: acme.id } });
       rows = imports.getReview(db, sep).accounts[0].rows;
       eq([rows[1].refund.purchase.ref, rows[1].refund.suggested, rows[3].refund && rows[3].refund.purchase.ref], [{ kind: 'row', id: acme.id }, false, null], 'a purchase you choose takes its share before any suggestion');
+
+      // Any purchase can be chosen, not only those from the same shop.
+      const refs = (list) => list.map((o) => o.ref);
+      imports.updateRow(db, hmBack.id, { refundOf: null });
+      imports.updateRow(db, acmeBack.id, { refundOf: 'none' });
+      eq(imports.refundOptions(db, cashback.id, '').map((o) => o.remainingCents), [4000, 5000], 'what is left of each counts the refunds in this upload');
+      imports.updateRow(db, acmeBack.id, { refundOf: null });
+      eq(imports.refundOptions(db, cashback.id, '').some((o) => o.ref.id === acme.id), false, 'a purchase refunded in full is not offered');
+      imports.updateRow(db, acmeBack.id, { refundOf: 'none' });
+      eq(refs(imports.refundOptions(db, cashback.id, '')), [{ kind: 'row', id: acme.id }, { kind: 'row', id: hm.id }], 'money in lists every purchase it could refund, newest first, whatever the shop');
+      eq(refs(imports.refundOptions(db, cashback.id, 'acme')), [{ kind: 'row', id: acme.id }], 'filtered by name');
+      eq(refs(imports.refundOptions(db, cashback.id, 'CLOTH')).length, 2, 'or by category, ignoring case');
+      eq(imports.refundOptions(db, cashback.id, 'nothing like it'), [], 'and nothing when nothing matches');
+      eq(imports.refundOptions(db, hmBack.id, '').some((o) => o.ref.id === parcel.id), false, "a purchase that isn't imported isn't offered");
+      throws(() => imports.refundOptions(db, hm.id, ''), 'Only money in', 'a purchase has no refund options');
+      imports.updateRow(db, cashback.id, { refundOf: { rowId: hm.id } });
+      rows = imports.getReview(db, sep).accounts[0].rows;
+      eq([rows[6].refund.purchase.ref, rows[6].writesAs, rows[6].categoryId], [{ kind: 'row', id: hm.id }, 'refund', clothingCat], 'and the one chosen is what it refunds');
       db.close();
     }
 
@@ -719,6 +737,8 @@ async function ipcChecks() {
   await data('import:updateRow', { rowId: deli.id, patch: { categoryId: foodCat } });
   review = await data('import:review', { monthId: sep });
   eq(review.accounts[0].rows[0].included, true, 'import:updateRow records a decision');
+  const notCredit = await call('import:refundOptions', { rowId: deli.id, query: '' });
+  eq(notCredit.error, 'Only money in can be a refund.', 'import:refundOptions answers in the envelope');
 
   const confirmed = await data('import:confirm', { batchId: file.batchId });
   eq([confirmed.entries, confirmed.totalCents], [1, 250], 'import:confirm');
