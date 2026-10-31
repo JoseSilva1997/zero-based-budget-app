@@ -1,6 +1,6 @@
 # Feature: dashboard
 
-**Changes:** [cards](../key-decisions/2026-10-31-dashboard-cards_decisions.md) · [swap](../key-decisions/2026-10-31-dashboard-card-swap_decisions.md) · [titles](../key-decisions/2026-10-31-dashboard-card-titles_decisions.md) · [spending by group](../key-decisions/2026-10-31-dashboard-spending-by-group_decisions.md)
+**Changes:** [cards](../key-decisions/2026-10-31-dashboard-cards_decisions.md) · [swap](../key-decisions/2026-10-31-dashboard-card-swap_decisions.md) · [titles](../key-decisions/2026-10-31-dashboard-card-titles_decisions.md) · [spending by group](../key-decisions/2026-10-31-dashboard-spending-by-group_decisions.md) · [savings on spend cards](../key-decisions/2026-10-31-dashboard-savings-choices_decisions.md)
 
 ## Context
 
@@ -22,7 +22,7 @@ The first version had a fixed headline (saved all time, share of income kept bac
   A move, swap or resize that would leave the grid or cover another card is not made; while dragging, the drop outline turns red and hatched where it would not fit, and a swap shows a second, dashed outline where the other card would go. Every change is saved as it happens. **Done** ends editing.
 - **Each card has a menu** (shown on hover or focus) listing every stat, grouped under Saving, Spending, The plan and Income. Picking one changes that card, and the choice is remembered.
 - **Some stats ask for a choice** after they are picked, in the same menu:
-  - a **group or category** (Average monthly spend on…, Total spent in the last 12 months on…, Share of spending on…). Spend groups are listed with their categories under them; savings groups are not spending, so they are not offered.
+  - a **group or category** (Average and Median monthly spend on…, Total spent in the last 12 months on…, Share of spending on…). Groups are listed with their categories under them. The average, median and total offer savings groups too, and show what went into them; Share of spending on… does not, as savings are not spending.
   - a **savings goal** (Saved toward a goal).
   - a **share of income** (Longest run saving a share of income), from 5% to 30%.
 
@@ -90,7 +90,7 @@ flowchart LR
 ```
 
 - **Which months count.** "All time" and "this year" stats add every month up to and including the current one, never a month planned ahead. Every other stat reads the **window**: the last 12 *finished* months, meaning months before the current calendar month. The month in progress is half a month and would always look light and within plan. Inside the window a stat counts only the months that have what it measures (spending, income, or a plan with spending), so an untracked month is not read as a month of no spending.
-- **What "spending" means.** Money out of spend and debt groups. What went into a savings group is put aside, not spent, so it is left out of every spending stat except "with savings". The plan stats compare the whole plan with everything entered, savings included, because that is what the plan is.
+- **What "spending" means.** Money out of spend and debt groups. What went into a savings group is put aside, not spent, so it is left out of every spending stat except "with savings" and the average, median or total on a savings group the household picks. The plan stats compare the whole plan with everything entered, savings included, because that is what the plan is.
 - **Too little to go on** shows a dash, and the card's tooltip says what the stat is waiting for, rather than a zero that reads as a fact.
 - **Data.** `trendSeries` returns, per month, what the charts read plus what only the cards read: `savingsActual`, spending by group and category **id** (`byGroupId`, `byCategoryId`, so a chosen group survives a rename), `savingsByCatId`, `purchases`, `purchaseTotal` and `purchaseAmounts` (spends outside savings, refunds not counted; the amounts are for the median purchase), `weekendSpend`, and `spendByDay` without savings. `listCategories` now carries each category's `groupKind`.
 - **The saved cards** are JSON in `app_meta` under `dashboardCards`, written through `settings:update`: a list of `{ stat, of?, goal?, percent?, x, y, w, h }`, where `x`, `y` is the top-left cell (from 1) and `w`, `h` the columns and rows it spans. The main process checks only the shape (at most twelve cards, each naming a stat, inside the grid, none overlapping, with any choice in the right form) and refuses anything else. The stat ids belong to the renderer: a card with an id it does not know keeps its place and asks for a stat. An unreadable saved value reads as "none chosen", which means the defaults; an empty list is a choice and stays empty.
@@ -126,3 +126,4 @@ flowchart LR
 | 2026-10-31 | no median saving rate | "Median share of income saved" removed; a card that showed it asks for a stat. |
 | 2026-10-31 | titles | A card is the stat's title over its figure; the explaining sentence moved to the tooltip. |
 | 2026-10-31 | spending by group | A pie of spending by group beside Saved each month, for one month or the average month, as amounts or shares. |
+| 2026-10-31 | savings on spend cards | Average, Median and Total spent on… can be pointed at a savings group or category. |

@@ -101,7 +101,10 @@ const NO_TARGET = "choose a group or category from this card's menu";
 
 /* ---- the stats ---------------------------------------------------------
    `needs` is the choice a stat asks for after it is picked: 'of' (a spend
-   group or category), 'goal' (a savings category) or 'percent'. */
+   group or category), 'goal' (a savings category) or 'percent'. A stat with
+   `savings: true` offers savings groups for 'of' as well: what went into a
+   savings group a month is worth seeing, but it is not a share of spending,
+   nor where most of the money goes. */
 export const SECTIONS = ["Saving", "Spending", "The plan", "Income"];
 
 export const STATS = [
@@ -185,8 +188,8 @@ export const STATS = [
     },
   ),
   ...twins(
-    { id: "avgSpendOn", section: "Spending", label: "Average monthly spend on…", needs: "of", note: (name) => `a month on ${name}, on average` },
-    { id: "medianSpendOn", section: "Spending", label: "Median monthly spend on…", needs: "of", note: (name) => `on ${name} in the median month` },
+    { id: "avgSpendOn", section: "Spending", label: "Average monthly spend on…", needs: "of", savings: true, note: (name) => `a month on ${name}, on average` },
+    { id: "medianSpendOn", section: "Spending", label: "Median monthly spend on…", needs: "of", savings: true, note: (name) => `on ${name} in the median month` },
     (typical, d) => (ctx, card, money) => {
       const t = target(ctx, card.of);
       if (!t) return empty(NO_TARGET);
@@ -196,7 +199,7 @@ export const STATS = [
     },
   ),
   {
-    id: "totalSpendOn", section: "Spending", label: "Total spent in the last 12 months on…", needs: "of",
+    id: "totalSpendOn", section: "Spending", label: "Total spent in the last 12 months on…", needs: "of", savings: true,
     // Says how many months it covers when the history is shorter than 12.
     title: (ctx, name) => {
       const n = ctx.window.length;
@@ -466,9 +469,9 @@ export function computeStat(card, ctx, currency) {
 /* What a card's menu offers for a stat's choice: spend groups with their
    categories, or the savings categories. Groups whose categories are all
    archived are left out. */
-export function choicesFor(ctx, needs) {
+export function choicesFor(ctx, stat) {
   const list = [...ctx.groups.entries()].map(([id, g]) => ({ id, ...g }));
-  if (needs === "of") return list.filter((g) => g.kind !== "savings" && g.categories.length);
-  if (needs === "goal") return list.filter((g) => g.kind === "savings").flatMap((g) => g.categories);
+  if (stat.needs === "of") return list.filter((g) => (stat.savings || g.kind !== "savings") && g.categories.length);
+  if (stat.needs === "goal") return list.filter((g) => g.kind === "savings").flatMap((g) => g.categories);
   return [];
 }

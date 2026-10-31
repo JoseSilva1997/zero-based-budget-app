@@ -82,11 +82,11 @@ function CardMenu({ anchorRef, card, ctx, onPick, onClose }) {
   );
 }
 
-/* Spend groups, each followed by its categories: a group says more than one
-   category often does, so both are offered. Savings groups are not
-   spending, so they are not here. */
+/* Groups, each followed by its categories: a group says more than one
+   category often does, so both are offered. Savings groups are here only for
+   a stat that says so (see `savings` in lib/dashboardStats.js). */
 function SpendChoices({ ctx, card, stat, onPick }) {
-  const groups = choicesFor(ctx, "of");
+  const groups = choicesFor(ctx, stat);
   if (!groups.length) return <div className="move-menu-note">No spending categories yet</div>;
   const on = (kind, id) => card.stat === stat.id && card.of && card.of.kind === kind && card.of.id === id;
   return groups.map((g, gi) => (
@@ -106,7 +106,7 @@ function SpendChoices({ ctx, card, stat, onPick }) {
 }
 
 function GoalChoices({ ctx, card, onPick }) {
-  const goals = choicesFor(ctx, "goal");
+  const goals = choicesFor(ctx, { needs: "goal" });
   if (!goals.length) return <div className="move-menu-note">Mark a group as savings to have goals here</div>;
   return goals.map((c, i) => (
     <button key={c.id} type="button" className="move-menu-item" autoFocus={i === 0} onClick={() => onPick(c.id)}>

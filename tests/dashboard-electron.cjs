@@ -132,7 +132,7 @@ import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
 import { createElement as h, useState } from 'react';
-import { buildContext, computeStat, normaliseCards, DEFAULT_CARDS, STATS } from './renderer/lib/dashboardStats.js';
+import { buildContext, computeStat, normaliseCards, DEFAULT_CARDS, STATS, choicesFor } from './renderer/lib/dashboardStats.js';
 import { fits, moveCard, resizeCard, rectBetween, usedRows, sizeOf, freeCells, swapCards, cardAt } from './renderer/lib/cardGrid.js';
 import { DashboardCards } from './renderer/DashboardCards.jsx';
 import { groupSpending } from './renderer/lib/groupSpend.js';
@@ -220,6 +220,16 @@ window.__runTests = async () => {
      computeStat({ stat: 'totalSpendOn', of: { kind: 'group', id: FOOD } }, buildContext({ allSeries: series.slice(-3), now: '2026-10', categories }), '£').note,
      'spent on Food in the last month');
   eq('total spent on a group that no longer exists shows a dash', stat({ stat: 'totalSpendOn', of: { kind: 'group', id: 404 } }).figure, '—');
+  // A savings group can be looked at too: what went into it
+  eq('average put into a savings group', stat({ stat: 'avgSpendOn', of: { kind: 'group', id: SAVE } }), { figure: '£200', note: 'a month on Savings, on average' });
+  eq('median put into a savings category', stat({ stat: 'medianSpendOn', of: { kind: 'category', id: HOLIDAY } }).figure, '£200');
+  eq('total put into a savings group over the window', stat({ stat: 'totalSpendOn', of: { kind: 'group', id: SAVE } }).figure, '£2,400');
+  const offered = (id) => choicesFor(ctx, STATS.find((s) => s.id === id)).flatMap((g) => [g.name, ...g.categories.map((c) => c.name)]);
+  eq('the average, median and total offer savings groups and their categories',
+     ['avgSpendOn', 'medianSpendOn', 'totalSpendOn'].map((id) => offered(id).filter((n) => n === 'Savings' || n === 'Holiday')),
+     [['Savings', 'Holiday'], ['Savings', 'Holiday'], ['Savings', 'Holiday']]);
+  check('the share of spending does not, as savings are not spending',
+     !offered('shareOn').includes('Savings') && offered('shareOn').includes('Food'), offered('shareOn').join(', '));
   eq('share of spending on a group', stat({ stat: 'shareOn', of: { kind: 'group', id: FOOD } }), { figure: '30%', note: 'of spending goes on Food' });
   eq('share of spending on a category', stat({ stat: 'shareOn', of: { kind: 'category', id: GROC } }), { figure: '20%', note: 'of spending goes on Groceries' });
   eq('where most of the money goes', stat({ stat: 'topGroup' }), { figure: 'Home', note: 'takes the most: 49% of spending' });
@@ -414,7 +424,7 @@ window.__runTests = async () => {
   await act(async () => { on.click(); });
   const options = [...document.querySelectorAll('.move-menu button')].map((b) => b.textContent);
   check('a stat that needs a choice asks for it next', options.some((t) => t.includes('Food')) && options.some((t) => t.includes('Eating out')), options.join(' | '));
-  check('savings are not offered as spending', !options.some((t) => t.includes('Holiday')), options.join(' | '));
+  check('savings groups are offered too', options.some((t) => t.includes('Savings')) && options.some((t) => t.includes('Holiday')), options.join(' | '));
   const food = [...document.querySelectorAll('.move-menu button')].find((b) => b.textContent.trim().startsWith('Food'));
   await act(async () => { food.click(); });
   eq('the choice is saved with the stat', saved && saved[2], { stat: 'avgSpendOn', of: { kind: 'group', id: FOOD }, ...at(4, 1) });
