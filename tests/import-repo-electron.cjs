@@ -198,7 +198,7 @@ app.whenReady().then(async () => {
       );
       eq([r.categoryId, r.name, r.kind, r.included, r.prediction], [null, 'SUPERDRUG STORES PLC', 'spend', false, null], 'with nothing learned, no category and unticked');
       eq(r.labels, [{ key: 'uncategorised', severity: 'warn', text: 'No category' }], 'labelled uncategorised');
-      eq(r.decisions, { categoryId: null, name: null, kind: null, included: null, linkedEntryId: null, note: null }, 'and no decisions yet');
+      eq(r.decisions, { categoryId: null, name: null, kind: null, included: null, linkedEntryId: null, note: null, refundOf: null }, 'and no decisions yet');
       eq(review.accounts[1].rows, [], "another account's section is empty");
 
       eq(review.plan, [{ itemId: food, categoryId: foodCat, name: 'Food', plannedCents: 30000, actualCents: 1000 }], "the month's plan with spending so far");
@@ -336,7 +336,7 @@ app.whenReady().then(async () => {
       imports.updateRow(db, sainsburys.id, { linkedEntryId: typed });
 
       const result = imports.confirmBatch(db, file.batchId);
-      eq(result, { entries: 2, totalCents: 1949, linked: 1, linesCreated: 1, learnt: 0 }, 'writes the ticked rows and reports it');
+      eq(result, { entries: 2, totalCents: 1949, linked: 1, linesCreated: 1, learnt: 0, refunds: 0, refundCents: 0, moneyBack: 0, moneyBackCents: 0 }, 'writes the ticked rows and reports it');
 
       const tree = months.getMonthTree(db, sep);
       const lines = tree.groups[0].items.map((i) => [i.name, i.allocated, i.account, i.actuals.map((a) => [a.spent_on, a.amount, a.name, a.note])]);
@@ -440,7 +440,7 @@ app.whenReady().then(async () => {
       const rows = imports.getReview(db, sep).accounts[0].rows;
       eq(rows.map((r) => [r.included, r.teaches]), [[false, true], [false, true], [false, true], [false, false]], 'the review says which rows will teach');
 
-      eq(imports.confirmBatch(db, file.batchId), { entries: 0, totalCents: 0, linked: 0, linesCreated: 0, learnt: 3 }, 'a confirm that only teaches goes through');
+      eq(imports.confirmBatch(db, file.batchId), { entries: 0, totalCents: 0, linked: 0, linesCreated: 0, learnt: 3, refunds: 0, refundCents: 0, moneyBack: 0, moneyBackCents: 0 }, 'a confirm that only teaches goes through');
       eq(months.getMonthTree(db, sep).groups[0].items.map((i) => [i.name, i.actuals.length]), [['Eating out', 0], ['Toiletries', 0], ['Groceries', 1]], 'and writes no entry');
       eq(imports.listImports(db, sep).map((h) => [h.id, h.entries]), [[file.batchId, 0]], 'it is listed as an import of nothing');
 
@@ -497,7 +497,7 @@ app.whenReady().then(async () => {
       imports.updateRow(db, alex.id, { kind: 'transfer' });
 
       // 3. Confirm.
-      eq(imports.confirmBatch(db, sepFile.batchId), { entries: 2, totalCents: 1949, linked: 1, linesCreated: 0, learnt: 0 }, 'September confirmed');
+      eq(imports.confirmBatch(db, sepFile.batchId), { entries: 2, totalCents: 1949, linked: 1, linesCreated: 0, learnt: 0, refunds: 0, refundCents: 0, moneyBack: 0, moneyBackCents: 0 }, 'September confirmed');
 
       // 4. The same statement uploaded into October is already in.
       imports.addFile(db, { monthId: oct, accountId: joint, filename: 'sep-again.csv', text: fixture('natwest') });
@@ -545,6 +545,131 @@ app.whenReady().then(async () => {
       eq(octRows.slice(0, 3).map((r) => r.labels.some((l) => l.key === 'already_imported')), [false, false, false], 'nothing is already imported any more');
       eq([octRows[3].prediction, octRows[5].kind], [null, 'spend'], 'and nothing is learned from an undone import');
       eq(db.pragma('foreign_key_check'), [], 'no dangling references');
+      db.close();
+    }
+
+    /* ---- refunds and money back ---- */
+    {
+      const members = b('repositories', 'members.js');
+      const { db, sep, joint } = setup();
+      const sam = members.insertMember(db, { name: 'Sam', sort_order: 0, color: null });
+      members.insertMember(db, { name: 'Robin', sort_order: 1, color: null });
+      const style = months.insertGroup(db, { name: 'Style', kind: 'spend', sort_order: 0, collapsed: 0 });
+      const clothing = months.addItemByName(db, { monthId: sep, groupId: style, name: 'Clothing', bank_account_id: joint });
+      const clothingCat = months.getItemById(db, clothing).category_id;
+      months.insertIncome(db, { budget_month_id: sep, household_member_id: sam, label: 'Salary', amount_cents: 200000, sort_order: 0 });
+      const head = 'Date,Type,Description,Value,Balance,Account Name,Account Number';
+      const line = (date, desc, value) => `${date},POS,"${desc}",${value},500.00,Joint Example,600000-11112222`;
+      const sepCsv = [
+        head,
+        line('06 Sep 2026', '4321 05SEP26 CD , H&M , SPRINGFIELD GB', '-100.00'),
+        line('12 Sep 2026', '4321 11SEP26 CD , H&M , REFUND , SPRINGFIELD GB', '50.00'),
+        line('14 Sep 2026', '4321 13SEP26 CD , ACME OUTFITTERS , LITTLE TOWN GB', '-40.00'),
+        line('20 Sep 2026', '4321 19SEP26 CD , ACME OUTFITTERS , REFUND , LITTLE TOWN GB', '40.00'),
+        line('22 Sep 2026', '4321 21SEP26 CD , PARCEL PALACE , LITTLE TOWN GB', '-30.00'),
+        line('23 Sep 2026', '4321 22SEP26 CD , PARCEL PALACE , REFUND , LITTLE TOWN GB', '30.00'),
+        line('25 Sep 2026', 'CASHBACK REWARD', '3.00'),
+      ].join('\n');
+      const file = imports.addFile(db, { monthId: sep, accountId: joint, filename: 'sep.csv', text: sepCsv });
+      let rows = imports.getReview(db, sep).accounts[0].rows;
+      const [hm, hmBack, acme, acmeBack, parcel, parcelBack, cashback] = rows;
+      eq([hm.descriptorClean, hmBack.descriptorClean], ['H&M', 'H&M'], 'the refund names the same shop');
+      for (const r of [hm, acme, parcel]) imports.updateRow(db, r.id, { categoryId: clothingCat });
+      // The parcel purchase is left out: not ours.
+      imports.updateRow(db, parcel.id, { included: false });
+
+      rows = imports.getReview(db, sep).accounts[0].rows;
+      const read = (r) => [r.labels.map((l) => l.key), r.included, r.writesAs, r.refund && r.refund.purchase.ref, r.refund && r.refund.suggested, r.categoryId];
+      eq(read(rows[1]), [['refund'], true, 'refund', { kind: 'row', id: hm.id }, true, clothingCat], "a refund of a purchase in this upload is suggested, ticked, in the purchase's category");
+      eq([rows[1].refund.purchase.name, rows[1].refund.purchase.remainingCents, rows[1].refund.purchase.sameMonth], ['H&M', 10000, true], 'with what it refunds');
+      eq(read(rows[3]), [['refund'], true, 'refund', { kind: 'row', id: acme.id }, true, clothingCat], 'each refund finds its own shop');
+      eq(read(rows[5]), [['credit'], false, 'money_back', null, null, null], "a purchase that isn't imported isn't suggested");
+      eq(read(rows[6]), [['credit'], false, 'money_back', null, null, null], 'money in with no purchase starts unticked');
+      eq(rows[6].refundCandidates, [], 'and has none to offer');
+
+      // Choosing the skipped purchase says it can't be ticked.
+      imports.updateRow(db, parcelBack.id, { refundOf: { rowId: parcel.id } });
+      rows = imports.getReview(db, sep).accounts[0].rows;
+      eq([rows[5].labels.map((l) => l.key), rows[5].included, rows[5].decisions.refundOf], [['purchase_skipped'], false, { rowId: parcel.id }], "a refund of a purchase that isn't imported can't be ticked");
+      imports.updateRow(db, parcelBack.id, { refundOf: null });
+      throws(() => imports.updateRow(db, hm.id, { refundOf: 'none' }), 'Only money in', 'a purchase is not a refund');
+      throws(() => imports.updateRow(db, hmBack.id, { refundOf: { rowId: acmeBack.id } }), 'not of other money in', 'nor is money in a purchase');
+
+      imports.updateRow(db, cashback.id, { included: true });
+      const res = imports.confirmBatch(db, file.batchId);
+      eq(res, { entries: 2, totalCents: 14000, linked: 0, linesCreated: 0, learnt: 1, refunds: 2, refundCents: 9000, moneyBack: 1, moneyBackCents: 300 }, 'Confirm writes spends, refunds and money back');
+
+      let tree = months.getMonthTree(db, sep);
+      const actuals = tree.groups[0].items[0].actuals;
+      eq(actuals.map((a) => [a.name, a.amount, a.kind]), [['H&M', 100, 'spend'], ['H&M', -50, 'refund'], ['ACME OUTFITTERS', 40, 'spend'], ['ACME OUTFITTERS', -40, 'refund']], 'refunds are negative entries on the line');
+      eq(actuals[0].returns, [{ amount: 50, spent_on: '2026-09-11', month: '2026-09' }], 'the purchase says what came back');
+      eq(actuals[1].refundOf, { name: 'H&M', spent_on: '2026-09-05', amount: 100, month: '2026-09' }, 'the refund says what it is of');
+      eq(months.monthTotals(db, sep).actual, 50, "the month's actual nets them: a full return is nothing, a partial one the rest");
+      eq(tree.incomes.map((i) => [i.label, i.amount, i.kind, i.memberId, i.receivedOn, i.refundOf]), [['Salary', 2000, 'earned', sam, null, null], ['CASHBACK REWARD', 3, 'money_back', sam, '2026-09-25', null]], 'money in with no purchase is money back, for the first member of a joint account');
+      throws(() => months.updateActual(db, actuals[1].id, { amount_cents: -100 }), "can't be changed", "a refund's amount is the bank's");
+      eq(imports.listImports(db, sep)[0].entries, 5, 'the import counts what it wrote');
+
+      // October: the rest of the H&M order comes back after September closed.
+      const oct = months.copyMonth(db, sep, '2026-10', { copyIncome: true });
+      eq(months.getMonthTree(db, oct).incomes.map((i) => i.label), ['Salary'], 'a new month copies income, but not money back');
+      const octCsv = [head, line('03 Oct 2026', '4321 02OCT26 CD , H&M , REFUND , SPRINGFIELD GB', '30.00'), line('04 Oct 2026', '4321 03OCT26 CD , H&M , REFUND , SPRINGFIELD GB', '30.00')].join('\n');
+      const octFile = imports.addFile(db, { monthId: oct, accountId: joint, filename: 'oct.csv', text: octCsv });
+      rows = imports.getReview(db, oct).accounts[0].rows;
+      const hmEntry = actuals[0].id;
+      eq(read(rows[0]), [['money_back'], true, 'money_back', { kind: 'entry', id: hmEntry }, true, null], "a refund of an earlier month's purchase is money back");
+      eq([rows[0].refund.purchase.month, rows[0].refund.purchase.sameMonth, rows[0].refund.purchase.remainingCents], ['2026-09', false, 5000], 'with what is left of the purchase');
+      eq([rows[1].refund, rows[1].labels.map((l) => l.key)], [null, ['credit']], 'a second refund the purchase has no room left for finds none');
+      eq(imports.confirmBatch(db, octFile.batchId).moneyBackCents, 3000, 'October confirmed');
+      tree = months.getMonthTree(db, oct);
+      eq(tree.incomes.slice(1).map((i) => [i.label, i.amount, i.kind, i.refundOf && i.refundOf.month]), [['H&M', 30, 'money_back', '2026-09']], 'money back in October, naming the September purchase');
+      eq(months.getMonthTree(db, sep).groups[0].items[0].actuals[0].returns, [
+        { amount: 50, spent_on: '2026-09-11', month: '2026-09' },
+        { amount: 30, spent_on: '2026-10-02', month: '2026-10' },
+      ], 'and September\'s purchase says it came back in October');
+      eq(months.monthTotals(db, sep).actual, 50, 'September stays as it was');
+
+      // A re-upload knows what is in.
+      const again = imports.addFile(db, { monthId: oct, accountId: joint, filename: 'oct-again.csv', text: octCsv });
+      rows = imports.getReview(db, oct).accounts[0].rows;
+      eq(rows[0].labels.map((l) => l.key), ['already_imported'], 'money back already written is already imported');
+      imports.discardBatch(db, again.batchId);
+
+      // Undo October, then September.
+      imports.undoImport(db, octFile.batchId);
+      eq(months.getMonthTree(db, oct).incomes.map((i) => i.label), ['Salary'], "undo takes October's money back out");
+      imports.discardBatch(db, octFile.batchId);
+      imports.undoImport(db, file.batchId);
+      tree = months.getMonthTree(db, sep);
+      eq([tree.groups[0].items[0].actuals, tree.incomes.map((i) => i.label)], [[], ['Salary']], "and September's refunds and money back");
+      rows = imports.getReview(db, sep).accounts[0].rows;
+      eq(rows.map((r) => r.included), [true, true, true, true, false, false, true], 'the upload is back with its choices');
+      eq(db.pragma('foreign_key_check'), [], 'no dangling references');
+
+      // Choosing a purchase by hand, and choosing none.
+      imports.updateRow(db, hmBack.id, { refundOf: 'none' });
+      rows = imports.getReview(db, sep).accounts[0].rows;
+      eq([rows[1].refund, rows[1].writesAs, rows[1].included], [null, 'money_back', false], "'no purchase' makes it plain money in");
+      imports.updateRow(db, hmBack.id, { refundOf: { rowId: acme.id } });
+      rows = imports.getReview(db, sep).accounts[0].rows;
+      eq([rows[1].refund.purchase.ref, rows[1].refund.suggested, rows[3].refund && rows[3].refund.purchase.ref], [{ kind: 'row', id: acme.id }, false, null], 'a purchase you choose takes its share before any suggestion');
+
+      // Any purchase can be chosen, not only those from the same shop.
+      const refs = (list) => list.map((o) => o.ref);
+      imports.updateRow(db, hmBack.id, { refundOf: null });
+      imports.updateRow(db, acmeBack.id, { refundOf: 'none' });
+      eq(imports.refundOptions(db, cashback.id, '').map((o) => o.remainingCents), [4000, 5000], 'what is left of each counts the refunds in this upload');
+      imports.updateRow(db, acmeBack.id, { refundOf: null });
+      eq(imports.refundOptions(db, cashback.id, '').some((o) => o.ref.id === acme.id), false, 'a purchase refunded in full is not offered');
+      imports.updateRow(db, acmeBack.id, { refundOf: 'none' });
+      eq(refs(imports.refundOptions(db, cashback.id, '')), [{ kind: 'row', id: acme.id }, { kind: 'row', id: hm.id }], 'money in lists every purchase it could refund, newest first, whatever the shop');
+      eq(refs(imports.refundOptions(db, cashback.id, 'acme')), [{ kind: 'row', id: acme.id }], 'filtered by name');
+      eq(refs(imports.refundOptions(db, cashback.id, 'CLOTH')).length, 2, 'or by category, ignoring case');
+      eq(imports.refundOptions(db, cashback.id, 'nothing like it'), [], 'and nothing when nothing matches');
+      eq(imports.refundOptions(db, hmBack.id, '').some((o) => o.ref.id === parcel.id), false, "a purchase that isn't imported isn't offered");
+      throws(() => imports.refundOptions(db, hm.id, ''), 'Only money in', 'a purchase has no refund options');
+      imports.updateRow(db, cashback.id, { refundOf: { rowId: hm.id } });
+      rows = imports.getReview(db, sep).accounts[0].rows;
+      eq([rows[6].refund.purchase.ref, rows[6].writesAs, rows[6].categoryId], [{ kind: 'row', id: hm.id }, 'refund', clothingCat], 'and the one chosen is what it refunds');
       db.close();
     }
 
@@ -612,6 +737,8 @@ async function ipcChecks() {
   await data('import:updateRow', { rowId: deli.id, patch: { categoryId: foodCat } });
   review = await data('import:review', { monthId: sep });
   eq(review.accounts[0].rows[0].included, true, 'import:updateRow records a decision');
+  const notCredit = await call('import:refundOptions', { rowId: deli.id, query: '' });
+  eq(notCredit.error, 'Only money in can be a refund.', 'import:refundOptions answers in the envelope');
 
   const confirmed = await data('import:confirm', { batchId: file.batchId });
   eq([confirmed.entries, confirmed.totalCents], [1, 250], 'import:confirm');

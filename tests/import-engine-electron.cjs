@@ -197,6 +197,10 @@ app.whenReady().then(() => {
       eq([keys(back), back.kind, back.included], [['ok'], 'spend', true], 'switched back to spend, it can be ticked');
       const marked = assessRow(facts(stored({ kind: 'transfer' })));
       eq([keys(marked), marked.kind], [['transfer'], 'transfer'], 'you can mark a spend a transfer');
+      // A transfer writes nothing, so a category, a duplicate or the month says nothing about it.
+      const busy = { prediction: { label: 'transfer', confidence: (HIGH_CONFIDENCE + LOW_CONFIDENCE) / 2 }, duplicates: 1, spentOn: '2026-10-02' };
+      eq(keys(assessRow(facts(busy))), ['transfer'], 'a transfer shows only its own chip');
+      eq(keys(assessRow(facts({ ...busy, direction: 'credit', descriptorClean: 'ALEX EXAMPLE' }))), ['transfer'], 'and so does a transfer in');
 
       // Out of month and duplicates warn and start unticked; a tick overrides.
       const early = assessRow(facts({ spentOn: '2026-08-30' }));
@@ -210,7 +214,6 @@ app.whenReady().then(() => {
 
       // Hard blocks can't be ticked, whatever is stored, and say nothing else.
       for (const [more, key, text] of [
-        [{ direction: 'credit' }, 'credit', 'Money in'],
         [{ alreadyImported: true }, 'already_imported', 'Already imported'],
         [{ parseError: 'Value "x" is not an amount', direction: null }, 'parse_error', "Couldn't read"],
         [{ notCompleted: true }, 'not_completed', 'Not completed'],
@@ -238,15 +241,65 @@ app.whenReady().then(() => {
       eq(teaches(stored({ categoryId: GROC, kind: 'transfer' })), false, 'a transfer teaches transfer, not its category');
       eq(teaches({ prediction: { label: 'transfer', confidence: 0.9 }, ...stored({ categoryId: GROC }) }), false, 'nor does a predicted transfer');
       eq(teaches({ duplicates: 1, ...stored({ categoryId: GROC, linkedEntryId: 5 }) }), false, 'a matched row teaches through its entry');
-      for (const more of [{ direction: 'credit' }, { alreadyImported: true }, { notCompleted: true }]) {
+      for (const more of [{ alreadyImported: true }, { notCompleted: true }]) {
         eq(teaches({ ...more, ...stored({ categoryId: GROC, included: 0 }) }), false, `a blocked row does not teach (${Object.keys(more)[0]})`);
       }
 
+      // Money in: a refund, money back, or a plain "Money in".
+      const credit = (more = {}) => assessRow(facts({ direction: 'credit', descriptorClean: 'HM ONLINE', ...more }));
+      const inOut = (r) => [keys(r), r.included, r.writesAs, r.categoryId];
+      eq(inOut(credit({ refundTarget: 'same_month' })), [['refund'], true, 'refund', null], "a refund of this month's purchase is ticked, written as a refund");
+      eq(inOut(credit({ refundTarget: 'earlier_month' })), [['money_back'], true, 'money_back', null], "of an earlier month's, as money back");
+      eq(inOut(credit({ refundTarget: null })), [['credit'], false, 'money_back', null], 'money in with no purchase starts unticked');
+      eq(credit({ refundTarget: null }).labels[0], { key: 'credit', severity: 'warn', text: 'Money in' }, 'with an amber "Money in" chip');
+      eq(credit({ refundTarget: null, ...stored({ included: 1 }) }).included, true, 'and can be ticked, as money back');
+      eq(inOut(credit({ refundTarget: 'skipped', ...stored({ included: 1 }) })), [['purchase_skipped'], false, null, null], "a refund of a purchase that isn't imported can't be ticked");
+      eq(inOut(credit({ refundTarget: 'same_month', ...stored({ included: 0 }) })), [['refund'], false, 'refund', null], 'a refund can be unticked');
+      eq(keys(credit({ refundTarget: 'same_month', spentOn: '2026-10-02' })), ['refund', 'out_of_month'], 'outside the month it says so');
+      eq(credit({ refundTarget: 'same_month', spentOn: '2026-10-02' }).included, false, 'and starts unticked');
+      eq(inOut(credit({ refundTarget: 'same_month', ...stored({ kind: 'transfer' }) })), [['transfer'], false, null, null], 'money in marked a transfer writes nothing');
+      eq(keys(credit({ prediction: { label: 'transfer', confidence: 0.9 } })), ['transfer'], 'a predicted transfer in is a transfer');
+      eq(credit({ ...stored({ categoryId: GROC, included: 0 }) }).teaches, false, 'money in never teaches');
+      eq(credit({ refundTarget: 'same_month', duplicates: 1 }).labels.map((l) => l.key), ['refund'], 'and is never a possible duplicate');
+
       // The catalogue covers every label with display text.
-      eq(Object.keys(LABELS).sort(), ['already_imported', 'credit', 'low_confidence', 'not_completed', 'not_in_month', 'ok', 'out_of_month', 'parse_error', 'possible_duplicate', 'transfer', 'uncategorised'], 'every label is catalogued');
+      eq(Object.keys(LABELS).sort(), ['already_imported', 'credit', 'low_confidence', 'money_back', 'not_completed', 'not_in_month', 'ok', 'out_of_month', 'parse_error', 'possible_duplicate', 'purchase_skipped', 'refund', 'transfer', 'uncategorised'], 'every label is catalogued');
       eq(LABELS.not_in_month.text, "Not in this month's plan", 'not_in_month copy');
       eq(LABELS.out_of_month.text, 'Outside this month', 'out_of_month copy');
       eq(LABELS.transfer.severity, 'info', 'a transfer is info');
+    }
+
+    /* ---- refunds: which purchase money in gives back for ---- */
+    {
+      const { merchantWords, merchantLikeness, rankPurchases, REFUND_WINDOW_DAYS } = imp('refunds.js');
+      const words = (t) => [...merchantWords(t)];
+      eq(words('H&M HENNES ONLINE 4471'), ['hm', 'hennes'], "'&' joins, references and shop words go");
+      eq(words('H & M'), ['hm'], 'with or without spaces');
+      eq(words('ZARA.COM REFUND'), ['zara'], 'domains and refund words go');
+      eq(words('4321 05OCT26 CD , ACME DIRECT , SPRINGFIELD GB'), ['acme', 'direct', 'springfield'], 'card codes and dates go');
+      eq(merchantLikeness(merchantWords('ACME DIRECT'), merchantWords('ACME')), 1, 'one shared word out of the shorter name is a full match');
+      eq(merchantLikeness(merchantWords('ACME'), merchantWords('ZARA')), 0, 'no shared word is no match');
+      eq(REFUND_WINDOW_DAYS, 90, 'refunds look back 90 days');
+
+      const purchase = (id, spentOn, amountCents, name, remainingCents = amountCents) =>
+        ({ ref: { kind: 'entry', id }, spentOn, amountCents, remainingCents, names: [name] });
+      const refund = { spentOn: '2026-10-12', amountCents: 5000, descriptor: 'HM ONLINE' };
+      const ids = (list) => list.map((p) => p.ref.id);
+      eq(ids(rankPurchases(refund, [
+        purchase(1, '2026-10-05', 10000, 'H&M'),
+        purchase(2, '2026-10-08', 10000, 'H&M'),
+        purchase(3, '2026-10-09', 10000, 'ZARA'),
+        purchase(4, '2026-10-10', 4000, 'H&M'),
+        purchase(5, '2026-10-11', 10000, 'H&M', 3000),
+        purchase(6, '2026-10-13', 10000, 'H&M'),
+        purchase(7, '2026-07-13', 10000, 'H&M'),
+        purchase(8, '2026-07-14', 10000, 'H&M'),
+      ])), [2, 1, 8], 'same shop, enough left, in the window and not after it; most recent first');
+      eq(ids(rankPurchases(refund, [purchase(1, '2026-10-12', 5000, 'HM')])), [1], 'a purchase the same day, refunded in full');
+      eq(ids(rankPurchases({ ...refund, descriptor: 'HM HENNES' }, [
+        purchase(1, '2026-10-11', 9000, 'HM HOME'),
+        { ...purchase(2, '2026-10-01', 9000, 'Shirts'), names: ['Shirts', 'H&M HENNES'] },
+      ])), [2, 1], 'the closer name wins over the more recent; any of its names will do');
     }
 
     console.log('IMPORT_ENGINE_OK');

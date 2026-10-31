@@ -40,6 +40,8 @@ export function loadBootstrap(db: Database.Database): BootstrapData {
       // Absent means expanded: an install that has never touched the toggle
       // opens with the panel showing its labels.
       sidebarCollapsed: getMeta(db, 'sidebarCollapsed') === '1',
+      // Absent means off: ticking a transfer imports it as a spend.
+      lockTransfers: getMeta(db, 'lockTransfers') === '1',
       members: listMembers(db),
       accounts: listAccounts(db),
     },

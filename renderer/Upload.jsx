@@ -13,8 +13,9 @@
    it has to follow every tick as it happens.
    ============================================================ */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, ConfirmDialog, EmptyState, Icons, Sheet, TextInline } from './ui/index.js';
+import { Alert, AnchoredMenu, ConfirmDialog, EmptyState, Icons, Sheet, TextInline } from './ui/index.js';
 import { confirmReceipt, cx, fmt, importOutcome, isBlocked, isInert, labelCounts, monthLabel, onlyOutOfMonth, shortDate, sinkBlocked } from './lib/index.js';
+import { MONTH_NAMES } from './lib/dates.js';
 import { useStore } from './store.jsx';
 
 /* The statement formats House Budget reads, by preset key, as a household
@@ -246,9 +247,15 @@ function UploadStep({ review, month, onChanged, onReview }) {
    on the entry after import if they need fixing. What is yours to decide is
    the tick, the name, the category and the entry's note. The note sits on a
    line under the row, opened from its actions and kept open once written; a
-   row that writes no entry of its own (matched, a transfer, blocked) takes
-   none. */
-function ReviewRow({ row, review, currency, onUpdate }) {
+   row that writes no entry of its own (matched, a transfer, blocked, money
+   back) takes none.
+
+   Money in has no category of its own. A refund takes its purchase's, and
+   nets against it; money back is income. Where a "Same as existing" would
+   be, its menu has "Refund of…": the purchases it could be, a search for
+   any other, and "No purchase". A row with a purchase says "Refund of H&M,
+   27 Oct" where its labels would be. */
+function ReviewRow({ row, review, currency, onUpdate, lockTransfers }) {
   // Blocked: cannot be ticked. Inert: nothing about it can be changed, so it
   // is dimmed and sunk. They differ only for a row waiting on a category.
   const blocked = isBlocked(row);
@@ -258,9 +265,13 @@ function ReviewRow({ row, review, currency, onUpdate }) {
   const linked = linkedId != null ? (row.duplicates.find((d) => d.id === linkedId) || { id: linkedId, name: null, spentOn: null }) : null;
   const [picking, setPicking] = useState(false);
   const [noting, setNoting] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+  const menuBtn = useRef(null);
   const inert = inertRow || !!linked;
+  const moneyIn = row.direction === "credit";
   const note = row.decisions.note || "";
-  const notable = !inert && !transfer;
+  const notable = !inert && !transfer && (!moneyIn || row.writesAs === "refund");
   const noteOpen = notable && (noting || note !== "");
   const noteLine = useRef(null);
   useEffect(() => {
@@ -268,53 +279,97 @@ function ReviewRow({ row, review, currency, onUpdate }) {
   }, [noting]);
 
   const link = (d) => { setPicking(false); onUpdate(row, { linkedEntryId: d.id }); };
+  const refundCell = moneyIn && row.refund && !transfer && !inertRow;
+  /* Every row ends in the same two buttons: the note, and a menu with the
+     row's other options (Transfer, Refund of…, Same as existing…, Unlink).
+     The pencil stays in place, disabled, on a row that writes no entry of
+     its own, so the menu button never shifts between rows. */
+  const options = [];
+  if (linked) {
+    options.push({ key: "unlink", attr: { "data-unlink": "", "aria-label": `Unlink ${row.name}` }, text: "Unlink",
+      hint: "Import it as its own entry", run: () => onUpdate(row, { linkedEntryId: null }) });
+  } else {
+    if (moneyIn && !inertRow && !transfer) {
+      options.push({ key: "refund", attr: { "data-refund-of": "" }, text: "Refund of…",
+        hint: "Choose the purchase this money gives back for", run: () => setPicking(true) });
+    }
+    if (row.duplicates.length > 0 && !inertRow) {
+      options.push({ key: "same", attr: { "data-same": "" }, text: "Same as existing…",
+        hint: "Match a spend you already typed in", run: () => setPicking(true) });
+    }
+    // Excludes the row and teaches the classifier that this payee is a transfer.
+    options.push({ key: "transfer", attr: { "data-transfer": "", "aria-pressed": transfer }, text: "Transfer",
+      checked: transfer, disabled: inertRow && !transfer,
+      hint: transfer ? "Treat this as spending again" : "Money moved between your own accounts",
+      run: () => onUpdate(row, { kind: transfer ? "spend" : "transfer" }) });
+  }
+  const actions = (
+    <span className="upload-actions">
+      <button type="button" className={cx("icon-btn compact subtle", noteOpen && "is-open")} disabled={!notable}
+        aria-label={`Add a note to ${row.name}`} aria-expanded={noteOpen}
+        title={notable ? "Note" : "This row writes no entry of its own, so it takes no note"}
+        onClick={() => setNoting((n) => !n || note !== "")}><Icons.edit size={14} /></button>
+      <button ref={menuBtn} type="button" data-row-menu className={cx("icon-btn compact subtle", (menuOpen || picking) && "is-open")}
+        aria-label={`More for ${row.name}`} aria-expanded={menuOpen} title="More"
+        onClick={() => (picking ? setPicking(false) : setMenuOpen((o) => !o))}><Icons.down size={14} /></button>
+      {menuOpen && (
+        <AnchoredMenu anchorRef={menuBtn} className="upload-row-menu" label={`Options for ${row.name}`} onClose={closeMenu}>
+          {(close) => options.map((o, i) => (
+            <button key={o.key} type="button" className="move-menu-item" autoFocus={i === 0} disabled={o.disabled} {...o.attr}
+              onClick={() => { close(); o.run(); }}>
+              <span className="upload-menu-text">
+                <span>{o.text}</span>
+                <span className="upload-menu-hint">{o.hint}</span>
+              </span>
+              {o.checked && <Icons.check size={14} />}
+            </button>
+          ))}
+        </AnchoredMenu>
+      )}
+    </span>
+  );
 
   return (
     <>
       <div className={cx("upload-row", inertRow && "is-blocked", linked && "is-linked")} data-row-id={row.id}>
-        <input type="checkbox" className="upload-tick" checked={row.included && !blocked && !linked} disabled={blocked || !!linked}
+        {/* A transfer is never ticked. Unless transfers are locked, ticking
+            one makes it a spend again, ticked: it is imported once it has a
+            category. */}
+        <input type="checkbox" className="upload-tick" checked={row.included && !blocked && !linked && !transfer}
+          disabled={blocked || !!linked || (transfer && lockTransfers)}
           aria-label={`Import ${row.name}`}
-          onChange={() => onUpdate(row, { included: !row.included })} />
+          title={transfer ? (lockTransfers ? "Transfers are locked: unlock them above the list, or use Transfer in the row's menu" : "Import this as spending") : undefined}
+          onChange={() => onUpdate(row, transfer ? { kind: "spend", included: true } : { included: !row.included })} />
         <span className="num upload-date">{shortDate(row.spentOn)}</span>
         <TextInline value={row.name} className="upload-name" label={`Name for ${row.name}`}
           onCommit={(v) => { if (v !== row.name) onUpdate(row, { name: v }); }} />
-        <CategoryPicker row={row} categories={review.categories} disabled={inert || transfer}
-          onChange={(categoryId) => onUpdate(row, { categoryId })} />
-        <span className="num upload-amount">{row.amountCents == null ? "" : fmt(currency, row.amountCents / 100)}</span>
-        {linked ? (
-          <span className="upload-linked truncate">
-            <Icons.check size={13} />
-            Same as {linked.name || "an existing entry"}{linked.spentOn ? `, ${shortDate(linked.spentOn)}` : ""}
+        {moneyIn ? (
+          <span className="upload-destination truncate">
+            {transfer || inertRow || row.writesAs !== "refund" ? ""
+              : (review.categories.find((c) => c.id === row.categoryId) || { name: row.refund?.purchase.categoryName || "" }).name}
           </span>
-        ) : <LabelChips row={row} />}
-        <span className="upload-actions">
-          {linked ? (
-            <button type="button" className="upload-toggle is-on" aria-label={`Unlink ${row.name}`}
-              title="Not the same spend after all: import it as its own entry"
-              onClick={() => onUpdate(row, { linkedEntryId: null })}>Unlink</button>
-          ) : (
-            <>
-              {row.duplicates.length > 0 && !inertRow && (
-                <button type="button" data-same aria-expanded={picking}
-                  className={cx("upload-toggle", picking && "is-open")}
-                  title="This is a spend you already typed in: match it instead of importing it twice"
-                  onClick={() => setPicking((p) => !p)}>Same as existing</button>
-              )}
-              {notable && (
-                <button type="button" className={cx("icon-btn compact subtle", noteOpen && "is-open")}
-                  aria-label={`Add a note to ${row.name}`} aria-expanded={noteOpen} title="Note"
-                  onClick={() => setNoting((n) => !n || note !== "")}><Icons.edit size={14} /></button>
-              )}
-              {/* Excludes the row and teaches the classifier that this payee is
-                  a transfer. Pressed is drawn even at rest, so a row marked as
-                  one says so without being hovered. */}
-              <button type="button" data-transfer aria-pressed={transfer} disabled={inertRow && !transfer}
-                className={cx("upload-toggle", transfer && "is-on")}
-                title={transfer ? "Treat this as spending again" : "Money moved between your own accounts, not spent"}
-                onClick={() => onUpdate(row, { kind: transfer ? "spend" : "transfer" })}>Transfer</button>
-            </>
-          )}
-        </span>
+        ) : (
+          <CategoryPicker row={row} categories={review.categories} disabled={inert || transfer}
+            onChange={(categoryId) => onUpdate(row, { categoryId })} />
+        )}
+        <span className={cx("num upload-amount", moneyIn && "is-in")}>{row.amountCents == null ? "" : fmt(currency, (moneyIn ? 1 : -1) * row.amountCents / 100, { sign: true })}</span>
+        {refundCell ? (
+          /* The purchase runs on up to the actions, not just the labels column. */
+          <span className="upload-tail">
+            <RefundOf row={row} />
+            {actions}
+          </span>
+        ) : (
+          <>
+            {linked ? (
+              <span className="upload-linked truncate">
+                <Icons.check size={13} />
+                Same as {linked.name || "an existing entry"}{linked.spentOn ? `, ${shortDate(linked.spentOn)}` : ""}
+              </span>
+            ) : <LabelChips row={row} />}
+            {actions}
+          </>
+        )}
       </div>
       {noteOpen && (
         <div className="upload-note" data-note-for={row.id} ref={noteLine}>
@@ -326,7 +381,11 @@ function ReviewRow({ row, review, currency, onUpdate }) {
             }} />
         </div>
       )}
-      {picking && !linked && (
+      {picking && moneyIn && (
+        <RefundCandidates row={row} currency={currency}
+          onPick={(refundOf) => { setPicking(false); onUpdate(row, { refundOf }); }} />
+      )}
+      {picking && !linked && !moneyIn && (
         <div className="upload-candidates" data-candidates-for={row.id} role="group" aria-label={`Entries ${row.name} may be the same as`}>
           <div className="eyebrow upload-candidates-head">Already in this month</div>
           {row.duplicates.map((d) => (
@@ -334,7 +393,7 @@ function ReviewRow({ row, review, currency, onUpdate }) {
               <span className="num upload-date">{shortDate(d.spentOn)}</span>
               <span className="upload-candidate-name truncate">{d.name || "Unnamed"}</span>
               <span className="upload-candidate-cat truncate">{d.categoryName}</span>
-              <span className="num upload-amount">{fmt(currency, d.amountCents / 100)}</span>
+              <span className="num upload-amount">{fmt(currency, -d.amountCents / 100)}</span>
               <button type="button" className="btn btn-sm" aria-label={`Match to ${d.name || "this entry"}`}
                 onClick={() => link(d)}>Match</button>
             </div>
@@ -342,6 +401,116 @@ function ReviewRow({ row, review, currency, onUpdate }) {
         </div>
       )}
     </>
+  );
+}
+
+const monthShort = (key) => MONTH_NAMES[Number(key.slice(5, 7)) - 1].slice(0, 3);
+
+/* What money in gives back for, where a matched row says what it matched:
+   a green "Refund" chip then "of H&M, 5 Sep", or for a purchase in an
+   earlier month "Money back" then "for H&M, 5 Sep" (it counts as income
+   this month, not against September's line). Any other label follows. */
+function RefundOf({ row }) {
+  const p = row.refund.purchase;
+  // The words say what the row is, so no "Refund" or "Money back" chip
+  // repeats them. Any
+  // other label follows the purchase. Choosing another is in the row's menu.
+  const rest = row.labels.filter((l) => SEVERITY_CLASS[l.severity] && l.key !== "refund" && l.key !== "money_back");
+  return (
+    <span className="upload-chips upload-refund" data-refund-for={row.id}>
+      <span className="upload-linked truncate" title={row.refund.suggested ? "Suggested: the likeliest purchase from this shop" : undefined}>
+        Refund of {p.name}, {shortDate(p.spentOn)}
+      </span>
+      {rest.map((l) => <span key={l.key} className={cx("upload-chip", chipClass(l))}>{l.text}</span>)}
+    </span>
+  );
+}
+
+/* The purchases money in could be a refund of, best first, and "No
+   purchase" (plain money in: money back if ticked). The one in use is marked
+   rather than offered. A purchase in an earlier month says which: its
+   refund is money back here, not a refund on that month's line.
+
+   Under the suggestions, a search finds any other purchase, whatever the
+   shop or card: cashback or someone paying you back names no shop. It lists
+   recent purchases as it opens and narrows as you type. */
+const SEARCH_DELAY = 150;
+function RefundCandidates({ row, currency, onPick }) {
+  const { imports } = useStore();
+  const inUse = row.refund ? row.refund.purchase.ref : null;
+  const same = (ref) => inUse && inUse.kind === ref.kind && inUse.id === ref.id;
+  const chose = row.decisions.refundOf;
+  const [query, setQuery] = useState("");
+  const [found, setFound] = useState(null);
+  useEffect(() => {
+    let live = true;
+    const t = setTimeout(() => {
+      imports.refundOptions(row.id, query).then((list) => { if (live) setFound(list); }, () => { if (live) setFound([]); });
+    }, query ? SEARCH_DELAY : 0);
+    return () => { live = false; clearTimeout(t); };
+  }, [imports, row.id, query]);
+  const suggested = new Set(row.refundCandidates.map((p) => `${p.ref.kind}:${p.ref.id}`));
+  const others = (found || []).filter((p) => !suggested.has(`${p.ref.kind}:${p.ref.id}`));
+
+  const option = (p) => (
+    <div key={`${p.ref.kind}:${p.ref.id}`} className="upload-candidate">
+      <span className="num upload-date">{shortDate(p.spentOn)}</span>
+      <span className="upload-candidate-name truncate">{p.name}</span>
+      <span className="upload-candidate-cat truncate">
+        {[p.categoryName, p.sameMonth ? null : `${monthShort(p.month)} · money back`].filter(Boolean).join(" · ")}
+      </span>
+      <span className="num upload-amount" title={p.remainingCents < p.amountCents ? `${fmt(currency, p.remainingCents / 100)} not yet refunded` : undefined}>
+        {fmt(currency, -p.amountCents / 100)}
+      </span>
+      {same(p.ref) ? (
+        <span className="upload-candidate-used">In use</span>
+      ) : (
+        <button type="button" className="btn btn-sm" aria-label={`A refund of ${p.name}, ${shortDate(p.spentOn)}`}
+          onClick={() => onPick(p.ref.kind === "entry" ? { entryId: p.ref.id } : { rowId: p.ref.id })}>Use</button>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="upload-candidates" data-refund-candidates-for={row.id} role="group" aria-label={`Purchases ${row.name} may be a refund of`}>
+      {row.refundCandidates.length > 0 && (
+        <>
+          <div className="eyebrow upload-candidates-head">A refund of</div>
+          {row.refundCandidates.map(option)}
+        </>
+      )}
+      <div className="upload-candidate upload-candidate-search">
+        <span className="upload-search">
+          <Icons.search size={14} />
+          <input className="tinput" type="search" value={query} aria-label="Find a purchase"
+            placeholder={row.refundCandidates.length ? "Another purchase" : "Find the purchase"}
+            autoFocus={row.refundCandidates.length === 0}
+            onChange={(e) => setQuery(e.target.value)} />
+        </span>
+      </div>
+      {others.map(option)}
+      {found && others.length === 0 && (
+        <div className="upload-candidate upload-candidate-none">
+          <span className="upload-candidate-name truncate">{query ? "No purchase matches" : "No other purchases"}</span>
+          <span className="upload-candidate-cat truncate">From the last 90 days, with room for this refund</span>
+        </div>
+      )}
+      <div className="upload-candidate upload-candidate-none">
+        <span className="upload-candidate-name truncate">{row.refundCandidates.length || others.length ? "None of these" : "No purchase"}</span>
+        <span className="upload-candidate-cat truncate">Money back if ticked</span>
+        {chose === "none" ? (
+          <span className="upload-candidate-used">In use</span>
+        ) : (
+          <button type="button" className="btn btn-sm" onClick={() => onPick("none")}>No purchase</button>
+        )}
+      </div>
+      {chose != null && (
+        <div className="upload-candidate upload-candidate-none">
+          <span className="upload-candidate-name truncate">Go back to the suggestion</span>
+          <button type="button" className="btn btn-sm btn-ghost" onClick={() => onPick(null)}>Reset</button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -354,12 +523,16 @@ function ReviewRow({ row, review, currency, onUpdate }) {
    carries the reason on its chip, since the chip itself only says that it
    could not. */
 const SEVERITY_CLASS = { block: "is-block", warn: "is-warn", info: "is-info" };
+/* Money in is green whatever its severity: the chip says money arrived, and
+   the words say what it will be. */
+const MONEY_IN = new Set(["credit", "refund", "money_back"]);
+const chipClass = (l) => (MONEY_IN.has(l.key) ? "is-in" : SEVERITY_CLASS[l.severity]);
 function LabelChips({ row }) {
   const shown = row.labels.filter((l) => SEVERITY_CLASS[l.severity]);
   return (
     <span className="upload-chips">
       {shown.map((l) => (
-        <span key={l.key} className={cx("upload-chip", SEVERITY_CLASS[l.severity])}
+        <span key={l.key} className={cx("upload-chip", chipClass(l))}
           title={l.key === "parse_error" && row.parseError ? row.parseError : undefined}>{l.text}</span>
       ))}
     </span>
@@ -402,12 +575,12 @@ function CategoryPicker({ row, categories, disabled, onChange }) {
    at the foot of the section, closed until asked for, so the month's own
    rows are what the list is about. A filter shows exactly what it found, so
    while one is on nothing folds. */
-function AccountSection({ entry, rows, folding, review, currency, onUpdate }) {
+function AccountSection({ entry, rows, folding, review, currency, onUpdate, lockTransfers }) {
   const { account, bank } = entry;
   const [open, setOpen] = useState(false);
   const outside = folding ? rows.filter(onlyOutOfMonth) : [];
   const shown = folding ? rows.filter((r) => !onlyOutOfMonth(r)) : rows;
-  const draw = (r) => <ReviewRow key={r.id} row={r} review={review} currency={currency} onUpdate={onUpdate} />;
+  const draw = (r) => <ReviewRow key={r.id} row={r} review={review} currency={currency} onUpdate={onUpdate} lockTransfers={lockTransfers} />;
   return (
     <section className="upload-section" data-account-section={account.id} aria-label={`${account.name} rows`}>
       <div className="upload-separator" data-account-separator>
@@ -449,6 +622,8 @@ function FilterChips({ counts, active, onPick }) {
 
 /* ---- the review step --------------------------------------------------- */
 function ReviewStep({ review, currency, busy, onUpdate, onBack, onDiscard, onConfirm }) {
+  const { state, dispatch } = useStore();
+  const lockTransfers = state.settings.lockTransfers === true;
   const [filter, setFilter] = useState(null);
   const counts = labelCounts(review.accounts);
   // A filter whose last row has gone (ticked, re-labelled) lets go by itself.
@@ -458,13 +633,24 @@ function ReviewStep({ review, currency, busy, onUpdate, onBack, onDiscard, onCon
     .filter((s) => s.rows.length > 0);
   return (
     <div data-review className="upload-review">
-      <FilterChips counts={counts} active={active} onPick={setFilter} />
+      {/* The filters on the left; on the right, a preference that holds for
+          every upload. It is drawn as a filter chip is (pressed, not
+          coloured), since it is a switch of the same weight. */}
+      <div className="upload-toolbar">
+        <FilterChips counts={counts} active={active} onPick={setFilter} />
+        <button type="button" data-lock-transfers aria-pressed={lockTransfers}
+          className={cx("upload-filter upload-lock", lockTransfers && "is-on")}
+          title={lockTransfers ? "Transfers can't be ticked. Press to let a tick import one as spending." : "Ticking a transfer imports it as spending. Press to stop that."}
+          onClick={() => dispatch({ type: "updateSettings", patch: { lockTransfers: !lockTransfers } })}>
+          Lock transfers
+        </button>
+      </div>
       {sections.length === 0 ? (
         <EmptyState icon={Icons.copy} inline>None of these files had a transaction in them to review.</EmptyState>
       ) : (
         <div className="panel is-clipped upload-list">
           {sections.map(({ entry, rows }) => (
-            <AccountSection key={entry.account.id} entry={entry} rows={rows} folding={!active} review={review} currency={currency} onUpdate={onUpdate} />
+            <AccountSection key={entry.account.id} entry={entry} rows={rows} folding={!active} review={review} currency={currency} onUpdate={onUpdate} lockTransfers={lockTransfers} />
           ))}
         </div>
       )}
@@ -482,6 +668,8 @@ function ReviewFoot({ review, currency, busy, onBack, onDiscard, onConfirm }) {
   const out = importOutcome(review);
   const money = (cents) => fmt(currency, cents / 100);
   const parts = [`${out.count} ${out.count === 1 ? "entry" : "entries"} · ${money(out.totalCents)}`];
+  if (out.refunds) parts.push(`${out.refunds} ${out.refunds === 1 ? "refund" : "refunds"} · ${money(out.refundCents)}`);
+  if (out.moneyBack) parts.push(`${money(out.moneyBackCents)} money back`);
   if (out.linked) parts.push(`${out.linked} matched`);
   if (out.learnt) parts.push(`${out.learnt} to learn from`);
   return (
@@ -495,7 +683,7 @@ function ReviewFoot({ review, currency, busy, onBack, onDiscard, onConfirm }) {
         </span>
       )}
       <span className="num upload-summary" data-confirm-summary>{parts.join(" · ")}</span>
-      <button className="btn btn-primary" disabled={busy || (out.count === 0 && out.linked === 0 && out.learnt === 0)} onClick={onConfirm}>Confirm</button>
+      <button className="btn btn-primary" disabled={busy || (out.count === 0 && out.linked === 0 && out.learnt === 0 && out.refunds === 0 && out.moneyBack === 0)} onClick={onConfirm}>Confirm</button>
     </div>
   );
 }

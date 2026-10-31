@@ -33,6 +33,7 @@ colors:
   info: "oklch(0.72 0.13 240)"
   info-soft: "oklch(0.31 0.08 240)"
   caution: "oklch(0.80 0.14 75)"
+  money-in: "oklch(0.78 0.14 155)"
 typography:
   display:
     fontFamily: "Plus Jakarta Sans, system-ui, -apple-system, sans-serif"
@@ -195,7 +196,7 @@ House Budget is a household ledger read by lamplight. The canvas is genuinely bl
 
 The voice is measured, quiet and exact. Every rung in this system was solved rather than chosen: the ink ramp is stated in OKLCH with its lightness worked out so that each grade clears 4.5:1 on the busiest surface it lands on, the rules are graded by what they carry (3:1 if they are the boundary of something interactive, lower if they are only structure), and the type scale is named after its own pixel values so that a size cannot quietly drift into its neighbour. That precision is the aesthetic, not a constraint on it. The design reads engineered because the numbers behind it are defensible, and the file that holds them says so out loud.
 
-What the system refuses is as load-bearing as what it states. Zero-based budgeting means an envelope spent exactly to plan is the success, so the settled state gets no colour at all: colour is spent on failure and nothing else, and there is no green anywhere in the app. Money not yet allocated is drawn by absence, a hollow stretch of an outlined track, because a budget that has not been written yet is not an error and the app should not open the first of the month by shouting. The confirmed anti-reference is the playful money app: no mascots, no confetti on save, no congratulatory copy, no pastel cards. This is a tool a household trusts with the actual numbers, and it earns that by being quiet.
+What the system refuses is as load-bearing as what it states. Zero-based budgeting means an envelope spent exactly to plan is the success, so the settled state gets no colour at all: colour is spent on failure and nothing else, and no budget state is ever green (the one green in the app marks money in on the upload review's label chips, which is not a budget state). Money not yet allocated is drawn by absence, a hollow stretch of an outlined track, because a budget that has not been written yet is not an error and the app should not open the first of the month by shouting. The confirmed anti-reference is the playful money app: no mascots, no confetti on save, no congratulatory copy, no pastel cards. This is a tool a household trusts with the actual numbers, and it earns that by being quiet.
 
 **Key Characteristics:**
 - True-black OLED canvas with a faint violet radial wash, and a surface ramp that layers upward from it.
@@ -208,7 +209,7 @@ What the system refuses is as load-bearing as what it states. Zero-based budgeti
 
 ## Colors
 
-A single-theme palette (`obsidian`), built as a black room with one violet lamp in it, one red for things that have gone wrong, one cold blue reserved for "shared", and one amber lantern lit only over the upload review's label chips.
+A single-theme palette (`obsidian`), built as a black room with one violet lamp in it, one red for things that have gone wrong, one cold blue reserved for "shared", and one amber lantern and one green ledger mark lit only over the upload review's label chips.
 
 ### Primary
 - **Lamplight Violet** (`accent`): the app's only accent, at full strength. It appears on the brand tile, the focus ring, spending that actually moved on the month bar, the mini progress fill, the drag drop line, and the toast's draining edge. Nowhere else.
@@ -226,6 +227,7 @@ A single-theme palette (`obsidian`), built as a black room with one violet lamp 
 
 ### The Exception
 - **Lantern Amber** (`caution`): the one warning hue, and it exists for a single job: the text and outline of a "warn" label chip in the upload review ("No category", "Check category", "Possible duplicate", "Outside this month"), a row the household should look at before ticking. It is a single token with no shade or glow of its own; the chip's outline is the same amber mixed toward transparent. Solved as text on Lamplit Slate at 9.63:1 and guarded at 4.5:1 by `tests/tokens-electron.cjs`. It sits at the same lightness as Ember Glow on purpose, so what tells the two chips apart is hue, texture (an outline against Ember's fill) and the chip's own words, never luminance alone. It appears nowhere else; see The Label Chip Exception below.
+- **Ledger Green** (`money-in`): money arriving, and nothing else. It is the text and outline of the label chips on a row of money in, whatever their severity ("Money in"; a refund names its purchase with a button instead), and that row's amount, which also carries a "+" (money out carries a "−"). Across a statement of hundreds of rows it tells money in apart from spending at a glance, and the chip's words say what the money will be. A single token with no shade, outlined like Lantern Amber, solved as text on Lamplit Slate and guarded at 4.5:1 by `tests/tokens-electron.cjs`. It is never a budget state: under-spending, on-track and settled stay uncoloured. It appears nowhere else.
 
 ### Neutral
 - **Midnight Board** (`board`): the canvas, true black. Under it sits **The Night Gradient** (`canvas-wash`), a faint violet-tinted radial lightest at the top.
@@ -242,7 +244,7 @@ A single-theme palette (`obsidian`), built as a black room with one violet lamp 
 
 **The One Failure Rule.** Exactly one state in this app earns a hue, and it is the failure. An envelope spent to plan is the success in zero-based budgeting, so the settled state gets no colour: it is the resting state. Never paint under-spending, on-track, or any other settled state green, or any other colour at all.
 
-**The Label Chip Exception.** One owner-approved exception to the rule above, scoped to the label chips on the upload review's rows and to nothing else. A parsed bank row is not a budget state, and the review has to sort three kinds of row at a glance across three hundred of them: one that cannot be imported, one to look at before ticking, and one that only carries a note. So the chips are coloured by severity: **block** in the failure ramp (Ember Shade fill, Ember Glow text), **warn** in Lantern Amber (an outlined caption, hollow so the louder fill stays with the row that is refused), **info** neutral (Inkwell and Pencil Grey), and a row that is fine gets no chip at all. "No category" is a warn chip even though its tick waits for a category to be picked: on a first import, before the app has learnt anything, nearly every row carries it, and an Ember wall would bury the rows that really are refused (money in, already imported, unreadable, not completed). The words on every chip are the second channel. The filter chips above the list, the over-plan line, and every other surface of the upload sheet stay inside the rule: Lantern Amber is never a budget state, never a fill, and never appears outside a review row's label chip.
+**The Label Chip Exception.** One owner-approved exception to the rule above, scoped to the label chips on the upload review's rows and to nothing else. A parsed bank row is not a budget state, and the review has to sort three kinds of row at a glance across three hundred of them: one that cannot be imported, one to look at before ticking, and one that only carries a note. So the chips are coloured by severity: **block** in the failure ramp (Ember Shade fill, Ember Glow text), **warn** in Lantern Amber (an outlined caption, hollow so the louder fill stays with the row that is refused), **info** neutral (Inkwell and Pencil Grey), and a row that is fine gets no chip at all. Money in is the one case decided by kind rather than severity: its chips and its amount are Ledger Green, owner-approved, so a refund or money back reads apart from every spend. "No category" is a warn chip even though its tick waits for a category to be picked: on a first import, before the app has learnt anything, nearly every row carries it, and an Ember wall would bury the rows that really are refused (money in, already imported, unreadable, not completed). The words on every chip are the second channel. The filter chips above the list, the over-plan line, and every other surface of the upload sheet stay inside the rule: Lantern Amber is never a budget state, never a fill, and never appears outside a review row's label chip.
 
 **The Hollow Remainder Rule.** Money not yet allocated is drawn by absence: the month bar starts as an outlined, empty track and allocating fills it. Never colour the unallocated remainder, and never treat an unwritten budget as an error.
 
@@ -431,7 +433,7 @@ Transitions are short and property-scoped: 120-140ms on state (colour, backgroun
 - **Do** run `tests/tokens-electron.cjs` after touching any colour token; the contrast floors this design depends on are enforced there, and `--report` reads the measured ratios back out.
 
 ### Don't:
-- **Don't** introduce green, or any colour at all, for a settled or under-spent state. Under-spending is an unfinished allocation, not a win.
+- **Don't** introduce green, or any colour at all, for a settled or under-spent state. Under-spending is an unfinished allocation, not a win. Ledger Green is money in on the upload review's rows (chips and amount) and nowhere else.
 - **Don't** colour the unallocated remainder of a month. Absence is the signal.
 - **Don't** add a second red, an amber warning tier, or a separate destructive palette alongside Ember Red. Lantern Amber is the upload review's label chips and nowhere else.
 - **Don't** put a gradient on a filled button. Flat fill, inset highlight, accent glow.

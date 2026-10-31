@@ -14,12 +14,22 @@ Every actual entry used to be typed by hand: a month of spending across several 
   - possible duplicates of entries you already typed
   - transactions already imported
   - transactions outside the month
-  - money in
+  - money in with no purchase to refund
 - You review one list, fix what's wrong, and press **Confirm** once. The entries are written together.
+- **Row actions.** Every row ends in two buttons, shown on hover: the pencil for a note, and a menu (the chevron) with the row's other options. **Transfer** is always there (ticked when the row is one); **Refund of…** on money in; **Same as existing…** on a spend that may already be typed in; **Unlink** on a matched row.
+- **Ticking a transfer** makes it a spend again, ticked: it is imported once it has a category. **Lock transfers**, a switch above the list, turns that off: a transfer's tick is disabled until it is switched back to a spend from its menu. The switch is remembered for every upload, and starts off.
 - **Same as existing** links a bank row to an entry you already typed instead of creating a new one, and teaches the classifier.
-- **Notes.** The pencil in a row's actions opens a note under it, written onto the entry on Confirm. A matched row, a transfer or a blocked row takes none, since it writes no entry.
+- **Notes.** The pencil opens a note under the row, written onto the entry on Confirm. A matched row, a transfer, money back or a blocked row takes none, since it writes no entry; its pencil is there but disabled.
+- **Transfers.** A row marked as a transfer, or guessed to be one, shows only its "Transfer" chip. It writes nothing, so a category check, a possible duplicate or a date outside the month has nothing to say about it.
 - **Teach without importing.** Pick a category for a row and leave it unticked: Confirm writes no entry for it, but the classifier learns its category. The footer counts these ("3 to learn from"), and Confirm works even when they are all there is.
-- **Undo** reverses an upload, removing only the entries it created.
+- **Refunds.** Money in is matched to the purchase it gives back for: a purchase on the same card, from the same shop, up to 90 days earlier, with enough of it not yet refunded. The review suggests the likeliest one, and the row reads "Refund of H&M, 5 Oct" where its labels would be. **Refund of…** in the row's menu lists the others plus **No purchase**.
+  - Any money in can be chosen as a refund of **any purchase**, not only one from the same shop: **Refund of…** has a search that lists recent purchases on every card and narrows by name or category as you type. It offers purchases from the 90 days before the money came in, with room left for it.
+  - A refund of a purchase **in this month** is written as a negative entry on the purchase's line, so the line shows what was kept. A full return nets to nothing.
+  - A refund of a purchase **in an earlier month** is written as **money back**: an income line in this month, ready to be given a job. The earlier month stays as it was, overspent if it was.
+  - Money in with **no purchase** (cashback, someone paying you back, a salary) starts unticked; ticked, it becomes money back.
+  - Money in wears a green "+" amount, and a green "Money in" chip when it has no purchase, so it reads apart from spending. Money out shows a "−".
+- The month view says what came back: a purchase reads "£50.00 returned 11 Oct", or "…as money back in November"; a refund names its purchase; a money-back line says what it was for and when it arrived.
+- **Undo** reverses an upload, removing only the entries and money-back lines it created.
 
 ## How it works
 
@@ -40,6 +50,17 @@ flowchart LR
 - **Banks.** Each account is linked once to a bank. A built-in preset per bank turns its CSV into the same row shape. A preset recognises its bank by the columns it requires and the ones it may also write, so an export that leaves optional columns out (Lloyds without its account or balance) still matches; without account columns, the statement isn't checked against the account. Monzo's shorter export has no transaction type, so a pot move is recognised as two rows with the same title, opposite amounts and the same minute, and dropped.
 - **Classifier.** Runs locally (TF-IDF + nearest neighbours) and learns from confirmed rows, "Same as existing" links, rows marked as transfers, and unticked rows whose category you picked. A category it guessed itself never teaches it. It depends on [categories](categories_feature.md): it predicts a category that means the same thing in every month.
 - **Labels** decide each row's default (ticked or not) and are colour-coded by severity: amber for "check this", red for "can't be imported".
+- **Refunds.** Money in looks for its purchase among entries already in the budget and the debit rows of the same upload that are being imported. Merchant names are compared by their words ("H&M" and "H & M" are one word, references and town names drop out); the most alike wins, then the most recent. Several partial refunds can each take a share of one purchase; your own choices take their share before suggestions do. A refund is an entry with a negative amount, so every total that sums entries nets it without knowing about refunds.
+
+```mermaid
+flowchart LR
+    C["Money in"] --> P{"Purchase?"}
+    P -- "this month's" --> R["Negative entry<br/>on the purchase's line"]
+    P -- "an earlier month's" --> M["Money back:<br/>income line this month"]
+    P -- none --> T{"Ticked?"}
+    T -- yes --> M
+    T -- no --> N[Nothing written]
+```
 - **Lifecycle.** Each month has at most one pending upload, saved until you confirm or discard it.
 
 ```mermaid
@@ -55,16 +76,17 @@ stateDiagram-v2
 | Area | Files |
 |---|---|
 | Reading CSVs and presets | `main/import/csv.ts`, `main/import/presets/`, `main/import/clean.ts` |
-| Fingerprint, classifier, labels | `main/import/fingerprint.ts`, `classifier.ts`, `labels.ts`, `pipeline.ts` |
+| Fingerprint, classifier, labels, refunds | `main/import/fingerprint.ts`, `classifier.ts`, `labels.ts`, `refunds.ts`, `pipeline.ts` |
 | Saved uploads | `database/repositories/imports.ts`, `database/repositories/banks.ts` |
 | IPC | `main/ipc/imports.ts` (contract in its header) |
-| UI | `renderer/Upload.jsx`, `renderer/lib/imports.js`, `renderer/styles/upload.css` |
+| UI | `renderer/Upload.jsx`, `renderer/lib/imports.js`, `renderer/styles/upload.css`; refund notes in `renderer/MonthGroups.jsx` and `renderer/MonthBudget.jsx` |
 
 ## Limits and what's parked
 
 - **Formats:** CSV only, and only the four banks above.
 - **Duplicate matching:** needs the exact same amount within 3 days. An entry typed with a different amount or date, or one entry covering two bank rows, isn't found and can't be matched yet.
-- **Refunds and credits** never become entries.
+- **Refunds:** one refund can't be split across two purchases. Refunds come from uploads only; a refund can't be typed by hand, and its amount is the bank's and can't be edited. A refund of a purchase on another card isn't suggested, though the search finds it.
+- **Money back** goes to the card's owner, or the first household member for a joint account; change it on the income line.
 - **Splitting:** one row can't be split across categories.
 - **Transfers:** not paired automatically across accounts.
 - **Thresholds:** the classifier's are untuned starting values.
@@ -75,6 +97,7 @@ stateDiagram-v2
 2. [#33](../pr-overview/pr33-upload-transactions_overview.md): banks, presets, classifier, reconcile, labels, the upload sheet, Confirm and Undo.
 3. [#37](../pr-overview/pr37-upload-review_overview.md): review improvements: notes on rows, teaching the classifier from unticked rows, and reading headers that end in a comma.
 4. [#47](../pr-overview/pr47-bank-export-variants_overview.md): Lloyds exports with chosen columns, and Monzo's shorter export.
+5. [Refunds and money back](../key-decisions/2026-10-31-refunds_decisions.md): money in is matched to its purchase and netted, or kept as money back.
 
 ## Changelog
 
@@ -86,3 +109,13 @@ stateDiagram-v2
 | 2026-10-20 | #37 | Fix: a Lloyds statement whose header line ends in a comma is no longer refused. |
 | 2026-10-20 | #37 | Notes on review rows, written onto their entries. |
 | 2026-10-30 | #47 | Lloyds exports with only some columns, and Monzo's shorter export, are recognised. |
+| 2026-10-31 | staging | Refunds: money in is matched to its purchase and netted on its line in the same month, or written as money back in a later one. Migration 12. |
+| 2026-10-31 | staging | Money-in chips (Money in, Refund, Money back) are green, an owner-approved exception in DESIGN.md. |
+| 2026-10-31 | staging | Review amounts carry their sign: "−" for money out, a green "+" for money in. |
+| 2026-10-31 | staging | Fix: a transfer shows only its "Transfer" chip, not "Check category" or other chips beside it. |
+| 2026-10-31 | staging | A refund's labels lead with its **Refund of…** button instead of a "Refund" chip, which only repeated it. |
+| 2026-10-31 | staging | Fix: a refund's purchase name runs on up to the row's actions instead of being cut at the labels column. |
+| 2026-10-31 | staging | **Refund of…** on any money in, with a search to choose any purchase as what it refunds. |
+| 2026-10-31 | staging | Each row ends in a note button and a menu (Transfer, Refund of…, Same as existing…, Unlink) instead of a button for each. |
+| 2026-10-31 | staging | Money back leaves the category column empty instead of saying "Money back". |
+| 2026-10-31 | staging | Ticking a transfer imports it as a spend; **Lock transfers** on the review stops that. |

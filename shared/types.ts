@@ -69,6 +69,10 @@ export interface BudgetIncome {
   sort_order: number;
   created_at: string;
   updated_at: string;
+  /** 'money_back': money in from an upload that isn't earnings. */
+  kind: 'earned' | 'money_back';
+  import_row_id: number | null;
+  refund_of_entry_id: number | null;
 }
 
 /** Month-independent: a group's name, kind and collapsed state apply to every
@@ -118,6 +122,10 @@ export interface BudgetItemActualEntry {
   note: string | null; // optional longer detail
   created_at: string;
   updated_at: string;
+  import_row_id: number | null;
+  /** 'refund': money back for a purchase this month; amount_cents < 0. */
+  kind: 'spend' | 'refund';
+  refund_of_entry_id: number | null;
 }
 
 /* ---------- 2. Renderer "blob" (AppState) -------------------------------- */
@@ -206,11 +214,31 @@ export interface AppState {
 
 export interface ActualRead {
   id: number;
-  amount: number; // dollars
+  amount: number; // dollars; negative for a refund
   name: string;
   note: string;
   date: string; // "M/DD"
   spent_on: string; // "YYYY-MM-DD"
+  kind: 'spend' | 'refund';
+  /** A refund: the purchase it gives back for (null if that is gone). */
+  refundOf: PurchaseNote | null;
+  /** A spend: what came back for it, in this month or as money back later. */
+  returns: RefundNote[];
+}
+
+/** Money that came back for a purchase. */
+export interface RefundNote {
+  amount: number; // dollars, positive
+  spent_on: string | null; // "YYYY-MM-DD", when the bank says it arrived
+  month: string; // "YYYY-MM", the budget month it counts in
+}
+
+/** The purchase a refund or money back is of. */
+export interface PurchaseNote {
+  name: string;
+  spent_on: string; // "YYYY-MM-DD"
+  amount: number; // dollars
+  month: string; // "YYYY-MM"
 }
 
 export interface ItemRead {
@@ -236,6 +264,11 @@ export interface IncomeRead {
   memberId: number;
   amount: number; // dollars
   label: string;
+  kind: 'earned' | 'money_back';
+  /** Money back from an upload: when the bank says it arrived. */
+  receivedOn: string | null;
+  /** Money back for a purchase: that purchase (null for none, or gone). */
+  refundOf: PurchaseNote | null;
 }
 
 export interface MonthTree {
@@ -340,6 +373,9 @@ export interface BootstrapSettings {
    *  carries the household's budget, not the shape of the window it was last
    *  looked at in. */
   sidebarCollapsed: boolean;
+  /** Upload review: transfers can't be ticked. Off, ticking a transfer
+   *  makes it a spend. Not in BlobSettings, like sidebarCollapsed. */
+  lockTransfers: boolean;
   members: HouseholdMember[];
   accounts: BankAccount[];
 }
@@ -380,6 +416,9 @@ export type ImportLabelKey =
   | 'out_of_month'
   | 'transfer'
   | 'credit'
+  | 'refund'
+  | 'money_back'
+  | 'purchase_skipped'
   | 'already_imported'
   | 'parse_error'
   | 'not_completed';
@@ -427,6 +466,14 @@ export interface ImportRowRead {
   prediction: { label: number | 'transfer'; confidence: number } | null;
   labels: ImportLabel[];
   duplicates: ImportDuplicate[];
+  /** What Confirm writes for it if ticked: an entry, a refund (a negative
+   *  entry on its purchase's line), money back (an income line), or nothing. */
+  writesAs: 'entry' | 'refund' | 'money_back' | null;
+  /** Money in only: the purchase it refunds (chosen, or suggested when
+   *  'suggested'), or null for none. */
+  refund: { purchase: ImportRefundPurchase; suggested: boolean } | null;
+  /** Money in only: the purchases it could be a refund of, best first. */
+  refundCandidates: ImportRefundPurchase[];
   /** What you decided; null means "the default". */
   decisions: {
     categoryId: number | null;
@@ -436,8 +483,31 @@ export interface ImportRowRead {
     linkedEntryId: number | null;
     /** The note the entry is written with; null for none. */
     note: string | null;
+    /** Money in: the purchase you chose, 'none' for no purchase, null for
+     *  the suggestion. */
+    refundOf: ImportRefundOf;
   };
 }
+
+/** A purchase money in may give back for: an entry already in the budget,
+ *  or a row of this upload that is being imported. */
+export interface ImportRefundPurchase {
+  ref: { kind: 'entry' | 'row'; id: number };
+  spentOn: string;
+  amountCents: number;
+  /** What is still unrefunded. */
+  remainingCents: number;
+  name: string;
+  categoryId: number | null;
+  categoryName: string | null;
+  /** The budget month it is in, 'YYYY-MM'. */
+  month: string;
+  /** In the upload's month: its refund nets against it there. Otherwise the
+   *  refund is money back in the upload's month. */
+  sameMonth: boolean;
+}
+
+export type ImportRefundOf = { entryId: number } | { rowId: number } | 'none' | null;
 
 export interface ImportFileRead {
   id: number;
@@ -487,6 +557,9 @@ export interface ImportRowPatch {
   included?: boolean | null;
   linkedEntryId?: number | null;
   note?: string | null;
+  /** Money in only: the purchase it refunds, 'none', or null for the
+   *  suggestion. */
+  refundOf?: ImportRefundOf;
 }
 
 export interface ImportAddedFile {
@@ -521,6 +594,12 @@ export interface ImportConfirmResult {
   linesCreated: number;
   /** Unticked rows that trained the classifier without becoming entries. */
   learnt: number;
+  /** Refunds written as negative entries, and what they give back. */
+  refunds: number;
+  refundCents: number;
+  /** Money in written as money-back income lines. */
+  moneyBack: number;
+  moneyBackCents: number;
 }
 
 /** An imported batch, as "Previous imports" lists it. */

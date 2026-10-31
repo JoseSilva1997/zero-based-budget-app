@@ -19,6 +19,9 @@ export type MetaKey =
      setting with no normalised home goes, and the renderer already has one
      chain for reading and writing those. */
   | 'sidebarCollapsed'
+  /* '1' or '0'. On the upload review: a transfer row's tick is disabled, so
+     a transfer can only be imported by switching it back to a spend. */
+  | 'lockTransfers'
   | 'activeMonth';
 
 export function getMeta(db: Database.Database, key: MetaKey): string | null {

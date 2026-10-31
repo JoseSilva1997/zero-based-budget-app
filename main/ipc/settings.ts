@@ -1,6 +1,6 @@
 /* ============================================================
    IPC: settings:update - persists currency / theme / autoBackup /
-   sidebarCollapsed to app_meta.
+   sidebarCollapsed / lockTransfers to app_meta.
    (lastBackup is owned by the backup flow, not the renderer.)
    ============================================================ */
 import { ipcMain } from 'electron';
@@ -14,6 +14,7 @@ interface SettingsPatch {
   theme?: string;
   autoBackup?: AutoBackupMode;
   sidebarCollapsed?: boolean;
+  lockTransfers?: boolean;
 }
 
 export function registerSettingsIpc(): void {
@@ -30,6 +31,7 @@ export function registerSettingsIpc(): void {
       if (p.patch.autoBackup !== undefined) setMeta(db, 'autoBackup', p.patch.autoBackup);
       if (p.patch.sidebarCollapsed !== undefined)
         setMeta(db, 'sidebarCollapsed', p.patch.sidebarCollapsed ? '1' : '0');
+      if (p.patch.lockTransfers !== undefined) setMeta(db, 'lockTransfers', p.patch.lockTransfers ? '1' : '0');
       return { ok: true };
     })
   );

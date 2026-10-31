@@ -42,7 +42,7 @@ import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { StoreProvider, useStore } from './renderer/store.jsx';
 import { UploadSheet } from './renderer/Upload.jsx';
-import { confirmReceipt, importOutcome, onlyOutOfMonth } from './renderer/lib/imports.js';
+import { confirmReceipt, importOutcome, onlyOutOfMonth, willReturn } from './renderer/lib/imports.js';
 
 const results = [];
 const check = (name, cond, msg) => results.push({ name, ok: !!cond, msg: cond ? '' : (msg || '') });
@@ -83,7 +83,9 @@ const L = {
   oom: { key: 'out_of_month', severity: 'warn', text: 'Outside this month' },
   nim: { key: 'not_in_month', severity: 'warn', text: "Not in this month's plan" },
   imported: { key: 'already_imported', severity: 'block', text: 'Already imported' },
-  credit: { key: 'credit', severity: 'block', text: 'Money in' },
+  credit: { key: 'credit', severity: 'warn', text: 'Money in' },
+  refund: { key: 'refund', severity: 'info', text: 'Refund' },
+  pending: { key: 'not_completed', severity: 'block', text: 'Not completed' },
   parse: { key: 'parse_error', severity: 'block', text: "Couldn't read" },
   transfer: { key: 'transfer', severity: 'info', text: 'Transfer' },
   uncat: { key: 'uncategorised', severity: 'warn', text: 'No category' },
@@ -96,8 +98,13 @@ const row = (id, accountId, o = {}) => ({
   features: {}, parseError: o.parseError || null, notCompleted: false,
   categoryId: 'categoryId' in o ? o.categoryId : 11, name: o.name || 'Shop', kind: o.kind || 'spend',
   included: !!o.included, teaches: !!o.teaches, prediction: null, labels: o.labels || [], duplicates: o.duplicates || [],
-  decisions: { categoryId: null, name: null, kind: null, included: null, linkedEntryId: o.linkedEntryId || null },
+  writesAs: o.writesAs || (o.direction === 'credit' ? 'money_back' : 'entry'),
+  refund: o.refund || null, refundCandidates: o.refundCandidates || [],
+  decisions: { categoryId: null, name: null, kind: null, included: null, linkedEntryId: o.linkedEntryId || null, refundOf: null },
 });
+const shellBuy = { ref: { kind: 'row', id: 4 }, spentOn: '2026-10-05', amountCents: 3000, remainingCents: 3000, name: 'Shell', categoryId: 13, categoryName: 'Fuel', month: '2026-10', sameMonth: true };
+const rentBuy = { ref: { kind: 'entry', id: 960 }, spentOn: '2026-10-01', amountCents: 50000, remainingCents: 50000, name: 'Rent share', categoryId: 15, categoryName: 'Housing', month: '2026-10', sameMonth: true };
+const jacketBuy = { ref: { kind: 'entry', id: 950 }, spentOn: '2026-09-20', amountCents: 6000, remainingCents: 6000, name: 'Jacket', categoryId: 14, categoryName: 'Gifts', month: '2026-09', sameMonth: false };
 const reviewRows = () => [
   row(1, 1, { name: 'Tesco', spentOn: '2026-10-03', amountCents: 4210, included: true }),
   row(2, 1, { name: 'Corner shop', amountCents: 500, labels: [L.imported] }),
@@ -108,12 +115,15 @@ const reviewRows = () => [
   row(7, 1, { name: 'Old shop C', spentOn: '2026-08-30', labels: [L.oom] }),
   row(8, 1, { name: 'Sainsburys', amountCents: 1234, labels: [L.dup],
     duplicates: [{ id: 900, spentOn: '2026-10-04', amountCents: 1234, name: 'Sainsburys big shop', categoryName: 'Groceries' }] }),
-  row(9, 2, { name: 'Refund', amountCents: 2000, direction: 'credit', labels: [L.credit] }),
+  row(9, 2, { name: 'Pending', amountCents: 2000, labels: [L.pending] }),
   row(10, 2, { name: 'GARBLED', categoryId: null, amountCents: null, spentOn: null, parseError: 'The amount "x" is not a number.', labels: [L.parse] }),
   row(11, 2, { name: 'Card shop', categoryId: 14, amountCents: 1500, labels: [L.nim], teaches: true }),
   row(12, 2, { name: 'To savings', kind: 'transfer', categoryId: null, amountCents: 10000, labels: [L.transfer] }),
   row(13, 2, { name: 'Florist', categoryId: 14, amountCents: 2500, included: true }),
   row(14, 2, { name: 'Mystery', categoryId: null, amountCents: 700, labels: [L.uncat] }),
+  row(15, 2, { name: 'Shell refund', categoryId: 13, amountCents: 1000, direction: 'credit', writesAs: 'refund', included: true, labels: [L.refund],
+    refund: { purchase: shellBuy, suggested: true }, refundCandidates: [shellBuy, jacketBuy] }),
+  row(16, 2, { name: 'Cashback', categoryId: null, amountCents: 300, direction: 'credit', labels: [L.credit] }),
 ];
 
 const review = () => ({
@@ -135,6 +145,7 @@ window.api = {
     monthList: [{ id: 1, month: '2026-10' }],
     activeMonth: '2026-10',
   }),
+  settingsUpdate: async (patch) => { server.calls.settings = [...(server.calls.settings || []), patch]; return { ok: true }; },
   getMonth: async () => { server.calls.getMonth += 1; return { month: '2026-10', incomes: [], groups: [] }; },
   importReview: async () => { server.calls.reviews = (server.calls.reviews || 0) + 1; return review(); },
   // Applies the patch to the row's effective fields, as the server would
@@ -153,6 +164,12 @@ window.api = {
       return next;
     });
     return { ok: true };
+  },
+  // Every purchase, whatever the shop; the query filters by name or category.
+  importRefundOptions: async (rowId, query) => {
+    server.calls.refundQueries = [...(server.calls.refundQueries || []), [rowId, query]];
+    const q = query.toLowerCase();
+    return [rentBuy, shellBuy, jacketBuy].filter((p) => !q || (p.name + ' ' + p.categoryName).toLowerCase().includes(q));
   },
   importHistory: async () => server.history.map((h) => ({ ...h })),
   banks: async () => server.banks.map((b) => ({ ...b })),
@@ -260,7 +277,7 @@ const choose = async (accountId, names) => {
 /* ---- the pure helper: what Confirm would do, and what goes over ------ */
 function unitTests() {
   const lbl = (key, severity) => ({ key, severity, text: key });
-  const r = (o) => ({ included: true, kind: 'spend', categoryId: 11, amountCents: 1000, labels: [], decisions: { linkedEntryId: null }, ...o });
+  const r = (o) => ({ included: true, kind: 'spend', writesAs: 'entry', categoryId: 11, amountCents: 1000, labels: [], decisions: { linkedEntryId: null }, ...o });
   const plan = [
     { itemId: 1, categoryId: 11, name: 'Groceries', plannedCents: 30000, actualCents: 28000 },
     { itemId: 2, categoryId: 12, name: 'Eating out', plannedCents: 5000, actualCents: 5000 },
@@ -278,7 +295,7 @@ function unitTests() {
     ] },
     { rows: [
       r({ categoryId: 14, amountCents: 2500 }),
-      r({ categoryId: 11, amountCents: 5000, labels: [lbl('credit', 'block')] }),
+      r({ categoryId: null, amountCents: 5000, writesAs: 'money_back', included: false, labels: [lbl('credit', 'warn')] }),
       r({ categoryId: 11, amountCents: 7000, kind: 'transfer' }),
       r({ categoryId: 11, amountCents: 1234, decisions: { linkedEntryId: 900 } }),
       r({ categoryId: 11, amountCents: null, labels: [lbl('parse_error', 'block')] }),
@@ -306,7 +323,27 @@ function unitTests() {
     r({ included: false, teaches: true }), r({ included: false, teaches: true }), r({ included: false }),
   ] }] });
   check('unit: rows that only teach are counted apart', taught.learnt === 2 && taught.count === 0, JSON.stringify(taught));
+  // Money in: a refund nets against its purchase's line, money back is income.
+  const back = importOutcome({ plan, categories, accounts: [{ rows: [
+    r({ categoryId: 12, amountCents: 800 }),
+    r({ categoryId: 12, amountCents: 500, writesAs: 'refund' }),
+    r({ categoryId: null, amountCents: 300, writesAs: 'money_back' }),
+    r({ categoryId: null, amountCents: 900, writesAs: 'money_back', included: false }),
+    r({ categoryId: 12, amountCents: 200, writesAs: 'refund', kind: 'transfer' }),
+  ] }] });
+  check('unit: refunds and money back are counted apart from entries',
+    back.count === 1 && back.refunds === 1 && back.refundCents === 500 && back.moneyBack === 1 && back.moneyBackCents === 300, JSON.stringify(back));
+  check('unit: a refund takes off what its line goes over by',
+    JSON.stringify(back.over) === '[{"categoryId":12,"name":"Eating out","overCents":300}]', JSON.stringify(back.over));
+  check('unit: willReturn says what money in writes',
+    willReturn(r({ writesAs: 'refund' })) === 'refund' && willReturn(r({ writesAs: 'money_back' })) === 'money_back' && willReturn(r({ writesAs: 'refund', included: false })) === null && willReturn(r({})) === null);
   const pounds = (cents) => '£' + (cents / 100).toFixed(2);
+  check('unit: the receipt names refunds and money back',
+    confirmReceipt({ entries: 2, totalCents: 14000, linked: 0, linesCreated: 0, learnt: 0, refunds: 2, refundCents: 9000, moneyBack: 1, moneyBackCents: 300 }, pounds) === 'Imported 2 entries · £140.00, 2 refunds · £90.00, £3.00 money back.',
+    confirmReceipt({ entries: 2, totalCents: 14000, linked: 0, linesCreated: 0, learnt: 0, refunds: 2, refundCents: 9000, moneyBack: 1, moneyBackCents: 300 }, pounds));
+  check('unit: with only money back, no "0 entries"',
+    confirmReceipt({ entries: 0, totalCents: 0, linked: 0, linesCreated: 0, learnt: 0, refunds: 0, refundCents: 0, moneyBack: 1, moneyBackCents: 300 }, pounds) === '£3.00 money back.',
+    confirmReceipt({ entries: 0, totalCents: 0, linked: 0, linesCreated: 0, learnt: 0, refunds: 0, refundCents: 0, moneyBack: 1, moneyBackCents: 300 }, pounds));
   check('unit: the receipt says what was imported',
     confirmReceipt({ entries: 3, totalCents: 7510, linked: 1, linesCreated: 1, learnt: 0 }, pounds) === 'Imported 3 entries · £75.10, 1 matched, 1 new plan line.',
     confirmReceipt({ entries: 3, totalCents: 7510, linked: 1, linesCreated: 1, learnt: 0 }, pounds));
@@ -400,10 +437,10 @@ window.__runTests = async () => {
   check('one merged list, a section per account with rows', sections().map((x) => x.getAttribute('data-account-section')).join(',') === '1,2', sections().length + '');
   const sep = (id) => section(id) && section(id).querySelector('[data-account-separator]');
   check('a separator names the account and its bank', sep(1) && /Main/.test(sep(1).textContent) && /Lloyds/.test(sep(1).textContent), sep(1) && sep(1).textContent);
-  check('with a quiet row count', sep(1) && /8 rows/.test(sep(1).textContent) && sep(2) && /6 rows/.test(sep(2).textContent), (sep(1) && sep(1).textContent) + ' / ' + (sep(2) && sep(2).textContent));
+  check('with a quiet row count', sep(1) && /8 rows/.test(sep(1).textContent) && sep(2) && /8 rows/.test(sep(2).textContent), (sep(1) && sep(1).textContent) + ' / ' + (sep(2) && sep(2).textContent));
   check('the second account names its bank too', sep(2) && /Joint/.test(sep(2).textContent) && /NatWest Joint/.test(sep(2).textContent), sep(2) && sep(2).textContent);
   const rowEl = (id) => document.querySelector('[data-row-id="' + id + '"]');
-  check('a row shows its date, name and amount', rowEl(1) && /3 Oct/.test(rowEl(1).textContent) && rowEl(1).querySelector('input[aria-label="Name for Tesco"]') && rowEl(1).textContent.includes('£42.10'), rowEl(1) && rowEl(1).textContent);
+  check('a row shows its date, name and amount', rowEl(1) && /3 Oct/.test(rowEl(1).textContent) && rowEl(1).querySelector('input[aria-label="Name for Tesco"]') && rowEl(1).textContent.includes('−£42.10'), rowEl(1) && rowEl(1).textContent);
 
   /* ---- 5. label chips, coloured by severity -------------------------- */
   const chips = (id) => (rowEl(id) ? [...rowEl(id).querySelectorAll('.upload-chip')] : []);
@@ -427,7 +464,7 @@ window.__runTests = async () => {
   check('a blocked row is dimmed', rowEl(2).classList.contains('is-blocked'));
   check('its tick cannot be ticked', rowEl(2).querySelector('input[type="checkbox"]').disabled && !rowEl(2).querySelector('input[type="checkbox"]').checked);
   check('nor its category changed', rowEl(2).querySelector('select').disabled);
-  check('a row blocked only for want of a category stays where it is', order(2).join() === '11,12,13,14,9,10', order(2).join());
+  check('a row blocked only for want of a category stays where it is', order(2).join() === '11,12,13,14,15,16,9,10', order(2).join());
   check('not dimmed, its category still to be picked', rowEl(14) && !rowEl(14).classList.contains('is-blocked') && !rowEl(14).querySelector('select').disabled, rowEl(14) && rowEl(14).className);
   check('but not tickable until it has one', rowEl(14) && rowEl(14).querySelector('input[type="checkbox"]').disabled);
   check('an unblocked row stays live', !rowEl(1).classList.contains('is-blocked') && !rowEl(1).querySelector('input[type="checkbox"]').disabled);
@@ -483,8 +520,8 @@ window.__runTests = async () => {
   await settle();
   check('writing a note sends it', lastUpdate() === '[1,{"note":"Weekly shop, for both"}]', lastUpdate());
   check('and a written note stays on show', noteField('Tesco Extra') && noteField('Tesco Extra').value === 'Weekly shop, for both');
-  check('a transfer takes no note', !byLabel('Add a note to To savings'));
-  check('nor does a row that cannot be imported', !byLabel('Add a note to Refund'));
+  check('a transfer takes no note', byLabel('Add a note to To savings') && byLabel('Add a note to To savings').disabled);
+  check('nor does a row that cannot be imported', byLabel('Add a note to Pending') && byLabel('Add a note to Pending').disabled);
 
   await setValue(rowEl(4).querySelector('select'), '11');
   check('picking a category sends it', lastUpdate() === '[4,{"categoryId":11}]', lastUpdate());
@@ -497,29 +534,119 @@ window.__runTests = async () => {
   check('ticking a row sends it', lastUpdate() === '[4,{"included":true}]', lastUpdate());
   check('and the tick follows the server', rowEl(4).querySelector('input[type="checkbox"]').checked);
 
-  const transferBtn = (id) => rowEl(id) && rowEl(id).querySelector('button[data-transfer]');
-  check('a row has a Transfer toggle, off for spending', transferBtn(1) && transferBtn(1).getAttribute('aria-pressed') === 'false');
-  await press(transferBtn(1), 'Transfer on Tesco Extra');
+  // Every row ends in two buttons: the note, and a menu of its other options.
+  const menuBtn = (id) => rowEl(id) && rowEl(id).querySelector('button[data-row-menu]');
+  const openMenu = () => document.querySelector('.upload-row-menu');
+  const optionsOf = async (id) => {
+    await press(menuBtn(id), 'the menu on row ' + id);
+    const open = document.querySelectorAll('.upload-row-menu');
+    check('one menu open, for row ' + id, open.length === 1 && menuBtn(id).getAttribute('aria-expanded') === 'true', String(open.length));
+    return openMenu();
+  };
+  const pickOption = async (id, attr, name) => { const m = await optionsOf(id); await press(m && m.querySelector('button[' + attr + ']'), name); };
+  const hasOption = async (id, attr) => {
+    const m = await optionsOf(id);
+    const there = !!(m && m.querySelector('button[' + attr + ']'));
+    if (m) m.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await settle();
+    return there;
+  };
+  check('every row ends in a note and a menu', [...document.querySelectorAll('.upload-row')].every((r) => {
+    const b = [...r.querySelectorAll('.upload-actions > button')];
+    return b.length === 2 && /^Add a note to /.test(b[0].getAttribute('aria-label')) && b[1].hasAttribute('data-row-menu');
+  }), [...document.querySelectorAll('.upload-row .upload-actions')].map((a) => a.children.length).join());
+  check('no option sits on the row itself', !document.querySelector('.upload-row button[data-transfer], .upload-row button[data-refund-of], .upload-row button[data-same]'));
+  let menu = await optionsOf(1);
+  check('the menu opens above the sheet, named for its row', menu && menu.getAttribute('aria-label') === 'Options for Tesco Extra' && menuBtn(1).getAttribute('aria-expanded') === 'true');
+  check('it has Transfer, off for spending', menu && menu.querySelector('button[data-transfer]') && menu.querySelector('button[data-transfer]').getAttribute('aria-pressed') === 'false');
+  menu.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  await settle();
+  check('Escape closes the menu, not the sheet', !openMenu() && !!rowEl(1));
+  await pickOption(1, 'data-transfer', 'Transfer on Tesco Extra');
   check('marking a transfer sends the kind', lastUpdate() === '[1,{"kind":"transfer"}]', lastUpdate());
-  check('the toggle shows it on', transferBtn(1).getAttribute('aria-pressed') === 'true');
-  await press(transferBtn(1), 'Transfer on Tesco Extra again');
+  check('and the menu closes', !openMenu());
+  menu = await optionsOf(1);
+  check('the menu shows it on', menu && menu.querySelector('button[data-transfer]').getAttribute('aria-pressed') === 'true');
+  await press(menu && menu.querySelector('button[data-transfer]'), 'Transfer on Tesco Extra again');
   check('and back to spending', lastUpdate() === '[1,{"kind":"spend"}]', lastUpdate());
 
+  // Ticking a transfer imports it as a spend, unless transfers are locked.
+  const tickOf = (id) => rowEl(id) && rowEl(id).querySelector('input[type="checkbox"]');
+  const lockBtn = () => document.querySelector('button[data-lock-transfers]');
+  check('a transfer starts unticked, and can be ticked', tickOf(12) && !tickOf(12).checked && !tickOf(12).disabled);
+  await press(tickOf(12), 'the tick on To savings');
+  check('ticking a transfer makes it a spend, ticked', lastUpdate() === '[12,{"kind":"spend","included":true}]', lastUpdate());
+  await pickOption(12, 'data-transfer', 'Transfer on To savings, again');
+  check('a switch on the review locks transfers, off at first', lockBtn() && lockBtn().getAttribute('aria-pressed') === 'false', lockBtn() && lockBtn().outerHTML);
+  await press(lockBtn(), 'Lock transfers');
+  check('turning it on is saved as a setting', JSON.stringify((server.calls.settings || []).at(-1)) === '{"lockTransfers":true}', JSON.stringify(server.calls.settings));
+  check('and shows it on', lockBtn().getAttribute('aria-pressed') === 'true');
+  check('a locked transfer cannot be ticked', tickOf(12).disabled && !tickOf(12).checked);
+  check('a spend still can', !tickOf(1).disabled);
+  await press(lockBtn(), 'Lock transfers off');
+  check('and off again', JSON.stringify(server.calls.settings.at(-1)) === '{"lockTransfers":false}' && !tickOf(12).disabled, JSON.stringify(server.calls.settings));
+
   /* ---- 10. "Same as existing entry" ---------------------------------- */
-  const sameBtn = (id) => rowEl(id) && rowEl(id).querySelector('button[data-same]');
-  check('only a row with candidates offers Same as existing', sameBtn(8) && !sameBtn(1) && !sameBtn(3), '');
-  await press(sameBtn(8), 'Same as existing on Sainsburys');
+  check('only a row with candidates offers Same as existing', await hasOption(8, 'data-same') && !(await hasOption(1, 'data-same')) && !(await hasOption(3, 'data-same')));
+  await pickOption(8, 'data-same', 'Same as existing on Sainsburys');
   const cands = document.querySelector('[data-candidates-for="8"]');
-  check('it lists the candidate entries with date, amount, name and category', cands && ['4 Oct', '£12.34', 'Sainsburys big shop', 'Groceries'].every((t) => cands.textContent.includes(t)), cands && cands.textContent);
+  check('it lists the candidate entries with date, amount, name and category', cands && ['4 Oct', '−£12.34', 'Sainsburys big shop', 'Groceries'].every((t) => cands.textContent.includes(t)), cands && cands.textContent);
   await press(byLabel('Match to Sainsburys big shop'), 'Match to Sainsburys big shop');
   check('choosing one links the row to that entry', lastUpdate() === '[8,{"linkedEntryId":900}]', lastUpdate());
   check('the row shows as matched', rowEl(8).classList.contains('is-linked') && /Same as Sainsburys big shop/.test(rowEl(8).textContent), rowEl(8).textContent);
   check('the candidate list closes', !document.querySelector('[data-candidates-for="8"]'));
   check('a matched row cannot also be ticked', rowEl(8).querySelector('input[type="checkbox"]').disabled);
-  check('nor take a note: its entry keeps its own', !byLabel('Add a note to Sainsburys'));
+  check('nor take a note: its entry keeps its own', byLabel('Add a note to Sainsburys').disabled);
+  check('its menu has only Unlink', await (async () => { const m = await optionsOf(8); const ok = m && [...m.querySelectorAll('button')].map((x) => x.getAttribute('aria-label') || x.textContent).join() === 'Unlink Sainsburys'; return ok; })());
   await press(byLabel('Unlink Sainsburys'), 'Unlink Sainsburys');
   check('unlinking clears the match', lastUpdate() === '[8,{"linkedEntryId":null}]', lastUpdate());
   check('and the row is unmatched again', !rowEl(8).classList.contains('is-linked'), rowEl(8).className);
+
+  /* ---- 10b. money in: refunds and money back ------------------------- */
+  check('money in shows its amount with a plus', rowEl(15).textContent.includes('+£10.00') && rowEl(16).textContent.includes('+£3.00'), rowEl(15).textContent);
+  check("a refund has no category picker, but names its purchase's line", !rowEl(15).querySelector('select') && rowEl(15).querySelector('.upload-destination').textContent === 'Fuel', rowEl(15).innerHTML.slice(0, 300));
+  check('a refund says what it is a refund of, with no button or Refund chip', rowEl(15).querySelector('[data-refund-for]') && rowEl(15).querySelector('[data-refund-for]').textContent === 'Refund of Shell, 5 Oct' && !rowEl(15).querySelector('[data-refund-for] button') && !chips(15).some((c) => c.textContent === 'Refund'), rowEl(15).textContent);
+  check("the purchase shares the row's tail with the actions, so it can run up to them", (() => { const t = rowEl(15) && rowEl(15).querySelector('.upload-tail'); return t && t.querySelector('[data-refund-for]') && t.querySelector('.upload-actions'); })());
+  check('a row without a refund keeps its own actions cell', !rowEl(16).querySelector('.upload-tail') && rowEl(16).querySelector(':scope > .upload-actions'));
+  const amountOf = (id) => rowEl(id) && rowEl(id).querySelector('.upload-amount');
+  check('money in is green, money out is not', amountOf(15) && amountOf(15).classList.contains('is-in') && amountOf(16).classList.contains('is-in') && !amountOf(1).classList.contains('is-in'), [1, 15, 16].map((id) => amountOf(id) && amountOf(id).className).join());
+  check('money-in chips are green, whatever their severity', chips(16)[0] && chips(16)[0].classList.contains('is-in'), chips(15).concat(chips(16)).map((c) => c.className + ':' + c.textContent).join());
+  check('money in with no purchase shows nothing where the category goes, flagged Money in', rowEl(16).querySelector('.upload-destination').textContent === '' && chips(16).map((c) => c.textContent).join() === 'Money in', rowEl(16).textContent);
+  check('all money in has Refund of…, and no Same as existing', await hasOption(15, 'data-refund-of') && await hasOption(16, 'data-refund-of') && !(await hasOption(1, 'data-refund-of')) && !(await hasOption(15, 'data-same')));
+  check('a refund takes a note (it is an entry); money back does not', !byLabel('Add a note to Shell refund').disabled && byLabel('Add a note to Cashback').disabled);
+  await pickOption(15, 'data-refund-of', 'Refund of… on Shell refund');
+  const refundCands = () => document.querySelector('[data-refund-candidates-for="15"]');
+  check('it lists the purchases it could be', refundCands() && ['Shell', 'Jacket', 'Fuel', 'Gifts'].every((t) => refundCands().textContent.includes(t)), refundCands() && refundCands().textContent);
+  check('the one in use is marked, not offered', refundCands() && /In use/.test(refundCands().textContent) && !byLabel('A refund of Shell, 5 Oct'));
+  check("an earlier month's purchase says its refund is money back", refundCands() && refundCands().textContent.includes('Sep · money back'), refundCands() && refundCands().textContent);
+  await press(byLabel('A refund of Jacket, 20 Sep'), 'A refund of Jacket');
+  check('choosing a purchase sends it', lastUpdate() === '[15,{"refundOf":{"entryId":950}}]', lastUpdate());
+  check('and the list closes', !refundCands());
+  await pickOption(15, 'data-refund-of', 'Refund of… again');
+  await press(buttonNamed('No purchase'), 'No purchase');
+  check('No purchase sends none', lastUpdate() === '[15,{"refundOf":"none"}]', lastUpdate());
+
+  // Any purchase can be chosen, found by searching.
+  const waitSearch = async () => { await new Promise((r) => setTimeout(r, 300)); await settle(); };
+  await pickOption(16, 'data-refund-of', 'Refund of… on Cashback, which matched no shop');
+  await waitSearch();
+  const cashCands = () => document.querySelector('[data-refund-candidates-for="16"]');
+  const search = () => cashCands() && cashCands().querySelector('input[aria-label="Find a purchase"]');
+  check('it opens with a search for any purchase', !!search(), cashCands() && cashCands().innerHTML.slice(0, 300));
+  check('listing recent purchases from any shop', cashCands() && ['Rent share', 'Shell', 'Jacket'].every((t) => cashCands().textContent.includes(t)), cashCands() && cashCands().textContent);
+  await setValue(search(), 'rent');
+  await waitSearch();
+  check('typing searches', JSON.stringify((server.calls.refundQueries || []).at(-1)) === '[16,"rent"]', JSON.stringify(server.calls.refundQueries));
+  check('and lists what matches', cashCands() && cashCands().textContent.includes('Rent share') && !cashCands().textContent.includes('Jacket'), cashCands() ? cashCands().textContent : 'no tray; open menu: ' + !!openMenu() + '; row: ' + (rowEl(16) && rowEl(16).outerHTML.slice(0, 200)));
+  await press(byLabel('A refund of Rent share, 1 Oct'), 'A refund of Rent share');
+  check('choosing one sends it', lastUpdate() === '[16,{"refundOf":{"entryId":960}}]', lastUpdate());
+  check('and the list closes', !cashCands());
+  await pickOption(15, 'data-refund-of', 'Refund of… on Shell refund');
+  await waitSearch();
+  const shellCands = document.querySelector('[data-refund-candidates-for="15"]');
+  check('a purchase already suggested is not listed twice', shellCands && (shellCands.textContent.match(/Jacket/g) || []).length === 1, shellCands && shellCands.textContent);
+  await press(menuBtn(15), 'the menu button, closing the open tray');
+  check('the menu button closes an open tray', !document.querySelector('[data-refund-candidates-for="15"]') && !openMenu());
 
   /* ---- 11. the footer: summary and the over-plan line ---------------- */
   const confirmBtn = () => [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Confirm');
@@ -528,6 +655,7 @@ window.__runTests = async () => {
   check('a button labelled exactly Confirm', !!confirmBtn());
   check('with a quiet summary of what it will do', summary() && summary().textContent.includes('4 entries · £105.10'), summary() && summary().textContent);
   check('counting the unticked rows that will teach the classifier', summary() && summary().textContent.endsWith('· 1 to learn from'), summary() && summary().textContent);
+  check('and the refunds it will write', summary() && summary().textContent.includes('· 1 refund · £10.00'), summary() && summary().textContent);
   check('the over-plan line lists what goes over, worst first', overLine() && overLine().textContent === 'Over plan after import: Groceries +£52.10, Gifts +£25.00, Eating out +£8.00', overLine() && overLine().textContent);
   await press(rowEl(4).querySelector('input[type="checkbox"]'), 'the tick on Shell (off)');
   check('it follows a tick', overLine() && overLine().textContent === 'Over plan after import: Gifts +£25.00, Groceries +£22.10, Eating out +£8.00', overLine() && overLine().textContent);

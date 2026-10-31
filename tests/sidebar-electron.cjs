@@ -119,6 +119,9 @@ app.whenReady().then(async () => {
     setMeta(db, 'sidebarCollapsed', '1');
     eq(loadBootstrap(db).settings.sidebarCollapsed, true, 'a collapsed panel reopens collapsed');
     setMeta(db, 'sidebarCollapsed', '0');
+    eq(loadBootstrap(db).settings.lockTransfers, false, 'transfers start unlocked on the upload review');
+    setMeta(db, 'lockTransfers', '1');
+    eq(loadBootstrap(db).settings.lockTransfers, true, 'and stay locked once locked');
     eq(loadBootstrap(db).settings.sidebarCollapsed, false, 'expanding again is persisted too');
     // The renderer sends a boolean and reads a boolean; a truthy string here
     // would put "0" on the wrong side of an if.

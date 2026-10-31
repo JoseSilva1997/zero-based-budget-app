@@ -30,6 +30,8 @@ import type {
   TrendPoint,
   ReusableCandidate,
   EntrySuggestion,
+  RefundNote,
+  PurchaseNote,
 } from '../../shared/types';
 import { centsToDollars, toMonthDay } from '../conversions';
 import { getMeta, setMeta } from './meta';
@@ -391,6 +393,11 @@ export function updateActual(
   id: number,
   fields: Partial<Pick<BudgetItemActualEntry, 'spent_on' | 'amount_cents' | 'name' | 'note'>>
 ): void {
+  if (fields.amount_cents !== undefined) {
+    const e = db.prepare(`SELECT kind FROM budget_item_actual_entries WHERE id = ?`).get(id) as { kind: string } | undefined;
+    // A refund's amount is the bank's; changing it would break what it nets.
+    if (e && e.kind === 'refund') throw new Error("A refund's amount comes from the bank and can't be changed.");
+  }
   patchById(db, 'budget_item_actual_entries', id, fields);
 }
 
@@ -582,7 +589,8 @@ export function copyMonth(
     }
 
     if (opts.copyIncome) {
-      listIncomes(db, fromMonthId).forEach((inc, idx) => {
+      // Money back arrived once; it isn't next month's income.
+      listIncomes(db, fromMonthId).filter((inc) => inc.kind !== 'money_back').forEach((inc, idx) => {
         insertIncome(db, {
           budget_month_id: newId,
           household_member_id: inc.household_member_id,
@@ -659,7 +667,44 @@ export function listActuals(db: Database.Database, itemId: number): BudgetItemAc
 
 /* ---------- reads (blob-shaped, for the renderer) ------------------------ */
 
-function toActualRead(a: BudgetItemActualEntry): ActualRead {
+/** What came back for a purchase: its refunds in its own month and money
+ *  back in later ones, oldest first. */
+function returnsOf(db: Database.Database, entryId: number): RefundNote[] {
+  const rows = db
+    .prepare(
+      `SELECT -x.amount_cents AS cents, x.spent_on AS spentOn, m.month AS month
+         FROM budget_item_actual_entries x
+         JOIN budget_items it ON it.id = x.budget_item_id
+         JOIN budget_months m ON m.id = it.budget_month_id
+        WHERE x.refund_of_entry_id = ?
+       UNION ALL
+       SELECT i.amount_cents AS cents, r.spent_on AS spentOn, m.month AS month
+         FROM budget_incomes i
+         JOIN budget_months m ON m.id = i.budget_month_id
+         LEFT JOIN import_rows r ON r.id = i.import_row_id
+        WHERE i.refund_of_entry_id = ?
+        ORDER BY month, spentOn`
+    )
+    .all(entryId, entryId) as Array<{ cents: number; spentOn: string | null; month: string }>;
+  return rows.map((r) => ({ amount: centsToDollars(r.cents), spent_on: r.spentOn, month: r.month }));
+}
+
+/** The purchase a refund or money back is of, as its notes name it. */
+function purchaseNote(db: Database.Database, entryId: number | null): PurchaseNote | null {
+  if (entryId === null) return null;
+  const row = db
+    .prepare(
+      `SELECT e.name, e.spent_on AS spentOn, e.amount_cents AS cents, m.month AS month
+         FROM budget_item_actual_entries e
+         JOIN budget_items it ON it.id = e.budget_item_id
+         JOIN budget_months m ON m.id = it.budget_month_id
+        WHERE e.id = ?`
+    )
+    .get(entryId) as { name: string | null; spentOn: string; cents: number; month: string } | undefined;
+  return row ? { name: row.name || '', spent_on: row.spentOn, amount: centsToDollars(row.cents), month: row.month } : null;
+}
+
+function toActualRead(db: Database.Database, a: BudgetItemActualEntry): ActualRead {
   return {
     id: a.id,
     amount: centsToDollars(a.amount_cents),
@@ -667,6 +712,9 @@ function toActualRead(a: BudgetItemActualEntry): ActualRead {
     note: a.note || '',
     date: toMonthDay(a.spent_on),
     spent_on: a.spent_on,
+    kind: a.kind,
+    refundOf: a.kind === 'refund' ? purchaseNote(db, a.refund_of_entry_id) : null,
+    returns: a.kind === 'spend' ? returnsOf(db, a.id) : [],
   };
 }
 
@@ -677,7 +725,7 @@ function toItemRead(db: Database.Database, it: PlanLine): ItemRead {
     name: it.name,
     allocated: centsToDollars(it.planned_cents),
     account: it.bank_account_id,
-    actuals: listActuals(db, it.id).map(toActualRead),
+    actuals: listActuals(db, it.id).map((a) => toActualRead(db, a)),
   };
 }
 
@@ -692,12 +740,21 @@ function toGroupRead(db: Database.Database, g: BudgetGroup, monthId: number | nu
   };
 }
 
-function toIncomeRead(inc: BudgetIncome): IncomeRead {
+function toIncomeRead(db: Database.Database, inc: BudgetIncome): IncomeRead {
+  const received =
+    inc.import_row_id === null
+      ? null
+      : ((db.prepare(`SELECT spent_on FROM import_rows WHERE id = ?`).get(inc.import_row_id) as
+          | { spent_on: string | null }
+          | undefined)?.spent_on ?? null);
   return {
     id: inc.id,
     memberId: inc.household_member_id,
     amount: centsToDollars(inc.amount_cents),
     label: inc.label,
+    kind: inc.kind,
+    receivedOn: received,
+    refundOf: purchaseNote(db, inc.refund_of_entry_id),
   };
 }
 
@@ -705,7 +762,7 @@ export function getIncomeById(db: Database.Database, id: number): IncomeRead | u
   const row = db.prepare(`SELECT * FROM budget_incomes WHERE id = ?`).get(id) as
     | BudgetIncome
     | undefined;
-  return row ? toIncomeRead(row) : undefined;
+  return row ? toIncomeRead(db, row) : undefined;
 }
 
 /** A group with its plan lines in 'monthId' (none when no month is given). */
@@ -729,7 +786,7 @@ export function getActualById(db: Database.Database, id: number): ActualRead | u
   const row = db.prepare(`SELECT * FROM budget_item_actual_entries WHERE id = ?`).get(id) as
     | BudgetItemActualEntry
     | undefined;
-  return row ? toActualRead(row) : undefined;
+  return row ? toActualRead(db, row) : undefined;
 }
 
 /** The nested month tree (incomes + groups -> items -> actuals) for 'month:get'. */
@@ -741,7 +798,7 @@ export function getMonthTree(db: Database.Database, monthId: number): MonthTree 
   return {
     id: month.id,
     month: month.month,
-    incomes: listIncomes(db, monthId).map(toIncomeRead),
+    incomes: listIncomes(db, monthId).map((inc) => toIncomeRead(db, inc)),
     groups: listGroups(db, monthId).map((g) => toGroupRead(db, g, monthId)),
   };
 }
@@ -1092,7 +1149,7 @@ export function actualEntrySuggestions(
          JOIN categories c ON c.id = it.category_id
          JOIN budget_groups g ON g.id = c.group_id
          JOIN budget_months m ON m.id = it.budget_month_id
-        WHERE e.name IS NOT NULL AND trim(e.name) <> ''
+        WHERE e.name IS NOT NULL AND trim(e.name) <> '' AND e.kind = 'spend'
         ORDER BY e.spent_on DESC, e.id DESC`
     )
     .all() as Array<{
