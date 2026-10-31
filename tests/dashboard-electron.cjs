@@ -235,7 +235,7 @@ window.__runTests = async () => {
   eq('income change', stat({ stat: 'incomeChange' }), { figure: '+20%', note: 'income against the 12 months before' });
 
   // Medians, beside the averages they mirror
-  eq('median share of income saved', stat({ stat: 'medianSaveRate' }), { figure: '10%', note: 'of income saved in the median month' });
+  check('there is no median share of income saved', !STATS.some((s) => s.id === 'medianSaveRate'));
   eq('median spend with savings', stat({ stat: 'medianSpendWithSavings' }), { figure: '£2,200', note: 'spent in the median month, savings included' });
   eq('median spend without savings', stat({ stat: 'medianSpendWithoutSavings' }), { figure: '£2,000', note: 'spent in the median month, savings left out' });
   eq('median spend on a category', stat({ stat: 'medianSpendOn', of: { kind: 'category', id: EAT } }), { figure: '£200', note: 'on Eating out in the median month' });
@@ -245,9 +245,9 @@ window.__runTests = async () => {
   eq('median gap to the plan', stat({ stat: 'medianPlanGap' }), { figure: '4%', note: 'median gap between the plan and what went out' });
   eq('median overspend', stat({ stat: 'medianOverspend' }), { figure: '£300', note: 'over the plan in the median of the 2 months that went over' });
   eq('median income', stat({ stat: 'medianIncome' }), { figure: '£3,000', note: 'income in the median month' });
-  eq('every average has its median next to it in the menu',
+  eq('every average but the share of income saved has its median next to it in the menu',
      STATS.map((s) => s.id).filter((id) => /median/i.test(id) || ['saveRate', 'avgSpendWithSavings', 'avgSpendWithoutSavings', 'avgSpendOn', 'spendRate', 'purchasesPerMonth', 'avgPurchase', 'planGap', 'avgOverspend', 'avgIncome'].includes(id)),
-     ['saveRate', 'medianSaveRate', 'avgSpendWithSavings', 'medianSpendWithSavings', 'avgSpendWithoutSavings', 'medianSpendWithoutSavings',
+     ['saveRate', 'avgSpendWithSavings', 'medianSpendWithSavings', 'avgSpendWithoutSavings', 'medianSpendWithoutSavings',
       'avgSpendOn', 'medianSpendOn', 'spendRate', 'medianSpendRate', 'purchasesPerMonth', 'medianPurchasesPerMonth', 'avgPurchase', 'medianPurchase',
       'planGap', 'medianPlanGap', 'avgOverspend', 'medianOverspend', 'avgIncome', 'medianIncome']);
   eq('a median stat that needs a choice asks for one', STATS.find((s) => s.id === 'medianSpendOn').needs, 'of');

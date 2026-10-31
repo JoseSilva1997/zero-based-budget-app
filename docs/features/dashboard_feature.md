@@ -35,7 +35,6 @@ The first version had a fixed headline (saved all time, share of income kept bac
 | Saving | Saved, all time | every month up to this one |
 | | Saved this year | this calendar year up to this month |
 | | Average share of income saved | window |
-| | Median share of income saved | window |
 | | Best month for saving | window |
 | | Longest run saving a share of income | window |
 | | Saving lately, against before (last 3 months against the 9 before) | window |
@@ -68,7 +67,7 @@ The first version had a fixed headline (saved all time, share of income kept bac
 | | Median monthly income | window |
 | | Income against the year before (the window against the 12 months before it) | window and the 12 before |
 
-Every average has a **median** twin listed right after it. An average is pulled a long way by one odd month (a holiday, a boiler); the median is what a usual month looks like. With an even number of months it is halfway between the middle two.
+Every average except the share of income saved has a **median** twin listed right after it. An average is pulled a long way by one odd month (a holiday, a boiler); the median is what a usual month looks like. With an even number of months it is halfway between the middle two.
 
 The defaults are Saved all time covering two columns and two rows, Average share of income saved and Average monthly spend with savings in one cell each beside it, and Months within the plan two columns wide under those.
 
@@ -120,3 +119,4 @@ flowchart LR
 |---|---|---|
 | 2026-10-31 | cards | Cards the household picks and arranges on a 4 × 3 grid replace the fixed headline; "Category trends" and "Runs over most often" removed; Saved each month made full width. |
 | 2026-10-31 | swap | A card moved onto another swaps places with it, by drag or with the arrows. |
+| 2026-10-31 | no median saving rate | "Median share of income saved" removed; a card that showed it asks for a stat. |

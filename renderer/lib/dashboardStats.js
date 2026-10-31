@@ -117,15 +117,15 @@ export const STATS = [
       note: `set aside in ${ctx.year}`,
     }),
   },
-  ...twins(
-    { id: "saveRate", section: "Saving", label: "Average share of income saved", note: "of income saved, on average" },
-    { id: "medianSaveRate", section: "Saving", label: "Median share of income saved", note: "of income saved in the median month" },
-    (typical, d) => (ctx) => {
+  {
+    // The one average with no median twin: the Engineer took it out.
+    id: "saveRate", section: "Saving", label: "Average share of income saved",
+    compute: (ctx) => {
       const months = withIncome(ctx);
       if (!months.length) return empty(NO_INCOME);
-      return { figure: pct(typical(months, (m) => m.savings / m.income)), note: d.note };
+      return { figure: pct(avg(months, (m) => m.savings / m.income)), note: "of income saved, on average" };
     },
-  ),
+  },
   {
     id: "bestSaveMonth", section: "Saving", label: "Best month for saving",
     compute: (ctx, card, money) => {
