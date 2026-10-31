@@ -258,12 +258,11 @@
 
 /* ---- money in ------------------------------------------------------------
    No category picker: a refund lands on its purchase's line, named where the
-   picker would be, and money back is income, said quietly. "Refund of…"
+   picker would be; money back is income and leaves that place empty. "Refund of…"
    opens the purchases it could be in the same tray "Same as existing" uses,
    with "No purchase" last. The amount carries a + so money in never reads as
    a spend; it takes no colour, since money arriving isn't a state to flag. */
 .upload-destination { padding-left: 9px; font-size: var(--text-13); color: var(--ink-2); }
-.upload-destination.is-income { color: var(--muted); }
 /* A refund's labels and its actions share the last two tracks, so the
    purchase's name runs on up to the first action instead of stopping at the
    labels column. The actions keep their room even while hidden at rest. */

@@ -594,7 +594,7 @@ window.__runTests = async () => {
   const amountOf = (id) => rowEl(id) && rowEl(id).querySelector('.upload-amount');
   check('money in is green, money out is not', amountOf(15) && amountOf(15).classList.contains('is-in') && amountOf(16).classList.contains('is-in') && !amountOf(1).classList.contains('is-in'), [1, 15, 16].map((id) => amountOf(id) && amountOf(id).className).join());
   check('money-in chips are green, whatever their severity', chips(16)[0] && chips(16)[0].classList.contains('is-in'), chips(15).concat(chips(16)).map((c) => c.className + ':' + c.textContent).join());
-  check('money in with no purchase is money back, flagged Money in', rowEl(16).querySelector('.upload-destination').textContent === 'Money back' && chips(16).map((c) => c.textContent).join() === 'Money in', rowEl(16).textContent);
+  check('money in with no purchase shows nothing where the category goes, flagged Money in', rowEl(16).querySelector('.upload-destination').textContent === '' && chips(16).map((c) => c.textContent).join() === 'Money in', rowEl(16).textContent);
   check('all money in has Refund of…, and no Same as existing', await hasOption(15, 'data-refund-of') && await hasOption(16, 'data-refund-of') && !(await hasOption(1, 'data-refund-of')) && !(await hasOption(15, 'data-same')));
   check('a refund takes a note (it is an entry); money back does not', !byLabel('Add a note to Shell refund').disabled && byLabel('Add a note to Cashback').disabled);
   await pickOption(15, 'data-refund-of', 'Refund of… on Shell refund');

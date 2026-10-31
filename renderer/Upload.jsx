@@ -339,10 +339,9 @@ function ReviewRow({ row, review, currency, onUpdate }) {
         <TextInline value={row.name} className="upload-name" label={`Name for ${row.name}`}
           onCommit={(v) => { if (v !== row.name) onUpdate(row, { name: v }); }} />
         {moneyIn ? (
-          <span className={cx("upload-destination truncate", row.writesAs !== "refund" && "is-income")}>
-            {transfer || inertRow ? "" : row.writesAs === "refund"
-              ? (review.categories.find((c) => c.id === row.categoryId) || { name: row.refund?.purchase.categoryName || "" }).name
-              : "Money back"}
+          <span className="upload-destination truncate">
+            {transfer || inertRow || row.writesAs !== "refund" ? ""
+              : (review.categories.find((c) => c.id === row.categoryId) || { name: row.refund?.purchase.categoryName || "" }).name}
           </span>
         ) : (
           <CategoryPicker row={row} categories={review.categories} disabled={inert || transfer}
@@ -409,7 +408,7 @@ const monthShort = (key) => MONTH_NAMES[Number(key.slice(5, 7)) - 1].slice(0, 3)
 function RefundOf({ row }) {
   const p = row.refund.purchase;
   // The words say what the row is, so no "Refund" or "Money back" chip
-  // repeats them (the destination column already says "Money back"). Any
+  // repeats them. Any
   // other label follows the purchase. Choosing another is in the row's menu.
   const rest = row.labels.filter((l) => SEVERITY_CLASS[l.severity] && l.key !== "refund" && l.key !== "money_back");
   return (

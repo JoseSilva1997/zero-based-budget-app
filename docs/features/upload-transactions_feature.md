@@ -116,3 +116,4 @@ stateDiagram-v2
 | 2026-10-31 | staging | Fix: a refund's purchase name runs on up to the row's actions instead of being cut at the labels column. |
 | 2026-10-31 | staging | **Refund of…** on any money in, with a search to choose any purchase as what it refunds. |
 | 2026-10-31 | staging | Each row ends in a note button and a menu (Transfer, Refund of…, Same as existing…, Unlink) instead of a button for each. |
+| 2026-10-31 | staging | Money back leaves the category column empty instead of saying "Money back". |
