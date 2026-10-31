@@ -46,6 +46,7 @@ function settingsFromBootstrap(bs) {
     autoBackup: bs.settings.autoBackup || "onclose",
     lastBackup: bs.settings.lastBackup || null,
     sidebarCollapsed: bs.settings.sidebarCollapsed === true,
+    lockTransfers: bs.settings.lockTransfers === true,
     members: (bs.settings.members || []).map((m) => ({
       id: m.id,
       name: m.name,

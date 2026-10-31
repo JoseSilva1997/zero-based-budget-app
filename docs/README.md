@@ -21,6 +21,7 @@ New to the codebase? Read the **feature** docs first; they explain a whole featu
 |---|---|---|---|
 | 2026-10-30 | Develop directly on `staging`; PRs only for releases | Workflow | [decisions](key-decisions/2026-10-30-direct-to-staging_decisions.md) |
 | 2026-10-31 | Refunds and money back | Upload transactions | [decisions](key-decisions/2026-10-31-refunds_decisions.md) |
+| 2026-10-31 | Lock transfers | Upload transactions | [decisions](key-decisions/2026-10-31-lock-transfers_decisions.md) |
 
 ### Pull requests (until 2026-10-30)
 

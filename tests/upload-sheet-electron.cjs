@@ -145,6 +145,7 @@ window.api = {
     monthList: [{ id: 1, month: '2026-10' }],
     activeMonth: '2026-10',
   }),
+  settingsUpdate: async (patch) => { server.calls.settings = [...(server.calls.settings || []), patch]; return { ok: true }; },
   getMonth: async () => { server.calls.getMonth += 1; return { month: '2026-10', incomes: [], groups: [] }; },
   importReview: async () => { server.calls.reviews = (server.calls.reviews || 0) + 1; return review(); },
   // Applies the patch to the row's effective fields, as the server would
@@ -568,6 +569,22 @@ window.__runTests = async () => {
   check('the menu shows it on', menu && menu.querySelector('button[data-transfer]').getAttribute('aria-pressed') === 'true');
   await press(menu && menu.querySelector('button[data-transfer]'), 'Transfer on Tesco Extra again');
   check('and back to spending', lastUpdate() === '[1,{"kind":"spend"}]', lastUpdate());
+
+  // Ticking a transfer imports it as a spend, unless transfers are locked.
+  const tickOf = (id) => rowEl(id) && rowEl(id).querySelector('input[type="checkbox"]');
+  const lockBtn = () => document.querySelector('button[data-lock-transfers]');
+  check('a transfer starts unticked, and can be ticked', tickOf(12) && !tickOf(12).checked && !tickOf(12).disabled);
+  await press(tickOf(12), 'the tick on To savings');
+  check('ticking a transfer makes it a spend, ticked', lastUpdate() === '[12,{"kind":"spend","included":true}]', lastUpdate());
+  await pickOption(12, 'data-transfer', 'Transfer on To savings, again');
+  check('a switch on the review locks transfers, off at first', lockBtn() && lockBtn().getAttribute('aria-pressed') === 'false', lockBtn() && lockBtn().outerHTML);
+  await press(lockBtn(), 'Lock transfers');
+  check('turning it on is saved as a setting', JSON.stringify((server.calls.settings || []).at(-1)) === '{"lockTransfers":true}', JSON.stringify(server.calls.settings));
+  check('and shows it on', lockBtn().getAttribute('aria-pressed') === 'true');
+  check('a locked transfer cannot be ticked', tickOf(12).disabled && !tickOf(12).checked);
+  check('a spend still can', !tickOf(1).disabled);
+  await press(lockBtn(), 'Lock transfers off');
+  check('and off again', JSON.stringify(server.calls.settings.at(-1)) === '{"lockTransfers":false}' && !tickOf(12).disabled, JSON.stringify(server.calls.settings));
 
   /* ---- 10. "Same as existing entry" ---------------------------------- */
   check('only a row with candidates offers Same as existing', await hasOption(8, 'data-same') && !(await hasOption(1, 'data-same')) && !(await hasOption(3, 'data-same')));

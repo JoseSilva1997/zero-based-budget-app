@@ -208,6 +208,7 @@ const api = {
     theme?: string;
     autoBackup?: AutoBackupMode;
     sidebarCollapsed?: boolean;
+    lockTransfers?: boolean;
   }) =>
     invoke<Ok>('settings:update', { patch }),
 

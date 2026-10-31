@@ -373,6 +373,9 @@ export interface BootstrapSettings {
    *  carries the household's budget, not the shape of the window it was last
    *  looked at in. */
   sidebarCollapsed: boolean;
+  /** Upload review: transfers can't be ticked. Off, ticking a transfer
+   *  makes it a spend. Not in BlobSettings, like sidebarCollapsed. */
+  lockTransfers: boolean;
   members: HouseholdMember[];
   accounts: BankAccount[];
 }

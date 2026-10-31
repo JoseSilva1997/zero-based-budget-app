@@ -255,7 +255,7 @@ function UploadStep({ review, month, onChanged, onReview }) {
    be, its menu has "Refund of…": the purchases it could be, a search for
    any other, and "No purchase". A row with a purchase says "Refund of H&M,
    27 Oct" where its labels would be. */
-function ReviewRow({ row, review, currency, onUpdate }) {
+function ReviewRow({ row, review, currency, onUpdate, lockTransfers }) {
   // Blocked: cannot be ticked. Inert: nothing about it can be changed, so it
   // is dimmed and sunk. They differ only for a row waiting on a category.
   const blocked = isBlocked(row);
@@ -332,9 +332,14 @@ function ReviewRow({ row, review, currency, onUpdate }) {
   return (
     <>
       <div className={cx("upload-row", inertRow && "is-blocked", linked && "is-linked")} data-row-id={row.id}>
-        <input type="checkbox" className="upload-tick" checked={row.included && !blocked && !linked} disabled={blocked || !!linked}
+        {/* A transfer is never ticked. Unless transfers are locked, ticking
+            one makes it a spend again, ticked: it is imported once it has a
+            category. */}
+        <input type="checkbox" className="upload-tick" checked={row.included && !blocked && !linked && !transfer}
+          disabled={blocked || !!linked || (transfer && lockTransfers)}
           aria-label={`Import ${row.name}`}
-          onChange={() => onUpdate(row, { included: !row.included })} />
+          title={transfer ? (lockTransfers ? "Transfers are locked: unlock them above the list, or use Transfer in the row's menu" : "Import this as spending") : undefined}
+          onChange={() => onUpdate(row, transfer ? { kind: "spend", included: true } : { included: !row.included })} />
         <span className="num upload-date">{shortDate(row.spentOn)}</span>
         <TextInline value={row.name} className="upload-name" label={`Name for ${row.name}`}
           onCommit={(v) => { if (v !== row.name) onUpdate(row, { name: v }); }} />
@@ -570,12 +575,12 @@ function CategoryPicker({ row, categories, disabled, onChange }) {
    at the foot of the section, closed until asked for, so the month's own
    rows are what the list is about. A filter shows exactly what it found, so
    while one is on nothing folds. */
-function AccountSection({ entry, rows, folding, review, currency, onUpdate }) {
+function AccountSection({ entry, rows, folding, review, currency, onUpdate, lockTransfers }) {
   const { account, bank } = entry;
   const [open, setOpen] = useState(false);
   const outside = folding ? rows.filter(onlyOutOfMonth) : [];
   const shown = folding ? rows.filter((r) => !onlyOutOfMonth(r)) : rows;
-  const draw = (r) => <ReviewRow key={r.id} row={r} review={review} currency={currency} onUpdate={onUpdate} />;
+  const draw = (r) => <ReviewRow key={r.id} row={r} review={review} currency={currency} onUpdate={onUpdate} lockTransfers={lockTransfers} />;
   return (
     <section className="upload-section" data-account-section={account.id} aria-label={`${account.name} rows`}>
       <div className="upload-separator" data-account-separator>
@@ -617,6 +622,8 @@ function FilterChips({ counts, active, onPick }) {
 
 /* ---- the review step --------------------------------------------------- */
 function ReviewStep({ review, currency, busy, onUpdate, onBack, onDiscard, onConfirm }) {
+  const { state, dispatch } = useStore();
+  const lockTransfers = state.settings.lockTransfers === true;
   const [filter, setFilter] = useState(null);
   const counts = labelCounts(review.accounts);
   // A filter whose last row has gone (ticked, re-labelled) lets go by itself.
@@ -626,13 +633,24 @@ function ReviewStep({ review, currency, busy, onUpdate, onBack, onDiscard, onCon
     .filter((s) => s.rows.length > 0);
   return (
     <div data-review className="upload-review">
-      <FilterChips counts={counts} active={active} onPick={setFilter} />
+      {/* The filters on the left; on the right, a preference that holds for
+          every upload. It is drawn as a filter chip is (pressed, not
+          coloured), since it is a switch of the same weight. */}
+      <div className="upload-toolbar">
+        <FilterChips counts={counts} active={active} onPick={setFilter} />
+        <button type="button" data-lock-transfers aria-pressed={lockTransfers}
+          className={cx("upload-filter upload-lock", lockTransfers && "is-on")}
+          title={lockTransfers ? "Transfers can't be ticked. Press to let a tick import one as spending." : "Ticking a transfer imports it as spending. Press to stop that."}
+          onClick={() => dispatch({ type: "updateSettings", patch: { lockTransfers: !lockTransfers } })}>
+          Lock transfers
+        </button>
+      </div>
       {sections.length === 0 ? (
         <EmptyState icon={Icons.copy} inline>None of these files had a transaction in them to review.</EmptyState>
       ) : (
         <div className="panel is-clipped upload-list">
           {sections.map(({ entry, rows }) => (
-            <AccountSection key={entry.account.id} entry={entry} rows={rows} folding={!active} review={review} currency={currency} onUpdate={onUpdate} />
+            <AccountSection key={entry.account.id} entry={entry} rows={rows} folding={!active} review={review} currency={currency} onUpdate={onUpdate} lockTransfers={lockTransfers} />
           ))}
         </div>
       )}

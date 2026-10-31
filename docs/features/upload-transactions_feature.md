@@ -17,6 +17,7 @@ Every actual entry used to be typed by hand: a month of spending across several 
   - money in with no purchase to refund
 - You review one list, fix what's wrong, and press **Confirm** once. The entries are written together.
 - **Row actions.** Every row ends in two buttons, shown on hover: the pencil for a note, and a menu (the chevron) with the row's other options. **Transfer** is always there (ticked when the row is one); **Refund of…** on money in; **Same as existing…** on a spend that may already be typed in; **Unlink** on a matched row.
+- **Ticking a transfer** makes it a spend again, ticked: it is imported once it has a category. **Lock transfers**, a switch above the list, turns that off: a transfer's tick is disabled until it is switched back to a spend from its menu. The switch is remembered for every upload, and starts off.
 - **Same as existing** links a bank row to an entry you already typed instead of creating a new one, and teaches the classifier.
 - **Notes.** The pencil opens a note under the row, written onto the entry on Confirm. A matched row, a transfer, money back or a blocked row takes none, since it writes no entry; its pencil is there but disabled.
 - **Transfers.** A row marked as a transfer, or guessed to be one, shows only its "Transfer" chip. It writes nothing, so a category check, a possible duplicate or a date outside the month has nothing to say about it.
@@ -117,3 +118,4 @@ stateDiagram-v2
 | 2026-10-31 | staging | **Refund of…** on any money in, with a search to choose any purchase as what it refunds. |
 | 2026-10-31 | staging | Each row ends in a note button and a menu (Transfer, Refund of…, Same as existing…, Unlink) instead of a button for each. |
 | 2026-10-31 | staging | Money back leaves the category column empty instead of saying "Money back". |
+| 2026-10-31 | staging | Ticking a transfer imports it as a spend; **Lock transfers** on the review stops that. |
