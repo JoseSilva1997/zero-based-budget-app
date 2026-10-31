@@ -374,22 +374,24 @@ function ReviewRow({ row, review, currency, onUpdate }) {
 const monthShort = (key) => MONTH_NAMES[Number(key.slice(5, 7)) - 1].slice(0, 3);
 
 /* What money in gives back for, where a matched row says what it matched:
-   "Refund of H&M, 5 Sep", or, for a purchase in an earlier month, "Money
-   back for H&M, 5 Sep" (it counts as income this month, not against
-   September's line). Any other label (outside the month) follows. */
+   a green "Refund" chip then "of H&M, 5 Sep", or for a purchase in an
+   earlier month "Money back" then "for H&M, 5 Sep" (it counts as income
+   this month, not against September's line). Any other label follows. */
 function RefundOf({ row }) {
   const p = row.refund.purchase;
-  const rest = row.labels.filter((l) => l.key !== "refund" && l.key !== "money_back" && SEVERITY_CLASS[l.severity]);
-  const skipped = row.labels.some((l) => l.key === "purchase_skipped");
+  const shown = row.labels.filter((l) => SEVERITY_CLASS[l.severity]);
+  // The green chip starts the sentence ("Refund" of H&M, 5 Oct), so chip and
+  // purchase fit the labels column on one line; any other label follows.
+  const lead = shown.find((l) => l.key === "refund" || l.key === "money_back");
+  const rest = shown.filter((l) => l !== lead);
+  const chip = (l) => <span key={l.key} className={cx("upload-chip", chipClass(l))}>{l.text}</span>;
   return (
-    <span className="upload-chips" data-refund-for={row.id}>
+    <span className="upload-chips upload-refund" data-refund-for={row.id}>
+      {lead && chip(lead)}
       <span className="upload-linked truncate" title={row.refund.suggested ? "Suggested: the likeliest purchase from this shop" : undefined}>
-        {!skipped && <Icons.check size={13} />}
-        {p.sameMonth ? "Refund of" : "Money back for"} {p.name}, {shortDate(p.spentOn)}
+        {lead ? (p.sameMonth ? "of" : "for") : "Refund of"} {p.name}, {shortDate(p.spentOn)}
       </span>
-      {rest.map((l) => (
-        <span key={l.key} className={cx("upload-chip", SEVERITY_CLASS[l.severity])}>{l.text}</span>
-      ))}
+      {rest.map(chip)}
     </span>
   );
 }
@@ -451,12 +453,16 @@ function RefundCandidates({ row, currency, onPick }) {
    carries the reason on its chip, since the chip itself only says that it
    could not. */
 const SEVERITY_CLASS = { block: "is-block", warn: "is-warn", info: "is-info" };
+/* Money in is green whatever its severity: the chip says money arrived, and
+   the words say what it will be. */
+const MONEY_IN = new Set(["credit", "refund", "money_back"]);
+const chipClass = (l) => (MONEY_IN.has(l.key) ? "is-in" : SEVERITY_CLASS[l.severity]);
 function LabelChips({ row }) {
   const shown = row.labels.filter((l) => SEVERITY_CLASS[l.severity]);
   return (
     <span className="upload-chips">
       {shown.map((l) => (
-        <span key={l.key} className={cx("upload-chip", SEVERITY_CLASS[l.severity])}
+        <span key={l.key} className={cx("upload-chip", chipClass(l))}
           title={l.key === "parse_error" && row.parseError ? row.parseError : undefined}>{l.text}</span>
       ))}
     </span>

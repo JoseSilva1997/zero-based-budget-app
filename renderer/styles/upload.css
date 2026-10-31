@@ -165,6 +165,9 @@
 .upload-chip.is-block { background: var(--breach-soft); color: var(--breach-ink); }
 .upload-chip.is-warn { color: var(--caution); border-color: color-mix(in srgb, var(--caution) 45%, transparent); }
 .upload-chip.is-info { background: var(--well); color: var(--ink-2); }
+/* Money in, whatever its severity: hollow like the amber chip, in Ledger
+   Green (DESIGN.md, The Label Chip Exception). */
+.upload-chip.is-in { color: var(--money-in); border-color: color-mix(in srgb, var(--money-in) 45%, transparent); }
 .upload-chip[title] { cursor: help; }
 
 /* A row that cannot be imported: sunk to the bottom of its section and
@@ -261,6 +264,7 @@
    a spend; it takes no colour, since money arriving isn't a state to flag. */
 .upload-destination { padding-left: 9px; font-size: var(--text-13); color: var(--ink-2); }
 .upload-destination.is-income { color: var(--muted); }
+.upload-refund { flex-wrap: nowrap; align-items: center; }
 .upload-candidate-none > :first-child { grid-column: 3; }
 .upload-candidate > .upload-candidate-used { grid-column: 7; justify-self: end; font-size: var(--text-12); color: var(--muted); }
 

@@ -61,6 +61,9 @@ const CHECKS = [
   // outline against Ember's fill) plus the words, not luminance - the two sit
   // at similar lightness by design - so there is no ratio to guard there.
   ['caution on raised', '--caution', '--raised', 4.5],
+  // Ledger Green, the money-in label chips' hue (the second Label Chip
+  // Exception): an outlined caption like the amber one, held to AA body text.
+  ['money-in on raised', '--money-in', '--raised', 4.5],
   // The primary button. --accent-btn exists precisely so this clears AA when
   // the raw --accent cannot carry --on-accent; a theme that skips the override
   // when it needed one fails here.
