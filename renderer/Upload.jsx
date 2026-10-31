@@ -294,7 +294,7 @@ function ReviewRow({ row, review, currency, onUpdate }) {
           <CategoryPicker row={row} categories={review.categories} disabled={inert || transfer}
             onChange={(categoryId) => onUpdate(row, { categoryId })} />
         )}
-        <span className={cx("num upload-amount", moneyIn && "is-in")}>{row.amountCents == null ? "" : fmt(currency, row.amountCents / 100, { sign: moneyIn })}</span>
+        <span className={cx("num upload-amount", moneyIn && "is-in")}>{row.amountCents == null ? "" : fmt(currency, (moneyIn ? 1 : -1) * row.amountCents / 100, { sign: true })}</span>
         {moneyIn && row.refund && !transfer && !inertRow ? (
           <RefundOf row={row} />
         ) : linked ? (
@@ -360,7 +360,7 @@ function ReviewRow({ row, review, currency, onUpdate }) {
               <span className="num upload-date">{shortDate(d.spentOn)}</span>
               <span className="upload-candidate-name truncate">{d.name || "Unnamed"}</span>
               <span className="upload-candidate-cat truncate">{d.categoryName}</span>
-              <span className="num upload-amount">{fmt(currency, d.amountCents / 100)}</span>
+              <span className="num upload-amount">{fmt(currency, -d.amountCents / 100)}</span>
               <button type="button" className="btn btn-sm" aria-label={`Match to ${d.name || "this entry"}`}
                 onClick={() => link(d)}>Match</button>
             </div>
@@ -415,7 +415,7 @@ function RefundCandidates({ row, currency, onPick }) {
             {[p.categoryName, p.sameMonth ? null : `${monthShort(p.month)} · money back`].filter(Boolean).join(" · ")}
           </span>
           <span className="num upload-amount" title={p.remainingCents < p.amountCents ? `${fmt(currency, p.remainingCents / 100)} not yet refunded` : undefined}>
-            {fmt(currency, p.amountCents / 100)}
+            {fmt(currency, -p.amountCents / 100)}
           </span>
           {same(p.ref) ? (
             <span className="upload-candidate-used">In use</span>

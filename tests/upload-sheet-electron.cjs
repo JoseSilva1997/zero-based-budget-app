@@ -432,7 +432,7 @@ window.__runTests = async () => {
   check('with a quiet row count', sep(1) && /8 rows/.test(sep(1).textContent) && sep(2) && /8 rows/.test(sep(2).textContent), (sep(1) && sep(1).textContent) + ' / ' + (sep(2) && sep(2).textContent));
   check('the second account names its bank too', sep(2) && /Joint/.test(sep(2).textContent) && /NatWest Joint/.test(sep(2).textContent), sep(2) && sep(2).textContent);
   const rowEl = (id) => document.querySelector('[data-row-id="' + id + '"]');
-  check('a row shows its date, name and amount', rowEl(1) && /3 Oct/.test(rowEl(1).textContent) && rowEl(1).querySelector('input[aria-label="Name for Tesco"]') && rowEl(1).textContent.includes('£42.10'), rowEl(1) && rowEl(1).textContent);
+  check('a row shows its date, name and amount', rowEl(1) && /3 Oct/.test(rowEl(1).textContent) && rowEl(1).querySelector('input[aria-label="Name for Tesco"]') && rowEl(1).textContent.includes('−£42.10'), rowEl(1) && rowEl(1).textContent);
 
   /* ---- 5. label chips, coloured by severity -------------------------- */
   const chips = (id) => (rowEl(id) ? [...rowEl(id).querySelectorAll('.upload-chip')] : []);
@@ -539,7 +539,7 @@ window.__runTests = async () => {
   check('only a row with candidates offers Same as existing', sameBtn(8) && !sameBtn(1) && !sameBtn(3), '');
   await press(sameBtn(8), 'Same as existing on Sainsburys');
   const cands = document.querySelector('[data-candidates-for="8"]');
-  check('it lists the candidate entries with date, amount, name and category', cands && ['4 Oct', '£12.34', 'Sainsburys big shop', 'Groceries'].every((t) => cands.textContent.includes(t)), cands && cands.textContent);
+  check('it lists the candidate entries with date, amount, name and category', cands && ['4 Oct', '−£12.34', 'Sainsburys big shop', 'Groceries'].every((t) => cands.textContent.includes(t)), cands && cands.textContent);
   await press(byLabel('Match to Sainsburys big shop'), 'Match to Sainsburys big shop');
   check('choosing one links the row to that entry', lastUpdate() === '[8,{"linkedEntryId":900}]', lastUpdate());
   check('the row shows as matched', rowEl(8).classList.contains('is-linked') && /Same as Sainsburys big shop/.test(rowEl(8).textContent), rowEl(8).textContent);
@@ -555,6 +555,8 @@ window.__runTests = async () => {
   check('money in shows its amount with a plus', rowEl(15).textContent.includes('+£10.00') && rowEl(16).textContent.includes('+£3.00'), rowEl(15).textContent);
   check("a refund has no category picker, but names its purchase's line", !rowEl(15).querySelector('select') && rowEl(15).querySelector('.upload-destination').textContent === 'Fuel', rowEl(15).innerHTML.slice(0, 300));
   check('and says what it is a refund of', /Refund ?of Shell, 5 Oct/.test(rowEl(15).textContent), rowEl(15).textContent);
+  const amountOf = (id) => rowEl(id) && rowEl(id).querySelector('.upload-amount');
+  check('money in is green, money out is not', amountOf(15) && amountOf(15).classList.contains('is-in') && amountOf(16).classList.contains('is-in') && !amountOf(1).classList.contains('is-in'), [1, 15, 16].map((id) => amountOf(id) && amountOf(id).className).join());
   check('money-in chips are green, whatever their severity', chips(16)[0] && chips(16)[0].classList.contains('is-in') && chips(15).some((c) => c.textContent === 'Refund' && c.classList.contains('is-in')), chips(15).concat(chips(16)).map((c) => c.className + ':' + c.textContent).join());
   check('money in with no purchase is money back, flagged Money in', rowEl(16).querySelector('.upload-destination').textContent === 'Money back' && chips(16).map((c) => c.textContent).join() === 'Money in', rowEl(16).textContent);
   check('only money in with purchases to offer has Refund of…, and no Same as existing', refundBtn(15) && !refundBtn(16) && !refundBtn(1) && !sameBtn(15));

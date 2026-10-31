@@ -133,6 +133,8 @@
 .upload-row .tinput { font-size: var(--text-13); padding: 4px 8px; }
 .upload-category.is-empty { color: var(--faint); }
 .upload-amount { text-align: right; font-size: var(--text-13); font-weight: 600; white-space: nowrap; }
+/* Money in takes its chips' Ledger Green (DESIGN.md, Label Chip Exception). */
+.upload-amount.is-in { color: var(--money-in); }
 
 /* The separator between accounts. Not a card head: a label line on Inkwell,
    since it divides one list rather than opening another. */
