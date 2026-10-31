@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ConfirmDialog, DayField, DiffPill, FieldChip, Icons, MiniBar, Modal, MoneyInput, TextInline } from './ui/index.js';
-import { actualDay, cx, evalMoney, fmt, groupActual, groupAllocated, isExpr, itemActual, makeActualDate, monthLabel, nextEntryDay, nextMonthId, normalizeItemName, round2 } from './lib/index.js';
+import { actualDay, cx, evalMoney, fmt, groupActual, groupAllocated, isExpr, itemActual, makeActualDate, monthLabel, nextEntryDay, nextMonthId, normalizeItemName, refundOfNote, returnsNote, round2 } from './lib/index.js';
 import { useStore } from './store.jsx';
 import { AccountSelect } from './Accounts.jsx';
 
@@ -250,8 +250,11 @@ function EntriesDrawer({ item, group, currency, dispatch, month }) {
      occasional slip. The entry is captured before it goes so the toast can put
      it back instead. */
   const remove = (a) => {
-    const restore = { amount: a.amount, name: a.name || "", note: a.note || "", day: actualDay(a, month) };
     dispatch({ type: "removeActual", month, groupId: group.id, itemId: item.id, id: a.id });
+    // A refund came from the bank and is put back by importing again (undo
+    // the upload, confirm it again), not by retyping it as a spend.
+    if (a.kind === "refund") { toast(`Removed the refund ${a.name ? `"${a.name}"` : ""} from ${item.name}.`, "success"); return; }
+    const restore = { amount: a.amount, name: a.name || "", note: a.note || "", day: actualDay(a, month) };
     toast(`Removed ${a.name ? `"${a.name}"` : "entry"} from ${item.name}.`, "success", {
       label: "Undo",
       onAct: () => dispatch({ type: "addActual", month, groupId: group.id, itemId: item.id, ...restore }),
@@ -266,21 +269,31 @@ function EntriesDrawer({ item, group, currency, dispatch, month }) {
     <div className="fade-in entry-tray">
       {item.actuals.length > 0 && (
         <div className="entry-list">
-          {item.actuals.map(a => (
-            <div key={a.id} className="entry-row">
+          {item.actuals.map(a => {
+            const refund = a.kind === "refund";
+            const meta = refund ? refundOfNote(a) : returnsNote(a, month, (n) => fmt(currency, n));
+            return (
+            <div key={a.id} className={cx("entry-row", refund && "is-refund")}>
               <div className="entry-fields">
                 <DayField day={actualDay(a, month)} monthId={month} title="Day of month (when it was spent)"
                   onCommit={(d) => dispatch({ type: "updateActual", month, groupId: group.id, itemId: item.id, id: a.id, patch: { date: makeActualDate(month, d) } })} />
                 <TextInline value={a.name} placeholder="What was it?" col="entryName" label="What this spending entry was for" onCommit={(v) => dispatch({ type: "updateActual", month, groupId: group.id, itemId: item.id, id: a.id, patch: { name: v } })} className="entry-name" />
                 <TextInline value={a.note} placeholder="Note" col="entryNote" label="Note for this spending entry" allowEmpty onCommit={(v) => dispatch({ type: "updateActual", month, groupId: group.id, itemId: item.id, id: a.id, patch: { note: v } })} className="entry-note" />
               </div>
-              <MoneyInput value={a.amount} currency={currency} col="entryAmount" label="Amount spent" onCommit={(v) => dispatch({ type: "updateActual", month, groupId: group.id, itemId: item.id, id: a.id, patch: { amount: v } })} />
+              {refund ? (
+                /* The bank's amount, not yours to change: it is what the refund nets. */
+                <span className="num entry-amount-fixed" title="Refunded: the bank's amount">{fmt(currency, a.amount)}</span>
+              ) : (
+                <MoneyInput value={a.amount} currency={currency} col="entryAmount" label="Amount spent" onCommit={(v) => dispatch({ type: "updateActual", month, groupId: group.id, itemId: item.id, id: a.id, patch: { amount: v } })} />
+              )}
               <div className="col-diff" />
               <div className="entry-action-cell">
-                <button className="icon-btn subtle" aria-label={`Remove ${a.name ? `"${a.name}"` : "unnamed"} entry of ${fmt(currency, a.amount)} from ${item.name}`} title="Remove entry" onClick={() => remove(a)}><Icons.x size={14} /></button>
+                <button className="icon-btn subtle" aria-label={`Remove ${a.name ? `"${a.name}"` : "unnamed"} ${refund ? "refund" : "entry"} of ${fmt(currency, a.amount)} from ${item.name}`} title={refund ? "Remove refund" : "Remove entry"} onClick={() => remove(a)}><Icons.x size={14} /></button>
               </div>
+              {meta && <div className="entry-meta" data-entry-meta={a.id}>{meta}</div>}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
       <div className="entry-add-row">

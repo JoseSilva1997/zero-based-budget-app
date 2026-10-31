@@ -42,7 +42,7 @@ import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { StoreProvider, useStore } from './renderer/store.jsx';
 import { UploadSheet } from './renderer/Upload.jsx';
-import { confirmReceipt, importOutcome, onlyOutOfMonth } from './renderer/lib/imports.js';
+import { confirmReceipt, importOutcome, onlyOutOfMonth, willReturn } from './renderer/lib/imports.js';
 
 const results = [];
 const check = (name, cond, msg) => results.push({ name, ok: !!cond, msg: cond ? '' : (msg || '') });
@@ -83,7 +83,9 @@ const L = {
   oom: { key: 'out_of_month', severity: 'warn', text: 'Outside this month' },
   nim: { key: 'not_in_month', severity: 'warn', text: "Not in this month's plan" },
   imported: { key: 'already_imported', severity: 'block', text: 'Already imported' },
-  credit: { key: 'credit', severity: 'block', text: 'Money in' },
+  credit: { key: 'credit', severity: 'warn', text: 'Money in' },
+  refund: { key: 'refund', severity: 'info', text: 'Refund' },
+  pending: { key: 'not_completed', severity: 'block', text: 'Not completed' },
   parse: { key: 'parse_error', severity: 'block', text: "Couldn't read" },
   transfer: { key: 'transfer', severity: 'info', text: 'Transfer' },
   uncat: { key: 'uncategorised', severity: 'warn', text: 'No category' },
@@ -96,8 +98,12 @@ const row = (id, accountId, o = {}) => ({
   features: {}, parseError: o.parseError || null, notCompleted: false,
   categoryId: 'categoryId' in o ? o.categoryId : 11, name: o.name || 'Shop', kind: o.kind || 'spend',
   included: !!o.included, teaches: !!o.teaches, prediction: null, labels: o.labels || [], duplicates: o.duplicates || [],
-  decisions: { categoryId: null, name: null, kind: null, included: null, linkedEntryId: o.linkedEntryId || null },
+  writesAs: o.writesAs || (o.direction === 'credit' ? 'money_back' : 'entry'),
+  refund: o.refund || null, refundCandidates: o.refundCandidates || [],
+  decisions: { categoryId: null, name: null, kind: null, included: null, linkedEntryId: o.linkedEntryId || null, refundOf: null },
 });
+const shellBuy = { ref: { kind: 'row', id: 4 }, spentOn: '2026-10-05', amountCents: 3000, remainingCents: 3000, name: 'Shell', categoryId: 13, categoryName: 'Fuel', month: '2026-10', sameMonth: true };
+const jacketBuy = { ref: { kind: 'entry', id: 950 }, spentOn: '2026-09-20', amountCents: 6000, remainingCents: 6000, name: 'Jacket', categoryId: 14, categoryName: 'Gifts', month: '2026-09', sameMonth: false };
 const reviewRows = () => [
   row(1, 1, { name: 'Tesco', spentOn: '2026-10-03', amountCents: 4210, included: true }),
   row(2, 1, { name: 'Corner shop', amountCents: 500, labels: [L.imported] }),
@@ -108,12 +114,15 @@ const reviewRows = () => [
   row(7, 1, { name: 'Old shop C', spentOn: '2026-08-30', labels: [L.oom] }),
   row(8, 1, { name: 'Sainsburys', amountCents: 1234, labels: [L.dup],
     duplicates: [{ id: 900, spentOn: '2026-10-04', amountCents: 1234, name: 'Sainsburys big shop', categoryName: 'Groceries' }] }),
-  row(9, 2, { name: 'Refund', amountCents: 2000, direction: 'credit', labels: [L.credit] }),
+  row(9, 2, { name: 'Pending', amountCents: 2000, labels: [L.pending] }),
   row(10, 2, { name: 'GARBLED', categoryId: null, amountCents: null, spentOn: null, parseError: 'The amount "x" is not a number.', labels: [L.parse] }),
   row(11, 2, { name: 'Card shop', categoryId: 14, amountCents: 1500, labels: [L.nim], teaches: true }),
   row(12, 2, { name: 'To savings', kind: 'transfer', categoryId: null, amountCents: 10000, labels: [L.transfer] }),
   row(13, 2, { name: 'Florist', categoryId: 14, amountCents: 2500, included: true }),
   row(14, 2, { name: 'Mystery', categoryId: null, amountCents: 700, labels: [L.uncat] }),
+  row(15, 2, { name: 'Shell refund', categoryId: 13, amountCents: 1000, direction: 'credit', writesAs: 'refund', included: true, labels: [L.refund],
+    refund: { purchase: shellBuy, suggested: true }, refundCandidates: [shellBuy, jacketBuy] }),
+  row(16, 2, { name: 'Cashback', categoryId: null, amountCents: 300, direction: 'credit', labels: [L.credit] }),
 ];
 
 const review = () => ({
@@ -260,7 +269,7 @@ const choose = async (accountId, names) => {
 /* ---- the pure helper: what Confirm would do, and what goes over ------ */
 function unitTests() {
   const lbl = (key, severity) => ({ key, severity, text: key });
-  const r = (o) => ({ included: true, kind: 'spend', categoryId: 11, amountCents: 1000, labels: [], decisions: { linkedEntryId: null }, ...o });
+  const r = (o) => ({ included: true, kind: 'spend', writesAs: 'entry', categoryId: 11, amountCents: 1000, labels: [], decisions: { linkedEntryId: null }, ...o });
   const plan = [
     { itemId: 1, categoryId: 11, name: 'Groceries', plannedCents: 30000, actualCents: 28000 },
     { itemId: 2, categoryId: 12, name: 'Eating out', plannedCents: 5000, actualCents: 5000 },
@@ -278,7 +287,7 @@ function unitTests() {
     ] },
     { rows: [
       r({ categoryId: 14, amountCents: 2500 }),
-      r({ categoryId: 11, amountCents: 5000, labels: [lbl('credit', 'block')] }),
+      r({ categoryId: null, amountCents: 5000, writesAs: 'money_back', included: false, labels: [lbl('credit', 'warn')] }),
       r({ categoryId: 11, amountCents: 7000, kind: 'transfer' }),
       r({ categoryId: 11, amountCents: 1234, decisions: { linkedEntryId: 900 } }),
       r({ categoryId: 11, amountCents: null, labels: [lbl('parse_error', 'block')] }),
@@ -306,7 +315,27 @@ function unitTests() {
     r({ included: false, teaches: true }), r({ included: false, teaches: true }), r({ included: false }),
   ] }] });
   check('unit: rows that only teach are counted apart', taught.learnt === 2 && taught.count === 0, JSON.stringify(taught));
+  // Money in: a refund nets against its purchase's line, money back is income.
+  const back = importOutcome({ plan, categories, accounts: [{ rows: [
+    r({ categoryId: 12, amountCents: 800 }),
+    r({ categoryId: 12, amountCents: 500, writesAs: 'refund' }),
+    r({ categoryId: null, amountCents: 300, writesAs: 'money_back' }),
+    r({ categoryId: null, amountCents: 900, writesAs: 'money_back', included: false }),
+    r({ categoryId: 12, amountCents: 200, writesAs: 'refund', kind: 'transfer' }),
+  ] }] });
+  check('unit: refunds and money back are counted apart from entries',
+    back.count === 1 && back.refunds === 1 && back.refundCents === 500 && back.moneyBack === 1 && back.moneyBackCents === 300, JSON.stringify(back));
+  check('unit: a refund takes off what its line goes over by',
+    JSON.stringify(back.over) === '[{"categoryId":12,"name":"Eating out","overCents":300}]', JSON.stringify(back.over));
+  check('unit: willReturn says what money in writes',
+    willReturn(r({ writesAs: 'refund' })) === 'refund' && willReturn(r({ writesAs: 'money_back' })) === 'money_back' && willReturn(r({ writesAs: 'refund', included: false })) === null && willReturn(r({})) === null);
   const pounds = (cents) => '£' + (cents / 100).toFixed(2);
+  check('unit: the receipt names refunds and money back',
+    confirmReceipt({ entries: 2, totalCents: 14000, linked: 0, linesCreated: 0, learnt: 0, refunds: 2, refundCents: 9000, moneyBack: 1, moneyBackCents: 300 }, pounds) === 'Imported 2 entries · £140.00, 2 refunds · £90.00, £3.00 money back.',
+    confirmReceipt({ entries: 2, totalCents: 14000, linked: 0, linesCreated: 0, learnt: 0, refunds: 2, refundCents: 9000, moneyBack: 1, moneyBackCents: 300 }, pounds));
+  check('unit: with only money back, no "0 entries"',
+    confirmReceipt({ entries: 0, totalCents: 0, linked: 0, linesCreated: 0, learnt: 0, refunds: 0, refundCents: 0, moneyBack: 1, moneyBackCents: 300 }, pounds) === '£3.00 money back.',
+    confirmReceipt({ entries: 0, totalCents: 0, linked: 0, linesCreated: 0, learnt: 0, refunds: 0, refundCents: 0, moneyBack: 1, moneyBackCents: 300 }, pounds));
   check('unit: the receipt says what was imported',
     confirmReceipt({ entries: 3, totalCents: 7510, linked: 1, linesCreated: 1, learnt: 0 }, pounds) === 'Imported 3 entries · £75.10, 1 matched, 1 new plan line.',
     confirmReceipt({ entries: 3, totalCents: 7510, linked: 1, linesCreated: 1, learnt: 0 }, pounds));
@@ -400,7 +429,7 @@ window.__runTests = async () => {
   check('one merged list, a section per account with rows', sections().map((x) => x.getAttribute('data-account-section')).join(',') === '1,2', sections().length + '');
   const sep = (id) => section(id) && section(id).querySelector('[data-account-separator]');
   check('a separator names the account and its bank', sep(1) && /Main/.test(sep(1).textContent) && /Lloyds/.test(sep(1).textContent), sep(1) && sep(1).textContent);
-  check('with a quiet row count', sep(1) && /8 rows/.test(sep(1).textContent) && sep(2) && /6 rows/.test(sep(2).textContent), (sep(1) && sep(1).textContent) + ' / ' + (sep(2) && sep(2).textContent));
+  check('with a quiet row count', sep(1) && /8 rows/.test(sep(1).textContent) && sep(2) && /8 rows/.test(sep(2).textContent), (sep(1) && sep(1).textContent) + ' / ' + (sep(2) && sep(2).textContent));
   check('the second account names its bank too', sep(2) && /Joint/.test(sep(2).textContent) && /NatWest Joint/.test(sep(2).textContent), sep(2) && sep(2).textContent);
   const rowEl = (id) => document.querySelector('[data-row-id="' + id + '"]');
   check('a row shows its date, name and amount', rowEl(1) && /3 Oct/.test(rowEl(1).textContent) && rowEl(1).querySelector('input[aria-label="Name for Tesco"]') && rowEl(1).textContent.includes('£42.10'), rowEl(1) && rowEl(1).textContent);
@@ -427,7 +456,7 @@ window.__runTests = async () => {
   check('a blocked row is dimmed', rowEl(2).classList.contains('is-blocked'));
   check('its tick cannot be ticked', rowEl(2).querySelector('input[type="checkbox"]').disabled && !rowEl(2).querySelector('input[type="checkbox"]').checked);
   check('nor its category changed', rowEl(2).querySelector('select').disabled);
-  check('a row blocked only for want of a category stays where it is', order(2).join() === '11,12,13,14,9,10', order(2).join());
+  check('a row blocked only for want of a category stays where it is', order(2).join() === '11,12,13,14,15,16,9,10', order(2).join());
   check('not dimmed, its category still to be picked', rowEl(14) && !rowEl(14).classList.contains('is-blocked') && !rowEl(14).querySelector('select').disabled, rowEl(14) && rowEl(14).className);
   check('but not tickable until it has one', rowEl(14) && rowEl(14).querySelector('input[type="checkbox"]').disabled);
   check('an unblocked row stays live', !rowEl(1).classList.contains('is-blocked') && !rowEl(1).querySelector('input[type="checkbox"]').disabled);
@@ -484,7 +513,7 @@ window.__runTests = async () => {
   check('writing a note sends it', lastUpdate() === '[1,{"note":"Weekly shop, for both"}]', lastUpdate());
   check('and a written note stays on show', noteField('Tesco Extra') && noteField('Tesco Extra').value === 'Weekly shop, for both');
   check('a transfer takes no note', !byLabel('Add a note to To savings'));
-  check('nor does a row that cannot be imported', !byLabel('Add a note to Refund'));
+  check('nor does a row that cannot be imported', !byLabel('Add a note to Pending'));
 
   await setValue(rowEl(4).querySelector('select'), '11');
   check('picking a category sends it', lastUpdate() === '[4,{"categoryId":11}]', lastUpdate());
@@ -521,6 +550,26 @@ window.__runTests = async () => {
   check('unlinking clears the match', lastUpdate() === '[8,{"linkedEntryId":null}]', lastUpdate());
   check('and the row is unmatched again', !rowEl(8).classList.contains('is-linked'), rowEl(8).className);
 
+  /* ---- 10b. money in: refunds and money back ------------------------- */
+  const refundBtn = (id) => rowEl(id) && rowEl(id).querySelector('button[data-refund-of]');
+  check('money in shows its amount with a plus', rowEl(15).textContent.includes('+£10.00') && rowEl(16).textContent.includes('+£3.00'), rowEl(15).textContent);
+  check("a refund has no category picker, but names its purchase's line", !rowEl(15).querySelector('select') && rowEl(15).querySelector('.upload-destination').textContent === 'Fuel', rowEl(15).innerHTML.slice(0, 300));
+  check('and says what it is a refund of', /Refund of Shell, 5 Oct/.test(rowEl(15).textContent), rowEl(15).textContent);
+  check('money in with no purchase is money back, flagged Money in', rowEl(16).querySelector('.upload-destination').textContent === 'Money back' && chips(16).map((c) => c.textContent).join() === 'Money in', rowEl(16).textContent);
+  check('only money in with purchases to offer has Refund of…, and no Same as existing', refundBtn(15) && !refundBtn(16) && !refundBtn(1) && !sameBtn(15));
+  check('a refund takes a note (it is an entry); money back does not', !!byLabel('Add a note to Shell refund') && !byLabel('Add a note to Cashback'));
+  await press(refundBtn(15), 'Refund of… on Shell refund');
+  const refundCands = () => document.querySelector('[data-refund-candidates-for="15"]');
+  check('it lists the purchases it could be', refundCands() && ['Shell', 'Jacket', 'Fuel', 'Gifts'].every((t) => refundCands().textContent.includes(t)), refundCands() && refundCands().textContent);
+  check('the one in use is marked, not offered', refundCands() && /In use/.test(refundCands().textContent) && !byLabel('A refund of Shell, 5 Oct'));
+  check("an earlier month's purchase says its refund is money back", refundCands() && refundCands().textContent.includes('Sep · money back'), refundCands() && refundCands().textContent);
+  await press(byLabel('A refund of Jacket, 20 Sep'), 'A refund of Jacket');
+  check('choosing a purchase sends it', lastUpdate() === '[15,{"refundOf":{"entryId":950}}]', lastUpdate());
+  check('and the list closes', !refundCands());
+  await press(refundBtn(15), 'Refund of… again');
+  await press(buttonNamed('No purchase'), 'No purchase');
+  check('No purchase sends none', lastUpdate() === '[15,{"refundOf":"none"}]', lastUpdate());
+
   /* ---- 11. the footer: summary and the over-plan line ---------------- */
   const confirmBtn = () => [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Confirm');
   const summary = () => document.querySelector('[data-confirm-summary]');
@@ -528,6 +577,7 @@ window.__runTests = async () => {
   check('a button labelled exactly Confirm', !!confirmBtn());
   check('with a quiet summary of what it will do', summary() && summary().textContent.includes('4 entries · £105.10'), summary() && summary().textContent);
   check('counting the unticked rows that will teach the classifier', summary() && summary().textContent.endsWith('· 1 to learn from'), summary() && summary().textContent);
+  check('and the refunds it will write', summary() && summary().textContent.includes('· 1 refund · £10.00'), summary() && summary().textContent);
   check('the over-plan line lists what goes over, worst first', overLine() && overLine().textContent === 'Over plan after import: Groceries +£52.10, Gifts +£25.00, Eating out +£8.00', overLine() && overLine().textContent);
   await press(rowEl(4).querySelector('input[type="checkbox"]'), 'the tick on Shell (off)');
   check('it follows a tick', overLine() && overLine().textContent === 'Over plan after import: Gifts +£25.00, Groceries +£22.10, Eating out +£8.00', overLine() && overLine().textContent);

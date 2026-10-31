@@ -50,6 +50,12 @@ CREATE TABLE budget_incomes (
   sort_order INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  -- 'money_back': money in from an upload that is not earnings (a refund of
+  -- an earlier month's purchase, cashback, a friend paying you back). Never
+  -- copied into a new month.
+  kind TEXT NOT NULL DEFAULT 'earned' CHECK (kind IN ('earned','money_back')),
+  import_row_id INTEGER REFERENCES import_rows(id) ON DELETE SET NULL, -- the bank row it came from
+  refund_of_entry_id INTEGER REFERENCES budget_item_actual_entries(id) ON DELETE SET NULL, -- the purchase it refunds
   FOREIGN KEY (budget_month_id) REFERENCES budget_months(id) ON DELETE CASCADE,
   FOREIGN KEY (household_member_id) REFERENCES household_members(id) ON DELETE RESTRICT
 );
@@ -95,16 +101,21 @@ CREATE TABLE budget_items (
   FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT
 );
 
+-- A refund is an entry with a negative amount on its purchase's line in the
+-- same month, so every SUM of entries nets it without knowing about refunds.
 CREATE TABLE budget_item_actual_entries (
   id INTEGER PRIMARY KEY,
   budget_item_id INTEGER NOT NULL,
   spent_on TEXT NOT NULL, -- YYYY-MM-DD
-  amount_cents INTEGER NOT NULL CHECK (amount_cents >= 0),
+  amount_cents INTEGER NOT NULL,
   name TEXT, -- short label: what the spend was
   note TEXT, -- optional longer detail
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   import_row_id INTEGER REFERENCES import_rows(id) ON DELETE SET NULL, -- set when imported
+  kind TEXT NOT NULL DEFAULT 'spend' CHECK (kind IN ('spend','refund')),
+  refund_of_entry_id INTEGER REFERENCES budget_item_actual_entries(id) ON DELETE SET NULL, -- a refund's purchase
+  CHECK ((kind = 'spend' AND amount_cents >= 0) OR (kind = 'refund' AND amount_cents < 0)),
   FOREIGN KEY (budget_item_id) REFERENCES budget_items(id) ON DELETE CASCADE
 );
 
@@ -158,6 +169,12 @@ CREATE TABLE import_rows (
   -- the classifier without becoming an entry. Cleared by undo.
   teaches INTEGER NOT NULL DEFAULT 0 CHECK (teaches IN (0,1)),
   note TEXT, -- the entry's note, written with it at confirm
+  -- Money in: the purchase it refunds, as you chose it (an entry, or a row
+  -- of the same upload), or refund_none = 1 for "no purchase". All unset:
+  -- the suggested purchase, if any.
+  refund_of_entry_id INTEGER REFERENCES budget_item_actual_entries(id) ON DELETE SET NULL,
+  refund_of_row_id INTEGER REFERENCES import_rows(id) ON DELETE SET NULL,
+  refund_none INTEGER NOT NULL DEFAULT 0 CHECK (refund_none IN (0,1)),
   UNIQUE (file_id, row_index),
   FOREIGN KEY (file_id) REFERENCES import_files(id) ON DELETE CASCADE
 );
@@ -176,6 +193,9 @@ CREATE INDEX idx_actual_entries_item ON budget_item_actual_entries(budget_item_i
 CREATE INDEX idx_actual_entries_spent_on ON budget_item_actual_entries(spent_on);
 CREATE UNIQUE INDEX idx_banks_name ON banks(name COLLATE NOCASE);
 CREATE INDEX idx_actual_entries_import_row ON budget_item_actual_entries(import_row_id);
+CREATE INDEX idx_actual_entries_refund_of ON budget_item_actual_entries(refund_of_entry_id);
+CREATE INDEX idx_budget_incomes_import_row ON budget_incomes(import_row_id);
+CREATE INDEX idx_budget_incomes_refund_of ON budget_incomes(refund_of_entry_id);
 CREATE INDEX idx_import_batches_month ON import_batches(budget_month_id);
 -- A month has at most one batch in progress.
 CREATE UNIQUE INDEX idx_import_batches_one_pending ON import_batches(budget_month_id) WHERE status = 'pending';

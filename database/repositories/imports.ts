@@ -9,6 +9,13 @@
 
    A month has at most one pending batch, and any number of imported ones,
    each of which can be undone back to pending.
+
+   Money in is matched to the purchase it refunds (main/import/refunds.ts):
+   an entry already in the budget, or a debit row of the same upload. A
+   refund of a purchase in the upload's month is written as a negative entry
+   on that purchase's line, so the month's sums net it; of an earlier
+   month's, or with no purchase at all, as a money-back income line in the
+   upload's month, to be given a job like any money that arrives.
    ============================================================ */
 import type Database from 'better-sqlite3';
 import type {
@@ -21,6 +28,8 @@ import type {
   ImportHistoryRow,
   ImportPlanLine,
   ImportReview,
+  ImportRefundOf,
+  ImportRefundPurchase,
   ImportRowPatch,
   ImportRowRead,
 } from '../../shared/types';
@@ -28,6 +37,7 @@ import { readStatement, hashText } from '../../main/import/pipeline';
 import { getPreset } from '../../main/import/presets';
 import { assessRow, type RowAssessment, type RowDecisions } from '../../main/import/labels';
 import { train, type Classifier, type Prediction, type TrainingExample } from '../../main/import/classifier';
+import { rankPurchases, REFUND_WINDOW_DAYS, type Purchase } from '../../main/import/refunds';
 import { getAccountById, listAccounts } from './accounts';
 import { getBank, listBanks, setAccountIdentifier } from './banks';
 import { cleanName } from './categories';
@@ -205,6 +215,9 @@ interface StoredRow {
   linked_entry_id: number | null;
   note: string | null;
   teaches: 0 | 1;
+  refund_of_entry_id: number | null;
+  refund_of_row_id: number | null;
+  refund_none: 0 | 1;
   bank_account_id: number;
 }
 
@@ -243,7 +256,7 @@ function duplicatesOf(db: Database.Database, row: StoredRow): ImportDuplicate[] 
          FROM budget_item_actual_entries e
          JOIN budget_items it ON it.id = e.budget_item_id
          JOIN categories c ON c.id = it.category_id
-        WHERE e.amount_cents = @amount
+        WHERE e.amount_cents = @amount AND e.kind = 'spend'
           AND ABS(julianday(e.spent_on) - julianday(@spentOn)) <= ${DUPLICATE_DAYS}
           AND (it.bank_account_id = @account OR it.bank_account_id IS NULL)
           AND e.import_row_id IS NULL
@@ -266,6 +279,7 @@ const ALREADY_IMPORTED_SQL = `
     JOIN import_batches b ON b.id = f.batch_id
    WHERE o.fingerprint = ? AND f.batch_id <> ?
      AND (EXISTS (SELECT 1 FROM budget_item_actual_entries e WHERE e.import_row_id = o.id)
+          OR EXISTS (SELECT 1 FROM budget_incomes i WHERE i.import_row_id = o.id)
           OR (b.status = 'imported' AND o.linked_entry_id IS NOT NULL))
    LIMIT 1`;
 
@@ -288,7 +302,7 @@ function trainFor(db: Database.Database, batchId: number): Classifier {
          JOIN budget_item_actual_entries e ON e.import_row_id = r.id
          JOIN budget_items it ON it.id = e.budget_item_id
          JOIN categories c ON c.id = it.category_id
-        WHERE f.batch_id <> @batchId AND c.archived = 0
+        WHERE f.batch_id <> @batchId AND c.archived = 0 AND e.kind = 'spend'
        UNION ALL
        SELECT r.descriptor_clean, r.features, f.bank_account_id, r.amount_cents, 'transfer' AS label
          FROM import_rows r
@@ -325,10 +339,65 @@ interface AssessedRow {
   prediction: Prediction | null;
   duplicates: ImportDuplicate[];
   assessment: RowAssessment;
+  /** Money in: the purchase it refunds, and whether that was only suggested. */
+  refund: { purchase: ImportRefundPurchase; suggested: boolean } | null;
+  refundCandidates: ImportRefundPurchase[];
 }
 
+/** An entry as a purchase money in may refund, with what is left of it
+ *  after the refunds already written against it. */
+const PURCHASE_ENTRY_SQL = `
+  SELECT e.id, e.spent_on AS spentOn, e.amount_cents AS amountCents, e.name, r.descriptor_clean AS descriptor,
+         c.id AS categoryId, c.name AS categoryName, m.month AS month,
+         e.amount_cents
+           + COALESCE((SELECT SUM(x.amount_cents) FROM budget_item_actual_entries x WHERE x.refund_of_entry_id = e.id), 0)
+           - COALESCE((SELECT SUM(i.amount_cents) FROM budget_incomes i WHERE i.refund_of_entry_id = e.id), 0)
+           AS remainingCents
+    FROM budget_item_actual_entries e
+    JOIN budget_items it ON it.id = e.budget_item_id
+    JOIN categories c ON c.id = it.category_id
+    JOIN budget_months m ON m.id = it.budget_month_id
+    LEFT JOIN import_rows r ON r.id = e.import_row_id
+    LEFT JOIN import_files f ON f.id = r.file_id
+   WHERE e.kind = 'spend'`;
+
+interface PurchaseEntryRow {
+  id: number;
+  spentOn: string;
+  amountCents: number;
+  name: string | null;
+  descriptor: string | null;
+  categoryId: number;
+  categoryName: string;
+  month: string;
+  remainingCents: number;
+}
+
+type RankedPurchase = Purchase & { read: ImportRefundPurchase };
+
+function entryPurchase(e: PurchaseEntryRow, monthKey: string): RankedPurchase {
+  const read: ImportRefundPurchase = {
+    ref: { kind: 'entry', id: e.id },
+    spentOn: e.spentOn,
+    amountCents: e.amountCents,
+    remainingCents: e.remainingCents,
+    name: e.name || e.descriptor || 'Unnamed',
+    categoryId: e.categoryId,
+    categoryName: e.categoryName,
+    month: e.month,
+    sameMonth: e.month === monthKey,
+  };
+  return { ref: read.ref, spentOn: e.spentOn, amountCents: e.amountCents, remainingCents: e.remainingCents,
+    names: [e.name || '', e.descriptor || ''].filter(Boolean), read };
+}
+
+/** How many candidates the review offers for a refund. */
+const REFUND_CHOICES = 5;
+
 /** Every row of a batch with its prediction, duplicates, labels and
- *  effective values: what the review shows and what confirming writes. */
+ *  effective values: what the review shows and what confirming writes.
+ *  Debit rows first, since money in may refund one of them: a refund of a
+ *  row that isn't being imported can't be ticked. */
 function assessBatch(db: Database.Database, batch: ImportBatch, month: BudgetMonth): AssessedRow[] {
   const planned = new Set(
     (
@@ -342,31 +411,131 @@ function assessBatch(db: Database.Database, batch: ImportBatch, month: BudgetMon
   // Two overlapping statements in one upload hold the same rows: the copy in
   // the later file is already in, through the earlier one.
   const earlier = new Set<string>();
-  return batchRows(db, batch.id).map((row) => {
+  const facts = batchRows(db, batch.id).map((row) => {
     const inEarlierFile = row.fingerprint !== null && earlier.has(row.fingerprint);
+    const alreadyImported = inEarlierFile || (row.fingerprint !== null && !!imported.get(row.fingerprint, batch.id));
+    if (row.fingerprint !== null) earlier.add(row.fingerprint);
     const prediction = classifier.predict({
       descriptorClean: row.descriptor_clean,
       features: JSON.parse(row.features || '{}'),
       accountId: row.bank_account_id,
       amountCents: row.amount_cents,
     });
-    const duplicates = duplicatesOf(db, row);
-    const assessment = assessRow({
-      monthKey: month.month,
-      spentOn: row.spent_on,
-      direction: row.direction,
-      descriptorClean: row.descriptor_clean,
-      parseError: row.parse_error,
-      notCompleted: !!row.not_completed,
-      alreadyImported: inEarlierFile || (row.fingerprint !== null && !!imported.get(row.fingerprint, batch.id)),
-      duplicates: duplicates.length,
-      prediction,
-      inMonth: (id) => planned.has(id),
-      stored: decisionsOf(row),
-    });
-    if (row.fingerprint !== null) earlier.add(row.fingerprint);
-    return { row, prediction, duplicates, assessment };
+    return { row, prediction, alreadyImported, duplicates: duplicatesOf(db, row) };
   });
+  const assess = (f: (typeof facts)[number], refundTarget?: 'same_month' | 'earlier_month' | 'skipped' | null) =>
+    assessRow({
+      monthKey: month.month,
+      spentOn: f.row.spent_on,
+      direction: f.row.direction,
+      descriptorClean: f.row.descriptor_clean,
+      parseError: f.row.parse_error,
+      notCompleted: !!f.row.not_completed,
+      alreadyImported: f.alreadyImported,
+      duplicates: f.duplicates.length,
+      prediction: f.prediction,
+      inMonth: (id) => planned.has(id),
+      stored: decisionsOf(f.row),
+      refundTarget,
+    });
+
+  const out = new Map<number, AssessedRow>();
+  for (const f of facts) {
+    if (f.row.direction === 'credit') continue;
+    out.set(f.row.id, { ...f, assessment: assess(f), refund: null, refundCandidates: [] });
+  }
+
+  // Rows of this upload that will be written as entries: purchases a refund
+  // may be of.
+  const categoryName = new Map(
+    (db.prepare(`SELECT id, name FROM categories`).all() as Array<{ id: number; name: string }>).map((c) => [c.id, c.name])
+  );
+  const rowPurchase = (a: AssessedRow): RankedPurchase => {
+    const read: ImportRefundPurchase = {
+      ref: { kind: 'row', id: a.row.id },
+      spentOn: a.row.spent_on as string,
+      amountCents: a.row.amount_cents as number,
+      remainingCents: a.row.amount_cents as number,
+      name: a.assessment.name,
+      categoryId: a.assessment.categoryId,
+      categoryName: a.assessment.categoryId === null ? null : categoryName.get(a.assessment.categoryId) ?? null,
+      month: month.month,
+      sameMonth: true,
+    };
+    return { ref: read.ref, spentOn: read.spentOn, amountCents: read.amountCents, remainingCents: read.remainingCents,
+      names: [a.assessment.name, a.row.descriptor_clean], read };
+  };
+  const writtenRows = [...out.values()].filter((a) => a.assessment.included && a.assessment.writesAs === 'entry');
+  const entryById = db.prepare(`${PURCHASE_ENTRY_SQL} AND e.id = ?`);
+  const entriesNear = db.prepare(
+    `${PURCHASE_ENTRY_SQL}
+       AND e.spent_on BETWEEN date(@on, '-${REFUND_WINDOW_DAYS} days') AND @on
+       AND e.amount_cents >= @amount
+       AND (f.bank_account_id = @account
+            OR (e.import_row_id IS NULL AND (it.bank_account_id = @account OR it.bank_account_id IS NULL)))`
+  );
+
+  // What refunds in this upload have taken of each purchase so far. Choices
+  // you made take their share first, so a suggestion never crowds one out.
+  const taken = new Map<string, number>();
+  const key = (p: ImportRefundPurchase) => `${p.ref.kind}:${p.ref.id}`;
+  const withTaken = (p: RankedPurchase): RankedPurchase => {
+    const remaining = p.remainingCents - (taken.get(key(p.read)) ?? 0);
+    return { ...p, remainingCents: remaining, read: { ...p.read, remainingCents: remaining } };
+  };
+
+  const credits = facts.filter((f) => f.row.direction === 'credit');
+  const chosen = (f: (typeof facts)[number]) =>
+    f.row.refund_of_entry_id !== null || f.row.refund_of_row_id !== null || f.row.refund_none === 1;
+  for (const f of [...credits.filter(chosen), ...credits.filter((c) => !chosen(c))]) {
+    const r = f.row;
+    let target: 'same_month' | 'earlier_month' | 'skipped' | null = null;
+    let refund: AssessedRow['refund'] = null;
+    let candidates: RankedPurchase[] = [];
+    const readable = !r.parse_error && r.spent_on !== null && r.amount_cents !== null;
+    if (readable) {
+      const fromEntries = (
+        entriesNear.all({ on: r.spent_on, amount: r.amount_cents, account: r.bank_account_id }) as PurchaseEntryRow[]
+      ).map((e) => entryPurchase(e, month.month));
+      const fromRows = writtenRows.filter((a) => a.row.bank_account_id === r.bank_account_id).map(rowPurchase);
+      candidates = rankPurchases(
+        { spentOn: r.spent_on as string, amountCents: r.amount_cents as number, descriptor: r.descriptor_clean },
+        [...fromEntries, ...fromRows].map(withTaken)
+      );
+    }
+    let purchase: RankedPurchase | null = null;
+    if (r.refund_none === 1) {
+      purchase = null;
+    } else if (r.refund_of_entry_id !== null) {
+      const e = entryById.get(r.refund_of_entry_id) as PurchaseEntryRow | undefined;
+      purchase = e ? withTaken(entryPurchase(e, month.month)) : null;
+    } else if (r.refund_of_row_id !== null) {
+      const a = out.get(r.refund_of_row_id);
+      if (a && a.row.linked_entry_id !== null) {
+        // Matched to an entry you typed: the purchase is that entry.
+        const e = entryById.get(a.row.linked_entry_id) as PurchaseEntryRow | undefined;
+        purchase = e ? withTaken(entryPurchase(e, month.month)) : null;
+      } else if (a && a.assessment.included && a.assessment.writesAs === 'entry') {
+        purchase = withTaken(rowPurchase(a));
+      } else if (a) {
+        target = 'skipped';
+        refund = { purchase: rowPurchase(a).read, suggested: false };
+      }
+    } else if (readable) {
+      purchase = candidates[0] ?? null;
+    }
+    if (purchase) {
+      target = purchase.read.sameMonth ? 'same_month' : 'earlier_month';
+      refund = { purchase: purchase.read, suggested: !chosen(f) };
+    }
+    const assessment = assess(f, target);
+    if (assessment.writesAs === 'refund' && refund) assessment.categoryId = refund.purchase.categoryId;
+    if (assessment.included && purchase) taken.set(key(purchase.read), (taken.get(key(purchase.read)) ?? 0) + (r.amount_cents as number));
+    const offered = candidates.slice(0, REFUND_CHOICES).map((c) => c.read);
+    if (refund && !offered.some((c) => key(c) === key(refund!.purchase))) offered.unshift(refund.purchase);
+    out.set(r.id, { ...f, assessment, refund, refundCandidates: offered });
+  }
+  return facts.map((f) => out.get(f.row.id) as AssessedRow);
 }
 
 function toRowRead(a: AssessedRow): ImportRowRead {
@@ -392,6 +561,9 @@ function toRowRead(a: AssessedRow): ImportRowRead {
     prediction: a.prediction,
     labels: a.assessment.labels,
     duplicates: a.duplicates,
+    writesAs: a.assessment.writesAs,
+    refund: a.refund,
+    refundCandidates: a.refundCandidates,
     decisions: {
       categoryId: r.category_id,
       name: r.name,
@@ -399,8 +571,16 @@ function toRowRead(a: AssessedRow): ImportRowRead {
       included: r.included === null ? null : r.included === 1,
       linkedEntryId: r.linked_entry_id,
       note: r.note,
+      refundOf: refundOfDecision(r),
     },
   };
+}
+
+function refundOfDecision(r: StoredRow): ImportRefundOf {
+  if (r.refund_none === 1) return 'none';
+  if (r.refund_of_entry_id !== null) return { entryId: r.refund_of_entry_id };
+  if (r.refund_of_row_id !== null) return { rowId: r.refund_of_row_id };
+  return null;
 }
 
 /** The month's plan lines with what is spent so far, in budget order. */
@@ -489,8 +669,10 @@ export function getReview(db: Database.Database, monthId: number): ImportReview 
  */
 export function updateRow(db: Database.Database, rowId: number, patch: ImportRowPatch): void {
   const row = db
-    .prepare(`SELECT r.id, f.batch_id FROM import_rows r JOIN import_files f ON f.id = r.file_id WHERE r.id = ?`)
-    .get(rowId) as { id: number; batch_id: number } | undefined;
+    .prepare(
+      `SELECT r.id, r.direction, f.batch_id FROM import_rows r JOIN import_files f ON f.id = r.file_id WHERE r.id = ?`
+    )
+    .get(rowId) as { id: number; direction: 'debit' | 'credit' | null; batch_id: number } | undefined;
   if (!row) throw new Error('That transaction is no longer in this upload.');
   assertPending(batchById(db, row.batch_id));
 
@@ -514,7 +696,33 @@ export function updateRow(db: Database.Database, rowId: number, patch: ImportRow
     if (patch.linkedEntryId !== null) assertLinkable(db, patch.linkedEntryId, rowId);
     fields.linked_entry_id = patch.linkedEntryId;
   }
+  if (patch.refundOf !== undefined) {
+    if (row.direction !== 'credit') throw new Error('Only money in can be a refund.');
+    Object.assign(fields, refundFields(db, patch.refundOf, row.batch_id));
+  }
   patchById(db, 'import_rows', rowId, fields);
+}
+
+/** The columns that record which purchase money in refunds. A purchase is
+ *  a spend already in the budget, or a debit row of the same upload. */
+function refundFields(db: Database.Database, refundOf: ImportRefundOf, batchId: number): Record<string, unknown> {
+  const none = { refund_of_entry_id: null, refund_of_row_id: null, refund_none: 0 };
+  if (refundOf === null) return none;
+  if (refundOf === 'none') return { ...none, refund_none: 1 };
+  if ('entryId' in refundOf) {
+    const e = db.prepare(`SELECT kind FROM budget_item_actual_entries WHERE id = ?`).get(refundOf.entryId) as
+      | { kind: string }
+      | undefined;
+    if (!e) throw new Error('That purchase is no longer in your budget.');
+    if (e.kind !== 'spend') throw new Error('A refund is of a purchase, not of another refund.');
+    return { ...none, refund_of_entry_id: refundOf.entryId };
+  }
+  const r = db
+    .prepare(`SELECT r.direction, f.batch_id FROM import_rows r JOIN import_files f ON f.id = r.file_id WHERE r.id = ?`)
+    .get(refundOf.rowId) as { direction: string | null; batch_id: number } | undefined;
+  if (!r || r.batch_id !== batchId) throw new Error('That purchase is no longer in this upload.');
+  if (r.direction !== 'debit') throw new Error('A refund is of a purchase, not of other money in.');
+  return { ...none, refund_of_row_id: refundOf.rowId };
 }
 
 function assertLinkable(db: Database.Database, entryId: number, rowId: number): void {
@@ -544,16 +752,43 @@ const CREATED_ENTRIES_SQL = `
     JOIN import_files f ON f.id = r.file_id
    WHERE f.batch_id = ? AND r.linked_entry_id IS NULL`;
 
+/** Money-back income lines a batch created. */
+const CREATED_INCOMES_SQL = `
+  SELECT i.id FROM budget_incomes i
+    JOIN import_rows r ON r.id = i.import_row_id
+    JOIN import_files f ON f.id = r.file_id
+   WHERE f.batch_id = ?`;
+
+/** Who money back belongs to: the account's owner, or (a joint account)
+ *  the first member. You can change it on the income line afterwards. */
+function moneyBackMember(db: Database.Database, accountId: number): number {
+  const owner = db.prepare(`SELECT owner_member_id AS id FROM bank_accounts WHERE id = ?`).get(accountId) as
+    | { id: number | null }
+    | undefined;
+  if (owner && owner.id !== null) return owner.id;
+  const first = db.prepare(`SELECT id FROM household_members ORDER BY sort_order, id LIMIT 1`).get() as
+    | { id: number }
+    | undefined;
+  if (!first) throw new Error('Add a household member in Settings first: money back is income, and income belongs to someone.');
+  return first.id;
+}
+
 /**
- * Imports a pending batch, in one transaction: every ticked row becomes an
+ * Imports a pending batch, in one transaction: every ticked spend becomes an
  * entry on its category's plan line in the batch's month (a line the month
  * lacks is created at £0, on the category's usual account), named and
  * noted as decided and pointing back at its row. A row matched to an existing entry
  * writes nothing, but marks that entry as its own, so a re-upload knows it
  * is in and the classifier learns from it. An unticked row whose category
  * you picked writes nothing either, but is marked as teaching, so the
- * classifier learns its category. Refused when nothing is ticked, matched
- * or teaching.
+ * classifier learns its category.
+ *
+ * Ticked money in is written after the spends, since it may refund one: a
+ * refund of a purchase in this month as a negative entry on the purchase's
+ * line, anything else as a money-back income line in this month. Both
+ * point at their row, and at the purchase if there is one.
+ *
+ * Refused when nothing is ticked, matched or teaching.
  */
 export function confirmBatch(db: Database.Database, batchId: number): ImportConfirmResult {
   const tx = db.transaction((): ImportConfirmResult => {
@@ -562,6 +797,8 @@ export function confirmBatch(db: Database.Database, batchId: number): ImportConf
     const month = monthById(db, batch.budget_month_id);
     const assessed = assessBatch(db, batch, month);
     const ticked = assessed.filter((a) => a.assessment.included);
+    const spends = ticked.filter((a) => a.assessment.writesAs === 'entry');
+    const moneyIn = ticked.filter((a) => a.assessment.writesAs === 'refund' || a.assessment.writesAs === 'money_back');
     const linked = assessed.filter((a) => a.row.linked_entry_id !== null);
     const teaching = assessed.filter((a) => a.assessment.teaches);
     if (ticked.length === 0 && linked.length === 0 && teaching.length === 0) {
@@ -582,7 +819,8 @@ export function confirmBatch(db: Database.Database, batchId: number): ImportConf
       `INSERT INTO budget_item_actual_entries (budget_item_id, spent_on, amount_cents, name, note, import_row_id)
        VALUES (?, ?, ?, ?, ?, ?)`
     );
-    for (const a of ticked) {
+    const entryOfRow = new Map<number, number>();
+    for (const a of spends) {
       const categoryId = a.assessment.categoryId as number;
       let itemId = lineFor.get(categoryId);
       if (itemId === undefined) {
@@ -590,19 +828,59 @@ export function confirmBatch(db: Database.Database, batchId: number): ImportConf
         lineFor.set(categoryId, itemId);
         linesCreated++;
       }
-      insertEntry.run(itemId, a.row.spent_on, a.row.amount_cents, a.assessment.name, a.row.note, a.row.id);
+      const info = insertEntry.run(itemId, a.row.spent_on, a.row.amount_cents, a.assessment.name, a.row.note, a.row.id);
+      entryOfRow.set(a.row.id, Number(info.lastInsertRowid));
       totalCents += a.row.amount_cents as number;
     }
     const claim = db.prepare(
       `UPDATE budget_item_actual_entries SET import_row_id = ? WHERE id = ? AND import_row_id IS NULL`
     );
     for (const a of linked) claim.run(a.row.id, a.row.linked_entry_id);
+
+    const insertRefund = db.prepare(
+      `INSERT INTO budget_item_actual_entries
+         (budget_item_id, spent_on, amount_cents, name, note, import_row_id, kind, refund_of_entry_id)
+       SELECT budget_item_id, ?, ?, ?, ?, ?, 'refund', id FROM budget_item_actual_entries WHERE id = ?`
+    );
+    const insertMoneyBack = db.prepare(
+      `INSERT INTO budget_incomes
+         (budget_month_id, household_member_id, label, amount_cents, sort_order, kind, import_row_id, refund_of_entry_id)
+       VALUES (?, ?, ?, ?, (SELECT COALESCE(MAX(sort_order) + 1, 0) FROM budget_incomes WHERE budget_month_id = ?),
+               'money_back', ?, ?)`
+    );
+    let refunds = 0, refundCents = 0, moneyBack = 0, moneyBackCents = 0;
+    for (const a of moneyIn) {
+      const amount = a.row.amount_cents as number;
+      const ref = a.refund?.purchase.ref ?? null;
+      const purchaseEntry = ref === null ? null : ref.kind === 'entry' ? ref.id : entryOfRow.get(ref.id) ?? null;
+      if (a.assessment.writesAs === 'refund' && purchaseEntry !== null) {
+        insertRefund.run(a.row.spent_on, -amount, a.assessment.name, a.row.note, a.row.id, purchaseEntry);
+        refunds++;
+        refundCents += amount;
+      } else {
+        const member = moneyBackMember(db, a.row.bank_account_id);
+        insertMoneyBack.run(month.id, member, a.assessment.name, amount, month.id, a.row.id, purchaseEntry);
+        moneyBack++;
+        moneyBackCents += amount;
+      }
+    }
+
     const teach = db.prepare(`UPDATE import_rows SET teaches = 1 WHERE id = ?`);
     for (const a of teaching) teach.run(a.row.id);
     db.prepare(`UPDATE import_batches SET status = 'imported', imported_at = CURRENT_TIMESTAMP WHERE id = ?`).run(
       batch.id
     );
-    return { entries: ticked.length, totalCents, linked: linked.length, linesCreated, learnt: teaching.length };
+    return {
+      entries: spends.length,
+      totalCents,
+      linked: linked.length,
+      linesCreated,
+      learnt: teaching.length,
+      refunds,
+      refundCents,
+      moneyBack,
+      moneyBackCents,
+    };
   });
   return tx();
 }
@@ -617,12 +895,15 @@ export function listImports(db: Database.Database, monthId: number): ImportHisto
     )
     .all(monthId) as Array<{ id: number; imported_at: string }>;
   const filenames = db.prepare(`SELECT filename FROM import_files WHERE batch_id = ? ORDER BY id`);
-  const entries = db.prepare(`SELECT COUNT(*) AS n FROM (${CREATED_ENTRIES_SQL})`);
+  const entries = db.prepare(
+    `SELECT (SELECT COUNT(*) FROM (${CREATED_ENTRIES_SQL}))
+          + (SELECT COUNT(*) FROM (${CREATED_INCOMES_SQL})) AS n`
+  );
   return batches.map((b) => ({
     id: b.id,
     importedAt: b.imported_at,
     filenames: (filenames.all(b.id) as Array<{ filename: string }>).map((f) => f.filename),
-    entries: (entries.get(b.id) as { n: number }).n,
+    entries: (entries.get(b.id, b.id) as { n: number }).n,
   }));
 }
 
@@ -649,8 +930,8 @@ export function discardBatch(db: Database.Database, batchId: number): void {
 }
 
 /**
- * Undoes an import, in one transaction: deletes exactly the entries it
- * wrote (edited since or not), releases the entries its rows were matched
+ * Undoes an import, in one transaction: deletes exactly the entries and
+ * money-back lines it wrote (edited since or not), releases the entries its rows were matched
  * to, forgets what its unticked rows taught, and returns the batch to
  * pending with every decision kept. Plan lines
  * it created at £0 stay, like any line you added. Refused while the month
@@ -664,6 +945,7 @@ export function undoImport(db: Database.Database, batchId: number): void {
     if (pendingBatch(db, batch.budget_month_id)) {
       throw new Error('Finish or discard the upload in progress first.');
     }
+    db.prepare(`DELETE FROM budget_incomes WHERE id IN (${CREATED_INCOMES_SQL})`).run(batchId);
     db.prepare(`DELETE FROM budget_item_actual_entries WHERE id IN (${CREATED_ENTRIES_SQL})`).run(batchId);
     db.prepare(
       `UPDATE budget_item_actual_entries SET import_row_id = NULL

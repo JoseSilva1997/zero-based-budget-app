@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, ConfirmDialog, EmptyState, Icons, Sheet, TextInline } from './ui/index.js';
 import { confirmReceipt, cx, fmt, importOutcome, isBlocked, isInert, labelCounts, monthLabel, onlyOutOfMonth, shortDate, sinkBlocked } from './lib/index.js';
+import { MONTH_NAMES } from './lib/dates.js';
 import { useStore } from './store.jsx';
 
 /* The statement formats House Budget reads, by preset key, as a household
@@ -246,8 +247,12 @@ function UploadStep({ review, month, onChanged, onReview }) {
    on the entry after import if they need fixing. What is yours to decide is
    the tick, the name, the category and the entry's note. The note sits on a
    line under the row, opened from its actions and kept open once written; a
-   row that writes no entry of its own (matched, a transfer, blocked) takes
-   none. */
+   row that writes no entry of its own (matched, a transfer, blocked, money
+   back) takes none.
+
+   Money in has no category of its own. A refund takes its purchase's, and
+   nets against it; money back is income. Where a "Same as existing" would
+   be, it has "Refund of": the purchases it could be, and "No purchase". */
 function ReviewRow({ row, review, currency, onUpdate }) {
   // Blocked: cannot be ticked. Inert: nothing about it can be changed, so it
   // is dimmed and sunk. They differ only for a row waiting on a category.
@@ -259,8 +264,9 @@ function ReviewRow({ row, review, currency, onUpdate }) {
   const [picking, setPicking] = useState(false);
   const [noting, setNoting] = useState(false);
   const inert = inertRow || !!linked;
+  const moneyIn = row.direction === "credit";
   const note = row.decisions.note || "";
-  const notable = !inert && !transfer;
+  const notable = !inert && !transfer && (!moneyIn || row.writesAs === "refund");
   const noteOpen = notable && (noting || note !== "");
   const noteLine = useRef(null);
   useEffect(() => {
@@ -278,10 +284,20 @@ function ReviewRow({ row, review, currency, onUpdate }) {
         <span className="num upload-date">{shortDate(row.spentOn)}</span>
         <TextInline value={row.name} className="upload-name" label={`Name for ${row.name}`}
           onCommit={(v) => { if (v !== row.name) onUpdate(row, { name: v }); }} />
-        <CategoryPicker row={row} categories={review.categories} disabled={inert || transfer}
-          onChange={(categoryId) => onUpdate(row, { categoryId })} />
-        <span className="num upload-amount">{row.amountCents == null ? "" : fmt(currency, row.amountCents / 100)}</span>
-        {linked ? (
+        {moneyIn ? (
+          <span className={cx("upload-destination truncate", row.writesAs !== "refund" && "is-income")}>
+            {transfer || inertRow ? "" : row.writesAs === "refund"
+              ? (review.categories.find((c) => c.id === row.categoryId) || { name: row.refund?.purchase.categoryName || "" }).name
+              : "Money back"}
+          </span>
+        ) : (
+          <CategoryPicker row={row} categories={review.categories} disabled={inert || transfer}
+            onChange={(categoryId) => onUpdate(row, { categoryId })} />
+        )}
+        <span className={cx("num upload-amount", moneyIn && "is-in")}>{row.amountCents == null ? "" : fmt(currency, row.amountCents / 100, { sign: moneyIn })}</span>
+        {moneyIn && row.refund && !transfer && !inertRow ? (
+          <RefundOf row={row} />
+        ) : linked ? (
           <span className="upload-linked truncate">
             <Icons.check size={13} />
             Same as {linked.name || "an existing entry"}{linked.spentOn ? `, ${shortDate(linked.spentOn)}` : ""}
@@ -294,6 +310,12 @@ function ReviewRow({ row, review, currency, onUpdate }) {
               onClick={() => onUpdate(row, { linkedEntryId: null })}>Unlink</button>
           ) : (
             <>
+              {moneyIn && !inertRow && !transfer && (row.refundCandidates.length > 0 || row.decisions.refundOf != null) && (
+                <button type="button" data-refund-of aria-expanded={picking}
+                  className={cx("upload-toggle", picking && "is-open")}
+                  title="Which purchase this money gives back for"
+                  onClick={() => setPicking((p) => !p)}>Refund of…</button>
+              )}
               {row.duplicates.length > 0 && !inertRow && (
                 <button type="button" data-same aria-expanded={picking}
                   className={cx("upload-toggle", picking && "is-open")}
@@ -326,7 +348,11 @@ function ReviewRow({ row, review, currency, onUpdate }) {
             }} />
         </div>
       )}
-      {picking && !linked && (
+      {picking && moneyIn && (
+        <RefundCandidates row={row} currency={currency}
+          onPick={(refundOf) => { setPicking(false); onUpdate(row, { refundOf }); }} />
+      )}
+      {picking && !linked && !moneyIn && (
         <div className="upload-candidates" data-candidates-for={row.id} role="group" aria-label={`Entries ${row.name} may be the same as`}>
           <div className="eyebrow upload-candidates-head">Already in this month</div>
           {row.duplicates.map((d) => (
@@ -342,6 +368,77 @@ function ReviewRow({ row, review, currency, onUpdate }) {
         </div>
       )}
     </>
+  );
+}
+
+const monthShort = (key) => MONTH_NAMES[Number(key.slice(5, 7)) - 1].slice(0, 3);
+
+/* What money in gives back for, where a matched row says what it matched:
+   "Refund of H&M, 5 Sep", or, for a purchase in an earlier month, "Money
+   back for H&M, 5 Sep" (it counts as income this month, not against
+   September's line). Any other label (outside the month) follows. */
+function RefundOf({ row }) {
+  const p = row.refund.purchase;
+  const rest = row.labels.filter((l) => l.key !== "refund" && l.key !== "money_back" && SEVERITY_CLASS[l.severity]);
+  const skipped = row.labels.some((l) => l.key === "purchase_skipped");
+  return (
+    <span className="upload-chips" data-refund-for={row.id}>
+      <span className="upload-linked truncate" title={row.refund.suggested ? "Suggested: the likeliest purchase from this shop" : undefined}>
+        {!skipped && <Icons.check size={13} />}
+        {p.sameMonth ? "Refund of" : "Money back for"} {p.name}, {shortDate(p.spentOn)}
+      </span>
+      {rest.map((l) => (
+        <span key={l.key} className={cx("upload-chip", SEVERITY_CLASS[l.severity])}>{l.text}</span>
+      ))}
+    </span>
+  );
+}
+
+/* The purchases money in could be a refund of, best first, and "No
+   purchase" (plain money in: money back if ticked). The one in use is marked
+   rather than offered. A purchase in an earlier month says which: its
+   refund is money back here, not a refund on that month's line. */
+function RefundCandidates({ row, currency, onPick }) {
+  const inUse = row.refund ? row.refund.purchase.ref : null;
+  const same = (ref) => inUse && inUse.kind === ref.kind && inUse.id === ref.id;
+  const chose = row.decisions.refundOf;
+  return (
+    <div className="upload-candidates" data-refund-candidates-for={row.id} role="group" aria-label={`Purchases ${row.name} may be a refund of`}>
+      <div className="eyebrow upload-candidates-head">A refund of</div>
+      {row.refundCandidates.map((p) => (
+        <div key={`${p.ref.kind}:${p.ref.id}`} className="upload-candidate">
+          <span className="num upload-date">{shortDate(p.spentOn)}</span>
+          <span className="upload-candidate-name truncate">{p.name}</span>
+          <span className="upload-candidate-cat truncate">
+            {[p.categoryName, p.sameMonth ? null : `${monthShort(p.month)} · money back`].filter(Boolean).join(" · ")}
+          </span>
+          <span className="num upload-amount" title={p.remainingCents < p.amountCents ? `${fmt(currency, p.remainingCents / 100)} not yet refunded` : undefined}>
+            {fmt(currency, p.amountCents / 100)}
+          </span>
+          {same(p.ref) ? (
+            <span className="upload-candidate-used">In use</span>
+          ) : (
+            <button type="button" className="btn btn-sm" aria-label={`A refund of ${p.name}, ${shortDate(p.spentOn)}`}
+              onClick={() => onPick(p.ref.kind === "entry" ? { entryId: p.ref.id } : { rowId: p.ref.id })}>Use</button>
+          )}
+        </div>
+      ))}
+      <div className="upload-candidate upload-candidate-none">
+        <span className="upload-candidate-name truncate">{row.refundCandidates.length ? "None of these" : "No purchase found"}</span>
+        <span className="upload-candidate-cat truncate">Money back if ticked</span>
+        {chose === "none" ? (
+          <span className="upload-candidate-used">In use</span>
+        ) : (
+          <button type="button" className="btn btn-sm" onClick={() => onPick("none")}>No purchase</button>
+        )}
+      </div>
+      {chose != null && (
+        <div className="upload-candidate upload-candidate-none">
+          <span className="upload-candidate-name truncate">Go back to the suggestion</span>
+          <button type="button" className="btn btn-sm btn-ghost" onClick={() => onPick(null)}>Reset</button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -482,6 +579,8 @@ function ReviewFoot({ review, currency, busy, onBack, onDiscard, onConfirm }) {
   const out = importOutcome(review);
   const money = (cents) => fmt(currency, cents / 100);
   const parts = [`${out.count} ${out.count === 1 ? "entry" : "entries"} · ${money(out.totalCents)}`];
+  if (out.refunds) parts.push(`${out.refunds} ${out.refunds === 1 ? "refund" : "refunds"} · ${money(out.refundCents)}`);
+  if (out.moneyBack) parts.push(`${money(out.moneyBackCents)} money back`);
   if (out.linked) parts.push(`${out.linked} matched`);
   if (out.learnt) parts.push(`${out.learnt} to learn from`);
   return (
@@ -495,7 +594,7 @@ function ReviewFoot({ review, currency, busy, onBack, onDiscard, onConfirm }) {
         </span>
       )}
       <span className="num upload-summary" data-confirm-summary>{parts.join(" · ")}</span>
-      <button className="btn btn-primary" disabled={busy || (out.count === 0 && out.linked === 0 && out.learnt === 0)} onClick={onConfirm}>Confirm</button>
+      <button className="btn btn-primary" disabled={busy || (out.count === 0 && out.linked === 0 && out.learnt === 0 && out.refunds === 0 && out.moneyBack === 0)} onClick={onConfirm}>Confirm</button>
     </div>
   );
 }

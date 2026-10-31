@@ -42,7 +42,8 @@
                         -> { ok: true }. patch: any of categoryId, name,
                            kind ('spend' | 'transfer'), included (boolean),
                            linkedEntryId ("Same as existing entry"),
-                           note (written on the entry); null
+                           note (written on the entry), refundOf (money
+                           in only: { entryId } | { rowId } | 'none'); null
                            clears one back to the default, a key left out
                            is unchanged. Pending batches only. An entry
                            already matched to another row, or imported, is
@@ -50,17 +51,21 @@
 
    CONFIRM AND AFTER
    'import:confirm'     { batchId } -> ImportConfirmResult { entries,
-                           totalCents, linked, linesCreated }. Writes every
-                           effectively ticked row as an entry in one
-                           transaction, creating a missing plan line at £0.
+                           totalCents, linked, linesCreated, learnt,
+                           refunds, refundCents, moneyBack, moneyBackCents }.
+                           Writes every effectively ticked spend as an entry
+                           in one transaction, creating a missing plan line
+                           at £0; then ticked money in, as a refund (a
+                           negative entry on its purchase's line, this
+                           month) or money back (an income line).
                            Refused when nothing is ticked or matched.
    'import:discard'     { batchId } -> { ok: true }. Deletes a pending batch
                            with its files, rows and decisions.
    'import:history'     { monthId } -> ImportHistoryRow[] { id, importedAt,
                            filenames, entries }: the month's imported
                            batches, newest first ("Previous imports").
-   'import:undo'        { batchId } -> { ok: true }. Deletes the entries the
-                           import wrote (edited or not), releases matched
+   'import:undo'        { batchId } -> { ok: true }. Deletes the entries and
+                           money-back lines the import wrote (edited or not), releases matched
                            entries, and returns the batch to pending with
                            its decisions. Refused while the month has
                            another upload in progress: "Finish or discard

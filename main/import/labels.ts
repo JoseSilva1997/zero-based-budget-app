@@ -6,8 +6,8 @@
    pending, so labels are recomputed on every read of the review.
 
    Severity decides the default tick:
-   - block: the row can't be ticked, whatever was stored (money in, already
-     imported, unreadable, not completed);
+   - block: the row can't be ticked, whatever was stored (already imported,
+     unreadable, not completed);
    - warn: it starts unticked, and you may tick it;
    - info: a transfer, unticked until you switch it back to a spend;
    - none: 'ok', no chip, ticked.
@@ -20,6 +20,16 @@
 
    A row the bank already rules out (a hard block) carries only that label:
    whether it is a duplicate, or which category it would be, is noise.
+
+   Money in is a refund when it has a purchase (suggested, or chosen): of a
+   purchase in this month it is written as a negative entry on that
+   purchase's line ('refund'); of an earlier month's, as money back, an
+   income line in this month ('money_back'). Both start ticked. Money in
+   with no purchase ('credit', "Money in") starts unticked, and ticked is
+   written as money back too: cashback, a friend paying you back, but also a
+   salary, which your planned income already counts. A refund of a purchase
+   in this upload that isn't being imported can't be ticked
+   ('purchase_skipped'): what was never counted can't be given back.
 
    A row can teach without being imported: an unticked spend whose category
    you picked, not matched to an entry and not blocked, trains the classifier
@@ -37,6 +47,9 @@ export type LabelKey =
   | 'out_of_month'
   | 'transfer'
   | 'credit'
+  | 'refund'
+  | 'money_back'
+  | 'purchase_skipped'
   | 'already_imported'
   | 'parse_error'
   | 'not_completed';
@@ -58,7 +71,10 @@ export const LABELS: Record<LabelKey, { severity: Severity; text: string }> = {
   possible_duplicate: { severity: 'warn', text: 'Possible duplicate' },
   out_of_month: { severity: 'warn', text: 'Outside this month' },
   transfer: { severity: 'info', text: 'Transfer' },
-  credit: { severity: 'block', text: 'Money in' },
+  credit: { severity: 'warn', text: 'Money in' },
+  refund: { severity: 'info', text: 'Refund' },
+  money_back: { severity: 'info', text: 'Money back' },
+  purchase_skipped: { severity: 'warn', text: 'Purchase not imported' },
   already_imported: { severity: 'block', text: 'Already imported' },
   parse_error: { severity: 'block', text: "Couldn't read" },
   not_completed: { severity: 'block', text: 'Not completed' },
@@ -88,7 +104,14 @@ export interface RowFacts {
   /** True when the category has a plan line in the batch's month. */
   inMonth(categoryId: number): boolean;
   stored: RowDecisions;
+  /** Money in only: where its purchase is, or null for none. 'skipped': a
+   *  row of this upload that won't be imported. */
+  refundTarget?: 'same_month' | 'earlier_month' | 'skipped' | null;
 }
+
+/** What confirming writes for the row, if it is ticked: an entry, a
+ *  refund (a negative entry), or money back (an income line). */
+export type WritesAs = 'entry' | 'refund' | 'money_back' | null;
 
 export interface RowAssessment {
   labels: Label[];
@@ -98,6 +121,7 @@ export interface RowAssessment {
   included: boolean;
   /** Confirming would train the classifier on this row without importing it. */
   teaches: boolean;
+  writesAs: WritesAs;
 }
 
 const label = (key: LabelKey): Label => ({ key, ...LABELS[key] });
@@ -111,10 +135,10 @@ export function assessRow(f: RowFacts): RowAssessment {
 
   const hard: Label[] = [];
   if (f.parseError) hard.push(label('parse_error'));
-  if (f.direction === 'credit') hard.push(label('credit'));
   if (f.notCompleted) hard.push(label('not_completed'));
   if (f.alreadyImported) hard.push(label('already_imported'));
-  if (hard.length > 0) return { labels: hard, categoryId, name, kind, included: false, teaches: false };
+  if (hard.length > 0) return { labels: hard, categoryId, name, kind, included: false, teaches: false, writesAs: null };
+  if (f.direction === 'credit') return assessMoneyIn(f, kind, name, p);
 
   const labels: Label[] = [];
   // Whatever decided the kind or category was the classifier's middling guess.
@@ -136,5 +160,43 @@ export function assessRow(f: RowFacts): RowAssessment {
   const byDefault = labels.length === 0;
   const included = importable && (s.included === null ? byDefault : s.included === 1);
   const teaches = !included && kind === 'spend' && s.categoryId !== null && s.linkedEntryId === null;
-  return { labels: labels.length ? labels : [label('ok')], categoryId, name, kind, included, teaches };
+  return {
+    labels: labels.length ? labels : [label('ok')],
+    categoryId,
+    name,
+    kind,
+    included,
+    teaches,
+    writesAs: kind === 'spend' ? 'entry' : null,
+  };
+}
+
+/** Money in: a refund, money back, or a transfer in. Its category is its
+ *  purchase's, which the caller knows, so none is predicted or kept here;
+ *  and it never teaches the classifier. */
+function assessMoneyIn(f: RowFacts, kind: 'spend' | 'transfer', name: string, p: Prediction | null): RowAssessment {
+  const s = f.stored;
+  const target = f.refundTarget ?? null;
+  const labels: Label[] = [];
+  if (kind === 'transfer' && s.kind === null && p && p.confidence < HIGH_CONFIDENCE) labels.push(label('low_confidence'));
+  let writesAs: WritesAs = null;
+  if (kind === 'transfer') {
+    labels.push(label('transfer'));
+  } else if (target === 'skipped') {
+    labels.push(label('purchase_skipped'));
+  } else if (target === 'same_month') {
+    labels.push(label('refund'));
+    writesAs = 'refund';
+  } else if (target === 'earlier_month') {
+    labels.push(label('money_back'));
+    writesAs = 'money_back';
+  } else {
+    labels.push(label('credit'));
+    writesAs = 'money_back';
+  }
+  if (f.spentOn && f.spentOn.slice(0, 7) !== f.monthKey) labels.push(label('out_of_month'));
+  const importable = writesAs !== null;
+  const byDefault = labels.every((l) => l.key === 'refund' || l.key === 'money_back');
+  const included = importable && (s.included === null ? byDefault : s.included === 1);
+  return { labels, categoryId: null, name, kind, included, teaches: false, writesAs };
 }

@@ -253,6 +253,17 @@
 .upload-linked > svg { flex: none; color: var(--muted); }
 .upload-row.is-linked .upload-name, .upload-row.is-linked .upload-amount { color: var(--muted); }
 
+/* ---- money in ------------------------------------------------------------
+   No category picker: a refund lands on its purchase's line, named where the
+   picker would be, and money back is income, said quietly. "Refund of…"
+   opens the purchases it could be in the same tray "Same as existing" uses,
+   with "No purchase" last. The amount carries a + so money in never reads as
+   a spend; it takes no colour, since money arriving isn't a state to flag. */
+.upload-destination { padding-left: 9px; font-size: var(--text-13); color: var(--ink-2); }
+.upload-destination.is-income { color: var(--muted); }
+.upload-candidate-none > :first-child { grid-column: 3; }
+.upload-candidate > .upload-candidate-used { grid-column: 7; justify-self: end; font-size: var(--text-12); color: var(--muted); }
+
 /* The review's footer: Back to files on the left, then everything about
    Confirm gathered at the right, the over-plan line first because it is the
    one that might change your mind. */

@@ -325,7 +325,7 @@ function perMonthToCategories(Database, runner, months) {
 /* ---- migration 9: the upload-transactions tables ---- */
 
 // Tables migration 9 creates or alters.
-const IMPORT_TABLES = ['banks', 'bank_accounts', 'import_batches', 'import_files', 'import_rows', 'budget_item_actual_entries'];
+const IMPORT_TABLES = ['banks', 'bank_accounts', 'import_batches', 'import_files', 'import_rows', 'budget_item_actual_entries', 'budget_incomes'];
 
 /** What a table is, in a form two databases can be compared on: its
  *  columns, foreign keys, indices and triggers, and for a table created
@@ -419,6 +419,32 @@ function importStagingBehaves(db, label) {
   `);
   db.exec(`DELETE FROM budget_item_actual_entries WHERE id = 902`);
   eq(db.prepare(`SELECT linked_entry_id FROM import_rows WHERE id = 901`).get().linked_entry_id, null, `${label}: deleting a linked entry unlinks the row`);
+
+  /* refunds: negative entries only as refunds, and links that let go */
+  refuses(`INSERT INTO budget_item_actual_entries (budget_item_id, spent_on, amount_cents) VALUES (901, '2031-01-05', -100)`, 'a negative spend');
+  refuses(`INSERT INTO budget_item_actual_entries (budget_item_id, spent_on, amount_cents, kind) VALUES (901, '2031-01-05', 100, 'refund')`, 'a positive refund');
+  refuses(`INSERT INTO budget_item_actual_entries (budget_item_id, spent_on, amount_cents, kind) VALUES (901, '2031-01-05', -100, 'gift')`, 'a kind other than spend or refund');
+  db.exec(`
+    INSERT INTO budget_item_actual_entries (id, budget_item_id, spent_on, amount_cents, name) VALUES (903, 901, '2031-01-02', 4000, 'Coat');
+    INSERT INTO budget_item_actual_entries (id, budget_item_id, spent_on, amount_cents, kind, refund_of_entry_id) VALUES (904, 901, '2031-01-09', -1500, 'refund', 903);
+    INSERT INTO household_members (id, name) VALUES (901, 'Sam Test');
+    INSERT INTO budget_incomes (id, budget_month_id, household_member_id, label, amount_cents, kind, refund_of_entry_id) VALUES (901, 902, 901, 'Coat shop', 1000, 'money_back', 903);
+    UPDATE import_rows SET refund_of_entry_id = 903, refund_none = 0 WHERE id = 902;
+  `);
+  eq(db.prepare(`SELECT kind FROM budget_incomes WHERE id = 901`).get().kind, 'money_back', `${label}: money back is its own kind of income`);
+  refuses(`UPDATE budget_incomes SET kind = 'gift' WHERE id = 901`, 'an income kind other than earned or money back');
+  refuses(`UPDATE import_rows SET refund_none = 2 WHERE id = 902`, 'refund_none other than 0 or 1');
+  db.exec(`DELETE FROM budget_item_actual_entries WHERE id = 903`);
+  eq(
+    [
+      db.prepare(`SELECT refund_of_entry_id r FROM budget_item_actual_entries WHERE id = 904`).get().r,
+      db.prepare(`SELECT refund_of_entry_id r FROM budget_incomes WHERE id = 901`).get().r,
+      db.prepare(`SELECT refund_of_entry_id r FROM import_rows WHERE id = 902`).get().r,
+    ],
+    [null, null, null],
+    `${label}: deleting a purchase keeps its refunds, unlinked`
+  );
+  db.exec(`DELETE FROM budget_item_actual_entries WHERE id = 904; DELETE FROM budget_incomes WHERE id = 901; DELETE FROM household_members WHERE id = 901;`);
   db.exec(`DELETE FROM categories WHERE id = 902`);
   eq(db.prepare(`SELECT category_id FROM import_rows WHERE id = 901`).get().category_id, null, `${label}: deleting a category clears it from the row`);
   db.exec(`DELETE FROM import_rows WHERE id = 901`);

@@ -362,6 +362,96 @@ const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    version: 12,
+    name: 'refunds and money back',
+    // Not atomic: an entry's amount may now be negative (a refund), and
+    // relaxing its CHECK means rebuilding budget_item_actual_entries, which
+    // needs PRAGMA foreign_keys=OFF outside a transaction. The rest is
+    // additive. Every step is guarded, so a fresh install is a no-op and a
+    // second run changes nothing. main/db.ts has taken a backup first.
+    atomic: false,
+    up: (db) => {
+      const fkWasOn = db.pragma('foreign_keys', { simple: true }) === 1;
+      db.pragma('foreign_keys = OFF');
+      try {
+        db.transaction(() => {
+          if (!hasColumn(db, 'budget_item_actual_entries', 'kind')) {
+            // Same text as schema.sql, so a migrated table matches a fresh one.
+            db.exec(`
+              CREATE TABLE budget_item_actual_entries_new (
+                id INTEGER PRIMARY KEY,
+                budget_item_id INTEGER NOT NULL,
+                spent_on TEXT NOT NULL,
+                amount_cents INTEGER NOT NULL,
+                name TEXT,
+                note TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                import_row_id INTEGER REFERENCES import_rows(id) ON DELETE SET NULL,
+                kind TEXT NOT NULL DEFAULT 'spend' CHECK (kind IN ('spend','refund')),
+                refund_of_entry_id INTEGER REFERENCES budget_item_actual_entries(id) ON DELETE SET NULL,
+                CHECK ((kind = 'spend' AND amount_cents >= 0) OR (kind = 'refund' AND amount_cents < 0)),
+                FOREIGN KEY (budget_item_id) REFERENCES budget_items(id) ON DELETE CASCADE
+              );
+              INSERT INTO budget_item_actual_entries_new
+                     (id, budget_item_id, spent_on, amount_cents, name, note, created_at, updated_at, import_row_id)
+                SELECT id, budget_item_id, spent_on, amount_cents, name, note, created_at, updated_at, import_row_id
+                  FROM budget_item_actual_entries;
+              DROP TABLE budget_item_actual_entries;
+              ALTER TABLE budget_item_actual_entries_new RENAME TO budget_item_actual_entries;
+              CREATE INDEX idx_actual_entries_item ON budget_item_actual_entries(budget_item_id);
+              CREATE INDEX idx_actual_entries_spent_on ON budget_item_actual_entries(spent_on);
+              CREATE INDEX idx_actual_entries_import_row ON budget_item_actual_entries(import_row_id);
+              CREATE TRIGGER actual_entries_set_updated_at
+              AFTER UPDATE ON budget_item_actual_entries
+              FOR EACH ROW
+              BEGIN
+                UPDATE budget_item_actual_entries
+                SET updated_at = CURRENT_TIMESTAMP
+                WHERE id = NEW.id;
+              END;
+            `);
+          }
+          if (!hasColumn(db, 'budget_incomes', 'kind')) {
+            db.exec(
+              `ALTER TABLE budget_incomes ADD COLUMN kind TEXT NOT NULL DEFAULT 'earned' CHECK (kind IN ('earned','money_back'));`
+            );
+          }
+          if (!hasColumn(db, 'budget_incomes', 'import_row_id')) {
+            db.exec(`ALTER TABLE budget_incomes ADD COLUMN import_row_id INTEGER REFERENCES import_rows(id) ON DELETE SET NULL;`);
+          }
+          if (!hasColumn(db, 'budget_incomes', 'refund_of_entry_id')) {
+            db.exec(
+              `ALTER TABLE budget_incomes ADD COLUMN refund_of_entry_id INTEGER REFERENCES budget_item_actual_entries(id) ON DELETE SET NULL;`
+            );
+          }
+          if (!hasColumn(db, 'import_rows', 'refund_of_entry_id')) {
+            db.exec(
+              `ALTER TABLE import_rows ADD COLUMN refund_of_entry_id INTEGER REFERENCES budget_item_actual_entries(id) ON DELETE SET NULL;`
+            );
+          }
+          if (!hasColumn(db, 'import_rows', 'refund_of_row_id')) {
+            db.exec(`ALTER TABLE import_rows ADD COLUMN refund_of_row_id INTEGER REFERENCES import_rows(id) ON DELETE SET NULL;`);
+          }
+          if (!hasColumn(db, 'import_rows', 'refund_none')) {
+            db.exec(
+              `ALTER TABLE import_rows ADD COLUMN refund_none INTEGER NOT NULL DEFAULT 0 CHECK (refund_none IN (0,1));`
+            );
+          }
+          db.exec(`
+            CREATE INDEX IF NOT EXISTS idx_actual_entries_refund_of ON budget_item_actual_entries(refund_of_entry_id);
+            CREATE INDEX IF NOT EXISTS idx_budget_incomes_import_row ON budget_incomes(import_row_id);
+            CREATE INDEX IF NOT EXISTS idx_budget_incomes_refund_of ON budget_incomes(refund_of_entry_id);
+          `);
+          const broken = db.pragma('foreign_key_check(budget_item_actual_entries)') as unknown[];
+          if (broken.length > 0) throw new Error(`Migration 12 left ${broken.length} broken references.`);
+        })();
+      } finally {
+        db.pragma(`foreign_keys = ${fkWasOn ? 'ON' : 'OFF'}`);
+      }
+    },
+  },
 ];
 
 /** Trimmed, inner whitespace collapsed, case-folded: the form names are

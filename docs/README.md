@@ -13,13 +13,14 @@ New to the codebase? Read the **feature** docs first; they explain a whole featu
 | Feature | Doc | Changes |
 |---|---|---|
 | Categories | [categories](features/categories_feature.md) | #32 |
-| Upload transactions | [upload-transactions](features/upload-transactions_feature.md) | #32, #33, #37, #47 |
+| Upload transactions | [upload-transactions](features/upload-transactions_feature.md) | #32, #33, #37, #47, refunds |
 
 ### Decisions
 
 | Date | Change | Feature | Decisions |
 |---|---|---|---|
 | 2026-10-30 | Develop directly on `staging`; PRs only for releases | Workflow | [decisions](key-decisions/2026-10-30-direct-to-staging_decisions.md) |
+| 2026-10-31 | Refunds and money back | Upload transactions | [decisions](key-decisions/2026-10-31-refunds_decisions.md) |
 
 ### Pull requests (until 2026-10-30)
 

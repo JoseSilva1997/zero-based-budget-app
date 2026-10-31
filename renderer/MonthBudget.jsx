@@ -2,7 +2,7 @@
    Month Budget screen - the main working screen
    ============================================================ */
 import { Avatar, EmptyState, Icons, MoneyInput, Section, TextInline } from './ui/index.js';
-import { fmt } from './lib/index.js';
+import { cx, fmt, moneyBackNote } from './lib/index.js';
 import { useStore } from './store.jsx';
 
 /* ---- income section ----------------------------------------------------- */
@@ -17,6 +17,8 @@ function IncomeSection({ mo, currency, members, dispatch, month }) {
      write puts the source and the amount onto it. */
   const removeIncome = (inc, memberName) => {
     dispatch({ type: "removeIncome", month, id: inc.id });
+    // Money back came from an upload; putting it back means importing again.
+    if (inc.kind === "money_back") { toast(`Removed money back ${inc.label ? `"${inc.label}"` : ""} for ${memberName}.`, "success"); return; }
     toast(`Removed ${inc.label ? `"${inc.label}"` : "income"} for ${memberName}.`, "success", {
       label: "Undo",
       onAct: async () => {
@@ -40,7 +42,7 @@ function IncomeSection({ mo, currency, members, dispatch, month }) {
                shared with QuickEntry's "Just logged" rows and exists only to
                reveal .row-actions on hover; .income-grid is this table's own
                tracks. */
-            <div className="income-row income-grid" key={inc.id}>
+            <div className={cx("income-row income-grid", inc.kind === "money_back" && "is-money-back")} key={inc.id}>
               <div className="income-who">
                 <Avatar member={m} />
                 <select value={inc.memberId} aria-label="Who this income belongs to" onChange={(e) => dispatch({ type: "updateIncome", month, id: inc.id, patch: { memberId: e.target.value } })}
@@ -55,6 +57,7 @@ function IncomeSection({ mo, currency, members, dispatch, month }) {
                 <button className="icon-btn" title="Remove" onClick={() => removeIncome(inc, m ? m.name : "this household")}
                   aria-label={`Remove ${inc.label ? `"${inc.label}"` : "unnamed"} income of ${fmt(currency, inc.amount)} for ${m ? m.name : "this household"}`}><Icons.trash size={15} /></button>
               </div>
+              {inc.kind === "money_back" && <div className="income-meta" data-income-meta={inc.id}>{moneyBackNote(inc)}</div>}
             </div>
           );
         })}
