@@ -83,14 +83,14 @@
   "devDependencies": {
     "@electron/rebuild": "^4.2.1",
     "@fontsource/plus-jakarta-sans": "^5.3.0",
-    "@material-symbols/svg-400": "^0.48.2",
+    "@material-symbols/svg-400": "^0.48.3",
     "@types/better-sqlite3": "^9.6.0",
-    "@types/node": "^26.6.5",
+    "@types/node": "^26.6.6",
     "electron": "^42.11.16",
     "electron-builder": "^26.18.0",
     "electron-reload": "^2.0.0-alpha.1",
     "esbuild": "^0.28.2",
-    "playwright-core": "^1.64.1",
+    "playwright-core": "^1.65.0",
     "typescript": "^5.7.3"
   }
 }
